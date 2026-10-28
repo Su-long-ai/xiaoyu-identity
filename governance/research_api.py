@@ -106,7 +106,9 @@ class ResearchApiBudget:
             request_bytes INTEGER,
             gateway_origin TEXT,
             case_id TEXT,
-            prompt_prefix_sha256 TEXT
+            prompt_prefix_sha256 TEXT,
+            response_text TEXT,
+            response_sha256 TEXT
         )""")
         existing = {r[1] for r in self.conn.execute("PRAGMA table_info(calls)")}
         migrations = {
@@ -118,6 +120,8 @@ class ResearchApiBudget:
             "gateway_origin": "TEXT",
             "case_id": "TEXT",
             "prompt_prefix_sha256": "TEXT",
+            "response_text": "TEXT",
+            "response_sha256": "TEXT",
         }
         for name, typ in migrations.items():
             if name not in existing:
@@ -735,7 +739,7 @@ class ResearchApiBudget:
             raise
         return call_id, reserve, provider_cfg
 
-    def finalize(self, call_id: str, usage: dict):
+    def finalize(self, call_id: str, usage: dict, response_text=None):
         prompt = int(usage.get("prompt_tokens") or 0)
         completion = int(usage.get("completion_tokens") or 0)
         total = int(usage.get("total_tokens") or (prompt + completion))
@@ -783,10 +787,20 @@ class ResearchApiBudget:
                 raise ResearchBudgetError(
                     "Provider usage exceeded conservative reservation"
                 )
+            stored_response=None
+            response_sha=None
+            if row["case_id"] is not None:
+                if not isinstance(response_text,str):
+                    raise ResearchBudgetError(
+                        "E2 COMMITTED call requires durable response_text receipt")
+                stored_response=response_text
+                response_sha=__import__("hashlib").sha256(
+                    response_text.encode("utf-8")).hexdigest()
             self.conn.execute(
                 """UPDATE calls SET status='COMMITTED',finished_at=?,
                 prompt_tokens=?,completion_tokens=?,actual_tokens=?,
-                cache_hit_tokens=?,cache_miss_tokens=?,reasoning_tokens=?
+                cache_hit_tokens=?,cache_miss_tokens=?,reasoning_tokens=?,
+                response_text=?,response_sha256=?
                 WHERE call_id=?""",
                 (
                     float(self.clock()),
@@ -796,6 +810,8 @@ class ResearchApiBudget:
                     cache_hit,
                     cache_miss,
                     reasoning,
+                    stored_response,
+                    response_sha,
                     call_id,
                 ),
             )
@@ -804,6 +820,35 @@ class ResearchApiBudget:
             if self.conn.in_transaction:
                 self.conn.execute("ROLLBACK")
             raise
+
+    def recover_e2_case(self, case_id: str) -> dict | None:
+        """Recover a committed public/synthetic E2 response after caller crash.
+
+        The paid provider response is stored atomically with COMMITTED state so
+        checkpoint/resume never needs to repay for an already completed case.
+        """
+        case_id=str(case_id or "").strip()
+        if not case_id:
+            raise ResearchBudgetError("case_id must be non-empty")
+        row=self.conn.execute(
+            """SELECT call_id,status,budget_scope,prompt_tokens,completion_tokens,
+                      actual_tokens,cache_hit_tokens,cache_miss_tokens,
+                      response_text,response_sha256,prompt_prefix_sha256
+                 FROM calls WHERE phase='benchmark' AND case_id=?
+                ORDER BY created_at DESC LIMIT 1""",(case_id,)).fetchone()
+        if row is None:
+            return None
+        out=dict(row)
+        if out["status"]=="COMMITTED":
+            text=out.get("response_text")
+            digest=out.get("response_sha256")
+            if not isinstance(text,str) or not digest:
+                raise ResearchBudgetError(
+                    "Committed E2 case is missing durable response receipt")
+            actual=__import__("hashlib").sha256(text.encode("utf-8")).hexdigest()
+            if actual!=digest:
+                raise ResearchBudgetError("Committed E2 response receipt hash mismatch")
+        return out
 
     def mark_unknown(self, call_id: str, error: Exception):
         self.conn.execute(
@@ -841,7 +886,7 @@ class ResearchApiBudget:
             response, usage = self.transport(
                 provider_cfg, messages, max_tokens=max_tokens, timeout=timeout
             )
-            self.finalize(call_id, usage)
+            self.finalize(call_id, usage, response_text=response)
             return response, usage, call_id
         except Exception as exc:
             self.mark_unknown(call_id, exc)

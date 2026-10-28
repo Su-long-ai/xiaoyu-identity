@@ -5,3 +5,5 @@
 *.csv text eol=lf
 *.txt text eol=lf
 *.cmd text eol=crlf
+# Frozen byte-exact P2 contract; preserve historical CRLF SHA256.
+governance/P2_INTEGRATION_CONTRACT.json -text !eol

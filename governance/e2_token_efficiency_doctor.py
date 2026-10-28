@@ -27,6 +27,15 @@ def evaluate(root=ROOT):
     manifest_path=gov/"E2_PILOT_EXECUTION_MANIFEST.json"
     prompt_path=gov/"E2_PILOT_PROMPTS.json"
     contract_path=gov/"E2_TOKEN_EFFICIENCY_CONTRACT.json"
+    impl_paths={
+      "token_contract":contract_path,
+      "builder":gov/"build_e2_pilot_execution_manifest.py",
+      "freeze_script":gov/"freeze_e2_pilot_execution.py",
+      "research_api":gov/"research_api.py",
+      "research_proxy":gov/"research_api_proxy.py",
+      "pilot_runner":gov/"e2_pilot_runner.py",
+      "token_doctor":gov/"e2_token_efficiency_doctor.py",
+    }
     e=policy.get("e2_transition") or {}
     paid=policy.get("budget",{}).get("paid_research",{})
     errors=[];warnings=[]
@@ -75,6 +84,11 @@ def evaluate(root=ROOT):
         check(hashes.get("prompt_freeze")==prompt_sha,"freeze_record_prompt_hash_drift")
         check(hashes.get("execution_manifest")==manifest_sha,
               "freeze_record_execution_manifest_hash_drift")
+        for name,path in impl_paths.items():
+            actual=sha(path) if path.is_file() else None
+            check(hashes.get(name)==actual,
+                  "freeze_record_implementation_hash_drift",
+                  component=name,recorded=hashes.get(name),actual=actual)
         check(int(freeze_record.get("paid_case_count") or -1)==int(manifest.get("paid_case_count") or -2),
               "freeze_record_paid_case_count_drift")
         check(bool(freeze_record.get("e2_claim_allowed")) is False,
@@ -120,13 +134,16 @@ def evaluate(root=ROOT):
       "pilot_remaining_tokens":pilot_cap,"outside_scope_calls":[],
       "missing_case_id_calls":[],"wrong_case_calls":[],"prefix_mismatch_calls":[],
       "duplicate_case_ids":[],"completion_cap_violations":[],
+      "missing_response_receipts":[],"response_receipt_hash_mismatches":[],
       "peak_calls":[],"reserved_calls":[],"unknown_calls":[],"scopes":{}
     }
     if db.is_file():
         con=sqlite3.connect(db);con.row_factory=sqlite3.Row
         cols={r[1] for r in con.execute("pragma table_info(calls)")}
-        if not {"case_id","prompt_prefix_sha256"}.issubset(cols):
-            errors.append({"type":"usage_db_missing_e2_columns"})
+        required_cols={"case_id","prompt_prefix_sha256","response_text","response_sha256"}
+        if not required_cols.issubset(cols):
+            errors.append({"type":"usage_db_missing_e2_columns",
+                           "missing":sorted(required_cols-cols)})
         else:
             rows=con.execute("select * from calls where phase='benchmark' order by created_at").fetchall()
             runtime["benchmark_calls"]=len(rows)
@@ -148,6 +165,14 @@ def evaluate(root=ROOT):
                     runtime["prefix_mismatch_calls"].append(rd["call_id"])
                 if int(rd.get("completion_tokens") or 0)>int(t["max_completion_tokens"]):
                     runtime["completion_cap_violations"].append(rd["call_id"])
+                if rd["status"]=="COMMITTED":
+                    body=rd.get("response_text");digest=rd.get("response_sha256")
+                    if not isinstance(body,str) or not digest:
+                        runtime["missing_response_receipts"].append(rd["call_id"])
+                    else:
+                        actual=hashlib.sha256(body.encode("utf-8")).hexdigest()
+                        if actual!=digest:
+                            runtime["response_receipt_hash_mismatches"].append(rd["call_id"])
                 if peak(rd["created_at"]):runtime["peak_calls"].append(rd["call_id"])
                 if rd["status"]=="RESERVED":runtime["reserved_calls"].append(rd["call_id"])
                 if rd["status"]=="UNKNOWN":runtime["unknown_calls"].append(rd["call_id"])
@@ -175,7 +200,8 @@ def evaluate(root=ROOT):
 
     runtime["pilot_remaining_tokens"]=max(0,pilot_cap-runtime["pilot_used_or_reserved_tokens"])
     for key in ("outside_scope_calls","missing_case_id_calls","wrong_case_calls",
-                "prefix_mismatch_calls","duplicate_case_ids","completion_cap_violations","peak_calls"):
+                "prefix_mismatch_calls","duplicate_case_ids","completion_cap_violations",
+                "missing_response_receipts","response_receipt_hash_mismatches","peak_calls"):
         check(not runtime[key],"runtime_"+key,actual=runtime[key][:10] if isinstance(runtime[key],list) else runtime[key])
     check(runtime["pilot_used_or_reserved_tokens"]<=pilot_cap,
           "pilot_token_cap_exceeded",used=runtime["pilot_used_or_reserved_tokens"],cap=pilot_cap)

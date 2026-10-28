@@ -41,6 +41,8 @@ def main():
     builder=GOV/"build_e2_pilot_execution_manifest.py"
     api=GOV/"research_api.py"
     proxy=GOV/"research_api_proxy.py"
+    runner=GOV/"e2_pilot_runner.py"
+    token_doctor=GOV/"e2_token_efficiency_doctor.py"
     p1c=GOV/"P1_INTEGRATION_CONTRACT.json"
     p1x=GOV/"P1_INTEGRATION_CANDIDATE.json"
     p2c=GOV/"P2_INTEGRATION_CONTRACT.json"
@@ -71,6 +73,7 @@ def main():
       "execution_manifest":manifest,"token_contract":token_contract,
       "builder":builder,"freeze_script":self_path,
       "research_api":api,"research_proxy":proxy,
+      "pilot_runner":runner,"token_doctor":token_doctor,
       "p1_contract":p1c,"p1_candidate":p1x,"p2_contract":p2c,
     }
     record={
@@ -88,10 +91,13 @@ def main():
       "track_case_counts":{k:int(v["case_count"]) for k,v in manifest_obj["tracks"].items()},
       "halumem_operation_subsample":{
         "role":manifest_obj["halumem_operation_subsample"]["role"],
-        "full_pilot_extract_count":manifest_obj["halumem_operation_subsample"]["full_pilot_extract_count"],
+        "full_pilot_session_count":manifest_obj["halumem_operation_subsample"]["full_pilot_session_count"],
+        "full_pilot_user_turn_count":manifest_obj["halumem_operation_subsample"]["full_pilot_user_turn_count"],
         "full_pilot_qa_count":manifest_obj["halumem_operation_subsample"]["full_pilot_qa_count"],
-        "selected_extract_count":manifest_obj["halumem_operation_subsample"]["selected_extract_count"],
+        "selected_session_count":manifest_obj["halumem_operation_subsample"]["selected_session_count"],
+        "selected_extract_message_count":manifest_obj["halumem_operation_subsample"]["selected_extract_message_count"],
         "selected_qa_count":manifest_obj["halumem_operation_subsample"]["selected_qa_count"],
+        "extract_case_granularity":"one target user message per accepted P1 extractor call",
         "confirmatory_users_touched":0,
         "selection_before_first_e2_paid_call":True,
       },
@@ -108,6 +114,9 @@ def main():
         "invariant_prefix_hash_recomputed_by_proxy",
         "per_track_completion_cap",
         "duplicate_case_check_under_begin_immediate",
+        "committed_response_atomic_receipt_and_recovery",
+        "accepted_dynamic_payload_encoding_enforced",
+        "one_target_user_message_per_halumem_extract_case",
         "first_two_real_cases_serial_per_scope",
         "global_paid_parallel_cap_2",
         "pilot_hard_cap_1m",

@@ -78,11 +78,11 @@
             "rolling_raw_token_cap": 600000,
             "rolling_cache_miss_cap": 350000,
             "rolling_output_token_cap": 200000,
-            "rolling_call_cap": 50,
+            "rolling_call_cap": 700,
             "epoch_raw_token_cap": 600000,
             "epoch_cache_miss_cap": 350000,
             "epoch_output_token_cap": 200000,
-            "epoch_call_cap": 50
+            "epoch_call_cap": 700
           },
           "proxy:xiaoyu:e2_halumem_qa_pilot": {
             "rolling_raw_token_cap": 700000,
@@ -350,15 +350,18 @@
     "prompt_template_hash_required_before_paid_track": true,
     "completion_cap_required_before_paid_track": true,
     "pilot_execution_manifest": "governance/E2_PILOT_EXECUTION_MANIFEST.json",
-    "pilot_execution_manifest_sha256": "abe84b9c5620b8dd5c1218f96c4d3b09c90a824c13572e1f515f2323254513d6",
+    "pilot_execution_manifest_sha256": "e24c57c1226dddcc62209b97c714f3004fb9bcb8434cf8c0d7b15273dbc28717",
     "pilot_hard_cap_tokens": 1000000,
     "benchmark_scope_allowlist_from_manifest": true,
     "benchmark_case_membership_required": true,
     "benchmark_duplicate_paid_case_forbidden": true,
     "benchmark_invariant_prefix_hash_required": true,
     "pilot_execution_freeze_record": "governance/E2_PILOT_EXECUTION_FREEZE_RECORD.json",
-    "pilot_execution_freeze_record_sha256": "f52413c63c877e3a875623e384ba4de4dfd2db41550b5e01615ea0d7e3087851",
+    "pilot_execution_freeze_record_sha256": "3e4127530ce1a38c6abbff5b12af2f261995f4a175507c8ea81e15ef01c16977",
     "pilot_prompt_freeze": "governance/E2_PILOT_PROMPTS.json",
-    "pilot_prompt_freeze_sha256": "19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9"
+    "pilot_prompt_freeze_sha256": "19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9",
+    "extract_case_granularity": "one_target_user_message",
+    "extract_case_count": 647,
+    "pilot_expected_paid_operations": 744
   }
 }

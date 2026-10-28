@@ -62,3 +62,6 @@ Thumbs.db
 # Duplicated research snapshots / temporary helpers
 plans/history/
 governance/tmp_*.py
+
+# E2 public/synthetic runtime receipts (regenerable)
+governance/e2_pilot_runtime/

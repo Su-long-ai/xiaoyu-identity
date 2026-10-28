@@ -435,9 +435,9 @@ class TestE2PilotPaidWorkGuard(unittest.TestCase):
         b=ResearchApiBudget(self.root,clock=lambda:10000)
         try:
             c1,_,_=self.reserve(b,case="case-a")
-            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12},response_text='{"ok":true}')
             c2,_,_=self.reserve(b,case="case-b")
-            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12},response_text='{"ok":true}')
             self.assertEqual(b.conn.execute(
                 "select count(*) from calls where status='COMMITTED'").fetchone()[0],2)
         finally:b.close()
@@ -448,15 +448,48 @@ class TestE2PilotPaidWorkGuard(unittest.TestCase):
             c1,_,_=self.reserve(b,case="case-a")
             with self.assertRaisesRegex(ResearchBudgetError,"cache warmup requires serial"):
                 self.reserve(b,case="case-b")
-            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12},response_text='{"ok":true}')
             c2,_,_=self.reserve(b,case="case-b")
             with self.assertRaisesRegex(ResearchBudgetError,"cache warmup requires serial"):
                 self.reserve(b,case="case-c")
-            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12},response_text='{"ok":true}')
             self.reserve(b,case="case-c")
             self.reserve(b,case="case-d")
             with self.assertRaisesRegex(ResearchBudgetError,"parallel reservation cap"):
                 self.reserve(b,case="case-e")
+        finally:b.close()
+
+    def test_committed_e2_response_is_durable_and_recoverable(self):
+        def fake(config,messages,max_tokens,timeout):
+            return '{"results":[{"id":"x","status":"unknown","answer":null,"evidence_ids":[]}]}', {
+              "prompt_tokens":10,"completion_tokens":8,"total_tokens":18,
+              "prompt_cache_hit_tokens":8,"prompt_cache_miss_tokens":2,
+            }
+        b=ResearchApiBudget(self.root,clock=lambda:10000,transport=fake)
+        try:
+            out,usage,cid=b.chat(
+              self.messages,max_tokens=50,purpose="e2 test",phase="benchmark",
+              response_format={"type":"json_object"},budget_scope=self.scope,
+              case_id="case-a",prompt_prefix_sha256=self.prefix,
+              _proxy_auth=_PROXY_AUTH_SENTINEL)
+            recovered=b.recover_e2_case("case-a")
+            self.assertEqual(recovered["call_id"],cid)
+            self.assertEqual(recovered["status"],"COMMITTED")
+            self.assertEqual(recovered["response_text"],out)
+            import hashlib
+            self.assertEqual(
+              recovered["response_sha256"],
+              hashlib.sha256(out.encode("utf-8")).hexdigest())
+        finally:b.close()
+
+    def test_e2_finalize_without_response_receipt_fails_closed(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            cid,_,_=self.reserve(b,case="case-a")
+            with self.assertRaisesRegex(ResearchBudgetError,"durable response_text"):
+                b.finalize(cid,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            row=b.conn.execute("select status from calls where call_id=?",(cid,)).fetchone()
+            self.assertEqual(row["status"],"RESERVED")
         finally:b.close()
 
     def test_execution_manifest_hash_drift_fails_closed(self):

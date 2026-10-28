@@ -9,7 +9,9 @@
     "overall_prompt_cache_hit_rate": "OBSERVE_NOT_HARD_GATE",
     "duplicate_paid_case_execution": 0,
     "duplicate_paid_ingest": 0,
-    "benchmark_peak_paid_calls": 0
+    "benchmark_peak_paid_calls": 0,
+    "durable_committed_response_receipt_missing": 0,
+    "paid_case_granularity_semantic_mismatch": 0
   },
   "execution_rules": {
     "invariant_prefix_first": true,
@@ -24,7 +26,13 @@
     "track_contiguous_execution_preferred": true,
     "checkpoint_resume_must_reuse_completed_case_artifacts": true,
     "paid_retry_requires_recorded_failure_or_unknown_reconciliation": true,
-    "confirmatory_calls_forbidden": true
+    "confirmatory_calls_forbidden": true,
+    "e2_committed_response_receipt_required": true,
+    "committed_response_receipt_atomic_with_usage": true,
+    "resume_recovers_committed_response_from_paid_ledger": true,
+    "unknown_or_reserved_case_retry_forbidden_without_explicit_reconciliation": true,
+    "halumem_extract_case_granularity": "exactly_one_target_user_message",
+    "accepted_dynamic_payload_encoding_required": true
   },
   "metrics": [
     "phase_prompt_tokens",
