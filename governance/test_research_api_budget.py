@@ -504,6 +504,24 @@ class TestE2PilotPaidWorkGuard(unittest.TestCase):
             self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
         finally:b.close()
 
+    def test_held_e2_track_is_rejected_before_reservation(self):
+        path=self.root/"governance"/"E2_PILOT_EXECUTION_MANIFEST.json"
+        m=json.loads(path.read_text())
+        m["tracks"]["test"]["execution_status"]="HOLD_SCHEMA_MISMATCH"
+        m["tracks"]["test"]["execution_hold_reason"]="synthetic hold"
+        path.write_text(json.dumps(m),encoding="utf-8")
+        policy_path=self.root/"governance"/"policy.json"
+        policy=json.loads(policy_path.read_text())
+        policy["e2_transition"]["pilot_execution_manifest_sha256"]=hashlib.sha256(
+            path.read_bytes()).hexdigest()
+        policy_path.write_text(json.dumps(policy),encoding="utf-8")
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"track is held before provider access"):
+                self.reserve(b)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
     def test_pilot_hard_cap_blocks_before_provider(self):
         path=self.root/"governance"/"E2_PILOT_EXECUTION_MANIFEST.json"
         m=json.loads(path.read_text())

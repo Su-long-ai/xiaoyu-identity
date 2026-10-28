@@ -9,6 +9,7 @@ prompt prefixes, and conservative per-call completion ceilings.
 from __future__ import annotations
 import hashlib,json,re
 from pathlib import Path
+import e2_longmemeval_context as lme_context
 
 ROOT=Path(__file__).resolve().parents[1]
 GOV=ROOT/"governance"
@@ -18,6 +19,7 @@ OUT=GOV/"E2_PILOT_EXECUTION_MANIFEST.json"
 HALU=ROOT/"external"/"halumem_dataset_cache"
 
 PROMPTS=GOV/"E2_PILOT_PROMPTS.json"
+LME_CONTEXT_BUILDER=GOV/"e2_longmemeval_context.py"
 
 def sha_bytes(b): return hashlib.sha256(b).hexdigest()
 def sha_file(p): return sha_bytes(Path(p).read_bytes())
@@ -119,7 +121,25 @@ def main():
     if protocol.get("status")!="FROZEN_BEFORE_EXECUTION":
         raise RuntimeError("E2 pilot protocol is not frozen")
 
-    lme=[f"lme-a-{int(i):03d}" for i in split["longmemeval"]["pilot_indices"]]
+    lme_indices=[int(i) for i in split["longmemeval"]["pilot_indices"]]
+    lme=[f"lme-a-{i:03d}" for i in lme_indices]
+
+    # Freeze the exact local retrieval/context payloads before the first E2
+    # paid call. LongMemEval payloads do not depend on prior model outputs, so
+    # pre-freezing them closes retrieval drift without touching gold fields.
+    lme_data=lme_context.load_dataset()
+    lme_payload_rows=[]
+    lme_payload_hashes={}
+    lme_context_counts={}
+    for idx,cid in zip(lme_indices,lme):
+        payload,diag=lme_context.build_payload(idx,lme_data)
+        if payload.get("id")!=cid:
+            raise RuntimeError("LongMemEval payload/case identity mismatch")
+        lme_payload_rows.append({"track":"longmemeval_answer",
+                                 "case_id":cid,"payload":payload})
+        lme_payload_hashes[cid]=hobj(payload)
+        lme_context_counts[cid]=len(payload.get("context") or [])
+
     halu=halu_pilot_cases(split)
 
     # Reuse accepted P1 prompt semantics; only the dynamic final user payload
@@ -139,6 +159,19 @@ def main():
         "invariant_prefix_messages":lme_prefix,
         "invariant_prefix_sha256":prefix_hash(lme_prefix),
         "prompt_semantics_source":"accepted P1 R18 context-answer protocol",
+        "execution_status":"READY",
+        "context_builder":{
+          "path":"governance/e2_longmemeval_context.py",
+          "sha256":sha_file(LME_CONTEXT_BUILDER),
+          "dataset":"external/OmniMemEval/data/longmemeval/longmemeval_s_cleaned.json",
+          "dataset_sha256":"d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+          "retrieval_mode":"history",
+          "relevance":"sqlite_fts5",
+          "limit":7,
+          "max_posting":128,
+          "authority_map":{"user":"user_history","assistant":"conversation_history"},
+          "manual_context_forbidden":True
+        },
         "dynamic_payload_contract":{
           "encoding":"r18_single_case_compact_json_v1",
           "required_keys":["id","context","question"],
@@ -146,6 +179,16 @@ def main():
           "user_prefix":"逐项回答以下独立案例：\n",
           "container":"single-item-json-array",
           "source_submission":"sub-2dd80e4a13a44743"
+        },
+        "offline_input_freeze":{
+          "builder":"governance/e2_longmemeval_context.py",
+          "builder_sha256":sha_file(GOV/"e2_longmemeval_context.py"),
+          "dataset_sha256":lme_context.DATASET_SHA256,
+          "payload_plan_sha256":hobj(lme_payload_rows),
+          "payload_sha256_by_case":lme_payload_hashes,
+          "context_count_by_case":lme_context_counts,
+          "gold_fields_read_into_payload":False,
+          "provider_calls":0
         },
       },
       "halumem_extract":{
@@ -158,6 +201,8 @@ def main():
         "invariant_prefix_messages":halu_extract_prefix,
         "invariant_prefix_sha256":prefix_hash(halu_extract_prefix),
         "prompt_semantics_source":"accepted P1 R27/R35 caller-bound event extraction protocol",
+        "execution_status":"HOLD_OPEN_DOMAIN_SCHEMA_MISMATCH",
+        "execution_hold_reason":"Accepted P1 R27/R35 extractor is finite-slot current-state extraction; HaluMem is open-domain memory. Paid execution would not represent the frozen E2 capability.",
         "dynamic_payload_contract":{
           "encoding":"r35_single_target_message_compact_json_v1",
           "required_keys":["current_state","context_messages","target_message","slots"],
@@ -178,6 +223,8 @@ def main():
         "invariant_prefix_messages":halu_qa_prefix,
         "invariant_prefix_sha256":prefix_hash(halu_qa_prefix),
         "prompt_semantics_source":"accepted P1 R18 context-answer protocol",
+        "execution_status":"HOLD_DEPENDS_ON_VALID_HALUMEM_MEMORY_PIPELINE",
+        "execution_hold_reason":"QA is blocked until an open-domain HaluMem ingest/update pipeline is frozen; hand-built context is forbidden.",
         "dynamic_payload_contract":{
           "encoding":"r18_single_case_compact_json_v1",
           "required_keys":["id","context","question"],
@@ -229,6 +276,8 @@ def main():
         "duplicate_reserved_committed_unknown_forbidden":True,
         "response_format_json_object_required":True,
         "gold_answer_fields_forbidden_from_system_under_test":True,
+        "track_execution_status_enforced_before_provider":True,
+        "longmemeval_context_rebuilt_and_verified_before_provider":True,
       },
       "historical_completion_basis":{
         "longmemeval_observed_max":225,

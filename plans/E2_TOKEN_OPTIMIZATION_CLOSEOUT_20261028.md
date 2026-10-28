@@ -139,6 +139,58 @@ The runner validates exact frozen track/case membership, accepted payload shape,
 
 Runtime receipts are regenerable and excluded from Git.
 
+
+## LongMemEval input freeze and source-identity repair
+
+The token-safe gateway is not sufficient if the local retrieval/context payload can drift between runs.
+
+A frozen offline LongMemEval adapter is now included at governance/e2_longmemeval_context.py.
+
+It:
+- verifies the public LongMemEval-S dataset SHA256 before building input;
+- uses the P1-frozen SQLite FTS5 / source-aware authority policy;
+- maps raw user source to user_history and assistant source to conversation_history;
+- exposes at most seven whole source records;
+- never reads answer/gold fields into the paid payload;
+- makes zero provider calls.
+
+All **46/46** frozen LongMemEval pilot payloads were materialized in an isolated Lead workspace and checked against the manifest:
+- rows: 46;
+- unique case IDs: 46;
+- frozen cases: 46;
+- missing: 0;
+- extra: 0;
+- payload-SHA mismatches: 0;
+- gold-field leakage: 0;
+- provider calls: 0.
+
+The manifest stores a SHA256 for every individual LongMemEval payload. The runner recomputes it before provider access, so a later retrieval-code change cannot silently change E2 model-visible context.
+
+Full 46-case construction exposed a real source-identity bug that the first two warm-up cases did not cover: LongMemEval can repeat haystack_session_ids within one record. A source key based only on case/session-id/message-index could therefore collide.
+
+The source key now also binds the stable session ordinal:
+
+case + session_ordinal + original_session_id + message_ordinal
+
+A dedicated regression test covers repeated session IDs. This changes identity disambiguation only; it does not alter source text, gold data or scoring.
+
+Generated governance/e2_pilot_inputs/ files are deliberately ignored and are not the source of truth because concurrent preparation may regenerate them. The frozen per-case payload hashes in E2_PILOT_EXECUTION_MANIFEST.json are authoritative.
+
+This LongMemEval builder is an **E2 evaluation adapter** implementing the P1-frozen retrieval policy. Its success must not be misreported as proof that every future production retrieval implementation has been end-to-end validated.
+
+## HaluMem fail-closed hold
+
+Pre-execution validation also found that the accepted P1 R27/R35 extractor is a finite-slot current-state extractor while HaluMem is an open-domain memory task.
+
+Accordingly:
+- longmemeval_answer: **READY**
+- halumem_extract: **HOLD_OPEN_DOMAIN_SCHEMA_MISMATCH**
+- halumem_qa: **HOLD_DEPENDS_ON_VALID_HALUMEM_MEMORY_PIPELINE**
+
+The 647 message-level HaluMem extract IDs remain frozen for accounting/reproducibility, but the gateway/runner must not spend tokens on that held track.
+
+This is intentional cost correctness: changing the slot schema or inventing an open-domain ingest path after seeing the pilot definition would alter the tested capability. Resolving it requires a separately frozen scientific transition, not a token-optimization shortcut.
+
 ## Frozen implementation
 
 Scientific protocol SHA256 remains:
@@ -151,12 +203,12 @@ Prompt freeze SHA256:
 `19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9`
 
 New execution manifest SHA256:
-`e24c57c1226dddcc62209b97c714f3004fb9bcb8434cf8c0d7b15273dbc28717`
+`357d5f9192c14bfec3e3e9e54861e23a0c22c84f20a3c353a6bcbe1e0d00b175`
 
 New execution freeze record SHA256:
-`3e4127530ce1a38c6abbff5b12af2f261995f4a175507c8ea81e15ef01c16977`
+`2505302ab35bc82182b6c5adaa2f8a78e742b2790913db7bb234f89ca24e46e2`
 
-The freeze record binds protocol, split, prompts, token contract, manifest builder, freeze script, paid gateway, proxy, pilot runner, token doctor and frozen P1/P2 baselines.
+The freeze record binds protocol, split, prompts, token contract, manifest builder, freeze script, paid gateway, proxy, pilot runner, token doctor, the LongMemEval input builder, and frozen P1/P2 baselines.
 
 ## Validation
 
@@ -164,6 +216,7 @@ The freeze record binds protocol, split, prompts, token contract, manifest build
 - errors: **0**
 - warnings: **0**
 - pilot_execution_ready: **true**
+- executable tracks: **LongMemEval READY; HaluMem extract/QA HOLD fail-closed**
 - missing response receipts: **0**
 - response receipt hash mismatches: **0**
 - prefix mismatches: **0**
@@ -171,8 +224,8 @@ The freeze record binds protocol, split, prompts, token contract, manifest build
 - peak calls: **0**
 - benchmark UNKNOWN/RESERVED: **0**
 - unified runner preflight: **ready=true**
-- targeted runner/gateway tests: **42/42 PASS**
-- complete governance regression: **164/164 PASS**
+- targeted runner/gateway/input tests: **47/47 PASS**
+- complete governance regression: **170/170 PASS**
 - P1: **12/12 READY**
 - P2: **7/7 READY**
 - Reuse Doctor: **healthy=true, 0 errors, 0 warnings**

@@ -1,0 +1,79 @@
+{
+  "schema": "xiaoyu-e2-runtime-efficiency-policy-v1",
+  "created": "2026-10-28",
+  "status": "ACTIVE_POSTLAUNCH_AMENDMENT",
+  "scope": "E2 pilot runtime efficiency reporting; does not mutate pre-first-paid-call freeze",
+  "preserves": {
+    "scientific_protocol": true,
+    "pilot_split": true,
+    "prompt": true,
+    "provider": true,
+    "completion_caps": true,
+    "pilot_hard_cap_tokens": 1000000,
+    "confirmatory_holdout": true
+  },
+  "legacy_cache_target": {
+    "source": "governance/E2_TOKEN_EFFICIENCY_CONTRACT.json",
+    "stable_prefix_cache_hit_rate": 0.95,
+    "status_for_longmemeval": "NOT_APPLICABLE_AS_RUNTIME_GATE",
+    "reason": "Independent LongMemEval cases share only a short fixed prefix. Official DeepSeek V4 tokenizer measured a 158-token LCP for the first three E2 cases; observed V4.1 128-token block/SWA behavior predicts 0 reusable billed hit tokens after one-block backoff.",
+    "audit_record": "plans/E2_CACHE_ZERO_ROOT_CAUSE_20261028.md"
+  },
+  "primary_runtime_metrics": [
+    "cache_miss_tokens_per_committed_case",
+    "total_tokens_per_committed_case",
+    "completion_tokens_per_committed_case",
+    "off_peak_cny_per_committed_case",
+    "peak_cny_per_committed_case",
+    "whole_prompt_cache_hit_rate_observational"
+  ],
+  "longmemeval_cache_geometry": {
+    "observed_real_cases": [
+      "lme-a-000",
+      "lme-a-001",
+      "lme-a-002"
+    ],
+    "invariant_prefix_sha256": "11237ee01ec6a750ef3f8965a849e29a5cbf06897b699cc4724b7a7f75725c7c",
+    "official_v4_lcp_tokens": 158,
+    "provider_hidden_template_delta_tokens": 24,
+    "block_tokens": 128,
+    "swa_backoff_blocks": 1,
+    "predicted_billed_hit_tokens": 0,
+    "observed_billed_hit_tokens": [
+      0,
+      0,
+      0
+    ],
+    "classification": "STRUCTURALLY_LOW_CACHE_REUSE",
+    "do_not_pad_prompt_to_chase_cache": true
+  },
+  "rules": {
+    "current_pilot_prompt_mutation_for_cache_forbidden": true,
+    "meaningless_padding_for_cache_forbidden": true,
+    "cache_hit_rate_is_correctness_gate": false,
+    "cost_or_cache_optimization_must_not_remove_required_context": true,
+    "batching_in_current_pilot_forbidden": true,
+    "confirmatory_batching_requires_separate_pre_execution_freeze": true,
+    "confirmatory_batching_must_preserve_case_independence": true,
+    "confirmatory_batching_must_define_partial_failure_and_resume_semantics": true,
+    "production_append_only_layout_preferred_when_semantically_valid": true
+  },
+  "future_designs": {
+    "confirmatory_batching": {
+      "plan": "plans/E2_CONFIRMATORY_BATCHING_DESIGN_20261028.md",
+      "status": "DESIGN_ONLY_HOLD_BEFORE_CONFIRMATORY",
+      "candidate_batch_sizes": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "provider_calls_authorized": false
+    },
+    "production_append_only_cache": {
+      "plan": "plans/PRODUCTION_APPEND_ONLY_CACHE_LAYOUT_20261028.md",
+      "status": "ARCHITECTURE_GUIDANCE",
+      "cache_epoch_rotation_required_on_invalidating_state_change": true
+    }
+  }
+}

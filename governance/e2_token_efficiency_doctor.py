@@ -35,12 +35,14 @@ def evaluate(root=ROOT):
       "research_proxy":gov/"research_api_proxy.py",
       "pilot_runner":gov/"e2_pilot_runner.py",
       "token_doctor":gov/"e2_token_efficiency_doctor.py",
+      "lme_input_builder":gov/"e2_longmemeval_context.py",
     }
     e=policy.get("e2_transition") or {}
     paid=policy.get("budget",{}).get("paid_research",{})
     errors=[];warnings=[]
 
     manifest=load(manifest_path)
+    protocol_obj=load(protocol)
     split=load(split_path)
     prompts=load(prompt_path)
     contract=load(contract_path)
@@ -98,9 +100,16 @@ def evaluate(root=ROOT):
           "pilot_cap_mismatch",manifest=pilot_cap,policy=e.get("pilot_hard_cap_tokens"))
 
     tracks=manifest.get("tracks") or {}
-    scopes=[];all_ids=[];prefix_errors=[]
+    scopes=[];all_ids=[];prefix_errors=[];track_statuses={}
     for name,t in tracks.items():
         scope=t.get("scope");scopes.append(scope)
+        status=str(t.get("execution_status") or "READY")
+        track_statuses[name]=status
+        check(status=="READY" or status.startswith("HOLD_"),
+              "invalid_track_execution_status",track=name,status=status)
+        if status.startswith("HOLD_"):
+            check(bool(t.get("execution_hold_reason")),
+                  "held_track_missing_reason",track=name)
         ids=[str(x) for x in t.get("case_ids",[])]
         all_ids.extend(ids)
         check(t.get("case_count")==len(ids),"track_case_count_mismatch",track=name)
@@ -116,6 +125,28 @@ def evaluate(root=ROOT):
     check(len(scopes)==len(set(scopes)),"duplicate_track_scope")
     check(len(all_ids)==len(set(all_ids)),"duplicate_manifest_case_id")
     check(not prefix_errors,"prefix_hash_drift",tracks=prefix_errors)
+
+    lme_track=tracks.get("longmemeval_answer") or {}
+    cb=lme_track.get("context_builder") or {}
+    cb_rel=str(cb.get("path") or "")
+    cb_path=root/cb_rel if cb_rel else None
+    check(bool(cb_rel) and cb_path is not None and cb_path.is_file(),
+          "longmemeval_context_builder_missing",path=cb_rel)
+    if cb_path is not None and cb_path.is_file():
+        check(sha(cb_path)==str(cb.get("sha256") or ""),
+              "longmemeval_context_builder_hash_drift")
+    expected_lme_dataset_sha=next(
+        (str(x.get("sha256") or "").lower() for x in protocol_obj.get("required_tracks",[])
+         if x.get("id")=="longmemeval_core"),"")
+    check(str(cb.get("dataset_sha256") or "").lower()==expected_lme_dataset_sha,
+          "longmemeval_context_dataset_hash_contract_drift")
+    check(cb.get("retrieval_mode")=="history" and cb.get("relevance")=="sqlite_fts5"
+          and int(cb.get("limit") or 0)==7 and int(cb.get("max_posting") or 0)==128,
+          "longmemeval_context_retrieval_contract_drift")
+    check(cb.get("authority_map")=={"user":"user_history","assistant":"conversation_history"},
+          "longmemeval_context_authority_map_drift")
+    check(bool(cb.get("manual_context_forbidden")),
+          "longmemeval_manual_context_not_forbidden")
 
     # Exact split-first membership recomputation.
     expected_lme={f"lme-a-{int(i):03d}" for i in split["longmemeval"]["pilot_indices"]}
@@ -221,13 +252,17 @@ def evaluate(root=ROOT):
       "pilot_hard_cap_tokens":pilot_cap,
       "manifest_paid_case_count":len(all_ids),
       "track_case_counts":{k:v.get("case_count") for k,v in tracks.items()},
+      "track_execution_status":track_statuses,
+      "ready_tracks":[k for k,v in track_statuses.items() if v=="READY"],
+      "held_tracks":[k for k,v in track_statuses.items() if v.startswith("HOLD_")],
       "prefix_byte_stability_enforced":not prefix_errors,
       "stable_prefix_cache_target":contract.get("targets",{}).get("stable_prefix_cache_hit_rate"),
       "stable_prefix_cache_target_note":"Provider telemetry exposes prompt hit/miss totals, not prefix-token denominator; exact byte-prefix hash is enforced, provider hit rate remains observational.",
       "runtime":runtime,
       "errors":errors,"warnings":warnings,
       "healthy":not errors,
-      "pilot_execution_ready":not errors and not runtime["reserved_calls"] and not runtime["unknown_calls"],
+      "pilot_execution_ready":not errors and bool([1 for v in track_statuses.values() if v=="READY"])
+                              and not runtime["reserved_calls"] and not runtime["unknown_calls"],
       "e2_claim_allowed":False,
     }
 

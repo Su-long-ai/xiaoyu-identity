@@ -65,6 +65,18 @@ class TestE2PilotRunnerPayloads(unittest.TestCase):
             "current_state","context_messages","target_message","slots"])
         self.assertEqual(body["target_message"]["role"],"user")
 
+    def test_prefrozen_offline_payload_hash_is_enforced(self):
+        payload={"id":"lme-a-001","context":[{"id":"m1","text":"x"}],"question":"q"}
+        self.manifest["tracks"]["lme"]["offline_input_freeze"]={
+            "payload_sha256_by_case":{
+                "lme-a-001":r.sha_bytes(r.canon(payload).encode("utf-8"))
+            }
+        }
+        r.validate_payload(self.manifest,"lme","lme-a-001",payload)
+        bad={"id":"lme-a-001","context":[{"id":"m1","text":"changed"}],"question":"q"}
+        with self.assertRaisesRegex(r.RunnerError,"differs from frozen offline input"):
+            r.validate_payload(self.manifest,"lme","lme-a-001",bad)
+
     def test_gold_fields_fail_before_provider(self):
         payload={"id":"lme-a-001","context":[],"question":"q","answer":"gold"}
         with self.assertRaisesRegex(r.RunnerError,"gold/answer-only"):

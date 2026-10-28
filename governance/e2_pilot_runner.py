@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import tempfile
@@ -101,7 +102,38 @@ def track_spec(manifest, track: str):
     spec = (manifest.get("tracks") or {}).get(track)
     if not isinstance(spec, dict):
         raise RunnerError(f"unknown frozen E2 track: {track}")
+    status=str(spec.get("execution_status") or "READY")
+    if status!="READY":
+        raise RunnerError(
+            f"frozen E2 track {track} is not executable: {status}; "
+            f"{spec.get('execution_hold_reason') or 'no hold reason'}")
     return spec
+
+
+def validate_context_provenance(spec, case_id: str, payload: dict):
+    cfg=spec.get("context_builder")
+    if not cfg:
+        return
+    rel=str(cfg.get("path") or "")
+    if not rel:
+        raise RunnerError("frozen context builder path is missing")
+    path=(ROOT/rel).resolve()
+    if not path.is_file() or sha_file(path)!=str(cfg.get("sha256") or ""):
+        raise RunnerError("frozen context builder hash mismatch")
+    if rel.replace("\\","/")!="governance/e2_longmemeval_context.py":
+        raise RunnerError("unsupported frozen context builder")
+    if not case_id.startswith("lme-a-"):
+        raise RunnerError("LongMemEval context builder received non-LME case")
+    try:index=int(case_id.rsplit("-",1)[1])
+    except Exception as exc:raise RunnerError("invalid LongMemEval case id") from exc
+    modspec=importlib.util.spec_from_file_location("_e2_lme_context_frozen",path)
+    if modspec is None or modspec.loader is None:
+        raise RunnerError("cannot load frozen LongMemEval context builder")
+    mod=importlib.util.module_from_spec(modspec);modspec.loader.exec_module(mod)
+    expected,_diag=mod.build_payload(index)
+    if canon(expected)!=canon(payload):
+        raise RunnerError(
+            "LongMemEval payload/context differs from frozen deterministic context builder")
 
 
 def encode_dynamic_payload(spec, case_id: str, payload: dict) -> str:
@@ -171,9 +203,20 @@ def validate_payload(manifest, track: str, case_id: str, payload):
     hits = forbidden_hits(payload)
     if hits:
         raise RunnerError("gold/answer-only fields are forbidden from model input: " + ",".join(hits[:8]))
+    validate_context_provenance(spec,case_id,payload)
     prefix = spec.get("invariant_prefix_messages")
     if not isinstance(prefix, list) or not prefix:
         raise RunnerError("frozen invariant prefix is missing")
+    input_freeze=spec.get("offline_input_freeze") or {}
+    frozen_payloads=input_freeze.get("payload_sha256_by_case") or {}
+    if frozen_payloads:
+        expected=frozen_payloads.get(case_id)
+        actual=sha_bytes(canon(payload).encode("utf-8"))
+        if not expected:
+            raise RunnerError("case_id is missing frozen dynamic payload hash")
+        if actual!=expected:
+            raise RunnerError("dynamic payload differs from frozen offline input")
+
     dynamic_content = encode_dynamic_payload(spec, case_id, payload)
     user = {"role": "user", "content": dynamic_content}
     messages = [*prefix, user]
@@ -272,11 +315,21 @@ def preflight():
     doctor = e2_token_efficiency_doctor.evaluate(ROOT)
     if not doctor.get("pilot_execution_ready"):
         raise RunnerError("E2 token-efficiency doctor is not ready")
+    tracks=manifest["tracks"]
+    ready_tracks={k:v["case_count"] for k,v in tracks.items()
+                  if str(v.get("execution_status") or "READY")=="READY"}
+    held_tracks={k:{"case_count":v["case_count"],
+                   "status":v.get("execution_status"),
+                   "reason":v.get("execution_hold_reason")}
+                 for k,v in tracks.items()
+                 if str(v.get("execution_status") or "READY")!="READY"}
     return {
         "schema": "xiaoyu-e2-pilot-runner-preflight-v1",
         "manifest_sha256": sha_file(MANIFEST),
         "paid_case_count": manifest["paid_case_count"],
-        "track_case_counts": {k: v["case_count"] for k, v in manifest["tracks"].items()},
+        "track_case_counts": {k: v["case_count"] for k, v in tracks.items()},
+        "ready_tracks":ready_tracks,
+        "held_tracks":held_tracks,
         "pilot_remaining_tokens": doctor["runtime"]["pilot_remaining_tokens"],
         "runtime_dir": str(RUNTIME),
         "provider_calls": 0,

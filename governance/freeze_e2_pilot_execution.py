@@ -42,6 +42,7 @@ def main():
     api=GOV/"research_api.py"
     proxy=GOV/"research_api_proxy.py"
     runner=GOV/"e2_pilot_runner.py"
+    lme_context_builder=GOV/"e2_longmemeval_context.py"
     token_doctor=GOV/"e2_token_efficiency_doctor.py"
     p1c=GOV/"P1_INTEGRATION_CONTRACT.json"
     p1x=GOV/"P1_INTEGRATION_CANDIDATE.json"
@@ -73,7 +74,8 @@ def main():
       "execution_manifest":manifest,"token_contract":token_contract,
       "builder":builder,"freeze_script":self_path,
       "research_api":api,"research_proxy":proxy,
-      "pilot_runner":runner,"token_doctor":token_doctor,
+      "pilot_runner":runner,"lme_input_builder":lme_context_builder,
+      "token_doctor":token_doctor,
       "p1_contract":p1c,"p1_candidate":p1x,"p2_contract":p2c,
     }
     record={
@@ -116,6 +118,8 @@ def main():
         "duplicate_case_check_under_begin_immediate",
         "committed_response_atomic_receipt_and_recovery",
         "accepted_dynamic_payload_encoding_enforced",
+        "longmemeval_context_builder_hash_and_payload_rebuild_enforced",
+        "held_track_status_enforced_before_provider",
         "one_target_user_message_per_halumem_extract_case",
         "first_two_real_cases_serial_per_scope",
         "global_paid_parallel_cap_2",

@@ -65,3 +65,5 @@ governance/tmp_*.py
 
 # E2 public/synthetic runtime receipts (regenerable)
 governance/e2_pilot_runtime/
+# Deterministic E2 pilot payload materializations (regenerable)
+governance/e2_pilot_inputs/

@@ -350,18 +350,23 @@
     "prompt_template_hash_required_before_paid_track": true,
     "completion_cap_required_before_paid_track": true,
     "pilot_execution_manifest": "governance/E2_PILOT_EXECUTION_MANIFEST.json",
-    "pilot_execution_manifest_sha256": "e24c57c1226dddcc62209b97c714f3004fb9bcb8434cf8c0d7b15273dbc28717",
+    "pilot_execution_manifest_sha256": "357d5f9192c14bfec3e3e9e54861e23a0c22c84f20a3c353a6bcbe1e0d00b175",
     "pilot_hard_cap_tokens": 1000000,
     "benchmark_scope_allowlist_from_manifest": true,
     "benchmark_case_membership_required": true,
     "benchmark_duplicate_paid_case_forbidden": true,
     "benchmark_invariant_prefix_hash_required": true,
     "pilot_execution_freeze_record": "governance/E2_PILOT_EXECUTION_FREEZE_RECORD.json",
-    "pilot_execution_freeze_record_sha256": "3e4127530ce1a38c6abbff5b12af2f261995f4a175507c8ea81e15ef01c16977",
+    "pilot_execution_freeze_record_sha256": "2505302ab35bc82182b6c5adaa2f8a78e742b2790913db7bb234f89ca24e46e2",
     "pilot_prompt_freeze": "governance/E2_PILOT_PROMPTS.json",
     "pilot_prompt_freeze_sha256": "19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9",
     "extract_case_granularity": "one_target_user_message",
     "extract_case_count": 647,
-    "pilot_expected_paid_operations": 744
+    "pilot_expected_paid_operations": 744,
+    "runtime_efficiency_policy": "governance/E2_RUNTIME_EFFICIENCY_POLICY.json",
+    "runtime_efficiency_policy_sha256": "b2702dfd26ab4755fa30351dbb944599971842f23482b91b547bb34941554003",
+    "longmemeval_cache_gate": "MISS_TOKENS_TOTAL_TOKENS_COST_PER_CASE",
+    "legacy_95pct_cache_target_status": "NOT_APPLICABLE_AS_LONGMEMEVAL_RUNTIME_GATE",
+    "current_pilot_batching": false
   }
 }

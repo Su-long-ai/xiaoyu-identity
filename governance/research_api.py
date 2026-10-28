@@ -549,6 +549,11 @@ class ResearchApiBudget:
             if e2_track is None:
                 raise ResearchBudgetError(
                     f"Benchmark scope '{scope}' is not authorized by frozen E2 pilot manifest")
+            track_status=str(e2_track.get("execution_status") or "READY")
+            if track_status!="READY":
+                raise ResearchBudgetError(
+                    f"E2 benchmark track is held before provider access: {track_status}; "
+                    f"{e2_track.get('execution_hold_reason') or 'no hold reason'}")
             case_id=str(case_id or "").strip()
             if not case_id:
                 raise ResearchBudgetError("E2 benchmark case_id is required")
