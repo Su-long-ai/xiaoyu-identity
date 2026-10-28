@@ -1,0 +1,580 @@
+{
+  "schema": "xiaoyu-p1-integration-contract-v1",
+  "created_at": "2026-10-27",
+  "purpose": "Prevent stale ACCEPT_E1 artifacts or known-falsified implementations from being assembled into the P1 candidate.",
+  "stages": [
+    {
+      "id": "semantic_event_extractor",
+      "required": true,
+      "status": "ready_e1",
+      "family": "model.deepseek.caller_bound_final_projection",
+      "integration_rule": "R35 sub-2b974fd436624d87 is ACCEPT_E1 for the caller-bound final-per-slot P1 current-state interface. Each trusted source message yields zero or more final effective grounded SET/CLEAR projections, at most one per slot after deterministic source-anchor ordering; distinct slots and CLEAR semantics are preserved and caller-owned identity/authority remain outside model control. The immutable raw message remains SOURCE/history evidence. P1 explicitly does not claim a lossless structured timeline of transient same-message states. Independent audit reproduced SHA/offline/saved-paid-output/ledger evidence and found no P0/P1; disclosed integration/provenance edge cases remain P2.",
+      "reference_submission": "sub-b2146407c7094527",
+      "known_non_e1_event_source": "sub-f74d3199bbc347a4",
+      "remediation_backlog_id": "R35",
+      "required_interface": {
+        "source_binding": "caller-owned trusted message identity; model cannot supply/upgrade identity or authority",
+        "projection": "zero or more final effective per-slot SET/CLEAR records",
+        "event": {
+          "op": "SET|CLEAR",
+          "slot": "string",
+          "value": "string|null",
+          "evidence_quote": "nonempty exact source evidence"
+        },
+        "canonicalization": "order grounded candidate events by source anchor and retain the last effective event for each slot; preserve distinct slots; fail closed on ambiguous final meaning",
+        "history_boundary": "raw immutable source message is retained separately as SOURCE/history; transient same-message structured events are not a P1 guarantee"
+      },
+      "known_nonpass_submission": "sub-27ac8b992cf54ba5",
+      "known_nonpromotable_evidence": "sub-5f0785161f6b475d",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/r34_singleton_transport_20261027/r34_singleton_transport_metrics.json",
+        "expected_schema": "xiaoyu-r34-singleton-transport-lead-e0",
+        "replication_required": false
+      },
+      "known_later_blockers": [
+        "sub-a9ea4d7c39204f9d",
+        "sub-8d76a88595ba4b34"
+      ],
+      "local_falsifiers": [
+        {
+          "metrics": "governance/lead_workspaces/r33_opaque_bind_falsification_20261027/r33_opaque_bind_falsification_metrics.json",
+          "truth_key": "pass_as_r33",
+          "expected": false,
+          "blocks": [
+            "R33 opaque request-local bind-token microbatch as source-identity proof"
+          ]
+        }
+      ],
+      "known_failed_microbatch_submission": "sub-a9ea4d7c39204f9d",
+      "fallback_backlog_id": null,
+      "required_independent_audit_attacks": [
+        "dense same-slot three/four-event chains",
+        "SET->CLEAR and CLEAR->SET within one message",
+        "two or more distinct slots in one message",
+        "cross-clause condition that must not become unconditional state",
+        "cross-clause negation and quoted/example decoys",
+        "third-party state adjacent to first-person state",
+        "pronoun/anaphora requiring whole-message context",
+        "punctuation-free multi-event message",
+        "repeated phrase/ambiguous evidence grounding must fail closed or remain exact"
+      ],
+      "known_nonpass_evidence": [
+        {
+          "submission": "sub-5f0b94dee5074f52",
+          "level": "NONPASS",
+          "finding": "R34 source binding safe but full event-sequence target missed 2/31 completed cases."
+        },
+        {
+          "submission": "sub-27ac8b992cf54ba5",
+          "level": "NONPASS",
+          "finding": "R36 clause fan-out matched whole-message quality but used 3x calls and ~3.2x raw tokens; no benefit."
+        },
+        {
+          "name": "R40 clean-contract semantic falsifier",
+          "workspace": "governance/workspaces/fish-e9ee70c06f134185",
+          "finding": "Two rounds 29/32 full sequence exact, 32/32 final state; same three transient omissions repeated; clean paid ledger."
+        }
+      ],
+      "supporting_lead_e0": [
+        {
+          "name": "r35_final_per_slot_canonicalizer",
+          "metrics": "governance/lead_workspaces/r35_final_projection_20261027/r35_final_projection_canonicalizer_metrics.json",
+          "expected_schema": "xiaoyu-r35-final-per-slot-canonicalizer-e0"
+        }
+      ],
+      "supporting_nonpromotable_evidence": [
+        {
+          "name": "r34_net_effect_sensitivity",
+          "metrics": "governance/lead_workspaces/r34_net_effect_sensitivity_20261027/r34_net_effect_sensitivity.json",
+          "expected_schema": "xiaoyu-r34-scoring-sensitivity-e0",
+          "promotion_allowed": false,
+          "purpose": "Motivates R35 only; cannot rescore R34 NONPASS into a pass."
+        }
+      ],
+      "accepted_submission": "sub-2b974fd436624d87",
+      "advisories": [
+        "P2: do not reinterpret final-per-slot structured projection as a lossless transient same-message event timeline.",
+        "P2: preserve caller-owned source/provenance binding through downstream integration rather than relying on model-returned identity fields."
+      ]
+    },
+    {
+      "id": "model_response_boundary",
+      "required": true,
+      "status": "ready_semantics_e1_integration_e0",
+      "accepted_submission": "sub-e73d88bade244116",
+      "family": "pipeline.deepseek.response_validation",
+      "integration_rule": "ACCEPT_E1 strict JSON/ID/schema/evidence boundary semantics are preserved on the taxonomy-independent message-source/projection-set representation: frozen 8/8 batch semantics exact, 94 mutation silent-harm=0, 5000 prospective terminal faults silent-harm=0, 800/800 taxonomy source IDs stable. Upstream event extraction and R19 source architecture still require their own evidence.",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/strict_validator_message_source_20261027/strict_validator_message_source_metrics.json",
+        "expected_schema": "xiaoyu-strict-validator-message-source-adapter-e0",
+        "replication_required": false
+      },
+      "depends_on_stages": [
+        "semantic_event_extractor",
+        "source_identity_and_event_ledger"
+      ]
+    },
+    {
+      "id": "source_identity_and_event_ledger",
+      "required": true,
+      "status": "ready_e1",
+      "semantic_evidence_submission": "sub-a79b217c6b514957",
+      "known_later_blockers": [
+        "sub-ce0e2a744b164029",
+        "sub-d3c9a84fee674f30"
+      ],
+      "blocked_implementations": [
+        "stable_event_envelope_v4.py",
+        "stable_event_envelope_v5.py",
+        "stable_event_envelope_v6.py",
+        "stable_event_sqlite_v4.py",
+        "stable_event_sqlite_v5.py",
+        "stable_event_sqlite_v6.py",
+        "v6_compat_writer.py"
+      ],
+      "replacement_lineage": "memory.pipeline.source_identity",
+      "integration_rule": "R19 ACCEPT_E1 replaces falsified per-semantic-event v4/v5/v6 source identity with trusted message identity H(conversation_id,message_id) plus separately hashed canonical projection sequence. Taxonomy change, projection omission/change and trusted message metadata drift quarantine the same source. Auditor recorded only P2 cross-conversation temporal ordering and external-helper receipt binding.",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/source_message_projection_set_20261027/source_message_projection_set_metrics.json",
+        "expected_schema": "xiaoyu-source-message-projection-set-e0",
+        "replication_required": false
+      },
+      "local_falsifiers": [
+        {
+          "metrics": "governance/lead_workspaces/v6_taxonomy_evolution_falsification_20261027/v6_taxonomy_evolution_metrics.json",
+          "truth_key": "falsifies_v6_as_taxonomy_independent_source_identity",
+          "expected": true,
+          "blocks": [
+            "stable_event_envelope_v6.py",
+            "stable_event_sqlite_v6.py",
+            "v6_compat_writer.py"
+          ]
+        }
+      ],
+      "accepted_submission": "sub-8f901ac959a541bc"
+    },
+    {
+      "id": "trusted_authority_projection",
+      "required": true,
+      "status": "ready_e1",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/trusted_authority_bridge_20261027/trusted_authority_bridge_metrics.json",
+        "expected_schema": "xiaoyu-trusted-authority-bridge-e0",
+        "replication_required": false
+      },
+      "integration_rule": "R17 sub-9662b50e11864b35 is ACCEPT_E1: trusted local conversation metadata, not model fields, binds user_state versus assistant history; 2,000-message authority property, 6,000 binding tamper rejections, restart replay, and 520-case prospective projection pass. The accepted repair also closes late trusted-metadata conflict stale projection by recomputing from the current trusted registry. Integration still waits for its source/model-boundary dependencies.",
+      "depends_on_stages": [
+        "source_identity_and_event_ledger",
+        "model_response_boundary"
+      ],
+      "accepted_submission": "sub-9662b50e11864b35",
+      "family": "pipeline.authority.trusted_message"
+    },
+    {
+      "id": "memory_security_lifecycle",
+      "required": true,
+      "status": "ready_e1",
+      "integration_rule": "R21 ACCEPT_E1 proves scoped origin-bound poisoning non-amplification, quarantine/repair and no low-trust poison in authoritative/model-visible context on the tested structural/persistence cases. P1 integration must delegate trusted current-state arbitration to R20 effective-time semantics rather than R21 dict insertion order, and final model-visible context still depends on the context/admissibility stages. Auditor P2: correction order and preconstructed steering context are not E1 blockers.",
+      "depends_on_stages": [
+        "trusted_authority_projection",
+        "context_packing"
+      ],
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/p1_memory_security_lifecycle_20261027/p1_memory_security_lifecycle_metrics.json",
+        "expected_schema": "xiaoyu-p1-memory-security-lifecycle-e0",
+        "replication_required": false
+      },
+      "accepted_submission": "sub-d73a755de2ff460f",
+      "advisories": [
+        "P2: R21 standalone authoritative_state is insertion-order dependent for multiple trusted same-slot facts; production integration must use R20 effective-time state arbitration.",
+        "P2: paid steering cases used preconstructed candidate_context; full persisted graph -> admission/repair -> state -> context -> model is an E2/integration follow-up."
+      ]
+    },
+    {
+      "id": "typed_state_projection",
+      "required": true,
+      "status": "ready_e1",
+      "family": "benchmark.meme.nl_state_extraction",
+      "integration_rule": "R20 ACCEPT_E1 establishes ontology-agnostic trusted-user typed current/history projection with SET/CLEAR, trusted effective-time ordering, replay, conflict abstention and source/projection drift quarantine. P1 integration requires trusted globally comparable effective_at across conversations; missing effective_at must not silently promote conversation-local message_seq to global time. The auditor's cross-conversation fallback defect is recorded as P2/integration hardening outside the accepted E1 assumption.",
+      "reference_submission": "sub-61510bd4934141f3",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/generic_typed_state_projector_20261027/generic_typed_state_projector_metrics.json",
+        "expected_schema": "xiaoyu-generic-typed-state-projector-e0",
+        "replication_required": false
+      },
+      "depends_on_stages": [
+        "model_response_boundary",
+        "trusted_authority_projection"
+      ],
+      "accepted_submission": "sub-b886dcf6c85c4471",
+      "advisories": [
+        "P2: missing effective_at across conversations can misorder state if local message_seq is treated as global time; require trusted effective_at or fail closed."
+      ]
+    },
+    {
+      "id": "conflict_resolution_semantics",
+      "required": false,
+      "status": "ready_semantics_e1_integration_e0",
+      "accepted_submission": "sub-176d99a46bda427e",
+      "family": "pipeline.conflict.resolution.auditlog",
+      "depends_on_stages": [
+        "typed_state_projection"
+      ],
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/generic_conflict_resolution_adapter_20261027/generic_conflict_resolution_adapter_metrics.json",
+        "expected_schema": "xiaoyu-generic-conflict-resolution-adapter-e0",
+        "replication_required": false
+      },
+      "integration_rule": "ACCEPT_E1 establishes append-only exact-conflict-set resolution semantics, stale-set rejection, replay/race/crash behavior. Lead E0 adapts only those semantics to generic message-source state using source_message_id + source_text_hash + projection_hash and passes 320/320 fresh, stale, contradictory, preservation and later-supersession cases without v6 per-event identity. This is a supporting capability, not an additional P1 release blocker."
+    },
+    {
+      "id": "global_source_aware_retrieval",
+      "required": true,
+      "status": "ready_semantics_e1_storage_e0",
+      "accepted_submission": "sub-4642b7fe04994bd6",
+      "family": "retrieval.source_aware.persistent",
+      "lexical_storage": "sqlite_fts5",
+      "forbidden_storage": [
+        "handwritten evidence_terms postings",
+        "custom ANN",
+        "custom vector database"
+      ],
+      "integration_rule": "ACCEPT_E1 sub-4642b7fe04994bd6 establishes source-aware long-tail retrieval semantics; SQLite FTS5 remains the lexical store. P1 integration MUST NOT assign one message-level current authority to a multi-slot raw user message. Lead E0 falsifies that mapping: a source that remains current for one slot can carry a stale sibling slot and expose it as user_state. Current-state/conflict retrieval therefore indexes deterministic R20 CANONICAL_CURRENT per-slot evidence (user_state/user_conflict), while raw user source messages are SOURCE/history evidence only (user_history). Assistant raw messages remain conversation_history. The canonical-state -> exact-authority atomic-context composite passes 200/200 multi-slot stress cases and preserves formal context schema.",
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/state_to_fts5_evidence_20261027/state_to_fts5_evidence_metrics.json",
+        "expected_schema": "xiaoyu-state-to-fts5-evidence-glue-e0",
+        "replication_required": false
+      },
+      "authority_taxonomy": [
+        "user_state",
+        "user_history",
+        "user_conflict",
+        "conversation_history"
+      ],
+      "depends_on_stages": [
+        "typed_state_projection"
+      ],
+      "supporting_lead_e0": [
+        {
+          "name": "canonical_slot_evidence",
+          "metrics": "governance/lead_workspaces/p1_canonical_slot_evidence_20261028/canonical_slot_evidence_metrics.json",
+          "expected_schema": "xiaoyu-p1-canonical-slot-evidence-e0-v1"
+        },
+        {
+          "name": "canonical_state_atomic_context",
+          "metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-canonical-state-atomic-context-composite-e0-v1"
+        }
+      ],
+      "forbidden_integration_mappings": [
+        "whole raw user message -> user_state when only a subset of its slots remain current"
+      ],
+      "representation_policy": {
+        "current": "R20 canonical per-slot state evidence",
+        "conflict": "R20 canonical per-slot unresolved-conflict evidence",
+        "user_source": "raw source/history evidence only",
+        "assistant_source": "conversation_history",
+        "scoring_alignment": [
+          "CANONICAL_CURRENT",
+          "SOURCE"
+        ]
+      }
+    },
+    {
+      "id": "retrieval_admissibility",
+      "required": true,
+      "status": "ready_e1",
+      "integration_rule": "R31 sub-bae49e5ea2cb483f is ACCEPT_E1 for the P1 retrieval-to-pack atomicity boundary: principal/scope/lifecycle metadata and authoritative text are rechecked and serialized under one short SQLite transaction. Lead integration E0 on 2026-10-28 additionally falsifies a coarse confirmed_memory bridge: it exposes superseded user_history in current-state mode and loses user_conflict semantics. P1 glue MUST therefore preserve the exact upstream taxonomy user_state/user_history/user_conflict/conversation_history through the atomic boundary and MUST serialize the accepted xiaoyu-memory-context-v1 record schema inside the same transaction. The simplified R31 JSON list and any mapping of all user evidence to confirmed_memory are integration-test formats only, not the P1 wire/context contract. Post-serialization/provider-send generation freshness remains separate P2 hardening unless its independent audit raises P0/P1.",
+      "depends_on_stages": [
+        "global_source_aware_retrieval"
+      ],
+      "lead_e0": {
+        "metrics": "governance/lead_workspaces/p1_retrieval_admissibility_20261027/p1_retrieval_admissibility_metrics.json",
+        "expected_schema": "xiaoyu-p1-retrieval-admissibility-e0",
+        "replication_required": false
+      },
+      "supporting_lead_e0": [
+        {
+          "name": "fts5_to_admissibility_to_context",
+          "metrics": "governance/lead_workspaces/p1_retrieval_admission_composite_20261027/p1_retrieval_admission_composite_metrics.json",
+          "expected_schema": "xiaoyu-p1-retrieval-admission-composite-e0"
+        },
+        {
+          "name": "trusted_principal_scope_ingress",
+          "metrics": "governance/lead_workspaces/trusted_principal_scope_bridge_20261027/trusted_principal_scope_bridge_metrics.json",
+          "expected_schema": "xiaoyu-trusted-principal-scope-bridge-e0"
+        },
+        {
+          "name": "exact_authority_atomic_formal_context",
+          "metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-exact-authority-atomic-formal-context-e0-v1"
+        },
+        {
+          "name": "canonical_state_atomic_context",
+          "metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-canonical-state-atomic-context-composite-e0-v1"
+        }
+      ],
+      "known_later_blockers": [
+        "sub-c6cba211e8d545cd"
+      ],
+      "replication_backlog_id": "R31",
+      "accepted_submission": "sub-bae49e5ea2cb483f",
+      "family": "retrieval.admissibility.atomic_pack",
+      "forbidden_integration_mappings": [
+        "user_state|user_history|user_conflict -> confirmed_memory collapse",
+        "R31 simplified {doc_id,text,authority,scope_kind} JSON as final P1 context payload"
+      ],
+      "supporting_e1": [
+        {
+          "submission": "sub-3d041cb84eb8419d",
+          "family": "context.admissibility.send_generation",
+          "scope": "Post-pack document lifecycle/text generation freshness through provider-send boundary.",
+          "nonblocking_p2": [
+            "Transport token does not bind canonical XiaoYu request principal/conversation/workspace/mode/intended recipient; audit relabeled requests 24/24 without rejection.",
+            "Multi-instance initialization transiently drops/recreates generation triggers; no lost generation increments or stale-send bypass observed, but transactional/idempotent schema installation is still required before product integration."
+          ],
+          "p1_effect": "supporting only; R31 remains the required P1 pre-context admissibility proof"
+        }
+      ]
+    },
+    {
+      "id": "context_packing",
+      "required": true,
+      "status": "ready_e1",
+      "prior_evidence_families": [
+        "context.serialization.boundary",
+        "memory.context.prompt_injection"
+      ],
+      "integration_rule": "R29 sub-2dd80e4a13a44743 is ACCEPT_E1 for the formal source-labeled context behavior/governed-cost scope. P1 integration must invoke the xiaoyu-memory-context-v1 renderer from inside the final R31-style atomic admissibility/text snapshot so that provenance fields and user_state/user_history/user_conflict/conversation_history semantics survive without reopening the gate-to-pack TOCTOU window. Context packing never receives inadmissible candidates.",
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p1_context_pack_contract_20261027",
+        "metrics": "governance/lead_workspaces/p1_context_pack_contract_20261027/p1_context_pack_contract_metrics.json",
+        "expected_schema": "xiaoyu-p1-context-pack-contract-e0",
+        "replication_required": false
+      },
+      "supporting_submission": "sub-aa1fe228917049ec",
+      "depends_on_stages": [
+        "retrieval_admissibility"
+      ],
+      "accepted_semantic_submission": "sub-c45f14e770df403c",
+      "known_governance_incident": "governance/PAID_DIRECT_CALL_POLICY_INCIDENT_20261027.md",
+      "accepted_submission": "sub-2dd80e4a13a44743",
+      "family": "context.p1.behavioral_budget_proxy",
+      "accepted_governed_replay_submission": "sub-2dd80e4a13a44743",
+      "supporting_lead_e0": [
+        {
+          "name": "exact_authority_atomic_formal_context",
+          "metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-exact-authority-atomic-formal-context-e0-v1"
+        },
+        {
+          "name": "canonical_state_atomic_context",
+          "metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-canonical-state-atomic-context-composite-e0-v1"
+        }
+      ]
+    },
+    {
+      "id": "canonical_current_atomic_context_bridge",
+      "required": true,
+      "status": "ready_e1",
+      "integration_rule": "R43 sub-c05ef75c0a734911 is ACCEPT_E1 for authoritative touched-scope reconciliation across canonical current/conflict/history materialization. Materialization emits the complete touched-scope set independently of nonempty document groups, and atomic reconciliation replaces each touched scope with its complete new snapshot including []. Independent audit reproduced the frozen artifact, passed 64/64 fresh holdout versus 24/64 pre-repair baseline, plus 32/32 rollback/scope/principal boundary cases. This closes stale scope residue for SET->CLEAR, last-source deletion, conflict/quarantine-to-empty and unrelated-scope preservation. The disclosed upstream scope-relocation boundary remains P2.",
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028",
+        "metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+        "expected_schema": "xiaoyu-p1-canonical-state-atomic-context-composite-e0-v1",
+        "replication_required": false,
+        "historical_replication_backlog_id": "R39",
+        "historical_replication_outcome": "NEEDS_WORK sub-e5ed325ebfac4932; active remediation moved to R43"
+      },
+      "supporting_lead_e0": [
+        {
+          "name": "canonical_slot_stale_sibling_falsifier",
+          "metrics": "governance/lead_workspaces/p1_canonical_slot_evidence_20261028/canonical_slot_evidence_metrics.json",
+          "expected_schema": "xiaoyu-p1-canonical-slot-evidence-e0-v1"
+        },
+        {
+          "name": "exact_authority_atomic_formal_context",
+          "metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+          "expected_schema": "xiaoyu-p1-exact-authority-atomic-formal-context-e0-v1"
+        }
+      ],
+      "depends_on_stages": [
+        "typed_state_projection",
+        "global_source_aware_retrieval",
+        "retrieval_admissibility",
+        "context_packing"
+      ],
+      "representation_contract": {
+        "current": "CANONICAL_CURRENT per-slot state evidence",
+        "conflict": "CANONICAL_CURRENT unresolved-conflict evidence",
+        "raw_user_source": "SOURCE/history only",
+        "assistant_source": "conversation_history",
+        "atomic_boundary": "admissibility + authoritative text + formal context serialization"
+      },
+      "remediation_backlog_id": "R43",
+      "known_later_blockers": [
+        "sub-e5ed325ebfac4932"
+      ],
+      "accepted_submission": "sub-c05ef75c0a734911",
+      "family": "pipeline.p1.touched_scope_empty_reconciliation",
+      "advisories": [
+        "P2: upstream scope relocation/change remains a distinct boundary; R43 guarantees complete replacement for the authoritative touched scopes it is given.",
+        "R43 ACCEPT_E1 covers authoritative touched-scope empty replacement. It does not prove that a surviving multi-event raw SOURCE/history message is safe after partial sibling erasure; R45 owns that provenance/context separation boundary."
+      ]
+    },
+    {
+      "id": "erasure_restore_reconciliation",
+      "required": true,
+      "status": "ready_e1",
+      "prior_evidence_families": [
+        "memory.erasure.rehydrate",
+        "privacy.erasure.canonical_lineage"
+      ],
+      "integration_rule": "R45 ACCEPT_E1: validated raw evidence_quote/source plaintext remain sealed non-model-visible provenance; model-visible canonical memory exposes event-local op/slot/value semantics plus opaque quote/source hashes. Fresh frozen Research evidence and independent audit support that representation boundary. P1 integration also requires the frozen Lead event-local-history bridge: untouched source history may retain the existing raw representation, but a source touched by event-level erasure/invalidation becomes raw-provenance-only and exposes surviving event-local history semantics selected by trusted erasure lineage. Together these close R44 wide/adjacent quote resurrection and the message-level raw-history partial-erasure path while preserving trusted effective_at stale-rekey rejection, restart, surviving SET/CLEAR semantics and genuine newer cross-conversation reaffirmation. No physical source/backup erase or low-entropy hash secrecy claim.",
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p1_erasure_restore_gate_20261027",
+        "metrics": "governance/lead_workspaces/p1_erasure_restore_gate_20261027/p1_erasure_restore_gate_metrics.json",
+        "expected_schema": "xiaoyu-p1-erasure-restore-reconciliation-e0",
+        "replication_required": false
+      },
+      "depends_on_stages": [
+        "typed_state_projection",
+        "global_source_aware_retrieval"
+      ],
+      "supporting_lead_e0": [
+        {
+          "name": "post_reconcile_erasure_fence_freshness",
+          "metrics": "governance/lead_workspaces/p1_erasure_fence_freshness_20261027/erasure_fence_freshness_metrics.json",
+          "expected_schema": "xiaoyu-erasure-fence-freshness-race-e0-v1"
+        },
+        {
+          "name": "r45_quote_separated_provenance_materialization",
+          "metrics": "governance/lead_workspaces/p1_r45_quote_separated_materialization_20261028/r45_quote_separated_materialization_metrics_v2.json",
+          "expected_schema": "xiaoyu-r45-quote-separated-materialization-lead-e0-v2"
+        },
+        {
+          "name": "r45_partial_erasure_raw_history_falsifier",
+          "metrics": "governance/lead_workspaces/p1_r45_partial_erasure_raw_history_20261028/r45_partial_erasure_raw_history_falsifier_metrics.json",
+          "expected_schema": "xiaoyu-r45-partial-erasure-raw-history-falsifier-e0-v1"
+        },
+        {
+          "name": "r45_event_local_history_bridge",
+          "metrics": "governance/lead_workspaces/p1_r45_event_local_history_bridge_20261028/r45_event_local_history_bridge_metrics.json",
+          "expected_schema": "xiaoyu-r45-partial-erasure-event-local-history-bridge-e0-v1",
+          "required_for_finalization": true
+        }
+      ],
+      "required_freshness_semantics": {
+        "plain_revision_equality_alone": "insufficient",
+        "required": "linearizable fence freshness across revision validation plus model-visible serialization",
+        "provider_call_under_fence_lock": false,
+        "next_access_after_later_tombstone": "must fail closed until reconcile"
+      },
+      "remediation_backlog_id": "R45",
+      "known_nonpass_evidence": [
+        {
+          "submission": "sub-d1f66f68b42541a5",
+          "level": "EVIDENCE_ONLY",
+          "finding": "revision-only freshness cannot prevent late canonical-source rehydrate after reconcile"
+        },
+        {
+          "submission": "sub-20f62a5c76704e9b",
+          "finding": "Fresh 64-case multi-event sibling test: deleting event A removed A source identity but A plaintext remained model-visible through surviving B/C event records 64/64 because each sibling duplicated the full source text.",
+          "promotion_effect": "R41 may remain bounded single-event evidence, but P1 erasure integration is blocked until R42 prospectively validates projected per-event materialization plus scope/seal safety."
+        }
+      ],
+      "required_ingress_semantics": {
+        "tombstoned_source_id": "reject",
+        "new_source_after_deletion": "requires trusted issuer observation of current deletion scope/key fence",
+        "missing_or_stale_ack": "reject",
+        "legacy_bypassed_row": "filter on read as defense in depth"
+      },
+      "known_later_blockers": [
+        "sub-df9a424799fb446e",
+        "sub-7247623e964946bd",
+        "sub-a22bcd5d53de47fb"
+      ],
+      "supporting_needs_work_submission": "sub-7247623e964946bd",
+      "local_falsifiers": [
+        {
+          "metrics": "governance/workspaces/fish-c0c5eb2144a14d36/audit_wide_quote_results.json",
+          "truth_key": "postdelete_deleted_marker_leaks",
+          "expected": 80,
+          "blocks": [
+            "R44 model-visible projection_text containing evidence_quote verbatim"
+          ]
+        }
+      ],
+      "accepted_submission": "sub-a650809e040046aa",
+      "audit": {
+        "reviewer": "xy-auditor-independent-20261026-01",
+        "review_id": "review-666472161432409f",
+        "material_findings": 0,
+        "advisory_findings": 2,
+        "reason": "Independent byte verification, unchanged 96-case prospective rerun, and a separately pre-frozen 64-case blind holdout all close the prior R44 sibling-plaintext P1 with zero observed P0/P1. Two observed retry/hash boundaries are P2 only and nonblocking under AUDIT_POLICY."
+      },
+      "required_integration_e0_verified": [
+        {
+          "metrics": "governance/lead_workspaces/p1_r45_event_local_history_bridge_20261028/r45_event_local_history_bridge_metrics.json",
+          "schema": "xiaoyu-r45-partial-erasure-event-local-history-bridge-e0-v1",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "ci_integrity",
+      "required": true,
+      "status": "ready_e1",
+      "accepted_submission": "sub-fc06b3ec2b554566",
+      "integration_rule": "ACCEPT_E1 sub-fc06b3ec2b554566 is the P1 CI claim: exact required-gate membership and content hashes are frozen and verified before execution. Later R15/R28/R32 adversarial work found runtime mutation, pyc, symlink/direct-read and child-interpreter bypasses under a stronger hostile-local-writer threat model. ADR-010 stops P1 expansion into a bespoke process sandbox; those findings remain P2 hardening debt and must not be described as covered by the P1 CI claim.",
+      "advisories": [
+        "P2: sub-f3e2d4b5587144ae — runtime execution-integrity threat model escapes one-time preflight.",
+        "P2: sub-a215980365ec476c — transitive closure/runtime hardening incomplete.",
+        "P2: sub-429ea6c452ac44d7 — post-preflight symlink replacement bypass.",
+        "P2: sub-1d0e40a9a0cb4586 — held-source current-process repair still bypassed by child Python interpreters.",
+        "Do not claim resistance to a hostile local writer during execution; reopen only with a standard isolation mechanism."
+      ],
+      "decision_ref": "governance/decisions/ADR-010-p1-ci-runtime-stop-loss.md"
+    },
+    {
+      "id": "portable_snapshot",
+      "required": false,
+      "status": "ready_e1",
+      "integration_rule": "Single authoritative SQLite online-backup portability is ACCEPT_E1 for its tested scope. Importer retry/metadata TOCTOU remain P2 debt and must be closed before stronger production claims.",
+      "accepted_submission": "sub-08300cd8e3e44f62",
+      "advisories": [
+        "Late destination inspection failure can leave a non-retryable partial home (P2).",
+        "Preflight-to-import metadata TOCTOU / metadata digest scope remains advisory (P2)."
+      ]
+    }
+  ],
+  "global_rules": {
+    "benchmark_scoring_policy": "plans/P1_BENCHMARK_SCORING_POLICY_20261027.md",
+    "reuse_catalog": "governance/REUSE_CATALOG.json",
+    "architecture_decisions": "governance/decisions/",
+    "no_e2_claim_until_all_required_stages_unblocked": true,
+    "authority_non_amplification": "Authority is bound at trusted write/source ingress; derived summaries, repeated text, model confidence and tool echo cannot silently upgrade it.",
+    "pre_context_admissibility": "Every model-visible memory record must pass deterministic principal/scope/authority/lifecycle admission before context packing.",
+    "p2_followups_not_p1_blockers": [
+      "R23",
+      "R24",
+      "R25"
+    ],
+    "p3_held_interop": [
+      "R26"
+    ],
+    "trust_layer_gap_closure": "plans/P1_TRUST_LAYER_EXTERNAL_GAP_CLOSURE_20261027.md",
+    "exact_authority_context_taxonomy": [
+      "user_state",
+      "user_history",
+      "user_conflict",
+      "conversation_history"
+    ],
+    "atomic_formal_context_metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+    "current_state_representation": "CANONICAL_CURRENT per-slot; raw user messages are SOURCE/history only",
+    "canonical_state_atomic_context_metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+    "independent_cross_stage_replication": "R39 required before P1 freeze because Lead E0 found material composition-only leaks."
+  }
+}

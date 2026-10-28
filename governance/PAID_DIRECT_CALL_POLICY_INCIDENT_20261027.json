@@ -1,0 +1,503 @@
+{
+  "schema": "xiaoyu-paid-direct-policy-incident-v1",
+  "policy_epoch": 1793088025.885803,
+  "policy_epoch_local": "2026-10-27T16:00:25.885803+08:00",
+  "require_proxy_tag": true,
+  "detected_direct_scopes": 35,
+  "totals": {
+    "calls": 600,
+    "committed": 600,
+    "raw": 922643,
+    "prompt": 775245,
+    "completion": 147398,
+    "hit": 21888,
+    "miss": 753357
+  },
+  "first_direct_local": "2026-10-27T16:09:00.656178+08:00",
+  "last_direct_local": "2026-10-27T21:48:55.616023+08:00",
+  "scopes": [
+    {
+      "budget_scope": "direct:halumem_relation-support_gate_#_#",
+      "calls": 48,
+      "committed": 48,
+      "raw": 114447,
+      "prompt": 101656,
+      "completion": 12791,
+      "hit": 0,
+      "miss": 101656,
+      "first_at": 1793088540.6561775,
+      "last_at": 1793088638.80128
+    },
+    {
+      "budget_scope": "direct:synthetic_role_relabel_#_correct_assistant",
+      "calls": 8,
+      "committed": 8,
+      "raw": 851,
+      "prompt": 832,
+      "completion": 19,
+      "hit": 0,
+      "miss": 832,
+      "first_at": 1793089549.1364863,
+      "last_at": 1793089568.3040893
+    },
+    {
+      "budget_scope": "direct:synthetic_role_relabel_#_mismatched_assistant_as_user",
+      "calls": 8,
+      "committed": 8,
+      "raw": 856,
+      "prompt": 816,
+      "completion": 40,
+      "hit": 0,
+      "miss": 816,
+      "first_at": 1793089550.0645185,
+      "last_at": 1793089569.212954
+    },
+    {
+      "budget_scope": "direct:synthetic_role_relabel_#_actual_user",
+      "calls": 8,
+      "committed": 8,
+      "raw": 856,
+      "prompt": 816,
+      "completion": 40,
+      "hit": 0,
+      "miss": 816,
+      "first_at": 1793089551.044464,
+      "last_at": 1793089570.1841073
+    },
+    {
+      "budget_scope": "direct:halumem_paired_answer_#_#",
+      "calls": 20,
+      "committed": 20,
+      "raw": 63456,
+      "prompt": 50792,
+      "completion": 12664,
+      "hit": 0,
+      "miss": 50792,
+      "first_at": 1793089620.6084807,
+      "last_at": 1793089678.4192457
+    },
+    {
+      "budget_scope": "direct:halumem_paired_judge_#_#",
+      "calls": 12,
+      "committed": 12,
+      "raw": 28737,
+      "prompt": 18095,
+      "completion": 10642,
+      "hit": 0,
+      "miss": 18095,
+      "first_at": 1793089681.5573804,
+      "last_at": 1793089723.6607087
+    },
+    {
+      "budget_scope": "direct:halumem_relation_gate_small_#_#",
+      "calls": 30,
+      "committed": 30,
+      "raw": 71869,
+      "prompt": 63841,
+      "completion": 8028,
+      "hit": 0,
+      "miss": 63841,
+      "first_at": 1793089718.84102,
+      "last_at": 1793089771.5914016
+    },
+    {
+      "budget_scope": "direct:halumem_relation_gate_answer_#_#",
+      "calls": 40,
+      "committed": 40,
+      "raw": 65758,
+      "prompt": 57166,
+      "completion": 8592,
+      "hit": 0,
+      "miss": 57166,
+      "first_at": 1793089807.795256,
+      "last_at": 1793089874.1764688
+    },
+    {
+      "budget_scope": "direct:role_consistency_behavior",
+      "calls": 72,
+      "committed": 72,
+      "raw": 20303,
+      "prompt": 19632,
+      "completion": 671,
+      "hit": 4608,
+      "miss": 15024,
+      "first_at": 1793089827.8992698,
+      "last_at": 1793089933.2808323
+    },
+    {
+      "budget_scope": "direct:halumem_relation_gate_judge_#_#",
+      "calls": 24,
+      "committed": 24,
+      "raw": 30072,
+      "prompt": 19221,
+      "completion": 10851,
+      "hit": 0,
+      "miss": 19221,
+      "first_at": 1793089875.8043492,
+      "last_at": 1793089928.9752314
+    },
+    {
+      "budget_scope": "direct:halumem_composite_holdout_relation_#_#",
+      "calls": 20,
+      "committed": 20,
+      "raw": 47432,
+      "prompt": 42159,
+      "completion": 5273,
+      "hit": 0,
+      "miss": 42159,
+      "first_at": 1793090205.7777812,
+      "last_at": 1793090240.1084964
+    },
+    {
+      "budget_scope": "direct:halumem_composite_answer_#_#",
+      "calls": 40,
+      "committed": 40,
+      "raw": 52229,
+      "prompt": 43234,
+      "completion": 8995,
+      "hit": 0,
+      "miss": 43234,
+      "first_at": 1793090267.027549,
+      "last_at": 1793090328.1640885
+    },
+    {
+      "budget_scope": "direct:halumem_composite_judge_#_#",
+      "calls": 20,
+      "committed": 20,
+      "raw": 27491,
+      "prompt": 16804,
+      "completion": 10687,
+      "hit": 0,
+      "miss": 16804,
+      "first_at": 1793090330.3694372,
+      "last_at": 1793090376.466365
+    },
+    {
+      "budget_scope": "direct:halumem_soft_metadata_plain_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 25430,
+      "prompt": 20668,
+      "completion": 4762,
+      "hit": 0,
+      "miss": 20668,
+      "first_at": 1793091813.2627368,
+      "last_at": 1793091837.0431423
+    },
+    {
+      "budget_scope": "direct:halumem_soft_metadata_metadata_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 49435,
+      "prompt": 44377,
+      "completion": 5058,
+      "hit": 1280,
+      "miss": 43097,
+      "first_at": 1793091839.8600135,
+      "last_at": 1793091864.2781763
+    },
+    {
+      "budget_scope": "direct:halumem_soft_metadata_judge_#_#",
+      "calls": 8,
+      "committed": 8,
+      "raw": 17723,
+      "prompt": 11496,
+      "completion": 6227,
+      "hit": 0,
+      "miss": 11496,
+      "first_at": 1793091867.438372,
+      "last_at": 1793091892.1431081
+    },
+    {
+      "budget_scope": "direct:halumem_metadata_confirm_plain_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 26342,
+      "prompt": 21298,
+      "completion": 5044,
+      "hit": 0,
+      "miss": 21298,
+      "first_at": 1793092042.2184265,
+      "last_at": 1793092067.677948
+    },
+    {
+      "budget_scope": "direct:halumem_metadata_confirm_source_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 30779,
+      "prompt": 25850,
+      "completion": 4929,
+      "hit": 1280,
+      "miss": 24570,
+      "first_at": 1793092070.6541412,
+      "last_at": 1793092095.9869158
+    },
+    {
+      "budget_scope": "direct:halumem_metadata_confirm_lifecycle_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 47130,
+      "prompt": 42146,
+      "completion": 4984,
+      "hit": 1280,
+      "miss": 40866,
+      "first_at": 1793092098.8142164,
+      "last_at": 1793092123.5842853
+    },
+    {
+      "budget_scope": "direct:halumem_metadata_confirm_combined_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 49938,
+      "prompt": 45022,
+      "completion": 4916,
+      "hit": 1280,
+      "miss": 43742,
+      "first_at": 1793092126.0200222,
+      "last_at": 1793092149.2603977
+    },
+    {
+      "budget_scope": "direct:halumem_metadata_confirm_judge_#_#",
+      "calls": 10,
+      "committed": 10,
+      "raw": 25482,
+      "prompt": 16732,
+      "completion": 8750,
+      "hit": 0,
+      "miss": 16732,
+      "first_at": 1793092151.7655272,
+      "last_at": 1793092184.5944393
+    },
+    {
+      "budget_scope": "direct:r13_semantic_text_only",
+      "calls": 32,
+      "committed": 32,
+      "raw": 7990,
+      "prompt": 7798,
+      "completion": 192,
+      "hit": 0,
+      "miss": 7798,
+      "first_at": 1793097837.9544926,
+      "last_at": 1793097891.8313348
+    },
+    {
+      "budget_scope": "direct:r13_semantic_authority_aware",
+      "calls": 32,
+      "committed": 32,
+      "raw": 13018,
+      "prompt": 12826,
+      "completion": 192,
+      "hit": 0,
+      "miss": 12826,
+      "first_at": 1793097838.8570452,
+      "last_at": 1793097892.9130461
+    },
+    {
+      "budget_scope": "direct:r13_query_expansion",
+      "calls": 4,
+      "committed": 4,
+      "raw": 1952,
+      "prompt": 1120,
+      "completion": 832,
+      "hit": 0,
+      "miss": 1120,
+      "first_at": 1793098023.443862,
+      "last_at": 1793098028.7723815
+    },
+    {
+      "budget_scope": "direct:r13_semantic_slot_prospective",
+      "calls": 6,
+      "committed": 6,
+      "raw": 2753,
+      "prompt": 2219,
+      "completion": 534,
+      "hit": 0,
+      "miss": 2219,
+      "first_at": 1793098224.4448833,
+      "last_at": 1793098230.1207058
+    },
+    {
+      "budget_scope": "direct:r13_slot_fallback",
+      "calls": 3,
+      "committed": 3,
+      "raw": 1518,
+      "prompt": 1219,
+      "completion": 299,
+      "hit": 0,
+      "miss": 1219,
+      "first_at": 1793098336.5246751,
+      "last_at": 1793098339.0206108
+    },
+    {
+      "budget_scope": "direct:r13_slot_ood_forced",
+      "calls": 2,
+      "committed": 2,
+      "raw": 770,
+      "prompt": 637,
+      "completion": 133,
+      "hit": 0,
+      "miss": 637,
+      "first_at": 1793098398.9166505,
+      "last_at": 1793098399.6300306
+    },
+    {
+      "budget_scope": "direct:r13_slot_ood_abstain",
+      "calls": 3,
+      "committed": 3,
+      "raw": 1405,
+      "prompt": 1132,
+      "completion": 273,
+      "hit": 0,
+      "miss": 1132,
+      "first_at": 1793098400.3227615,
+      "last_at": 1793098402.655867
+    },
+    {
+      "budget_scope": "direct:r14_multislot_clause",
+      "calls": 9,
+      "committed": 9,
+      "raw": 4749,
+      "prompt": 3798,
+      "completion": 951,
+      "hit": 0,
+      "miss": 3798,
+      "first_at": 1793098745.5418806,
+      "last_at": 1793098753.9905457
+    },
+    {
+      "budget_scope": "direct:r14_implicit_multislot",
+      "calls": 6,
+      "committed": 6,
+      "raw": 3886,
+      "prompt": 2741,
+      "completion": 1145,
+      "hit": 640,
+      "miss": 2101,
+      "first_at": 1793098822.9220374,
+      "last_at": 1793098829.7556207
+    },
+    {
+      "budget_scope": "direct:r14_variable_cardinality",
+      "calls": 4,
+      "committed": 4,
+      "raw": 2631,
+      "prompt": 1947,
+      "completion": 684,
+      "hit": 384,
+      "miss": 1563,
+      "first_at": 1793098941.7150877,
+      "last_at": 1793098944.7759583
+    },
+    {
+      "budget_scope": "direct:r14_unknown_ordinal",
+      "calls": 3,
+      "committed": 3,
+      "raw": 2067,
+      "prompt": 1308,
+      "completion": 759,
+      "hit": 256,
+      "miss": 1052,
+      "first_at": 1793099039.8274953,
+      "last_at": 1793099042.227346
+    },
+    {
+      "budget_scope": "direct:r15_unknown_slot_registry",
+      "calls": 40,
+      "committed": 40,
+      "raw": 21038,
+      "prompt": 20518,
+      "completion": 520,
+      "hit": 9344,
+      "miss": 11174,
+      "first_at": 1793099404.5909033,
+      "last_at": 1793099439.010888
+    },
+    {
+      "budget_scope": "direct:r16_structured_event_candidate",
+      "calls": 12,
+      "committed": 12,
+      "raw": 16519,
+      "prompt": 11750,
+      "completion": 4769,
+      "hit": 1536,
+      "miss": 10214,
+      "first_at": 1793108143.5741043,
+      "last_at": 1793108164.7274823
+    },
+    {
+      "budget_scope": "direct:r18_context_behavior",
+      "calls": 16,
+      "committed": 16,
+      "raw": 45731,
+      "prompt": 43579,
+      "completion": 2152,
+      "hit": 0,
+      "miss": 43579,
+      "first_at": 1793108916.9276462,
+      "last_at": 1793108935.6160228
+    }
+  ],
+  "known_current_p1_invalid_attempts": {
+    "R16": "direct:r16_structured_event_candidate; NONPASS already superseded by R27",
+    "R18": "direct:r18_context_behavior; retained non-promotable, superseded by R29"
+  },
+  "accepted_e1_audit": [
+    {
+      "submission_id": "sub-36ee5113b63e42ef",
+      "family": "retrieval.longtail.1000cap",
+      "relation": "accepted before proxy-only epoch / local"
+    },
+    {
+      "submission_id": "sub-b2146407c7094527",
+      "family": "model.deepseek.zh_event_parser",
+      "relation": "accepted before proxy-only epoch"
+    },
+    {
+      "submission_id": "sub-e73d88bade244116",
+      "family": "pipeline.deepseek.response_validation",
+      "relation": "accepted before proxy-only epoch"
+    },
+    {
+      "submission_id": "sub-61510bd4934141f3",
+      "family": "benchmark.meme.nl_state_extraction",
+      "relation": "accepted before proxy-only epoch"
+    },
+    {
+      "submission_id": "sub-a79b217c6b514957",
+      "family": "pipeline.deepseek.event_ledger",
+      "relation": "accepted before proxy-only epoch"
+    },
+    {
+      "submission_id": "sub-fc06b3ec2b554566",
+      "family": "ci.p1.integrity_contract",
+      "relation": "post-epoch deterministic local; no paid model evidence"
+    },
+    {
+      "submission_id": "sub-4642b7fe04994bd6",
+      "family": "retrieval.source_aware.persistent",
+      "relation": "post-epoch deterministic local; no paid model evidence"
+    },
+    {
+      "submission_id": "sub-08300cd8e3e44f62",
+      "family": "archive.single_sqlite.portability",
+      "relation": "post-epoch deterministic local; no paid model evidence"
+    },
+    {
+      "submission_id": "sub-176d99a46bda427e",
+      "family": "pipeline.conflict.resolution.auditlog",
+      "relation": "post-epoch deterministic local; no paid model evidence"
+    },
+    {
+      "submission_id": "sub-9662b50e11864b35",
+      "family": "pipeline.authority.trusted_message",
+      "relation": "post-epoch deterministic local; manifest states no model/API"
+    }
+  ],
+  "accepted_e1_reversal_required": false,
+  "accepted_e1_reversal_reason": "No current ACCEPT_E1 materially depends on a post-policy-epoch direct paid call: API-dependent accepted claims were accepted before the proxy-only epoch; later accepted claims are local deterministic/offline.",
+  "remediation": {
+    "gateway": "research_api.py now rejects any non-proxy scope before reservation/provider when require_proxy_tag=true",
+    "internal_tag": "local-budget-proxy:xiaoyu",
+    "live_negative": "direct reserve rejected with DB delta=0"
+  }
+}

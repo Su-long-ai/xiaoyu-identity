@@ -1,0 +1,72 @@
+{
+  "schema": "t19-hindsight-cache-probe-v1",
+  "health": {
+    "status": "healthy",
+    "database": "connected",
+    "db_acquire_ms": 0.0,
+    "db_pool_waiting": 0,
+    "db_pool_in_use": 0,
+    "db_pool_max": 100,
+    "db_pool_idle": 5
+  },
+  "bank": "hindsight_synthetic_cache_20261027",
+  "baseline_hindsight_ledger": {
+    "n": 14,
+    "total": 24885,
+    "hit": 13691,
+    "miss": 10338
+  },
+  "before_memory_count": 0,
+  "retain_http_status": 200,
+  "retain_seconds": 3.543,
+  "retain_response_summary": {
+    "keys": [
+      "async",
+      "bank_id",
+      "items_count",
+      "operation_id",
+      "operation_ids",
+      "success",
+      "usage"
+    ]
+  },
+  "after_memory_count": 2,
+  "tea_recall_contains_oolong": true,
+  "restaurant_recall_contains_sostanza": true,
+  "delete_http_status": 200,
+  "delete_response": {
+    "success": true,
+    "message": "Cleared 2 memory unit(s) from bank 'hindsight_synthetic_cache_20261027'",
+    "deleted_count": 2
+  },
+  "final_memory_count": 0,
+  "new_hindsight_calls": [
+    {
+      "rowid": 1244,
+      "call_id": "api-885f64a3725744f5897531d918f4f97f",
+      "status": "COMMITTED",
+      "reserved_tokens": 21548,
+      "prompt_tokens": 3153,
+      "completion_tokens": 175,
+      "actual_tokens": 3328,
+      "cache_hit_tokens": 2944,
+      "cache_miss_tokens": 209,
+      "reasoning_tokens": 0,
+      "error_class": null
+    }
+  ],
+  "new_hindsight_usage": {
+    "calls": 1,
+    "committed": 1,
+    "raw_tokens": 3328,
+    "prompt_tokens": 3153,
+    "cache_hit_tokens": 2944,
+    "cache_miss_tokens": 209,
+    "cache_hit_rate": 0.9337139232477006
+  },
+  "limitations": [
+    "Single structurally repeated synthetic retain; not a LongMemEval quality result.",
+    "Cache rate is attributed only to new ledger rows tagged proxy:hindsight after this probe baseline.",
+    "Local embedding startup and retrieval compute are not provider token costs."
+  ]
+}

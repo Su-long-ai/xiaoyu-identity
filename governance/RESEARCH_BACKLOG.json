@@ -1,0 +1,1803 @@
+{
+  "schema": "xiaoyu-research-backlog-v1",
+  "source_plan": "D:\\dsh-fish\\plans\\小鱼_研发计划_2026-10-26.csv",
+  "status": "ACTIVE_CANDIDATES_WITH_REUSE_FREEZE_AND_LIFECYCLE",
+  "candidates": [
+    {
+      "id": "R38",
+      "plan": "P1",
+      "priority": -8,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.scope_ack_admission",
+      "lineage": "memory.erasure.canonical_lineage",
+      "lane": "safety_privacy",
+      "hypothesis": "Scope-bound trusted fence acknowledgements at canonical-source admission, combined with tombstoned-source fail-closed packing and fence-bound outbound authorization, prevent re-keyed stale replay and late rehydrate resurrection while preserving unrelated-scope updates and genuine post-erasure reaffirmation.",
+      "falsifier": "Any stale restore is exposed before reconcile; a tombstone can commit between authorization and model-visible/provider exposure without fail-closed rejection; the same tombstoned canonical source can be reinserted and later retrieved; a newly keyed stale source lacking current scope/key fence acknowledgement is accepted as reaffirmation; wrong-identity/tampered fence tokens are accepted; crash leaves partial active erasure state; or unrelated/current genuinely reaffirmed evidence is lost.",
+      "baseline": "R12 sub-d1f66f68b42541a5 independently passed restore-before-activate, crash atomicity and linearized read freshness, then falsified revision-only completeness with 80/80 late same-source rehydrate. Existing sub-1af4f3b9c4cd4bf4 supports scope/key-aware observed deletion ACK. R38 prospectively composes only the missing write/pack/send closure instead of re-running already-passed restore/crash work.",
+      "reuse_plan": {
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_backup",
+          "cognee_provenance",
+          "retrieval_admissibility_reference",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse existing XiaoYu core, SQLite transactions/backup, canonical provenance lineage, retrieval admissibility and origin-bound authority references. Prior work separately proves descendant closure erasure, trusted current epoch/ACK semantics, and read/send freshness. The remaining XiaoYu-specific gap is one end-to-end contract that binds deletion-scope ACK to canonical-source admission, fails closed if a tombstoned source reaches packing, and carries the exact fence revision/packed bytes to outbound authorization.",
+        "mode": "extend",
+        "new_dependencies": [],
+        "no_new_infrastructure": true,
+        "prior_work": {
+          "novelty": "The prior R12 found revision-only check-to-exposure and late-rehydrate gaps; earlier canonical-lineage and epoch-fence studies solve those pieces separately. This experiment prospectively composes them at three authorization boundaries—scope-aware trusted source admission, tombstoned-hit fail-closed packing, and fence-bound outbound send—and tests re-keyed stale replay plus unrelated-scope preservation. It does not introduce a new store, model, provenance engine, or authorization service.",
+          "replication_of": null,
+          "reviewed": [
+            "fish-6973844d0891454f",
+            "fish-72caf9a1f8c741d6",
+            "fish-6c4a798372744e1b",
+            "fish-da5b7cfc783048ae"
+          ]
+        }
+      },
+      "cost_rule": "No paid model calls are required. Use fixed synthetic SQLite/fence/device-ack tests and real process-death injection. Freeze prospective attack seeds/cases before the final run. Stop if the design requires distributed consensus, a new key service or holding a fence lock across a provider/model call.",
+      "required_prospective_attacks": [
+        "same tombstoned canonical source_id late reinsert is rejected at trusted ingress",
+        "new source_id with stale/missing deletion scope-key acknowledgement is rejected",
+        "new source_id with trusted current scope-key acknowledgement is accepted as genuine reaffirmation",
+        "wrong identity/scope/key and tampered acknowledgement fail closed",
+        "tombstoned or stale-ACK source that bypasses ingress is rejected before model-visible packing",
+        "fence advance after pack but before provider entry invalidates the bound outbound authorization",
+        "unrelated-scope evidence remains exact",
+        "current acknowledged source survives replay/restart without authority amplification"
+      ],
+      "known_supporting_evidence": [
+        "governance/lead_workspaces/p1_erasure_restore_gate_20261027/p1_erasure_restore_gate_metrics.json",
+        "governance/lead_workspaces/p1_erasure_fence_freshness_20261027/erasure_fence_freshness_metrics.json",
+        "sub-d1f66f68b42541a5",
+        "sub-1af4f3b9c4cd4bf4"
+      ],
+      "adopted_lease_id": "fish-9d5cdea1bc8e4d0c",
+      "note": "Formalizes the already-active self-directed Reuse-Guard-v2 closure lease; do not create a second R38 experiment.",
+      "success_scope": "R38 closes only the R12 falsifier surface. Restore activation, descendant reconciliation and crash atomicity remain inherited supporting evidence and must stay valid in regression, but are not re-opened as separate architecture.",
+      "completion_level": "NEEDS_WORK",
+      "completion_submission": "sub-df9a424799fb446e",
+      "completion_note": "Independent audit reproduced a fresh-ACK stale-payload re-key resurrection through the normal candidate API: erased old seq/text became model-visible 24/24 and repeated after a second fence advance. R38 is falsified and non-promotable.",
+      "superseded_by": "R41"
+    },
+    {
+      "id": "R37",
+      "plan": "P1",
+      "priority": -7,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_whole_message_replication",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "A minimal caller-bound whole-message singleton extractor—exactly one trusted source message per authenticated model request, no model-visible source/case/authority identifier, full grounded SET/CLEAR sequence returned in source order, caller-owned source binding followed by the accepted strict validator—can reproducibly recover complete multi-event current/history semantics on a fresh pre-frozen Chinese challenge set without clause decomposition, positional batching, or final-per-slot weakening.",
+      "falsifier": "On a fresh target frozen before calls, any required event is omitted or unsupported; same-slot SET->SET/SET->CLEAR/CLEAR->SET ordering is wrong; multi-slot events are lost; conditions/negations/examples/third-party text are promoted incorrectly; punctuation-free or cross-clause constructions materially fail; model-supplied identity/authority survives; async request completion changes source association; or bounded authenticated-proxy cost is unacceptable.",
+      "baseline": "R34 authenticated whole singleton was structurally safe but NONPASS 29/31 on one frozen set due two omitted transient same-slot events. R36 then independently froze a matched 24-case set where the unchanged whole-message singleton achieved 24/24 exact, and a separate 16-case high-density whole challenge achieved 16/16 exact; clause fan-out was also 24/24 but cost ~3.2x raw tokens and 3x calls, so it was NONPASS/no-benefit. These are supporting prior results only; R37 requires a fresh prospective freeze after its own lease.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the simplest R34/R27 caller-bound singleton transport, accepted strict validator, governed proxy and trusted message identity. R37 adds no architecture: it is an intentional fresh falsification/replication on harder semantic-scope cases to resolve whether R34's 2/31 omission was instability or a systematic whole-message limitation.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-5419de17435f4f39",
+            "fish-7219cfe054c74b6c",
+            "fish-a905a6ccf9a047a4",
+            "fish-2a603a0dd9dc4654",
+            "fish-143718d249b744d0",
+            "fish-f151c637c99f4882"
+          ],
+          "novelty": "This is an explicitly intentional replication of the minimal whole-message singleton after conflicting prospective evidence: R34 missed 2/31 sequence-completeness cases, while two later pre-frozen whole-message baselines achieved 24/24 and 16/16. The new set targets semantic-scope and dense multi-event cases without adding clause routing or weakening the target.",
+          "replication_of": "fish-7219cfe054c74b6c"
+        }
+      },
+      "cost_rule": "Freeze a fresh 32–48 case target before calls. Prefer one authenticated local-budget-proxy:xiaoyu call per message; use stable prefix and bounded concurrency. Target <=25k new raw tokens. Fail-fast on first structural source-binding error; semantic misses may continue only to estimate a predeclared acceptance bound.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu:r37_whole_singleton_replication_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 25000,
+        "promotion_rule": "All evidence must come from the fresh R37 pre-freeze, COMMITTED authenticated http_proxy calls under the exact scope and postdate the R37 lease. R36 baseline calls are prior evidence only."
+      },
+      "required_fresh_families": [
+        "dense same-slot three/four-event chains",
+        "SET->CLEAR and CLEAR->SET within one message",
+        "two or more distinct slots in one message",
+        "cross-clause condition that must not become unconditional state",
+        "cross-clause negation and quoted/example decoys",
+        "third-party state adjacent to first-person state",
+        "pronoun/anaphora requiring whole-message context",
+        "punctuation-free multi-event message",
+        "repeated phrase/ambiguous evidence grounding must fail closed or remain exact"
+      ],
+      "fallback": "R35 final-per-slot remains HOLD only if R37 is prospectively falsified and Lead explicitly accepts weaker projection semantics.",
+      "completion_level": "NEEDS_WORK",
+      "completion_submission": "sub-8d76a88595ba4b34",
+      "completion_note": "Scientific output reproduced 32/32 exact in both paid rounds, but promotion evidence violated the pre-frozen contract: scope mismatch and 26,525 raw tokens > 25,000 cap. Historical evidence remains non-promotable; do not rewrite the contract post hoc.",
+      "superseded_by": "R40"
+    },
+    {
+      "id": "R36",
+      "plan": "P1",
+      "priority": -6,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.clause_bound_singleton",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "Deterministically splitting one trusted source message into punctuation-bounded clause spans and issuing one governed caller-bound model request per clause, with the full message supplied only as context and the caller requiring each evidence_quote to lie inside its assigned clause before merging events in source order, recovers multi-event completeness lost by R34 while preserving negated/third-party no-event behavior and trusted message identity at bounded cost.",
+      "falsifier": "Clause splitting changes trusted message identity; a response quote escapes its caller-owned clause; clause completion order changes merged source order; same-slot SET->SET/SET->CLEAR/CLEAR->SET completeness is lost; negated/example/third-party clauses create unsupported state; a clause boundary destroys a required semantic relation; or authenticated proxy token/call cost is materially unacceptable versus the P1 singleton baseline.",
+      "baseline": "R34 authenticated one-message-per-request transport eliminated cross-message identity ambiguity but was NONPASS on the prospectively frozen full event-sequence target: 29/31 outcome exact, with both observed failures omitting the earlier event of a same-slot two-event message while final state remained correct. R35 final-per-slot is held as a weaker fallback, not run concurrently.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the R34 singleton caller-owned transport, accepted validator/proxy and immutable message identity. Add only caller-owned deterministic punctuation clause spans plus clause-local quote containment and source-order merge to recover within-message completeness; no new model, store, validator or batching identity protocol.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-5419de17435f4f39",
+            "fish-7219cfe054c74b6c",
+            "fish-2a603a0dd9dc4654",
+            "fish-143718d249b744d0",
+            "fish-f151c637c99f4882"
+          ],
+          "novelty": "Prior caller-bound designs bind at whole-message request granularity or batch across messages. R36 preserves one trusted message identity but decomposes only caller-owned internal clause spans, forces accepted evidence to remain inside the assigned span, and merges by source order to target R34's within-message completeness failure without reintroducing cross-message positional identity.",
+          "replication_of": null
+        }
+      },
+      "note": "This backlog row formalizes an already-active self-directed reuse-v2 lease; it does not create a second experiment.",
+      "required_independent_audit_attacks": [
+        "cross-clause condition: antecedent condition in clause N controls whether apparent SET/CLEAR in clause N+1 is current or merely conditional",
+        "cross-clause negation: negator/denial in one clause scopes over a state-looking phrase in another clause",
+        "quoted/example text containing punctuation delimiters must not become current user state",
+        "pronoun/anaphora whose referent is outside target_clause but inside full message",
+        "repeated identical evidence phrase in more than one clause: conservative rejection is allowed but silent wrong attribution is not",
+        "punctuation-free long clause with multiple same-slot transitions",
+        "semicolon/full-stop variants and Chinese/ASCII punctuation must preserve source order",
+        "full_message context must not cause an event from another clause to be duplicated into target_clause"
+      ],
+      "audit_note": "Do not add these attacks to the already-frozen candidate set after seeing its results. Independent auditor must create fresh OOD cases so clause-bound safety is tested against semantic scope crossing punctuation boundaries.",
+      "adopted_lease_id": "fish-a905a6ccf9a047a4",
+      "completion_level": "NONPASS",
+      "completion_submission": "sub-27ac8b992cf54ba5",
+      "completion_note": "Clause fan-out produced no quality gain on the pre-frozen matched set: whole-message singleton 24/24 exact and clause 24/24 exact, while calls increased 24→72 and raw tokens 9,322→30,094. A separately frozen 16-case higher-density whole-message challenge was also 16/16 exact. Stop-loss: no clause router.",
+      "superseded_by": "R37"
+    },
+    {
+      "id": "R35",
+      "plan": "P1",
+      "priority": -12,
+      "status": "done",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_final_projection",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "For P1 current-state memory, each trusted source message should yield at most one final effective grounded SET/CLEAR per slot after deterministic source-anchor ordering, while the immutable raw message remains separate SOURCE/history evidence. On a fresh pre-frozen Chinese challenge, caller-bound extraction plus final-per-slot canonicalization should preserve exact current state, distinct slots, CLEAR semantics, source grounding and authority without claiming lossless structured transient history inside one message.",
+      "falsifier": "A fresh pre-frozen case has the wrong final per-slot projection, misses a distinct slot, accepts unsupported/third-party state, loses a valid CLEAR, or source grounding/authority fails; deterministic canonicalization changes under event-array reorder, is non-idempotent, or makes two materially different final source meanings collide; or the approach only works by re-scoring the already-seen R34 set rather than passing fresh prospective data.",
+      "baseline": "R34 is NONPASS under its frozen full intra-message event-sequence metric: 29/31 outcome exact, 31/31 final state exact. Post-hoc sensitivity (not promotion evidence) shows all 31/31 saved outputs match a final-per-slot canonical projection and all accepted evidence quotes remain grounded. R19 ACCEPT_E1 already separates immutable message source identity from a canonical semantic projection set, so R35 changes projection semantics rather than source identity.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse caller-bound singleton transport, accepted strict grounding/response validation and R19 message-source/projection-set architecture. Add only a deterministic final-per-slot canonicalizer over validated same-message events and a fresh prospective semantic test. Raw source text remains immutable; no new storage, model, vector, graph or identity protocol.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "First pass Lead deterministic canonicalizer tests and saved-output sensitivity with zero paid calls. Then freeze a fresh case set and target before any HTTP call. Use authenticated local-budget-proxy:xiaoyu, one message per request, <=40k new raw tokens, and stop on first material final-projection/source/authority falsifier.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu:r35_final_projection_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 40000,
+        "promotion_rule": "Fresh prospective target is final-per-slot projection frozen before calls; all evidence calls must be COMMITTED http_proxy rows under the exact scope and postdate the lease."
+      },
+      "prior_work": [
+        "R19",
+        "R27",
+        "R30",
+        "R33",
+        "R34",
+        "sub-e73d88bade244116",
+        "sub-8f901ac959a541bc"
+      ],
+      "novelty": "R35 does not reinterpret R34 as a pass. It prospectively changes the P1 semantic contract: transient same-slot transitions within one immutable utterance remain in raw source history, while typed current-state projection stores only the final effective operation per slot. The target and fresh cases must be frozen before new model calls.",
+      "lead_sensitivity": "governance/lead_workspaces/r34_net_effect_sensitivity_20261027/r34_net_effect_sensitivity.json",
+      "required_attacks": [
+        "same-slot SET->SET final value",
+        "same-slot SET->CLEAR final absence",
+        "same-slot CLEAR->SET final value",
+        "two or more distinct slots in one message",
+        "negated/example same-slot decoys",
+        "third-party same-slot no-event",
+        "event-array reorder before canonicalization",
+        "duplicate exact event idempotence",
+        "grounded but wrong-final-value decoy must fail prospective semantics"
+      ],
+      "hold_reason": null,
+      "unlock_condition": "SATISFIED_BY_R40_PROSPECTIVE_SEMANTIC_NONPASS",
+      "unlock_evidence": {
+        "r40_workspace": "governance/workspaces/fish-e9ee70c06f134185",
+        "r40_metrics": "governance/workspaces/fish-e9ee70c06f134185/r40_paid_metrics.json",
+        "r40_nonpass": "governance/workspaces/fish-e9ee70c06f134185/R40_NONPASS_REPORT.md",
+        "finding": "Two pre-frozen rounds each reached only 29/32 full event-sequence exact while final state was 32/32; same three transient-history omissions repeated. Evidence contract was clean: 64/64 COMMITTED exact-scope HTTP-proxy calls, 24,813 raw <=32,000."
+      },
+      "semantic_contract": {
+        "structured_current_state": "For each trusted source message and slot, retain at most the final effective grounded SET/CLEAR projection after deterministic source-anchor ordering.",
+        "raw_history": "Preserve the immutable full source message as SOURCE/history evidence. Do not discard or rewrite the utterance.",
+        "explicit_nonclaim": "P1 does not claim a lossless structured timeline of transient same-slot states that occur and are superseded within one source message.",
+        "cross_message_history": "Across messages, validated final per-slot projections remain temporally ordered typed-state history under trusted effective_at.",
+        "why": "R40 prospectively falsified reliable complete intra-message event enumeration while preserving exact final state. Raw source retains the evidence needed for later historical inspection without forcing unstable transient events into canonical state."
+      },
+      "freshness_rule": "R35 promotion must use a fresh case set not present in R34/R36/R37/R40 and freeze final-per-slot scoring before provider calls. R40 outputs are motivation only, never R35 promotion evidence.",
+      "completion_submission": "sub-2b974fd436624d87",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent ACCEPT_E1 is pinned into the P1 integration contract; do not auto-assign this research question again."
+    },
+    {
+      "id": "R34",
+      "plan": "P1",
+      "priority": -4,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_singleton_proxy",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "Processing exactly one trusted source message per governed model request, with no model-visible source/case/authority identifier and with the caller binding the returned event body directly to that request's trusted message before the accepted strict validator, removes cross-message response identity ambiguity by construction; authenticated proxy replay on a fresh negated-decoy prospective set must preserve semantic/state accuracy at bounded cost, while request concurrency may reorder completion but never source association.",
+      "falsifier": "A model response can mutate a different trusted source than the request that produced it; model-supplied identity/authority fields survive; asynchronous completion reorders source association; fresh same-slot/negated-decoy singleton semantics materially fail; malformed/empty transport responses become implicit no-event success; or authenticated proxy cost/latency is unacceptable for P1 despite stable-prefix caching/concurrency.",
+      "baseline": "R27 caller-bound singleton E0 achieved 48/48 prospective semantics with 15,709 raw tokens and structural fuzz safety, but its historical paid rows lacked authenticated HTTP-proxy provenance and are non-promotable. R30 recovered batching efficiency but failed 32/32 same-slot cross-position swap audits. R33 opaque request tokens were stopped offline because token/body reassignment remains a semantic ambiguity.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the R27 single-message caller-owned identity boundary, accepted strict validator and governed proxy. Repair only governance provenance and prospective coverage: one HTTP model request carries one source message, caller transport state owns the source association, and optional concurrency maps futures directly to caller-owned cases. No microbatch identity protocol, new model, store or validator.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Reuse R27 structural/fuzz artifacts and do no paid batching research. Freeze a fresh same-slot negated-decoy singleton set before calls, use authenticated local-budget-proxy:xiaoyu with a stable system prefix, and measure both raw tokens and cache telemetry. Target <=40k new raw tokens; stop immediately on any source-association or semantic falsifier.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu:r34_singleton_proxy_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 40000,
+        "promotion_rule": "All E1 call IDs must be COMMITTED, gateway_origin=http_proxy, postdate the lease, and match the declared run scope."
+      },
+      "prior_work": [
+        "R16",
+        "R27",
+        "R30",
+        "R33",
+        "sub-e73d88bade244116"
+      ],
+      "novelty": "R34 abandons in-prompt multi-source identity entirely. It pays the bounded raw-token premium to keep identity in the trusted request/response transport boundary, while using concurrency and prefix caching only as performance optimizations that cannot change source association.",
+      "known_blockers": [
+        "sub-81f1bb933ea44684",
+        "sub-a9ea4d7c39204f9d"
+      ],
+      "required_attacks": [
+        "async completion order reversal under caller future->source binding",
+        "cross-request body routing negative control must be detectable as an explicit caller bug in the harness, never inferred from model IDs",
+        "model-supplied id/source/authority injection",
+        "empty/malformed/no-event distinction",
+        "fresh same-slot positive-vs-negated-decoy semantic cases",
+        "multi-event single-message ordering"
+      ],
+      "successor_if_nonpass": "R35",
+      "completion_level": "NONPASS",
+      "completion_submission": "sub-5f0b94dee5074f52",
+      "completion_note": "Authenticated singleton transport/source binding worked structurally, but the prospectively frozen full intra-message event-sequence metric failed on 2/7 completed multi_set_order cases; fail-fast stopped at 31/32 calls. Final state was 31/31 exact, which is sensitivity evidence only, not a promotion.",
+      "superseded_by": "R36"
+    },
+    {
+      "id": "R33",
+      "plan": "P1",
+      "priority": -4,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_opaque_microbatch",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "A caller-issued request-local opaque binding token for each input message, returned as an exact bijection with event bodies and discarded after caller mapping to trusted message identity, removes positional response-order identity ambiguity while retaining microbatch efficiency; reordered complete items must be harmless, and missing/duplicate/unknown bindings must fail the whole batch closed.",
+      "falsifier": "A reordered complete response item can change which trusted source receives its events; missing, duplicated or unknown binding tokens are accepted; a caller token becomes a durable source/authority identifier; same-slot cross-grounded decoy cases still produce wrong state at material rate in a freshly frozen prospective semantic set; or authenticated proxy microbatch cost loses the material batching advantage.",
+      "baseline": "R30 sub-a9ea4d7c39204f9d NEEDS_WORK: 32/32 same-slot cross-grounded complete-body swaps were accepted because position+slot+lexical quote did not prove response-position identity. R30's 48/48 prospective semantic result and ~2.76x raw-token advantage over singleton remain valid historical efficiency evidence.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the accepted semantic model family, strict validator, governed HTTP proxy and trusted caller identity. Change only the request transport association: issue per-message opaque request-local bind tokens, require an exact response-token bijection, map by token rather than list position, then discard the token before durable source/state handling. No new model, storage, identity system or validator framework.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "First pass the frozen R30 independent same-slot swap counterexample and binding mutation fuzz offline. Then freeze a fresh decoy-heavy prospective set and run only through authenticated local-budget-proxy:xiaoyu. Target <=40k new raw tokens; stop on the first structural binding falsifier.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu:r33_opaque_microbatch_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 40000,
+        "promotion_rule": "All E1 call IDs must be COMMITTED, gateway_origin=http_proxy, postdate the lease, and match the declared run scope."
+      },
+      "prior_work": [
+        "R16",
+        "R27",
+        "R30",
+        "sub-e73d88bade244116"
+      ],
+      "novelty": "R33 does not infer identity from list position or event content. It uses caller-created request-local transport bindings as an exact bijection, while durable source identity remains the accepted R19 trusted message identity. Semantic misclassification remains a separately measured model property rather than being mislabeled as transport identity safety.",
+      "known_blocker": "sub-a9ea4d7c39204f9d",
+      "required_attacks": [
+        "same-slot complete-item reorder with mutually mentioned/negated values",
+        "bind token swap/duplicate/drop/unknown injection",
+        "response item reorder independent of input order",
+        "multi-event item reorder",
+        "no-event item omission",
+        "fresh decoy-heavy same-slot prospective semantics"
+      ],
+      "completion_level": "LEAD_E0_NONPASS",
+      "completion_note": "Lead offline falsifier: request-local opaque bind tokens made complete-item reorder harmless and rejected missing/duplicate/unknown tokens, but wrong token/body reassignment was accepted 32/32 on the independent same-slot negated-decoy cases (0/32 exact). Stop-loss before paid calls.",
+      "lead_falsifier": "governance/lead_workspaces/r33_opaque_bind_falsification_20261027/r33_opaque_bind_falsification_metrics.json",
+      "superseded_by": "R34"
+    },
+    {
+      "id": "R32",
+      "plan": "P1",
+      "priority": -3,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "cost_reliability",
+      "family": "ci.runtime.lexical_source_identity",
+      "lineage": "ci.runtime.integrity",
+      "lane": "safety_privacy",
+      "hypothesis": "Binding CI runtime authorization to the original lexical project-local path and the preflight-held source bytes, rather than to a post-swap resolved symlink target, prevents a closure-listed .py from being replaced after preflight by a symlink/junction/reparse path to external malicious source while preserving the accepted four-gate CI contract and normal listed-module execution.",
+      "falsifier": "After preflight, a listed project-local source path can be replaced by a symlink/junction/reparse point or alternate path identity and runpy/direct source execution still runs bytes other than the held verified source; a closure-unlisted local import executes; listed benign modules fail under the frozen clean suite; or the fix expands trust to external/unlisted source.",
+      "baseline": "R28 NEEDS_WORK sub-429ea6c452ac44d7: .pyc bypass was closed, but auditor replaced closure-listed victim.py after preflight with a symlink to external malicious .py; runpy.run_path on the same lexical project path exited 0 and executed malicious bytes because the hook resolved outside ROOT and lost the original project-path identity.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "stdlib_hashlib",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the existing accepted CI integrity contract and R28 source-only loader. Change only runtime path identity: preserve lexical project-local closure identity before resolving links and execute listed code from held verified bytes or reject post-preflight direct path reads; no new sandbox, package manager or supply-chain platform.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Offline deterministic filesystem tests only; no model/API calls. Freeze symlink/junction/reparse replacement schedules and clean compatibility cases before scoring.",
+      "known_blocker": "sub-429ea6c452ac44d7",
+      "required_attacks": [
+        "post-preflight project-local .py -> external symlink then runpy.run_path",
+        "post-preflight project-local .py -> alternate in-root symlink target",
+        "direct source open/exec after held-byte preflight",
+        "sourceless/cached pyc regression",
+        "unlisted project-local import regression"
+      ],
+      "completion_level": "NONPASS_E0",
+      "completion_submission": "sub-1d0e40a9a0cb4586",
+      "completion_note": "R32 closed several current-process held-source routes but child Python interpreters can still re-read post-preflight mutated source (2/2 bypasses). Lead stop-loss ADR-010 narrows P1 CI to the independently accepted static exact-membership/hash trust root; hostile-local-writer runtime/process isolation is P2/external-sandbox scope.",
+      "p2_debt": true,
+      "decision_ref": "governance/decisions/ADR-010-p1-ci-runtime-stop-loss.md"
+    },
+    {
+      "id": "R30",
+      "plan": "P1",
+      "priority": -2,
+      "status": "superseded",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_positional_microbatch",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "A caller-owned positional microbatch protocol in which the model returns exactly one event body per ordered input message, with no model-owned IDs, and the caller deterministically binds each response position to its trusted source message before the accepted strict validator, preserves R27's structural identity safety while recovering batch efficiency; cardinality/order/grounding anomalies must fail the whole affected batch closed.",
+      "falsifier": "On a newly frozen prospective set, a missing/extra/reordered output can be silently bound to the wrong source; evidence_quote from one message is accepted for another; model-supplied id/source/authority fields survive; semantic/state accuracy materially regresses from the frozen local baseline; or authenticated HTTP-proxy cost is not materially below R27 single-message use while preserving correctness.",
+      "baseline": "R27 EVIDENCE_ONLY: caller-owned single-message identity achieved 48/48 with 15,709 tokens but ~2.59x matched post-hoc batch tokens; historical paid rows have no authenticated HTTP-proxy origin and are non-promotable. R16 batch IDs had omission failures. Preserve both as historical baselines without reusing prospective cases.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the accepted model family, strict validator, governed HTTP proxy and caller-owned identity boundary. Change only batching: bind responses by checked position/cardinality to trusted input messages and reject any cross-message grounding or structural drift; no new model, storage, parser framework or database.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Freeze fresh cases/prompt/scoring before calls. Use authenticated HTTP proxy local-budget-proxy:xiaoyu plus X-XiaoYu-Research-Run:r30_positional_microbatch_v1. Start with a small prospective microbatch protocol, target <=40k raw tokens, stop on the first structural falsifier.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu:r30_positional_microbatch_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 40000,
+        "promotion_rule": "All E1 call IDs must be COMMITTED, gateway_origin=http_proxy, postdate the lease, and exactly match the declared run scope."
+      },
+      "prior_work": [
+        "R16",
+        "R27",
+        "sub-e73d88bade244116"
+      ],
+      "novelty": "Replaces probabilistic model-owned IDs and expensive single-message calls with caller-owned positional identity plus exact cardinality/grounding checks; this is neither the R16 ID batch nor a rerun of R27 single-message.",
+      "superseded_by": "R33",
+      "governance_note": "NEEDS_WORK sub-a9ea4d7c39204f9d: positional binding accepted 32/32 harmful same-slot cross-grounded complete-body swaps. R33 replaces position identity with caller-issued request-local opaque binding bijection."
+    },
+    {
+      "id": "R31",
+      "plan": "P1",
+      "priority": -1,
+      "status": "done",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_retrieval",
+      "family": "retrieval.admissibility.atomic_pack",
+      "lineage": "memory.retrieval.admissibility",
+      "lane": "safety_privacy",
+      "hypothesis": "Performing the final principal/scope/authority/lifecycle admissibility recheck, authoritative text fetch and context serialization inside one SQLite read snapshot/transaction (or equivalently binding a checked metadata generation through the actual serialization boundary) prevents the independently reproduced R22 gate-to-pack TOCTOU leak while preserving eligible FTS5 retrieval and source/authority metadata.",
+      "falsifier": "A second connection can mutate lifecycle to deleted, principal ownership, scope/authority, metadata presence, or evidence text after candidate selection such that forbidden text is serialized; an allowed concurrent mutation causes silent stale disclosure; transaction/snapshot semantics block or corrupt legitimate reads; eligible evidence is lost beyond the frozen baseline; or packing reverts to prompt-only suppression.",
+      "baseline": "R22 NEEDS_WORK sub-c6cba211e8d545cd: candidate recall/admissibility metrics reproduced, but auditor mutated lifecycle/principal/metadata after recall_v2 and before pack_context and leaked a forbidden marker in 3/3 classes because pack_context serialized stale returned dictionaries.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "sqlite_core",
+          "sqlite_fts5",
+          "retrieval_admissibility_reference",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse SQLite snapshot/transaction semantics, FTS5 relevance and the existing admissibility policy. Add only an atomic final admission-to-text-fetch-to-serialization boundary and concurrent mutation falsifiers; do not create a new authorization service, retrieval engine or database.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Deterministic local SQLite tests only; no paid model calls. Freeze concurrent mutation schedules before result scoring.",
+      "known_blocker": "sub-c6cba211e8d545cd",
+      "required_attacks": [
+        "lifecycle delete after candidate selection",
+        "principal swap after candidate selection",
+        "scope/authority metadata removal",
+        "text/metadata concurrent mutation immediately before serialization"
+      ],
+      "completion_submission": "sub-bae49e5ea2cb483f",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Accepted E1 is already pinned into the P1 integration contract; no further auto-assignment."
+    },
+    {
+      "id": "R10",
+      "plan": "P1",
+      "priority": 0,
+      "capability": "cost_reliability",
+      "family": "ci.p1.integrity_contract",
+      "lineage": "ci.p1.integrity_contract",
+      "lane": "main_bottleneck",
+      "hypothesis": "Binding the complete required gate-script membership and hashes into one frozen CI integrity contract prevents integrity_files omission and same-name gate substitution from passing while preserving deterministic clean 4/4 execution.",
+      "falsifier": "Removing a required gate from integrity coverage or substituting same-name gate bytes can still yield PASS, or the stronger contract rejects the clean frozen suite.",
+      "baseline": "NEEDS_WORK sub-839517a177254863: integrity_files membership is independently mutable and permits erasure_e0.py coverage omission plus substitution.",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "stdlib_hashlib",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Keep only the accepted minimal gate membership/hash trust root; no general supply-chain subsystem is required.",
+        "no_new_infrastructure": true
+      },
+      "status": "done",
+      "completion_submission": "sub-fc06b3ec2b554566",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Accepted E1 exists for this backlog capability; do not auto-assign the same research question again."
+    },
+    {
+      "id": "R11",
+      "plan": "P1",
+      "priority": 0,
+      "capability": "memory_evidence",
+      "family": "pipeline.source_identity.v6_compat",
+      "lineage": "memory.pipeline.source_identity",
+      "lane": "main_bottleneck",
+      "hypothesis": "A v6 full-textual-span source identity combined with a transactional v5 compatibility layer that maps active legacy keys to v6 IDs and preserves unreconstructable v5 conflict keys as authoritative quarantine aliases can close the known multi-slot/value-op source-identity failures without resurrecting legacy conflicts or falsely blocking genuinely v6-only sources.",
+      "falsifier": "Migrated active state differs from v5; an old same-payload retry duplicates state; an old/v6 same-source retry bypasses a legacy quarantine; a divergent old retry fails to create v6 conflict; a partial migration exposes active partial state; or a genuinely v6-only maximal-span source is falsely blocked by an unrelated legacy key.",
+      "baseline": "NEEDS_WORK sub-ce0e2a744b164029 and sub-d3c9a84fee674f30 falsified v4/v5 concrete source-ID implementations. EVIDENCE_ONLY sub-73c8ae57379349d3 supports v6 full-span + legacy alias logic over 20,000 sources/600 streams/12,000 mixed legacy sources but lacked a writer. Lead E0 v6_source_identity_compat_writer_20261027 adds a transactional writer: 240 active migrated state-exact, 60/60 legacy quarantines preserved for old+v6 retries, 100/100 same-payload retries deduplicated, divergent retry conflicts, 4/4 fault rollbacks, 80/80 v6-only nested events admitted.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse SQLite transactions and generic provenance concepts. Custom work is limited to XiaoYu immutable textual source identity plus versioned legacy-key quarantine semantics required by previously observed source-drift failures.",
+        "no_new_infrastructure": true
+      },
+      "status": "done",
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/v6_source_identity_compat_writer_20261027",
+        "metrics": "v6_compat_writer_metrics.json",
+        "replication_required": true
+      },
+      "completion_submission": "sub-eeedb16cb03e4180",
+      "completion_level": "EVIDENCE_ONLY",
+      "completion_note": "Transactional v5/v6 compatibility was strong but v6 source identity was subsequently falsified under slot-taxonomy expansion (800/800 identity instability); do not continue subject-span version patching."
+    },
+    {
+      "id": "R12",
+      "plan": "P1",
+      "priority": 0,
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.canonical_lineage",
+      "lineage": "memory.erasure.canonical_lineage",
+      "lane": "safety_privacy",
+      "hypothesis": "A durable canonical descendant lineage plus a trusted per-identity erasure fence, applied before restore activation and freshness-checked at every model-visible/retrieval authorization boundary, prevents stale backups and post-reconcile fence advances from resurrecting erased sources while preserving unrelated evidence and genuine post-erasure reaffirmation under a new source identity.",
+      "falsifier": "A restored stale snapshot can be queried before initial erasure reconciliation; a failed reconciliation exposes partial active state; the trusted fence can advance after reconciliation and stale model-visible/retrieval access still succeeds; erased source/managed descendant/FTS5 evidence remains after retry; unrelated evidence or a new-source reaffirmation is removed; or a fence for another identity is accepted.",
+      "baseline": "Earlier evidence: sub-682beac202bf4233 tombstone replay; sub-423eac6be1984555 canonical descendant closure. Lead restore E0: 120/120 pre-activation queries blocked and retry removed source+descendants+FTS5. New Lead freshness E0: after a second tombstone was committed post-reconciliation, the one-time gate exposed the newly erased source 200/200; requiring reconciled_fence_revision == current trusted fence revision blocked 200/200 before exposure and successful re-reconcile removed the source 200/200.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "sqlite_core",
+          "sqlite_backup",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse SQLite transactions/backup and generic provenance lineage. The only custom gap is XiaoYu restore-before-activate erasure-fence semantics tying canonical sources to managed descendants and preventing stale replay.",
+        "no_new_infrastructure": true
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p1_erasure_restore_gate_20261027",
+        "metrics": "p1_erasure_restore_gate_metrics.json",
+        "supporting_workspace": "governance/lead_workspaces/p1_erasure_fence_freshness_20261027",
+        "supporting_metrics": "erasure_fence_freshness_metrics.json",
+        "replication_required": true
+      },
+      "required_attacks": [
+        "query before initial restore reconciliation",
+        "mid-reconcile failure remains inactive",
+        "trusted fence advances after successful reconcile but before later retrieval/context exposure",
+        "old source descendants and FTS5 survive stale restore",
+        "wrong-identity fence",
+        "unrelated evidence preservation",
+        "new-source post-erasure reaffirmation preservation"
+      ],
+      "status": "retired",
+      "completion_level": "EVIDENCE_ONLY_FALSIFIER",
+      "completion_submission": "sub-d1f66f68b42541a5",
+      "completion_note": "R12 independently passed restore-before-activate, crash atomicity and linearized fence freshness, but falsified its own completeness: after clean reconcile a bypassed writer reinserted the same tombstoned canonical source_id without advancing fence revision and revision-only access leaked 80/80. Canonical-source ingress admission and trusted observed-fence proof for post-erasure new-source reaffirmation are additionally required.",
+      "superseded_by": "R38"
+    },
+    {
+      "id": "R14",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "memory_evidence",
+      "family": "context.p1.source_labeled_pack",
+      "lineage": "context.serialization",
+      "lane": "main_bottleneck",
+      "hypothesis": "A bounded whole-record JSON memory envelope that preserves source identity, source role, authority, temporal status and lifecycle can pack user-state plus assistant-history evidence without partial-record truncation, authority promotion or deleted/quarantined leakage, while keeping instruction text outside untrusted memory data.",
+      "falsifier": "Any selected record is truncated or loses mandatory provenance; assistant-origin evidence can be labeled user_state; deleted/quarantined evidence is packed; serialized payload exceeds its frozen budget; hostile record text escapes the JSON data structure; or the contract cannot preserve useful records under the existing context cap.",
+      "baseline": "EVIDENCE_ONLY sub-6ee1633159f54aad found V2 character slicing can produce invalid JSON and omit provenance; sub-21e00ca6ffdd4abf supplies behavioral prompt-injection signal. Lead offline E0 p1_context_pack_contract_20261027 passed 160 randomized long/hostile cases with complete bounded records and zero authority/lifecycle violations.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse existing identity state and provenance vocabulary; custom work is only the bounded model-facing serialization/authority contract, not another retrieval store or security framework.",
+        "no_new_infrastructure": true
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p1_context_pack_contract_20261027",
+        "metrics": "p1_context_pack_contract_metrics.json",
+        "replication_required": true
+      },
+      "completion_submission": "sub-aa1fe228917049ec",
+      "completion_level": "EVIDENCE_ONLY",
+      "completion_note": "Structural whole-record/source-labeled serialization closed locally: 24 group contract, 48 long-record boundary groups, 2000 fuzz, tamper and determinism. Remaining gap is model answer behavior + measured provider prompt usage, moved to R18."
+    },
+    {
+      "id": "R15",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "cost_reliability",
+      "family": "ci.runtime.transitive_closure",
+      "lineage": "ci.p1.runtime_integrity",
+      "lane": "main_bottleneck",
+      "hypothesis": "Freezing and holding read locks on the complete actually executed local Python dependency closure for every mandatory P1 gate, while enforcing isolated/no-site interpreter startup, prevents post-preflight mutation or startup-path injection from executing unhashed local code without expanding the minimal CI contract into a general supply-chain system.",
+      "falsifier": "Any project-local Python module executed by a mandatory gate is absent from the frozen hash/lock closure; any such module remains writable during gate execution; non-isolated startup can still run sitecustomize/PYTHONPATH code while CI reports PASS; or the stronger closure breaks the clean 4/4 mandatory gates.",
+      "baseline": "NEEDS_WORK sub-f3e2d4b5587144ae: independent audit found p1_model_repair.py, governance/research_api.py and D:/dsh-fish/model_adapter.py loaded outside the 14-file frozen/locked set; p1_model_repair.py accepted a GENERIC_WRITE handle during the exact hardened CI run while overall remained PASS 4/4.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "stdlib_hashlib",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Keep the accepted minimal local SHA/gate trust root. Extend only its execution-integrity boundary to the actually executed local import closure and isolated startup; do not add package signing, remote attestations, or a new supply-chain platform.",
+        "no_new_infrastructure": true
+      },
+      "completion_submission": "sub-a215980365ec476c",
+      "completion_level": "NEEDS_WORK",
+      "superseded_by": "R28",
+      "completion_note": "Independent audit found P1 unchecked-hash .pyc execution bypass; source-hash closure alone is insufficient."
+    },
+    {
+      "id": "R16",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.structured_event_candidate",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "A governed non-thinking DeepSeek event-candidate extractor that emits the exact batch interface {id, events:[SET/CLEAR with slot,value,evidence_quote]} can produce source-grounded candidate events with useful semantic/current-state accuracy on a frozen prospective Chinese set, while the accepted strict response validator independently quarantines malformed, ungrounded, duplicate or missing outputs before any source-identity/state mutation.",
+      "falsifier": "The extractor cannot reproducibly emit the required interface; grounded event/state accuracy fails to exceed the strongest retained deterministic baseline; unsupported events increase; evidence_quote is not target-grounded; or coupling to the accepted strict validator changes valid outputs or allows invalid batches through.",
+      "baseline": "ACCEPT_E1 sub-b2146407c7094527 proves a different {id,answer,evidence_index} memory-state QA/evidence-selection interface and cannot feed the event validator. ACCEPT_E1 sub-e73d88bade244116 proves the strict event-batch boundary but not upstream model semantics. NEEDS_WORK sub-f74d3199bbc347a4 preserves a 64-case governed {id,events} prospective raw set whose overall source-identity claim was later falsified; reuse it only as non-E1 baseline evidence before a focused prospective extraction claim.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the governed DeepSeek gateway, prior bounded semantic evidence and accepted strict validator. The missing capability is only the exact model-to-validator event-candidate interface and focused semantic/grounding evidence; no new model framework, store or validator is needed.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Reuse frozen raw responses first; only make new paid calls for a pre-frozen focused prospective set that cannot be answered from existing evidence.",
+      "completion_submission": "sub-81f1bb933ea44684",
+      "completion_level": "NONPASS",
+      "superseded_by": "R27",
+      "completion_note": "Prospective raw interface 88/96: all eight uncertainty/no-event IDs omitted; post-validator state remained fail-closed exact. Direct paid-call policy violation also invalidates promotion."
+    },
+    {
+      "id": "R17",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "memory_evidence",
+      "family": "pipeline.authority.trusted_message",
+      "lineage": "memory.pipeline.authority_projection",
+      "lane": "main_bottleneck",
+      "hypothesis": "Trusted local conversation metadata, not model-supplied role or authority fields, can deterministically bind validated v6 semantic events to user_state versus assistant conversation_history so assistant-origin candidates never mutate current user state, while message identity/sequence/content-hash inconsistencies fail closed.",
+      "falsifier": "An assistant-origin SET/CLEAR mutates user current state; forged model authority/source_role changes the result; a wrong message ID/sequence/content hash is accepted; duplicate trusted message identity with divergent content remains usable; replay duplicates state; or valid user events are rejected.",
+      "baseline": "Retrieval ACCEPT_E1 sub-4642b7fe04994bd6 separates confirmed user memories from assistant conversation history downstream, and EVIDENCE_ONLY sub-aa1fe228917049ec preserves those labels in context serialization, but no accepted P1 interface binds validated semantic events to authority from trusted local message metadata. Lead E0 trusted_authority_bridge_20261027 passed 300 cases, 0 assistant state leaks, 900/900 binding tamper rejection, 300/300 forged model role/authority ignored.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "strict_response_validator",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse existing local event actors, strict validated event candidates and provenance fields. Custom work is only the XiaoYu authority bridge that derives mutation rights from trusted message metadata; no new store, model or access-control platform.",
+        "no_new_infrastructure": true
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/trusted_authority_bridge_20261027",
+        "metrics": "trusted_authority_bridge_metrics.json",
+        "replication_required": true
+      },
+      "completion_submission": "sub-9662b50e11864b35",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent audit accepted trusted-message authority projection including late metadata conflict revocation."
+    },
+    {
+      "id": "R18",
+      "plan": "P1",
+      "priority": 0,
+      "status": "superseded",
+      "capability": "memory_evidence",
+      "family": "context.p1.behavioral_budget",
+      "lineage": "context.serialization",
+      "lane": "main_bottleneck",
+      "hypothesis": "The frozen whole-record source-labeled context envelope, extended to user_state / user_history / user_conflict / conversation_history, when consumed by the governed non-thinking answer model under measured prompt usage, preserves correct current-state versus historical-user versus assistant-history answers and abstains on unresolved user conflicts better than the old dump(records)[:2500] baseline without deleted/quarantined leakage or authority promotion.",
+      "falsifier": "On a pre-frozen prospective mixed-source set the candidate fails to improve answer/evidence exactness over the old character-sliced baseline; user_history or assistant history is presented as current; user_conflict yields a chosen current value instead of abstention/conflict language; deleted/quarantined evidence leaks; or measured prompt usage exceeds the frozen smoke budget.",
+      "baseline": "EVIDENCE_ONLY sub-aa1fe228917049ec closed the R14 whole-record structural boundary but did not test model answers/token usage. Lead context E0 now explicitly enforces four authority classes including historical user evidence and unresolved current user conflicts. Reuse the frozen structural pack unchanged except this authority taxonomy; compare model behavior against actual V2 dump(records)[:2500].",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "cognee_provenance",
+          "research_api_gateway"
+        ],
+        "gap": "Do not redesign context packing. Reuse the frozen R14 structural envelope and governed API; only measure the missing model-consumption, authority/abstention behavior and real prompt-token/cost boundary on prospective synthetic data.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Freeze cases/scoring and run local structural baselines first. Paid DeepSeek calls only for paired baseline/candidate prospective batches; target <=100k raw smoke tokens and stop immediately if a deterministic structural falsifier appears.",
+      "superseded_by": "R29",
+      "governance_note": "Semantic result later ACCEPT_E1, but post-epoch direct paid-call provenance is non-promotable for P1 integration; R29 is the compliant replay path."
+    },
+    {
+      "id": "R19",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "memory_evidence",
+      "family": "pipeline.source_message.projection_set",
+      "lineage": "memory.pipeline.source_identity",
+      "lane": "main_bottleneck",
+      "hypothesis": "Treating the trusted conversation message itself as the immutable source identity H(conversation_id,message_id), while storing the grounded SET/CLEAR interpretation as a separately hashed canonical projection sequence, preserves source identity across slot-taxonomy evolution and multi-event retries; changed/missing semantic projections or message metadata drift should quarantine the same source rather than create a new identity.",
+      "falsifier": "Taxonomy expansion changes source identity; event order alone creates a conflict; a missing/changed event silently replaces an accepted projection instead of quarantining the same message; two distinct messages alias; message text/sequence drift remains active; legitimate multi-event messages cannot be replayed deterministically; or authority projection cannot keep assistant messages out of user state.",
+      "baseline": "v3 embedded semantic slot in source ID; v4/v5/v6 moved toward textual subject anchors/spans. Lead falsifier v6_taxonomy_evolution_falsification_20261027 shows 800/800 immutable messages become invalid under taxonomy expansion and 800/800 reclassified slots get new source IDs. Lead source_message_projection_set_20261027 instead passed 500 order-insensitive multi-event retries, 800 taxonomy same-source conflicts, 400 omission conflicts, 300 message-drift conflicts and 300 distinct-message controls.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance",
+          "strict_response_validator"
+        ],
+        "gap": "Reuse trusted message identity, SQLite transactions, generic provenance and strict event grounding. Replace only the repeatedly falsified per-semantic-event source identity with a simpler message-source/projection-version boundary; do not add a new database or provenance platform.",
+        "no_new_infrastructure": true
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/source_message_projection_set_20261027",
+        "metrics": "source_message_projection_set_metrics.json",
+        "replication_required": true
+      },
+      "cost_rule": "Offline only unless a focused prospective extraction question remains after deterministic source/projection tests.",
+      "accepted_submission": "sub-8f901ac959a541bc"
+    },
+    {
+      "id": "R20",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "temporal_correction",
+      "family": "pipeline.state.generic_projection",
+      "lineage": "memory.pipeline.state_projection",
+      "lane": "main_bottleneck",
+      "hypothesis": "An ontology-agnostic deterministic state projector consuming trusted user-authority message projection sets can maintain current plus historical typed slot state under SET/CLEAR, trusted effective-time ordering, exact replay, same-time conflict abstention and source/projection drift quarantine without depending on MEME entities or task labels.",
+      "falsifier": "Open-world slot names fail; arrival order changes state; exact replay duplicates history; CLEAR leaves stale current value; same effective-time competing writes choose a winner instead of abstaining; assistant/deleted evidence mutates current state; same-source metadata/projection drift stays active; or as-of historical state is wrong.",
+      "baseline": "EVIDENCE_ONLY sub-9deed484ba674f03 and sub-a42694a77d1e4c17 support source-aware temporal/supersession semantics. ACCEPT_E1 sub-61510bd4934141f3 proves task-agnostic state operations help MEME Del/Cas/Abs but its dependency adapter is benchmark sidecar. Lead E0 generic_typed_state_projector_20261027 passes 600 open-world slots, effective-time/order/as-of/history checks, 250 CLEAR/conflict/authority/source-drift/replay/projection-conflict checks without a fixed ontology.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "cognee_provenance",
+          "graphiti_temporal"
+        ],
+        "gap": "Reuse trusted source/authority and generic temporal/provenance concepts. The custom gap is only the ontology-agnostic XiaoYu current/history projection and fail-closed conflict semantics; do not build a graph engine or ontology platform.",
+        "no_new_infrastructure": true
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/generic_typed_state_projector_20261027",
+        "metrics": "generic_typed_state_projector_metrics.json",
+        "replication_required": true
+      },
+      "cost_rule": "Offline deterministic replication first; no paid model calls are required to establish state-projection mechanics.",
+      "accepted_submission": "sub-b886dcf6c85c4471"
+    },
+    {
+      "id": "R21",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "capability": "memory_evidence",
+      "family": "security.memory.poisoning.lifecycle",
+      "lineage": "memory.security.poisoning",
+      "lane": "safety_privacy",
+      "hypothesis": "An origin-bound write admission plus XiaoYu source/authority validation can prevent a single low-trust or assistant/external memory injection from becoming authoritative user state or later steering an answer/action, while targeted repair removes poisoned descendants without damaging unrelated evidence.",
+      "falsifier": "A low-trust injected memory becomes user-authoritative; laundering through summary/repetition/tool echo increases authority; poisoned evidence reaches model-visible authoritative context; selective repair leaves a managed descendant retrievable; or repair removes unrelated legitimate evidence.",
+      "baseline": "Use MemSecBench/InjecMEM-style Write-Execute-Forget attacks and the origin-bound-authority literature as external falsifiers. Reuse R17 trusted-message authority and the accepted strict response validator rather than adding a new security framework.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "strict_response_validator",
+          "origin_bound_authority_reference",
+          "memsecbench_benchmark"
+        ],
+        "gap": "Reuse the existing validated-event/authority pipeline plus public memory-poisoning threat models. Custom work is only XiaoYu's origin-bound admission, non-amplification and selective-repair semantics; no new scanner or memory backend.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Start with deterministic/synthetic attacks and stored model outputs. Paid calls only for a pre-frozen minimal end-to-end steering set after write-path falsifiers pass.",
+      "phase_gate": "P1_REQUIRED",
+      "accepted_submission": "sub-d73a755de2ff460f"
+    },
+    {
+      "id": "R22",
+      "plan": "P1",
+      "priority": 0,
+      "status": "superseded",
+      "capability": "memory_retrieval",
+      "family": "retrieval.admissibility.principal_scope",
+      "lineage": "retrieval.admissibility",
+      "lane": "safety_privacy",
+      "hypothesis": "Separating relevance from admissibility and applying principal/scope/authority/lifecycle gates before context packing prevents relevant-but-inadmissible memories from entering model-visible context while preserving eligible single-user recall under the same FTS5 retrieval results.",
+      "falsifier": "Any wrong-principal, wrong-scope, deleted/quarantined or otherwise inadmissible evidence reaches model-visible context; a prompt-only policy is required to suppress it; eligible evidence is materially lost under the same retrieval candidates; or admissibility depends on model interpretation rather than trusted metadata.",
+      "baseline": "R09 proves source-aware retrieval semantics and R18 covers source-labeled context behavior, but neither formalizes principal/scope admissibility. Use the retrieval-admissibility external reference as the capability target without introducing a new authorization platform.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_fts5",
+          "retrieval_admissibility_reference"
+        ],
+        "gap": "Reuse current retrieval and context stages. Add only a deterministic pre-exposure admissibility policy over trusted principal/scope/authority/lifecycle metadata; no new search engine or policy service.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Offline deterministic candidate/exposure accounting first; no paid model calls required for the core non-exposure property.",
+      "phase_gate": "P1_REQUIRED",
+      "superseded_by": "R31",
+      "governance_note": "NEEDS_WORK sub-c6cba211e8d545cd independently reproduced gate-to-pack TOCTOU. R31 fixes only the atomic admission-to-serialization boundary."
+    },
+    {
+      "id": "R27",
+      "plan": "P1",
+      "priority": 0,
+      "status": "superseded",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_event_body",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "Moving immutable case/source identity out of model output and into the trusted caller, so each governed model request returns only a single message's {events:[SET/CLEAR...]} body that is deterministically wrapped with the caller-owned ID before the accepted strict validator, eliminates R16 batch-ID omission failures while preserving event semantics/grounding and fail-closed malformed-response handling at bounded proxy-governed cost.",
+      "falsifier": "On a newly frozen prospective set the single-message body still fails explicit no-event/uncertainty responses, event/state accuracy does not materially exceed the frozen deterministic baseline, caller binding can be overridden by model-supplied ID/authority fields, malformed/missing responses are converted into implicit empty events rather than explicit failure, strict-validator safety regresses, or proxy-governed cost exceeds the frozen smoke budget.",
+      "baseline": "R16 NONPASS sub-81f1bb933ea44684: eventful semantic+surface grounding 72/72 and post-validator state 96/96, but raw batch protocol only 88/96 because all 8 uncertainty IDs were omitted. Reuse accepted strict validator; do not reuse R16 cases as prospective evidence.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the accepted semantic model family, strict validator and governed API. Change only transport ownership: caller binds the immutable ID and the model emits one message's event body. Missing/malformed model output remains explicit failure, never synthesized semantic emptiness.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Freeze fresh cases/prompt/scoring first. All paid calls must use local-budget-proxy:xiaoyu; no direct ResearchApiBudget scope. Start with a small prospective protocol/cost pilot and stop on any structural falsifier.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu",
+        "phase": "smoke",
+        "max_raw_tokens": 100000,
+        "promotion_rule": "All declared call IDs must be COMMITTED in research_api_usage.sqlite3, postdate the lease, match proxy:xiaoyu/smoke, and remain within the declared cap."
+      },
+      "superseded_by": "R30",
+      "governance_note": "48/48 prospective scientific E0 retained. Paid calls spoofed proxy-shaped budget_scope through direct ResearchApiBudget; gateway_origin is absent, so they are non-promotable. R30 is the fresh authenticated HTTP-proxy remediation."
+    },
+    {
+      "id": "R28",
+      "plan": "P1",
+      "priority": 0,
+      "status": "superseded",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "cost_reliability",
+      "family": "ci.runtime.source_only_loading",
+      "lineage": "ci.p1.runtime_integrity",
+      "lane": "main_bottleneck",
+      "hypothesis": "A minimal source-only project-local Python loader that verifies and holds the frozen .py source bytes while rejecting sourceless/cached local bytecode closes the independently reproduced R15 unchecked-hash .pyc execution bypass without expanding the accepted four-gate CI contract or allowing unlisted project-local imports.",
+      "falsifier": "A malicious or stale project-local .pyc executes while its frozen .py source remains unchanged; a sourceless local bytecode module executes; an unlisted local source executes; source mutation/deletion escapes the frozen closure; startup-path injection executes; or any of the accepted four mandatory P1 gates regresses.",
+      "baseline": "R15 sub-a215980365ec476c was NEEDS_WORK: auditor reproduced malicious unchecked-hash __pycache__ bytecode execution with exit 0 while the allowlisted source hash remained valid.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "stdlib_hashlib",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Keep the accepted minimal P1 integrity contract and closure model. Add only verified source-only project-local import semantics so executable bytecode cannot bypass source hashing; do not create a general supply-chain framework.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Deterministic local Windows/Python tests only; no paid model calls. Freeze revised loader/runner before prospective .pyc, sourceless-bytecode, startup-path, mutation and clean-gate attacks.",
+      "superseded_by": "R32",
+      "governance_note": "NEEDS_WORK sub-429ea6c452ac44d7: post-preflight lexical project-local .py replaced by symlink to external malicious source was executed via runpy. R32 is the narrow lexical-path/held-byte remediation."
+    },
+    {
+      "id": "R29",
+      "plan": "P1",
+      "priority": 0,
+      "status": "done",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "context.p1.behavioral_budget_proxy",
+      "lineage": "context.serialization",
+      "lane": "main_bottleneck",
+      "hypothesis": "Running the already-frozen R18 candidate-versus-baseline context behavior protocol through the allowlisted local-budget-proxy:xiaoyu path, with prompt/case/scoring hashes unchanged and a separately frozen small supplemental holdout, reproduces the intended current/history/assistant/conflict answer and abstention behavior without deleted/quarantined leakage while producing policy-compliant measured token/cache/cost evidence.",
+      "falsifier": "The proxy-governed replay changes frozen prompt/case/scoring bytes, fails to reproduce the material R18 behavioral result, the fresh supplemental holdout exposes user_history/assistant/deleted/quarantined evidence as current or resolves conflicts instead of abstaining, provider usage cannot be tied to proxy:xiaoyu, or the frozen smoke cost bound is exceeded.",
+      "baseline": "R18 used a scientifically frozen paired protocol but its 16 calls were recorded under direct:r18_context_behavior after runtime_guard.require_proxy_tag=true. Those outputs are retained as non-promotable observational evidence; R29 is the compliant replay/confirmation path.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "cognee_provenance",
+          "research_api_gateway"
+        ],
+        "gap": "Reuse the frozen R18 context envelope, cases, scoring and governed model. Change no context architecture: repair only paid-call provenance by using proxy:xiaoyu and add a small pre-frozen supplemental holdout for fresh confirmation.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "All model calls must appear as budget_scope=proxy:xiaoyu. Exact frozen replay first, then only the pre-frozen supplemental holdout; target <=100k raw smoke tokens total and stop on any structural/policy mismatch.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible response id (api-...) used as E1 evidence.",
+        "budget_scope": "proxy:xiaoyu",
+        "phase": "smoke",
+        "max_raw_tokens": 100000,
+        "promotion_rule": "All declared call IDs must be COMMITTED in research_api_usage.sqlite3, postdate the lease, match proxy:xiaoyu/smoke, and remain within the declared cap."
+      },
+      "completion_submission": "sub-2dd80e4a13a44743",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Accepted E1 is already pinned into the P1 integration contract; no further auto-assignment."
+    },
+    {
+      "id": "R02",
+      "plan": "T04",
+      "priority": 1,
+      "capability": "memory_retrieval",
+      "family": "benchmark.synthetic_zh",
+      "lineage": "benchmark.synthetic",
+      "lane": "evaluation_data",
+      "hypothesis": "A Chinese multi-session synthetic benchmark can reliably catch fabricated recall, temporal updates and abstention errors.",
+      "falsifier": "Gold labels cannot be reproduced across seeds; incorrect behavior is not detected.",
+      "baseline": "Existing V2 twelve offline tests",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "omnimemeval",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the external benchmark harness and add only XiaoYu-specific Chinese continuity counterexamples that existing public coverage does not test.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R09",
+      "plan": "P1",
+      "priority": 1,
+      "capability": "memory_retrieval",
+      "family": "retrieval.source_aware.persistent",
+      "lineage": "retrieval.index.sourceaware",
+      "lane": "main_bottleneck",
+      "hypothesis": "A persistent source-aware evidence layer using SQLite FTS5 for lexical postings can recover old confirmed user memories and eligible assistant-origin conversation evidence without the newest-1000 cutoff, while XiaoYu authority/lifecycle policy keeps assistant guesses out of current user state and deletion/restart remain fail-closed.",
+      "falsifier": "FTS5-backed storage loses required user/assistant long-tail evidence, breaks authority/deletion/restart semantics, or materially regresses matched latency/correctness versus the handwritten posting prototype.",
+      "baseline": "Accepted retrieval.longtail.1000cap E1; Lead FTS5 de-duplication E0: 3202 docs, 180/180 retrieval, authority/delete/restart/high-DF PASS, median 3.668 ms p95 9.235 ms vs handwritten 5.37/13.54 ms.",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "sqlite_fts5",
+          "sqlite_core"
+        ],
+        "gap": "FTS5 supplies postings and document frequency; custom work is limited to source authority, lifecycle filtering, and evidence-aware ranking required by XiaoYu.",
+        "no_new_infrastructure": true
+      },
+      "status": "done",
+      "completion_submission": "sub-4642b7fe04994bd6",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Accepted E1 exists for this backlog capability; do not auto-assign the same research question again."
+    },
+    {
+      "id": "R13",
+      "plan": "P1",
+      "priority": 1,
+      "capability": "identity_continuity",
+      "family": "archive.single_sqlite.portability",
+      "lineage": "identity.archive.simplification",
+      "lane": "main_bottleneck",
+      "hypothesis": "A single authoritative SQLite online-backup snapshot can replace the future dual SQLite+JSON ZIP identity artifact, preserving concurrent snapshot consistency and restore semantics while eliminating cross-view/ZIP parser failure classes.",
+      "falsifier": "Under concurrent canonical writes the SQLite snapshot is inconsistent or non-restorable, required portability metadata cannot be represented/validated without a duplicate authoritative view, or a legacy requirement forces the ZIP design to remain the future authority format.",
+      "baseline": "Lead de-duplication E0: 100/100 snapshots during 1179 concurrent writes passed integrity/FK/identity/source-link checks; direct single-file restore PASS. Existing 26 archive-related submissions across 25 families produced 0 LEAD_READY/ACCEPT_E1.",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "sqlite_backup",
+          "sqlite_core"
+        ],
+        "gap": "Use SQLite online backup as the portability mechanism; research only the XiaoYu restore/freshness semantics not supplied by the backup primitive.",
+        "no_new_infrastructure": true
+      },
+      "status": "done",
+      "completion_submission": "sub-08300cd8e3e44f62",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Accepted E1 exists for this backlog capability; do not auto-assign the same research question again."
+    },
+    {
+      "id": "R24",
+      "plan": "P2",
+      "priority": 0,
+      "status": "active",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.behavioral_closure",
+      "lineage": "memory.erasure.behavioral_closure",
+      "lane": "safety_privacy",
+      "hypothesis": "After canonical source deletion and descendant reconciliation, an exposed-then-deleted XiaoYu identity should be behaviorally indistinguishable from a matched never-exposed identity for the deleted fact under direct and fragment-reconstruction probes, while unrelated evidence and post-erasure reaffirmation remain available.",
+      "falsifier": "The deleted fact can be reconstructed from summaries/derived state/index fragments or an old restore path; exposed-then-deleted behavior remains materially more revealing than never-exposed; unrelated evidence is damaged; or a genuine new-source reaffirmation is suppressed.",
+      "baseline": "R12 covers restore-before-activate erasure fencing and managed descendant cleanup. AfterDeleteBench exposes the missing behavioral-closure question: whether deleted information remains inferable after the records are gone.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_backup",
+          "cognee_provenance",
+          "afterdeletebench_benchmark"
+        ],
+        "gap": "Extend R12 with behavioral reconstruction controls over the same storage/lineage mechanisms. Do not build a second erasure system or claim physical deletion of unmanaged historical media.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Use local synthetic matched identities first; paid model reconstruction probes only on a frozen small set after deterministic closure succeeds.",
+      "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
+      "hold_reason": "Behavioral deletion closure is a P2 extension of the P1 canonical erasure/restore gate; run only after R12 and P1 integration freeze.",
+      "unlock_condition": "P1 erasure/provenance-context stage is READY via R45 ACCEPT_E1 plus the required event-local-history integration bridge.",
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+    },
+    {
+      "id": "R03",
+      "plan": "T06",
+      "priority": 2,
+      "capability": "memory_evidence",
+      "family": "memory.provenance.schema",
+      "lineage": "memory.provenance",
+      "lane": "main_bottleneck",
+      "hypothesis": "A thin XiaoYu evidence-authority schema layered on standard/reused provenance mechanics reduces false shared memories by preserving source role, stable evidence identity and state authority without building a second generic provenance platform.",
+      "falsifier": "The authority/source distinction provides no safety benefit, or the same requirement is already satisfied by the retained standard/external provenance mechanism without XiaoYu-specific policy.",
+      "baseline": "Cognee already supplies generic source/lineage/invalidation/hash-chain provenance; XiaoYu still requires fail-closed user-vs-assistant authority and semantic-conflict quarantine.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "cognee_provenance",
+          "graphiti_temporal"
+        ],
+        "gap": "Generic lineage and temporal mechanics are reused; XiaoYu still needs explicit user-versus-assistant authority and fail-closed state semantics.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R04",
+      "plan": "T08",
+      "priority": 2,
+      "capability": "privacy_erasure",
+      "family": "memory.deletion",
+      "lineage": "memory.deletion",
+      "lane": "safety_privacy",
+      "hypothesis": "Deletion accounting can remove target records and all derived recall without corrupting valid remaining history.",
+      "falsifier": "Deleted memory resurfaces after reconstruction/import.",
+      "baseline": "V2 archive-only, no secure deletion",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "sqlite_backup",
+          "cognee_provenance",
+          "sqlite_core"
+        ],
+        "gap": "Standard snapshot and lineage mechanisms are reused; XiaoYu-specific deletion/replay policy must prove deleted evidence cannot become active after restore.",
+        "no_new_infrastructure": true
+      },
+      "status": "retired",
+      "retired_by": "R12",
+      "retired_reason": "R12 now subsumes deletion/replay with explicit canonical-descendant closure, restore-before-activate reconciliation and FTS5 cleanup. Keeping both would duplicate the same scientific question."
+    },
+    {
+      "id": "R23",
+      "plan": "P2",
+      "priority": 2,
+      "status": "active",
+      "capability": "temporal_correction",
+      "family": "state.derived.dependency_propagation",
+      "lineage": "memory.pipeline.derived_state",
+      "lane": "main_bottleneck",
+      "hypothesis": "Versioned derivation rules plus explicit dependency links can invalidate and recompute XiaoYu derived current-state facts when upstream evidence changes implicitly, while preserving exact source support and avoiding full-history recomputation for unrelated state.",
+      "falsifier": "An upstream correction leaves a stale derived state active; a derived fact cannot enumerate its supporting sources/rule version; unrelated changes force global recomputation; rule-version changes silently rewrite history; or query-time retrieval has all prerequisites but fails to assemble the correct derived state on a frozen MemDerive-style set.",
+      "baseline": "R20 establishes generic direct SET/CLEAR current/history projection. MemDerive identifies the missing capability: multi-hop derived state, implicit propagation and prerequisite gathering. Reuse generic provenance/temporal mechanics rather than creating a graph engine.",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "xiaoyu_existing_core",
+          "cognee_provenance",
+          "graphiti_temporal",
+          "memderive_benchmark"
+        ],
+        "gap": "Reuse R20 direct-state semantics and retained provenance/temporal concepts. Custom work is only dependency-aware derived-state invalidation/recompute and support tracing; no ontology or graph database subsystem.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Deterministic symbolic cases first. Public benchmark import/evaluation only after P1 direct-state interface is frozen.",
+      "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
+      "hold_reason": "P2 derived-state work must not consume research slots before the direct-state P1 interface is frozen.",
+      "unlock_condition": "P1 typed-state interface is accepted/integrated and the full P1 contract is frozen; derived-state dependency work may proceed without changing the P1 direct-state contract.",
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+    },
+    {
+      "id": "R25",
+      "plan": "P2",
+      "priority": 1,
+      "status": "active",
+      "capability": "identity_continuity",
+      "family": "identity.snapshot.rollback_integrity",
+      "lineage": "identity.portability.integrity",
+      "lane": "safety_privacy",
+      "hypothesis": "A portable SQLite identity can detect stale-but-byte-valid whole-store rollback, event deletion/reorder/replay and control-metadata tampering when checked against an external monotonic freshness/integrity anchor, without replacing the single-SQLite authoritative snapshot design.",
+      "falsifier": "A genuine older snapshot is accepted as current without reconciliation; event/control-state tamper preserves a valid claim of current authority; the proposed anchor lives only inside the rolled-back snapshot; or normal offline restore becomes impossible without an explicit documented availability tradeoff.",
+      "baseline": "The single-SQLite portability E1 establishes consistent snapshots but not an external freshness trust root. Use the Agent Memory Integrity Internet-Draft only as a mutation-test reference; it is not a standard and does not justify a new cryptographic platform.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "sqlite_backup",
+          "stdlib_hashlib",
+          "portable_agent_memory_reference",
+          "agent_memory_integrity_draft_reference"
+        ],
+        "gap": "Reuse the accepted single-SQLite snapshot and standard hashing; test rollback/replay/control-state integrity and the minimum external freshness anchor. No custom supply-chain or general ledger platform.",
+        "no_new_infrastructure": true
+      },
+      "cost_rule": "Deterministic local mutations only; no paid model calls.",
+      "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
+      "hold_reason": "Whole-store rollback/control-state freshness is P2 hardening of the already-accepted portable snapshot, not a blocker for the current text-memory P1 assembly.",
+      "unlock_condition": "P1 integration contract is frozen and 12/12 required stages are READY; deterministic at-rest rollback/control-state hardening may proceed.",
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+    },
+    {
+      "id": "R05",
+      "plan": "T13",
+      "priority": 3,
+      "capability": "memory_retrieval",
+      "family": "retrieval.dual",
+      "lineage": "retrieval.dual",
+      "lane": "alternative_architecture",
+      "hypothesis": "SQLite FTS5 source-aware lexical retrieval plus an existing local embedding/vector backend only for lexical fallback beats a recent-dialogue window under matched budgets without a custom ANN/vector implementation.",
+      "falsifier": "No quality gain after matching context/cost, or the semantic fallback cannot preserve source authority/lifecycle metadata.",
+      "baseline": "FTS5 lexical Lead E0 plus already-deployed FastEmbed/vector infrastructure from external comparators.",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "sqlite_fts5",
+          "fastembed_cognee_080_bge_small_en_v15",
+          "lancedb_cognee_local_0390"
+        ],
+        "gap": "Reuse SQLite FTS5 plus the concrete Cognee-pinned FastEmbed 0.8.0/BGE model and LanceDB 0.39.0 trial backend; test only authority-preserving semantic fallback routing, not a new ANN/vector implementation.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R06",
+      "plan": "T15",
+      "priority": 3,
+      "capability": "temporal_correction",
+      "family": "temporal.supersession",
+      "lineage": "temporal",
+      "lane": "main_bottleneck",
+      "hypothesis": "Explicit supersession prevents an outdated preference from being presented as current.",
+      "falsifier": "Older contradicted statement still wins recall.",
+      "baseline": "V2 latest-first memory retrieval",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "graphiti_temporal",
+          "cognee_provenance"
+        ],
+        "gap": "Temporal validity and lineage mechanisms exist externally; XiaoYu must decide which corrected or withdrawn evidence is current user state and when to abstain.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R07",
+      "plan": "T22",
+      "priority": 4,
+      "capability": "persona_growth",
+      "family": "persona.evidence",
+      "lineage": "persona.change",
+      "lane": "persona_relationship",
+      "hypothesis": "Evidence-grounded approved persona updates improve behavior without inducing unbounded persona drift.",
+      "falsifier": "No better blind continuity than static persona or elevated hallucination.",
+      "baseline": "Static V2 persona",
+      "reuse_plan": {
+        "mode": "custom_policy",
+        "components": [
+          "cognee_provenance",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse provenance and existing persona storage; custom work is only the evidence policy governing when persona growth is justified.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R08",
+      "plan": "T23",
+      "priority": 4,
+      "capability": "identity_continuity",
+      "family": "model.swap",
+      "lineage": "crossmodel",
+      "lane": "alternative_architecture",
+      "hypothesis": "A stable identity archive preserves major facts and behavioral commitments across two distinct models.",
+      "falsifier": "Critical identity facts or important decisions change without new evidence.",
+      "baseline": "One DeepSeek model",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "sqlite_backup",
+          "omnimemeval",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse portable SQLite snapshot and shared evaluation harness; test continuity behavior across model swaps without building a new storage or benchmark framework.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R26",
+      "plan": "P3",
+      "priority": 4,
+      "status": "hold",
+      "capability": "identity_continuity",
+      "family": "identity.portability.interop",
+      "lineage": "identity.portability.interop",
+      "lane": "alternative_architecture",
+      "hypothesis": "Before defining any XiaoYu-specific interchange wire format, the project should map its source/authority/lifecycle/deletion semantics onto existing portable-agent-memory and emerging interoperability concepts and identify only irreducible semantic gaps.",
+      "falsifier": "Existing portable-memory representations cannot preserve XiaoYu authority/lifecycle/deletion/conflict semantics without lossy reinterpretation, or adopting them would require weakening the internal SQLite authority model.",
+      "baseline": "Internal portability remains a single authoritative SQLite snapshot. Portable Agent Memory and W3C community-group work are references only; no external standard is assumed.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "sqlite_backup",
+          "portable_agent_memory_reference",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Compare interchange semantics before inventing a protocol. This is held until cross-model/external transfer becomes a live P3 requirement.",
+        "no_new_infrastructure": true
+      },
+      "phase_gate": "P3_INTEROP",
+      "hold_reason": "Cross-system wire-format interoperability is deferred until external transfer is a live P3 requirement.",
+      "unlock_condition": "P3 cross-model/external memory transfer becomes an active product requirement."
+    },
+    {
+      "id": "R01",
+      "plan": "T02",
+      "priority": 8,
+      "capability": "identity_continuity",
+      "family": "oss.audit.identity",
+      "lineage": "oss.audit",
+      "lane": "evaluation_data",
+      "hypothesis": "The frozen Mem0/Hindsight/Cognee/Graphiti + OmniMemEval reference set is sufficient to test current XiaoYu architecture requirements; add no new framework unless it supplies a materially missing capability.",
+      "falsifier": "A required identity/memory capability is not represented by the frozen reference set and cannot be tested with an existing standard/local component.",
+      "baseline": "T19 comparator freeze: Mem0/Hindsight/Cognee recover assistant-origin #499; Graphiti supplies temporal-graph/cost reference; OmniMemEval supplies shared harness.",
+      "reuse_plan": {
+        "mode": "reuse",
+        "components": [
+          "mem0_oss",
+          "hindsight",
+          "cognee",
+          "graphiti",
+          "omnimemeval"
+        ],
+        "gap": "The retained external set already spans extraction, retrieval, graph and temporal approaches; work is limited to auditing missing requirements rather than collecting more frameworks.",
+        "no_new_infrastructure": true
+      },
+      "status": "hold",
+      "phase_gate": "AFTER_P1_FREEZE",
+      "hold_reason": "Legacy/alternative research direction is preserved but cannot auto-consume slots while required P1 integration stages remain blocked.",
+      "unlock_condition": "Lead explicitly changes phase_policy after P1 integration freeze or a P1 falsifier makes this direction necessary."
+    },
+    {
+      "id": "R39",
+      "plan": "P1",
+      "priority": -9,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_retrieval",
+      "family": "pipeline.p1.canonical_current_atomic_context",
+      "lineage": "memory.pipeline.integration_context",
+      "lane": "safety_privacy",
+      "hypothesis": "Composing the accepted R20 typed-state semantics with SQLite FTS5, the accepted R31 atomic admissibility boundary and the accepted R29 formal context schema using canonical per-slot current/conflict evidence—while retaining raw user messages only as SOURCE/history evidence—prevents stale sibling facts from multi-slot source messages and authority-taxonomy collapse from entering current-state model context, without reopening the gate-to-pack TOCTOU window.",
+      "falsifier": "A multi-slot raw user message with one superseded and one still-current slot can expose the superseded value in user_state context; user_history or assistant history enters current mode; user_conflict is flattened into ordinary current state; wrong-principal/deleted evidence becomes model-visible; formal xiaoyu-memory-context-v1 provenance fields are lost; a metadata/lifecycle writer can commit between final admissibility and serialization; restart/delete breaks FTS5 consistency; or an independent reproduction cannot match the Lead E0 counterexample and repair.",
+      "baseline": "Lead E0 found two composition bugs in otherwise accepted layers. Coarse R31-style confirmed_memory mapping admitted superseded user_history into current mode and erased user_conflict taxonomy. Existing message-level state-to-FTS5 glue marked an entire multi-slot raw message user_state when only one sibling slot remained current, exposing a stale sibling fact. Lead repairs passed exact-authority atomic formal-context tests and 200/200 canonical-state multi-slot composite stress, but require independent replication before P1 integration freeze.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_fts5",
+          "retrieval_admissibility_reference",
+          "strict_response_validator"
+        ],
+        "gap": "Reuse accepted typed-state, FTS5, admissibility and formal-context mechanisms. Add no retrieval engine or authorization service; independently falsify/replicate only the cross-layer representation contract: CANONICAL_CURRENT per slot, raw SOURCE/history separation, exact authority taxonomy, and atomic formal serialization.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-1f5cf529ecfb473c",
+            "fish-e5e80749986049dd",
+            "fish-48400e32ec484895"
+          ],
+          "novelty": "Accepted component E1s were evaluated largely in isolation. R39 targets a newly observed composition failure that appears only when a multi-slot raw source representation is bridged into current-state retrieval and then flattened at the atomic admissibility/context boundary. It is an independent replication of the Lead integration repair, not another memory engine.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero model/API calls. Reuse accepted artifacts and frozen Lead counterexamples, then add fresh independently authored multi-slot/authority/concurrency cases.",
+      "lead_e0": [
+        "governance/lead_workspaces/p1_canonical_slot_evidence_20261028/canonical_slot_evidence_metrics.json",
+        "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+        "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json"
+      ],
+      "required_attacks": [
+        "one raw user message updates two slots; later only one slot is superseded",
+        "same-time unresolved user conflict remains user_conflict with no chosen winner",
+        "assistant history never becomes current user state",
+        "raw user source remains SOURCE/history even when it supports a current canonical slot",
+        "wrong-principal and deleted rows are absent before model-visible context",
+        "final metadata/lifecycle mutation blocks until formal context serialization commits",
+        "post-commit deletion is absent on the next read",
+        "FTS5 restart/delete consistency",
+        "formal context preserves source role, authority, temporal status and lifecycle"
+      ],
+      "adopt_scope_match": true,
+      "completion_level": "NEEDS_WORK",
+      "completion_submission": "sub-e5ed325ebfac4932",
+      "completion_note": "Independent audit reproduced all frozen candidate controls but found a P1 composition gap: materialize() omits touched scopes whose new snapshot is empty. Cross-scope SET->CLEAR left stale identity user_state 48/48; lifecycle deletion of the last source left stale state/history 32/32. Manual empty-snapshot replacement fixes both. Historical R39 evidence remains supporting, not promotable.",
+      "superseded_by": "R43"
+    },
+    {
+      "id": "R40",
+      "plan": "P1",
+      "priority": -10,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_evidence",
+      "family": "model.deepseek.caller_bound_whole_message_contract_exact",
+      "lineage": "memory.pipeline.model_boundary",
+      "lane": "main_bottleneck",
+      "hypothesis": "On a fresh pre-frozen 32-case Chinese challenge, the minimal caller-bound whole-message singleton extractor—one trusted source message per authenticated request, no model-visible source/case/authority identifier, full grounded SET/CLEAR sequence in source order, caller-owned source binding and the accepted strict validator—reproduces complete multi-event current/history semantics in two independent rounds while staying inside one exact authenticated proxy scope and a predeclared 32,000-raw-token contract.",
+      "falsifier": "Either paid round fails any frozen case on outcome/semantic/source/state exactness, emits unsupported or structurally invalid events, changes caller-owned source association, or the combined two-round run exceeds the exact predeclared 32,000 raw-token cap / uses a different budget scope.",
+      "baseline": "R37 scientific outputs were 32/32 exact in both rounds on 112 events but are non-promotable because its evidence used a mismatched scope and 26,525 raw tokens against a 25,000 cap. R40 changes no semantic architecture and may not promote R37 calls; it prospectively repairs only the evidence contract on a fresh challenge.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "research_api_gateway",
+          "xiaoyu_existing_core"
+        ],
+        "gap": "Reuse the simplest accepted caller-bound whole-message design and strict validator. R40 adds no architecture: it reruns the full non-weakened semantic contract on fresh cases with one exact predeclared proxy scope and a realistic pre-call token cap derived only from historical cost, not from outcome selection.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-70cad0396f914ea1",
+            "fish-a905a6ccf9a047a4",
+            "fish-7219cfe054c74b6c",
+            "fish-143718d249b744d0"
+          ],
+          "novelty": "This is an intentional evidence-contract replication after R37 scientific success but governance invalidity. It freezes a new challenge and exact scope/cap before provider calls, preserving full event-sequence semantics rather than weakening the target.",
+          "replication_of": "fish-70cad0396f914ea1"
+        }
+      },
+      "cost_rule": "Before any provider call, freeze exactly 32 fresh cases spanning all required semantic families, two independent rounds, one exact scope proxy:xiaoyu:r40_whole_message_contract_exact_v1, max combined raw tokens 32,000, max_tokens=256 per request. Historical R37 calls are cost-estimation/supporting evidence only and cannot count toward promotion.",
+      "paid_evidence_requirement": {
+        "manifest_field": "paid_evidence",
+        "capture": "Save every OpenAI-compatible api-* response id used for E1 evidence plus a ledger query proving COMMITTED/http_proxy/exact-scope/post-lease provenance.",
+        "budget_scope": "proxy:xiaoyu:r40_whole_message_contract_exact_v1",
+        "phase": "smoke",
+        "max_raw_tokens": 32000,
+        "promotion_rule": "All promotion calls must be fresh R40 calls, COMMITTED, gateway_origin=http_proxy, postdate the R40 lease, use the exact declared scope, and total <=32,000 raw tokens."
+      },
+      "freeze_requirements": {
+        "cases": 32,
+        "rounds": 2,
+        "families": [
+          "dense same-slot three/four-event chains",
+          "SET->CLEAR and CLEAR->SET within one message",
+          "two or more distinct slots with interleaving",
+          "cross-clause conditions that must not become unconditional",
+          "cross-clause negation plus quoted/example decoys",
+          "third-party state adjacent to first-person state",
+          "pronoun/anaphora requiring whole-message context",
+          "punctuation-free multi-event message",
+          "repeated/ambiguous evidence wording with fail-closed grounding"
+        ],
+        "acceptance": "Both rounds 32/32 outcome+semantic+source+state exact; zero unsupported events; zero structural failures; caller-owned event identity/anchor semantics stable across rounds. Evidence quote surface wording may vary only if source anchor/op/slot/value identity remains exact."
+      },
+      "independent_audit_requirements": [
+        "recompute freeze/case/prompt/validator hashes",
+        "verify all paid call IDs against research_api ledger",
+        "verify exact scope and <=32,000 raw-token combined cap",
+        "rerun offline strict validation/scoring",
+        "verify no R37 call contributes promotion evidence",
+        "check at least one fresh adversarial source-binding negative control without provider calls"
+      ],
+      "completion_level": "NONPASS",
+      "completion_note": "Clean prospective R40 evidence contract passed governance but falsified the full intra-message event-sequence hypothesis: both rounds 29/32 full sequence exact, 32/32 final state, same three transient omissions; 64/64 COMMITTED exact-scope HTTP proxy, 24,813 raw <=32,000. Superseded by explicit R35 final-per-slot P1 representation contract.",
+      "superseded_by": "R35",
+      "completion_submission": "sub-c12ee34f3ef34b25"
+    },
+    {
+      "id": "R41",
+      "plan": "P1",
+      "priority": -11,
+      "status": "superseded",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.scope_binding_integrity_replication",
+      "lineage": "memory.erasure.scope_binding",
+      "lane": "safety_privacy",
+      "hypothesis": "An independent fresh replication of canonical erasure-scope binding—deriving deletion/admission scope from the strict-validator canonical event slot and rejecting any presented-scope mismatch—prevents scope-relabeled stale replay after the R38 re-key falsifier while preserving unrelated-scope updates and genuine post-erasure reaffirmations.",
+      "falsifier": "A deleted canonical event can be relabelled into another still-current scope and become model-visible; trusted admission accepts presented scope that differs from validator-derived canonical slot; a stale/fresh-ACK payload can be re-keyed into another scope; unrelated-scope valid updates are rejected; or a genuine post-erasure reaffirmation under a new canonical source/slot is incorrectly blocked.",
+      "baseline": "R38 was independently falsified: fresh ACK plus stale payload could be re-keyed and exposed 24/24, then recur after another fence advance. The missing trust boundary is that source admission accepts caller-presented scope rather than binding deletion/admission scope to the validator-derived immutable canonical event slot. The prior self-directed fish-7265a6e9fc474f3d workspace is supporting E0 only and cannot count as R41 promotion evidence.",
+      "reuse_plan": {
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance",
+          "strict_response_validator",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse the strict validator's canonical slot, provenance identity, SQLite and origin-bound authority. Independently reproduce only the scope-binding repair on fresh frozen attacks; the earlier self-directed scope-binding workspace is supporting evidence, not promotion evidence.",
+        "mode": "extend",
+        "new_dependencies": [],
+        "no_new_infrastructure": true,
+        "prior_work": {
+          "reviewed": [
+            "fish-9d5cdea1bc8e4d0c",
+            "fish-6973844d0891454f",
+            "fish-72caf9a1f8c741d6",
+            "fish-6c4a798372744e1b",
+            "fish-7265a6e9fc474f3d"
+          ],
+          "novelty": "The earlier self-directed scope-binding lease expired without a submission. R41 is a formal independent replication on fresh frozen attacks after R38's auditor-produced re-key resurrection, and promotion evidence must come only from the R41 lease.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero paid model/API calls. Reuse the existing R38/R12 harness and strict validator. Freeze any new adversarial seeds before final scoring.",
+      "required_attacks": [
+        "same stale deleted canonical payload relabelled into another active scope is rejected",
+        "fresh ACK for wrong scope cannot authorize canonical slot mismatch",
+        "presented scope must equal validator-derived immutable event slot",
+        "tombstoned canonical source remains fail closed after key/id relabel attempts",
+        "unrelated-scope valid update remains accepted",
+        "genuine post-erasure reaffirmation with a fresh source and correct canonical scope remains accepted",
+        "restart/replay preserves the scope binding"
+      ],
+      "note": "Fresh formal R41 replication. The expired self-directed scope-binding workspace is read-only supporting evidence and cannot satisfy the R41 promotion gate.",
+      "supporting_nonpromotion_lease": "fish-7265a6e9fc474f3d",
+      "superseded_by": "R44",
+      "completion_submission": "sub-7247623e964946bd",
+      "completion_level": "NEEDS_WORK"
+    },
+    {
+      "id": "R42",
+      "plan": "P1",
+      "priority": -14,
+      "status": "retired",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.multievent_projected_materialization_replication",
+      "lineage": "memory.erasure.scope_binding",
+      "lane": "safety_privacy",
+      "hypothesis": "A fresh integrated erasure boundary that keeps R41 canonical-slot scope binding but materializes each accepted sibling event as only its own deterministic canonical projection—not a duplicate of the full source message—prevents deleted sibling plaintext from surviving through other event records while preserving unaffected siblings, rejecting scope/source/seal swaps, and allowing genuine post-erasure reaffirmation.",
+      "falsifier": "On fresh frozen multi-event messages, deleting event A leaves A plaintext model-visible through sibling B/C; projected event storage loses or corrupts B/C; a wrong presented scope/source/seal is admitted; a re-keyed stale payload bypasses the canonical slot; restart reintroduces erased sibling text; or genuine fresh reaffirmation is blocked.",
+      "baseline": "R41 LEAD_READY validates canonical-slot-bound scope admission on its tested single-event surface. Later pre-frozen E0 sub-20f62a5c76704e9b found a composition blocker: with three accepted sibling events each storing the full target_text, deleting A removes A source identity but A plaintext remains model-visible through B/C in 64/64 cases (mean 2 leaking sibling sources). A post-hoc projected-event storage repair was 64/64 on observed cases but is non-promotion evidence.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance",
+          "strict_response_validator",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse R41 canonical slot/seal admission and accepted strict-validator event identity. Change only memory-visible materialization granularity: each event record carries the deterministic canonical projection/evidence needed for that event rather than duplicating unrelated sibling plaintext from the whole source message. Immutable raw SOURCE/history remains a separate representation governed by its own deletion policy.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-4acd84bcee4c4a27",
+            "fish-3e774fe589e647e3",
+            "fish-7265a6e9fc474f3d",
+            "fish-9d5cdea1bc8e4d0c",
+            "fish-f151c637c99f4882"
+          ],
+          "novelty": "R42 is the fresh prospective repair for the 64/64 sibling-plaintext leak discovered after R41. It retains R41 scope binding but separates per-event memory-visible projection from whole-message raw SOURCE, then retests both erasure isolation and scope/seal swap safety on unseen cases.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero paid model/API calls. Freeze fresh multi-event cases and candidate code before scoring. The observed 64-case sub-20f... set and post-hoc projected-storage repair cannot count toward promotion.",
+      "required_attacks": [
+        "delete one event from a 3+ event source: deleted event plaintext absent from every surviving event record while siblings remain visible",
+        "delete middle/first/last sibling across distinct slots and SET/CLEAR mixes",
+        "cross-event seal swap, source_event_id swap, slot swap, source_anchor swap and payload-hash swap all fail closed",
+        "fresh ACK or re-key cannot authorize a canonical-slot mismatch",
+        "restart/replay does not restore deleted sibling plaintext",
+        "unrelated sibling projection remains exact",
+        "fresh post-erasure reaffirmation under a new trusted source remains admissible",
+        "raw immutable SOURCE/history is not silently copied into each per-event canonical record"
+      ],
+      "supporting_nonpromotion_submission": "sub-20f62a5c76704e9b",
+      "supporting_r41_submission": "sub-7247623e964946bd",
+      "completion_level": "SCOPE_SUPERSEDED_BEFORE_EXECUTION",
+      "completion_note": "Released before scientific execution after R41 independent audit exposed a second orthogonal P1 flaw: slot-wide erased_seq compared against conversation-local message_index rejects a genuine new-conversation reaffirmation 64/64. R42's frozen scope allowed only materialization-granularity repair, so continuing it would have violated the research contract.",
+      "superseded_by": "R44",
+      "released_lease_id": "fish-dcdcbdf9fbee4891"
+    },
+    {
+      "id": "R43",
+      "plan": "P1",
+      "priority": -15,
+      "status": "done",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "memory_retrieval",
+      "family": "pipeline.p1.touched_scope_empty_reconciliation",
+      "lineage": "memory.pipeline.integration_context",
+      "lane": "main_bottleneck",
+      "hypothesis": "If materialization emits an explicit authoritative touched-scope set independent of nonempty document groups, and atomic reconciliation replaces every touched scope with its complete new snapshot including [], then cross-scope SET->CLEAR, last-source lifecycle deletion, conflict resolution and quarantine-to-empty cannot leave stale canonical current state or raw history model-visible while unrelated scopes remain unchanged.",
+      "falsifier": "A fresh cross-scope CLEAR leaves prior identity user_state visible; deleting/quarantining the last source leaves old current/history visible; a vanished canonical or raw scope is omitted from touched_scopes; conflict->unknown/resolution fails to empty the affected scope; an unrelated scope is cleared; or the real orchestration requires callers to guess vanished scopes instead of receiving them from materialization.",
+      "baseline": "R39 independently reproduced its original controls but auditor found the missing deletion signal: after conversation-scoped SET->CLEAR, projector state is unknown yet identity scope disappears from groups and stale identity user_state remains 48/48; deleting the final source yields groups=={} and stale current/history 32/32. Explicit manual empty-snapshot replacement fixes both, proving the atomic store primitive is sound and the gap is materializer-to-reconciliation touched-scope signaling.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_fts5",
+          "strict_response_validator",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse R39 canonical per-slot materializer, FTS5 store and atomic replace primitive. Add only an explicit authoritative touched_scopes contract so affected canonical/raw scopes are reconciled even when their new document set is empty. No new store, model, graph, vector or queue.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-b83a723b01f645d3",
+            "fish-20ab80eec44348d0",
+            "fish-1dd6f89fd8ed466c"
+          ],
+          "novelty": "R43 directly targets the independent auditor's new composition falsifier rather than repeating R39's already-passed stale-sibling/authority/atomicity suite. The new contract makes scope disappearance explicit and tests real orchestration through empty snapshot replacement.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero paid model/API calls. Freeze fresh SET->CLEAR, lifecycle-delete, conflict/quarantine-to-empty and unrelated-scope controls before final scoring. Auditor's 48/32 cases are supporting falsifiers only.",
+      "required_attacks": [
+        "conversation SET projecting to identity current -> later CLEAR: identity appears in touched_scopes with empty snapshot and stale current disappears",
+        "lifecycle delete last source: both affected raw conversation scope and canonical identity scope are touched and emptied",
+        "conflict to unknown/resolution removing last canonical current doc emits empty touched canonical scope",
+        "quarantine/removal to empty emits touched raw/canonical scopes as applicable",
+        "unrelated scope is byte-for-byte/logically unchanged",
+        "restart after empty replacement remains empty",
+        "real orchestration consumes touched_scopes; no manual test-only empty replacement"
+      ],
+      "known_audit_falsifiers": [
+        "governance/workspaces/fish-20ab80eec44348d0/r39_cross_scope_clear_falsifier.json",
+        "governance/workspaces/fish-20ab80eec44348d0/r39_disappearing_scope_falsifier.json"
+      ],
+      "completion_submission": "sub-c05ef75c0a734911",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent ACCEPT_E1 is pinned into the P1 integration contract; do not auto-assign this research question again."
+    },
+    {
+      "id": "R44",
+      "plan": "P1",
+      "priority": -16,
+      "status": "superseded",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.projected_materialization_global_freshness",
+      "lineage": "memory.erasure.scope_binding",
+      "lane": "safety_privacy",
+      "hypothesis": "A fresh integrated erasure boundary that materializes each sibling canonical event without unrelated sibling plaintext and compares deletion freshness only against trusted globally comparable effective_at bound into the source/event seal—not conversation-local message_index—prevents sibling plaintext resurrection and stale re-key replay while allowing a genuinely new post-erasure source in a new conversation to reaffirm the slot.",
+      "falsifier": "On fresh frozen cases, deleted sibling plaintext remains model-visible through another event; an old source/payload is re-keyed past the fence; a seal remains valid after changing source identity, payload, slot, anchor or effective_at; a genuine new trusted source in a new conversation with local message_index=1 and effective_at after the fence is rejected; unrelated siblings are lost; or restart resurrects erased text.",
+      "baseline": "Two independent later findings supersede R41 as a complete P1 erasure boundary. First, NONPASS sub-20f62a5c76704e9b showed 64/64 deleted sibling plaintext leakage when each event record duplicated the whole source message. Second, R41 audit marked sub-7247623e964946bd NEEDS_WORK because a slot-wide erased_seq floor was compared to conversation-local message_index, rejecting a genuinely new post-erasure conversation at local seq1 in 64/64 cases. Existing P1 typed-state semantics already treat effective_at as trusted input metadata and order cross-message history by trusted effective_at.",
+      "reuse_plan": {
+        "mode": "falsification",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance",
+          "strict_response_validator",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse R41 canonical-slot sealing, strict-validator event identity, accepted trusted effective_at semantics and SQLite lineage. Repair only two proven erasure-boundary gaps: isolate per-event memory-visible projections from sibling plaintext, and bind freshness to trusted globally comparable effective_at inside the seal instead of conversation-local message_index.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-4acd84bcee4c4a27",
+            "fish-3e774fe589e647e3",
+            "fish-dcdcbdf9fbee4891",
+            "fish-7265a6e9fc474f3d",
+            "fish-9d5cdea1bc8e4d0c"
+          ],
+          "novelty": "R44 integrates two independently observed P1 erasure failures that neither R41 nor the pre-execution R42 scope could jointly solve: multi-event sibling plaintext duplication and cross-conversation freshness misuse. It reuses trusted effective_at rather than introducing a new clock or generation service.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero paid model/API calls. Freeze fresh cases and candidate before final scoring. R41 audit cases, sub-20f 64 cases and post-hoc development repairs are supporting evidence only.",
+      "required_attacks": [
+        "3+ event source: delete first/middle/last sibling; deleted plaintext absent from all surviving event records while unrelated siblings remain exact",
+        "cross-event source_event_id/slot/source_anchor/payload-hash/seal swaps fail closed",
+        "trusted effective_at is bound into the source/event seal; mutating effective_at invalidates the seal",
+        "pre-fence old source or stale replay remains rejected even if payload is re-keyed",
+        "new trusted source after the fence in a different conversation with local message_index=1 is accepted when trusted effective_at is newer",
+        "same-text genuine post-erasure reaffirmation under a fresh trusted source is accepted without resurrecting the old lineage",
+        "conversation-local message_index is never compared as a slot-wide cross-conversation freshness floor",
+        "restart/replay preserves deletion and freshness semantics",
+        "raw immutable SOURCE/history remains a separate representation and is not duplicated into each canonical sibling event record"
+      ],
+      "supporting_needs_work_submission": "sub-7247623e964946bd",
+      "supporting_nonpass_submission": "sub-20f62a5c76704e9b",
+      "trusted_time_basis": "accepted P1 trusted effective_at metadata; no natural-language time extraction",
+      "pending_submission": "sub-a22bcd5d53de47fb",
+      "superseded_by": "R45",
+      "completion_submission": "sub-a22bcd5d53de47fb",
+      "completion_level": "NEEDS_WORK",
+      "completion_note": "Independent audit found a P1 wide-evidence-quote resurrection: strict validator accepted the whole multi-sibling source message as evidence_quote and surviving canonical projections replayed deleted sibling plaintext 80/80."
+    },
+    {
+      "id": "R45",
+      "plan": "P1",
+      "priority": -17,
+      "status": "done",
+      "phase_gate": "P1_REQUIRED",
+      "capability": "privacy_erasure",
+      "family": "privacy.erasure.provenance_context_separation",
+      "lineage": "memory.erasure.scope_binding",
+      "lane": "safety_privacy",
+      "hypothesis": "Separating validated evidence_quote/source plaintext from model-visible canonical memory—keeping the quote inside the sealed provenance event but materializing only event-local op/slot/value semantics plus opaque quote/source hashes—prevents R44's wide-quote sibling-plaintext resurrection after partial erasure without weakening strict-validator grounding, losing surviving SET/CLEAR semantics, or regressing trusted-effective_at stale-rekey rejection, restart, and genuine post-erasure reaffirmation.",
+      "falsifier": "On fresh frozen multi-event cases, any deleted sibling plaintext appears in any model-visible canonical/history projection; a wide validator-accepted quote is copied verbatim into materialized memory; a surviving sibling loses its op/slot/value semantics or cannot be retrieved by its canonical slot; opaque provenance hashes fail to bind the validated quote/source; stale re-key, seal/scope mutation, restart, or cross-conversation reaffirmation behavior regresses.",
+      "baseline": "R44 sub-a22bcd5d53de47fb is NEEDS_WORK. Independent auditor attack accepted 80/80 whole-message evidence_quote mutations and observed deleted sibling marker leakage in 80/80 post-delete cases even though the deleted source row itself was absent. Root cause: GlobalFreshProjectedAuthority.projection_payload persisted evidence_quote verbatim into model-visible CANONICAL_EVENT text. Lead single-case E0 already shows quote/plaintext separation removes the leak while keeping siblings; full Lead E0 is supporting only.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "cognee_provenance",
+          "strict_response_validator",
+          "origin_bound_authority_reference"
+        ],
+        "gap": "Reuse the accepted strict validator, R44 sealed event/effective_at boundary, SQLite lineage and origin-bound authority. Change only the representation boundary between sealed provenance and model-visible canonical materialization; do not create a new validator, retrieval store, erasure engine or provenance platform.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-374ea555faa64867",
+            "fish-c0c5eb2144a14d36",
+            "fish-2789e1d1767244db",
+            "fish-9d5cdea1bc8e4d0c",
+            "fish-7265a6e9fc474f3d"
+          ],
+          "novelty": "R45 is a local representation-boundary repair for the independently discovered R44 wide-quote resurrection. Unlike R44 it explicitly treats evidence_quote as sealed provenance rather than model-visible canonical text and scores surviving SET/CLEAR semantics plus opaque provenance binding instead of requiring arbitrary quote-only markers in context.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline/synthetic only; zero paid model/API calls. Known R44/auditor cases are regression/falsifier evidence only; freeze fresh R45 holdout cases before final scoring.",
+      "required_attacks": [
+        "known R44 auditor whole-message wide-quote attack remains validator-accepted but leaks 0 deleted sibling plaintext after materialization",
+        "fresh wide quote spanning all siblings and fresh quote spanning adjacent siblings leak 0 deleted sibling plaintext",
+        "SET and CLEAR surviving siblings preserve exact canonical op/slot/value semantics; CLEAR need not replay arbitrary raw quote-only markers",
+        "no model-visible canonical materialization contains evidence_quote or full target/source plaintext",
+        "opaque evidence_quote_sha256 and source_text_sha256 (or equivalent non-reversible provenance refs) remain bound and correct",
+        "deleted source and deleted plaintext remain absent after reconcile and restart",
+        "trusted effective_at stale-rekey rejection and cross-conversation newer-source reaffirmation remain correct",
+        "source/slot/source_anchor/payload_hash/seal/effective_at mutations remain fail closed",
+        "raw immutable source/provenance containing partially erased sibling plaintext is not directly model-visible without a separately safe/redacted representation"
+      ],
+      "supporting_needs_work_submission": "sub-a22bcd5d53de47fb",
+      "supporting_audit_falsifier": "governance/workspaces/fish-c0c5eb2144a14d36/audit_wide_quote_results.json",
+      "supporting_lead_e0": [
+        "governance/lead_workspaces/p1_r45_quote_separated_materialization_20261028/r45_quote_separated_materialization_metrics_v2.json",
+        "governance/lead_workspaces/p1_r45_partial_erasure_raw_history_20261028/r45_partial_erasure_raw_history_falsifier_metrics.json"
+      ],
+      "note": "Fresh R45 must independently freeze cases/candidate before promotion. Lead E0 and R44/Auditor cases cannot satisfy E1.",
+      "promotion_exclusions": [
+        "R44 frozen cases/rows/metrics cannot count as fresh R45 promotion evidence.",
+        "R44 auditor wide-quote attack and Lead R45 E0 cases are known falsifier/regression evidence only.",
+        "Lead partial-erasure raw-history falsifier is architecture evidence only; Research A must freeze fresh R45 cases before final scoring."
+      ],
+      "completion_submission": "sub-a650809e040046aa",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent R45 audit accepted; pinned into the P1 erasure/provenance-context stage."
+    }
+  ],
+  "lead_reuse_constraints": {
+    "reference": "plans/P1_DUPLICATION_AUDIT_REUSE_FREEZE_20261027.md",
+    "no_new_handwritten_lexical_postings": true,
+    "future_lexical_store": "SQLite FTS5 unless prospectively falsified",
+    "future_portable_identity": "single authoritative SQLite snapshot candidate; V2 ZIP legacy-only",
+    "no_new_generic_provenance_platform": true,
+    "no_custom_graph_db_vector_db_ann": true,
+    "external_memory_reference_set": [
+      "Mem0 OSS",
+      "Hindsight",
+      "Cognee",
+      "Graphiti",
+      "OmniMemEval"
+    ],
+    "broad_framework_collection_frozen": true,
+    "ci_supply_chain_scope_frozen_to_p1_gate_contract": true,
+    "generic_vector_alias_forbidden": true,
+    "catalog_version": 2,
+    "trust_layer_gap_closure": "plans/P1_TRUST_LAYER_EXTERNAL_GAP_CLOSURE_20261027.md"
+  },
+  "reuse_gate_version": 2,
+  "backlog_lifecycle": {
+    "active": "eligible for continuation assignment unless already claimed historically",
+    "retired": "superseded/duplicate; continuation must skip",
+    "hold": "known candidate but not eligible until Lead scope change",
+    "done": "completed externally or by a historically matching claim; continuation must skip"
+  },
+  "phase_policy": {
+    "current_phase": "P2",
+    "auto_assign_plans": [
+      "P2"
+    ],
+    "require_hold_outside_auto_assign": true,
+    "P1": "Only active P1 blockers may auto-assign before P1 integration freeze.",
+    "P2": "Only Lead-unlocked P2 candidates R24/R25/R23 auto-assign. New P2 directions still require Build-vs-Reuse/prior-work review.",
+    "P3": "P3 remains HOLD until product scope explicitly expands.",
+    "legacy": "Older Txx/alternative candidates remain preserved but held until P1 freeze or explicit falsifier.",
+    "note": "continuation.py enforces auto_assign_plans in addition to lifecycle status, so an accidentally active later-phase row cannot steal a P1 slot.",
+    "closeout_mode": false,
+    "closeout_required_backlog": [],
+    "closeout_reason": "P1 is frozen integration-ready. P2 is explicitly opened only for the three pre-frozen hardening questions R24/R25/R23.",
+    "closeout_unlock": "Disable only after Lead re-runs the integration doctor and the direct blocker set changes or P1 freeze completes.",
+    "p1_research_closeout_complete": true,
+    "p1_freeze_checkpoint": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+    "p2_opened_at": "2026-10-28T13:44+08:00"
+  },
+  "semantic_extractor_resolution_policy": {
+    "preferred": "R37 whole-message singleton fresh replication",
+    "fallback": "R35 final-per-slot only after R37 falsification + explicit Lead downgrade",
+    "rejected": [
+      "R34 as E1 (NONPASS full sequence)",
+      "R36 clause fan-out (no quality gain, ~3x calls/raw tokens)"
+    ],
+    "note": "Prefer the simplest architecture that prospectively preserves the stronger full grounded event-sequence target."
+  },
+  "erasure_resolution_policy": {
+    "accepted_support": [
+      "R12 restore-before-activate/crash/fence evidence",
+      "sub-1af4f3b9c4cd4bf4 scope/key observed-fence evidence"
+    ],
+    "active_closure": "R38 adopted lease fish-9d5cdea1bc8e4d0c",
+    "do_not_repeat": [
+      "restore reconciliation baseline",
+      "crash atomicity baseline"
+    ],
+    "remaining_gap": "canonical-source ingress + stale-ACK filtering + pack/send fence binding"
+  },
+  "integration_replication_policy": {
+    "R39": "Required because Lead E0 found material cross-stage semantic leaks not covered by the component-level E1s; zero-cost independent replication before P1 freeze."
+  }
+}

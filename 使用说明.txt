@@ -1,0 +1,9 @@
+小鱼 · 可迁移身份版
+
+打开：双击「启动小鱼.cmd」。
+支持本地玩耍、长期记忆、成长反思、切换模型、完整身份导出。
+只有聊天或点击生成反思时才调用 API（可能花费费用）。
+DeepSeek API 目前返回过 HTTP 402，请在开放平台确认余额。
+原始数据目录：D:\dsh-fish\identity\
+模型配置：D:\dsh-fish\provider.json（不可填 API Key 值）。
+详细说明请阅读 README.md。

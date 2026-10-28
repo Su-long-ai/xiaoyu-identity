@@ -1,0 +1,291 @@
+{
+  "schema": "xiaoyu-research-governance-v1-merged-roles",
+  "status": "ACTIVE_FOR_EXPLORATION_ONLY",
+  "root": "D:\\dsh-fish",
+  "purpose": "Research governance for a persistent, model-independent AI companion. Paid DeepSeek research is authorized only through the capped research gateway; no autonomous paid loop or private-data upload.",
+  "startup": {
+    "research_engineers": 2,
+    "auditors": 1,
+    "max_total": 3,
+    "max_total_future_without_policy_review": 7
+  },
+  "leases": {
+    "stale_seconds": 5400,
+    "ttl_seconds": 14400
+  },
+  "budget": {
+    "max_paid_api_calls_per_day": 20000,
+    "max_paid_usd_per_day": null,
+    "allow_background_llm": false,
+    "max_parallel_experiments": 2,
+    "require_explicit_permission_to_raise_paid_budget": true,
+    "paid_research": {
+      "enabled": true,
+      "provider": "deepseek",
+      "authorization": "owner_approved_100m_2026-10-27",
+      "max_total_tokens": 100000000,
+      "smoke_max_tokens": 5000000,
+      "benchmark_max_tokens": 95000000,
+      "active_phase": "smoke",
+      "benchmark_unlocked": false,
+      "public_or_synthetic_data_only": true,
+      "gateway": "governance/research_api.py",
+      "unknown_outcome_counts_reserved": true,
+      "background_paid_loop": false,
+      "thinking": "disabled",
+      "reasoning_effort": "none",
+      "comparison_note": "Controlled self-hosted track uses non-thinking DeepSeek Flash unless a separately frozen experiment changes this for all compared backends.",
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "budget_note": "Owner authorized 100M raw tokens. Smoke remains 5M and benchmark 95M locked. Runtime cost guard limits each normalized scope to 300k raw / 100k cache-miss / 75k output / 150 calls per 15 minutes; benchmark weekday peak is blocked by default for cost control.",
+      "runtime_guard": {
+        "enabled": true,
+        "effective_after_epoch": 1793088025.885803,
+        "rolling_window_seconds": 900,
+        "scope_raw_token_cap": 300000,
+        "scope_cache_miss_cap": 100000,
+        "scope_output_token_cap": 75000,
+        "scope_call_cap": 150,
+        "max_single_reservation_tokens": 75000,
+        "require_proxy_tag": true,
+        "max_proxy_completion_tokens_smoke": 8192,
+        "block_benchmark_weekday_peak": true,
+        "note": "Lead cost/governance guard: registered proxy tags only when require_proxy_tag=true; direct ResearchApiBudget calls fail before reservation/provider. Internal XiaoYu experiments use local-budget-proxy:xiaoyu. Per-scope 15-minute and epoch circuit breakers remain unchanged.",
+        "scope_epoch_raw_token_cap": 600000,
+        "scope_epoch_cache_miss_cap": 200000,
+        "scope_epoch_output_token_cap": 150000,
+        "scope_epoch_call_cap": 300,
+        "allowed_proxy_tags": [
+          "hindsight",
+          "mem0oss",
+          "graphiti",
+          "cognee",
+          "xiaoyu"
+        ],
+        "direct_calls_forbidden_when_proxy_tag_required": true
+      },
+      "pricing_cny_per_million": {
+        "model": "deepseek-flash",
+        "model_version": "DeepSeek-V4.1-Flash-1017",
+        "cache_hit": {
+          "off_peak": 0.02,
+          "peak": 0.04
+        },
+        "cache_miss": {
+          "off_peak": 1.0,
+          "peak": 2.0
+        },
+        "output": {
+          "off_peak": 4.0,
+          "peak": 8.0
+        },
+        "source": "DeepSeek official Models & Pricing, verified 2026-10-27",
+        "note": "Weekday Beijing peak 09:00-12:00 and 14:00-18:00 excluding Chinese public holidays; off-peak is half price."
+      }
+    }
+  },
+  "risk_tiers": {
+    "E0": "reversible exploration, no scientific/product claim",
+    "E1": "reproducible lead-ready candidate; review is NOT scientific proof",
+    "E2": "frozen prospective protocol plus independent formal audit; future gate, NOT implemented",
+    "E3": "user-facing promotion requiring E2 plus blind and privacy acceptance; future gate, NOT implemented"
+  },
+  "capabilities": [
+    "memory_evidence",
+    "memory_retrieval",
+    "temporal_correction",
+    "personalization",
+    "identity_continuity",
+    "persona_growth",
+    "relationship_safety",
+    "privacy_erasure",
+    "cost_reliability"
+  ],
+  "research_lane_weights_advisory": {
+    "main_bottleneck": 40,
+    "alternative_architecture": 20,
+    "evaluation_data": 15,
+    "persona_relationship": 10,
+    "safety_privacy": 10,
+    "performance_cost": 5
+  },
+  "stop_loss": {
+    "deprioritize_after_nonimproving": 2,
+    "pause_after_nonimproving": 3,
+    "reopen_requires_material_new_evidence": true
+  },
+  "hard_rules": [
+    "no_fabricated_shared_experience",
+    "keep_bootstrap_distinct_from_evidence",
+    "do_not_train_on_unconsented_private_conversations",
+    "no_external_messaging_or_social_platform",
+    "no_cloud_sync_by_default",
+    "no_autonomous_paid_model_loop",
+    "worker_experiments_write_only_their_own_sandbox",
+    "no_change_to_fish_identity_or_memory_by_research_workers",
+    "no_production_promotion_without_independent_semantic_audit",
+    "no_cross_project_write",
+    "no_stored_credentials_in_research_artifacts",
+    "reuse_standard_mechanism_before_custom_infrastructure",
+    "new_dependency_or_framework_requires_lead_catalog_review",
+    "reuse_decision_must_match_submission",
+    "self_directed_research_must_review_prior_work",
+    "component_lifecycle_must_be_revalidated_for_new_lease",
+    "benchmark_scoring_target_must_be_frozen_before_execution",
+    "backup_restore_must_reconcile_erasure_lineage_before_activation",
+    "authority_is_origin_bound_and_cannot_be_silently_amplified_by_derivation",
+    "inadmissible_memory_must_be_filtered_before_model_visible_context",
+    "lead_ready_paid_model_evidence_must_bind_committed_proxy_call_ids",
+    "model_visible_memory_must_be_fresh_against_current_erasure_fence",
+    "post_erasure_source_ingress_must_be_bound_to_current_scope_key_fence",
+    "p1_backlog_precedes_self_directed_research",
+    "canonical_current_projection_must_not_replace_immutable_source_history",
+    "no_p1_claim_of_lossless_structured_intra_message_transient_history",
+    "model_visible_canonical_memory_must_not_embed_raw_evidence_quote",
+    "partially_erased_multifact_raw_source_must_not_be_directly_model_visible"
+  ],
+  "evidence_labels": [
+    "EXPLORATORY",
+    "EVIDENCE_ONLY",
+    "LEAD_READY",
+    "NONPASS",
+    "INCONCLUSIVE"
+  ],
+  "default_nonblocking_backlog": true,
+  "governance_effort_share_ceiling": 0.1,
+  "formal_gate_automation_ready": false,
+  "audit_materiality": {
+    "status": "ACTIVE",
+    "P0": "Observed privacy/security/identity integrity failure; blocks only this candidate.",
+    "P1": "Observed invalid scientific evidence or meaningful regression; blocks only this candidate.",
+    "P2": "Risk, incomplete noncritical coverage or improvement proposal; advisory, never E1 blocker.",
+    "P3": "Cosmetic, naming, code style or minor preference; advisory, never E1 blocker.",
+    "material_proof": [
+      "observed",
+      "specific_reproduction",
+      "evidence",
+      "actual_impact",
+      "minimal_fix"
+    ],
+    "max_findings_per_review": 8,
+    "single_pass_review": true,
+    "global_research_continues": true,
+    "default_e1_advice_nonblocking": true,
+    "safety_boundary": "True user-facing production changes remain disabled; this E1 policy does not authorize them.",
+    "queue_latency_is_observable_not_a_global_stop": true
+  },
+  "continuation": {
+    "enabled": true,
+    "mode": "manual_chat_start_same_turn_task_handoff",
+    "background_agent_launch": false,
+    "auto_model_calls": false,
+    "static_backlog_exhaustion_is_not_project_saturation": true
+  },
+  "reuse_guard": {
+    "enabled": true,
+    "effective_after_epoch": 1793098454.3910363,
+    "catalog": "REUSE_CATALOG.json",
+    "version": 2,
+    "required_roles": [
+      "research_engineer"
+    ],
+    "backlog_vetted_plan_required": true,
+    "self_directed_plan_required": true,
+    "persist_decision_file": true,
+    "verify_decision_on_submit": true,
+    "note": "Build-vs-Reuse V2: component lifecycle/health metadata, concrete dependencies, prior-work review, catalog revision binding and local doctor. Existing v1 lease decisions remain valid for their current lease.",
+    "v2_effective_after_epoch": 1793100365.9856927,
+    "prior_work_similarity_threshold": 0.58,
+    "prior_work_exact_block": true,
+    "doctor_enabled": true,
+    "policy_revision": "reuse-v2-20261027-external-saturation"
+  },
+  "trust_layer": {
+    "authority": {
+      "origin_bound": true,
+      "silent_amplification_forbidden": true,
+      "forbidden_upgrade_sources": [
+        "summary",
+        "repetition",
+        "model_confidence",
+        "tool_echo",
+        "consolidation"
+      ],
+      "required_gate": "R17 trusted authority + R21 poisoning/laundering lifecycle"
+    },
+    "retrieval_admissibility": {
+      "pre_model_exposure": true,
+      "dimensions": [
+        "principal",
+        "scope",
+        "authority",
+        "lifecycle"
+      ],
+      "prompt_only_suppression_forbidden": true,
+      "required_gate": "R22"
+    },
+    "deferred_p2": {
+      "derived_state_dependency": "R23",
+      "behavioral_deletion_closure": "R24",
+      "rollback_and_control_state_integrity": "R25"
+    },
+    "deferred_p3": {
+      "portable_interop": "R26"
+    },
+    "erasure_freshness": {
+      "restore_before_activate": true,
+      "plain_revision_equality_sufficient": false,
+      "linearizable_validation_and_serialization": true,
+      "provider_call_under_fence_lock": false,
+      "later_tombstone_behavior": "next exposure fails closed until reconciliation",
+      "required_gate": "R38",
+      "canonical_source_ingress_tombstone_check": true,
+      "post_erasure_new_source_requires_current_scope_key_ack": true,
+      "legacy_bypassed_tombstoned_rows_read_filtered": true
+    },
+    "provenance_context_separation": {
+      "validated_evidence_quote_role": "sealed_provenance_only",
+      "canonical_model_visible_fields": [
+        "op",
+        "slot",
+        "value",
+        "opaque_provenance_reference"
+      ],
+      "raw_source_after_partial_erasure": "non_model_visible_until_independently_safe_redaction_or_event_local_projection",
+      "required_gate": "R45"
+    }
+  },
+  "paid_evidence_promotion": {
+    "enabled": true,
+    "trigger_component": "research_api_gateway",
+    "lead_ready_only": true,
+    "required_fields": [
+      "call_ids",
+      "budget_scope",
+      "phase",
+      "max_raw_tokens"
+    ],
+    "scope_must_be_allowlisted_proxy": true,
+    "review_rechecks_usage_ledger": true,
+    "note": "E0 evidence may remain observational. LEAD_READY paid-model claims after proxy-only epoch must bind exact api-* IDs to committed proxy usage."
+  },
+  "phase_priority_guard": {
+    "enabled": true,
+    "effective_after_epoch": 1793118648.4738383,
+    "block_self_directed_when_auto_assign_available": true,
+    "required_role": "research_engineer",
+    "note": "Fail closed on new self-directed research while an unclaimed active backlog task in the current auto-assign phase exists. Backlog-bound claims, exact recovery and auditors are exempt."
+  },
+  "representation_boundary": {
+    "source_history": "immutable raw trusted source/message evidence",
+    "canonical_current": "final effective grounded SET/CLEAR per slot after deterministic canonicalization",
+    "cross_message_history": "typed projections ordered by trusted effective_at",
+    "intra_message_transient_structured_history": "not guaranteed in P1",
+    "scoring_targets": [
+      "RAW",
+      "SOURCE",
+      "CANONICAL_CURRENT"
+    ],
+    "decision_ref": "governance/decisions/ADR-010-structured-current-vs-source-history.md"
+  }
+}

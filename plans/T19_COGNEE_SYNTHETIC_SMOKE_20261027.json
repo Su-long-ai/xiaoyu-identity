@@ -1,0 +1,67 @@
+{
+  "schema": "t19-cognee-synthetic-smoke-v1",
+  "base_url": "http://127.0.0.1:18084",
+  "search_type": "GRAPH_COMPLETION",
+  "before_dataset_count": 0,
+  "after_dataset_count": 1,
+  "add_seconds": 14.207,
+  "tea_contains_oolong": true,
+  "restaurant_contains_sostanza": true,
+  "final_dataset_count": 0,
+  "usage": {
+    "calls": 3,
+    "committed": 3,
+    "raw_tokens": 2525,
+    "prompt_tokens": 2028,
+    "completion_tokens": 497,
+    "cache_hit_tokens": 0,
+    "cache_miss_tokens": 2028,
+    "cache_hit_rate": 0.0,
+    "unknown": 0,
+    "reserved": 0
+  },
+  "calls": [
+    {
+      "rowid": 2037,
+      "call_id": "api-72cc234803c945d384cc6f66beb4d0db",
+      "status": "COMMITTED",
+      "reserved_tokens": 2162,
+      "prompt_tokens": 17,
+      "completion_tokens": 1,
+      "actual_tokens": 18,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 17,
+      "error_class": null
+    },
+    {
+      "rowid": 2038,
+      "call_id": "api-0eb1d1324c9442ed989d33d13b67aa62",
+      "status": "COMMITTED",
+      "reserved_tokens": 3996,
+      "prompt_tokens": 462,
+      "completion_tokens": 78,
+      "actual_tokens": 540,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 462,
+      "error_class": null
+    },
+    {
+      "rowid": 2039,
+      "call_id": "api-b882a5bec63646b49950a661617b741d",
+      "status": "COMMITTED",
+      "reserved_tokens": 8668,
+      "prompt_tokens": 1549,
+      "completion_tokens": 418,
+      "actual_tokens": 1967,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 1549,
+      "error_class": null
+    }
+  ],
+  "pass": true,
+  "limitations": [
+    "Synthetic two-fact gate only; not a LongMemEval quality result.",
+    "Uses upstream OmniMemEval Cognee HTTP adapter and local self-hosted Cognee.",
+    "Paid usage is isolated by proxy:cognee budget scope."
+  ]
+}

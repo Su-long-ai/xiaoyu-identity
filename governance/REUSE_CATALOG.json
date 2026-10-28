@@ -1,0 +1,1092 @@
+{
+  "schema": "xiaoyu-reuse-catalog-v2",
+  "version": 2,
+  "purpose": "Machine-enforced build-vs-reuse catalog. New research claims must name retained mechanisms and explain only the XiaoYu-specific gap. V2 catalog now includes trust-layer literature/benchmark references from the five-round external re-saturation without changing the catalog schema.",
+  "metadata_policy": {
+    "lifecycles": [
+      "adopt",
+      "trial",
+      "reference",
+      "hold",
+      "deprecated"
+    ],
+    "new_use_blocked_lifecycles": [
+      "hold",
+      "deprecated"
+    ],
+    "reference_components_are_not_automatic_production_dependencies": true,
+    "review_staleness_is_doctor_warning": true,
+    "external_component_required_fields": [
+      "source",
+      "version",
+      "license",
+      "verified_at",
+      "review_after",
+      "owner",
+      "decision_ref",
+      "health_status"
+    ],
+    "notes": "Lifecycle/owner/health metadata follows software-catalog/technology-radar principles without adding a separate catalog platform.",
+    "external_dependency_admission_note": "A new production-capable dependency must record exact source/version/license/health evidence. Web security checks occur at Lead admission/review, never on each join."
+  },
+  "components": [
+    {
+      "id": "xiaoyu_existing_core",
+      "kind": "project_core",
+      "status": "retain",
+      "covers": [
+        "existing identity/event/state behavior"
+      ],
+      "note": "Use when the experiment changes only XiaoYu-specific policy on top of the existing core.",
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal",
+        "locator": "D:/dsh-fish/identity_core.py"
+      },
+      "version": "working-tree",
+      "license": "internal-project",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-004-lightweight-build-vs-reuse-guard",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "sqlite_core",
+      "kind": "stdlib_database",
+      "status": "preferred",
+      "covers": [
+        "transactions",
+        "WAL",
+        "foreign keys",
+        "relational state"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "stdlib",
+        "locator": "Python sqlite3 / SQLite runtime"
+      },
+      "version": "runtime",
+      "license": "SQLite public-domain",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-002-single-sqlite-portability",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "sqlite_fts5",
+      "kind": "stdlib_search",
+      "status": "preferred",
+      "covers": [
+        "lexical inverted postings",
+        "document frequency",
+        "transactional lexical index"
+      ],
+      "evidence": "plans/P1_DUPLICATION_AUDIT_REUSE_FREEZE_20261027.md",
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "stdlib",
+        "locator": "Python sqlite3 FTS5 runtime"
+      },
+      "version": "runtime",
+      "license": "SQLite public-domain",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-001-sqlite-fts5-over-handwritten-postings",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "sqlite_backup",
+      "kind": "stdlib_portability",
+      "status": "preferred",
+      "covers": [
+        "online consistent snapshot",
+        "single-file identity portability"
+      ],
+      "evidence": "plans/P1_DUPLICATION_AUDIT_REUSE_FREEZE_20261027.md",
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "stdlib",
+        "locator": "Python sqlite3.Connection.backup"
+      },
+      "version": "runtime",
+      "license": "SQLite public-domain",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-002-single-sqlite-portability",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "fastembed_existing",
+      "kind": "embedding",
+      "status": "reuse",
+      "covers": [
+        "local semantic embeddings"
+      ],
+      "lifecycle": "deprecated",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal_alias",
+        "locator": "legacy generic embedding alias"
+      },
+      "version": "unversioned",
+      "license": "unknown",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "legacy_alias",
+      "decision_ref": "ADR-004-lightweight-build-vs-reuse-guard",
+      "replaced_by": [
+        "fastembed_cognee_080_bge_small_en_v15"
+      ],
+      "health_note": "Generic alias is too broad for new claims; use a concrete versioned component.",
+      "health_status": "blocked_for_new_use"
+    },
+    {
+      "id": "existing_vector_backend",
+      "kind": "vector_store",
+      "status": "reuse",
+      "covers": [
+        "vector storage/search",
+        "ANN implementation"
+      ],
+      "lifecycle": "deprecated",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal_alias",
+        "locator": "legacy generic vector-backend alias"
+      },
+      "version": "unversioned",
+      "license": "unknown",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "legacy_alias",
+      "decision_ref": "ADR-004-lightweight-build-vs-reuse-guard",
+      "replaced_by": [
+        "lancedb_cognee_local_0390",
+        "pgvector_hindsight_reference"
+      ],
+      "health_note": "Generic alias could hide version/security changes; forbidden for new normal claims.",
+      "health_status": "blocked_for_new_use"
+    },
+    {
+      "id": "fastembed_cognee_080_bge_small_en_v15",
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/cognee/uv.lock + Cognee keyless embedding config"
+      },
+      "version": "fastembed 0.8.0; BAAI/bge-small-en-v1.5",
+      "license": "Apache-2.0 package; MIT model",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "research_only",
+      "decision_ref": "ADR-005-concrete-semantic-retrieval-components",
+      "evidence": [
+        "external/cognee/uv.lock",
+        "external/cognee/cognee/infrastructure/databases/vector/embeddings/FastembedEmbeddingEngine.py"
+      ],
+      "health_note": "Local Cognee lock pins fastembed 0.8.0; model is 384-d BGE small English v1.5. Re-benchmark language fit before production.",
+      "kind": "embedding",
+      "covers": [
+        "local semantic embeddings"
+      ],
+      "health_status": "research_trial",
+      "security_review": "Production admission requires fresh package/advisory/dependency review; join does not query the web."
+    },
+    {
+      "id": "lancedb_cognee_local_0390",
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/cognee/uv.lock"
+      },
+      "version": "0.39.0",
+      "license": "Apache-2.0",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "research_only",
+      "decision_ref": "ADR-005-concrete-semantic-retrieval-components",
+      "evidence": [
+        "external/cognee/uv.lock",
+        "external/cognee/cognee/infrastructure/databases/vector/lancedb/LanceDBAdapter.py"
+      ],
+      "health_note": "Concrete local vector backend already present in Cognee checkout; trial only, not an automatic XiaoYu production dependency.",
+      "kind": "vector_store",
+      "covers": [
+        "vector storage/search",
+        "ANN implementation"
+      ],
+      "health_status": "research_trial",
+      "security_review": "Production admission requires fresh package/advisory/dependency review; join does not query the web."
+    },
+    {
+      "id": "pgvector_hindsight_reference",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/hindsight_venv + embedded pg0"
+      },
+      "version": "server-extension-version-unverified; python pgvector 0.5.1",
+      "license": "PostgreSQL License for pgvector",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-005-concrete-semantic-retrieval-components",
+      "evidence": [
+        "plans/T19_HINDSIGHT_LOCAL_SMOKE_20261027.md"
+      ],
+      "health_note": "Reference only until server extension version is explicitly verified; current pgvector 0.8.7 contains a security fix over earlier versions.",
+      "kind": "vector_store",
+      "covers": [
+        "vector storage/search",
+        "Postgres vector reference"
+      ],
+      "health_status": "reference_only"
+    },
+    {
+      "id": "cognee_provenance",
+      "kind": "provenance",
+      "status": "reference_or_reuse",
+      "covers": [
+        "lineage",
+        "source refs",
+        "invalidation",
+        "checksum chain",
+        "transactional append"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/cognee"
+      },
+      "version": "commit 37f788bd287750e10d7610173e5332b3843f6ebd",
+      "license": "Apache-2.0",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_or_reuse",
+      "decision_ref": "ADR-003-reuse-generic-provenance-mechanics",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "graphiti_temporal",
+      "kind": "temporal_graph",
+      "status": "reference_or_reuse",
+      "covers": [
+        "episodic provenance",
+        "valid_at/invalid_at",
+        "temporal graph"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/graphiti"
+      },
+      "version": "commit 2b5db9e139b2627c3ba18ff55f9181569b0d8224; graphiti-core 0.31.2",
+      "license": "project license in local checkout",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-003-reuse-generic-provenance-mechanics",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "mem0_oss",
+      "kind": "memory_reference",
+      "status": "frozen_reference",
+      "covers": [
+        "assistant-aware extraction",
+        "memory attribution"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "Mem0 OSS local T19 comparator"
+      },
+      "version": "frozen T19 environment",
+      "license": "upstream license; reference only",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-006-freeze-memory-framework-reference-set",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "hindsight",
+      "kind": "memory_reference",
+      "status": "frozen_reference",
+      "covers": [
+        "assistant-aware extraction/retrieval",
+        "durable ingestion checkpoint"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/hindsight_venv"
+      },
+      "version": "hindsight-api-slim 1.1.0",
+      "license": "upstream package license; reference only",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-006-freeze-memory-framework-reference-set",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "cognee",
+      "kind": "memory_reference",
+      "status": "frozen_reference",
+      "covers": [
+        "graph/vector memory",
+        "assistant-origin retrieval"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/cognee"
+      },
+      "version": "commit 37f788bd287750e10d7610173e5332b3843f6ebd",
+      "license": "Apache-2.0",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-006-freeze-memory-framework-reference-set",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "graphiti",
+      "kind": "memory_reference",
+      "status": "frozen_reference",
+      "covers": [
+        "temporal graph architecture",
+        "cost reference"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "local_external_checkout",
+        "locator": "D:/dsh-fish/external/graphiti"
+      },
+      "version": "commit 2b5db9e139b2627c3ba18ff55f9181569b0d8224; graphiti-core 0.31.2",
+      "license": "upstream license; reference only",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-006-freeze-memory-framework-reference-set",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "omnimemeval",
+      "kind": "benchmark",
+      "status": "preferred",
+      "covers": [
+        "shared external memory evaluation harness"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "frozen OmniMemEval T19 checkout"
+      },
+      "version": "commit 7c79d46e31dd85f3da2509b430bba9406656dd28",
+      "license": "upstream benchmark license",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "benchmark_only",
+      "decision_ref": "ADR-007-capability-oriented-benchmark-matrix",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "stdlib_hashlib",
+      "kind": "integrity",
+      "status": "preferred",
+      "covers": [
+        "content hashing for minimal P1 CI trust root"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "stdlib",
+        "locator": "Python hashlib"
+      },
+      "version": "runtime",
+      "license": "Python Software Foundation / bundled hashes",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-004-lightweight-build-vs-reuse-guard",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "deepseek_semantic_projector",
+      "kind": "model_component",
+      "status": "accepted_reference",
+      "covers": [
+        "bounded semantic memory-state/evidence selection",
+        "semantic classification/projection where separately evidenced"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal",
+        "locator": "accepted E1 model.deepseek.zh_event_parser"
+      },
+      "version": "DeepSeek Flash non-thinking frozen research configuration",
+      "license": "provider terms apply to API; internal integration",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-008-model-event-interface-gap",
+      "health_status": "verified_local_or_internal",
+      "health_note": "ACCEPT_E1 sub-b214... outputs {id,answer,evidence_index}; it is NOT evidence for the {id,events:[SET/CLEAR...]} interface consumed by strict_response_validator."
+    },
+    {
+      "id": "strict_response_validator",
+      "kind": "validation",
+      "status": "accepted_reference",
+      "covers": [
+        "schema validation",
+        "case/event bijection",
+        "source grounding",
+        "conflict checks"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal",
+        "locator": "accepted E1 pipeline.deepseek.response_validation"
+      },
+      "version": "accepted E1 implementation",
+      "license": "internal-project",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-003-reuse-generic-provenance-mechanics",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "research_api_gateway",
+      "kind": "model_gateway",
+      "status": "preferred",
+      "covers": [
+        "governed DeepSeek calls",
+        "token/cost fail-closed controls"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "internal",
+        "locator": "D:/dsh-fish/governance/research_api.py"
+      },
+      "version": "working-tree",
+      "license": "internal-project",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-04-25",
+      "admission": "normal",
+      "decision_ref": "ADR-004-lightweight-build-vs-reuse-guard",
+      "health_status": "verified_local_or_internal"
+    },
+    {
+      "id": "halumem_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "memory extraction hallucination",
+        "memory update hallucination",
+        "memory QA hallucination"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "ACL 2026 HaluMem / local HaluMem audit workspace"
+      },
+      "version": "EMNLP 2026",
+      "license": "upstream benchmark license",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "benchmark_only",
+      "decision_ref": "ADR-007-capability-oriented-benchmark-matrix",
+      "health_status": "verified_reference"
+    },
+    {
+      "id": "locomo_conv_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "implicit conversational memory",
+        "composed query memory",
+        "end-to-end response quality"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "ACL Anthology 2026 Findings EMNLP 1289"
+      },
+      "version": "EMNLP Findings 2026",
+      "license": "upstream benchmark license; verify before local import",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-007-capability-oriented-benchmark-matrix",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "locomo_plus_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "latent user state",
+        "goals",
+        "values",
+        "constraint consistency"
+      ],
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "ACL Anthology 2026 ACL long 1150"
+      },
+      "version": "ACL 2026",
+      "license": "upstream benchmark license; verify before local import",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-007-capability-oriented-benchmark-matrix",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "state_bench",
+      "kind": "benchmark",
+      "covers": [
+        "procedural stateful tasks",
+        "tool outcomes",
+        "pass^5 reliability",
+        "efficiency"
+      ],
+      "lifecycle": "hold",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_repo",
+        "locator": "Microsoft STATE-Bench 2026"
+      },
+      "version": "2026-05 release",
+      "license": "upstream open-source license; verify before local import",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "deferred_scope",
+      "decision_ref": "ADR-007-capability-oriented-benchmark-matrix",
+      "health_status": "deferred_until_tool_scope"
+    },
+    {
+      "id": "agent_zero_memory_reference",
+      "kind": "memory_architecture_reference",
+      "covers": [
+        "provenance-aware multi-view memory",
+        "citation-locked evidence use",
+        "source-aware routing"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2608.29606"
+      },
+      "version": "arXiv:2608.29606 (2026)",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "memir_reference",
+      "kind": "memory_representation_reference",
+      "covers": [
+        "typed evidence/retrieval-cue/claim separation",
+        "provenance-role-collapse mitigation"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2605.25869"
+      },
+      "version": "arXiv:2605.25869 (2026)",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "origin_bound_authority_reference",
+      "kind": "memory_security_reference",
+      "covers": [
+        "write-time origin-bound authority",
+        "authority non-amplification",
+        "memory laundering threat model"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2606.24322"
+      },
+      "version": "arXiv:2606.24322 (2026)",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "portable_agent_memory_reference",
+      "kind": "identity_portability_reference",
+      "covers": [
+        "cross-model memory transfer",
+        "content-addressed memory",
+        "capability access control",
+        "rehydration"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2605.11032"
+      },
+      "version": "arXiv:2605.11032 (2026)",
+      "license": "paper/reference only; verify implementation license before reuse",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "afterdeletebench_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "behavioral deletion closure",
+        "derived-memory reconstruction after deletion"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2610.31366"
+      },
+      "version": "arXiv:2610.31366 (2026-10)",
+      "license": "benchmark/reference only; verify dataset license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "memsecbench_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "persistent memory poisoning",
+        "write-execute-forget lifecycle",
+        "selective repair"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2607.27080"
+      },
+      "version": "arXiv:2607.27080 (2026)",
+      "license": "benchmark/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "retrieval_admissibility_reference",
+      "kind": "memory_privacy_reference",
+      "covers": [
+        "relevance versus admissibility",
+        "prompt exposure accounting",
+        "principal/scope gating"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2610.07309"
+      },
+      "version": "arXiv:2610.07309 (2026-10)",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "memderive_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "derived-state propagation",
+        "dependency DAG",
+        "implicit updates",
+        "prerequisite gathering"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2610.25373"
+      },
+      "version": "arXiv:2610.25373 (2026-10)",
+      "license": "benchmark/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "dyadmem_reference",
+      "kind": "relationship_memory_reference",
+      "covers": [
+        "dyadic relational memory",
+        "user-conditioned agent memory",
+        "relationship-specific state"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://arxiv.org/abs/2610.03020"
+      },
+      "version": "arXiv:2610.03020 (2026-10)",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "personatree_reference",
+      "kind": "persona_reference",
+      "covers": [
+        "evidence-supported persona hierarchy",
+        "persona lifecycle",
+        "support paths"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://aclanthology.org/2026.findings-emnlp.822/"
+      },
+      "version": "EMNLP Findings 2026",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "agent_memory_integrity_draft_reference",
+      "kind": "integrity_reference",
+      "covers": [
+        "memory tamper tests",
+        "reorder/replay/rollback tests",
+        "metadata/whole-store rollback"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://datatracker.ietf.org/doc/draft-khandelwal-bmwg-agent-memory-integrity/"
+      },
+      "version": "Internet-Draft -02 (2026-10-17); not an IETF standard",
+      "license": "IETF Internet-Draft reference; implementation/data licensing not applicable until adopted",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "memoryarena_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "multi-session agentic memory",
+        "memory-guided action",
+        "interdependent tasks"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://proceedings.mlr.press/v306/he26am.html"
+      },
+      "version": "ICML 2026",
+      "license": "benchmark/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "mem_gallery_benchmark",
+      "kind": "benchmark",
+      "covers": [
+        "multimodal long-term conversational memory",
+        "visual-text memory"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://aclanthology.org/2026.acl-long.1892/"
+      },
+      "version": "ACL 2026",
+      "license": "benchmark/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    },
+    {
+      "id": "trustmem_reference",
+      "kind": "memory_transition_reference",
+      "covers": [
+        "memory transition verification",
+        "coverage/preservation/faithfulness"
+      ],
+      "source": {
+        "type": "external_repo",
+        "locator": "https://aclanthology.org/2026.findings-emnlp.2419/"
+      },
+      "version": "EMNLP Findings 2026",
+      "license": "paper/reference only; verify code/data license before local import",
+      "lifecycle": "reference",
+      "owner": "xiaoyu-lead",
+      "verified_at": "2026-10-27",
+      "review_after": "2027-01-25",
+      "admission": "reference_only",
+      "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
+      "health_status": "reference_only"
+    }
+  ],
+  "rules": [
+    {
+      "id": "no_handwritten_lexical_postings",
+      "family_regex": "(?i)(retrieval|search|index)",
+      "hypothesis_regex": "(?i)(posting|inverted.?index|倒排|lexical index|n-gram evidence index)",
+      "required_components": [
+        "sqlite_fts5"
+      ],
+      "allowed_modes": [
+        "reuse",
+        "extend",
+        "falsification"
+      ],
+      "message": "Lexical postings must reuse SQLite FTS5; a handwritten posting engine is research-only falsification, not the production direction."
+    },
+    {
+      "id": "archive_zip_legacy_only",
+      "family_regex": "(?i)^archive\\.(zip|json|dual|parser|import|export)",
+      "required_components": [
+        "sqlite_backup"
+      ],
+      "allowed_modes": [
+        "legacy_compat",
+        "falsification"
+      ],
+      "message": "Future portable identity is single authoritative SQLite snapshot. ZIP/JSON work is legacy migration/regression only."
+    },
+    {
+      "id": "provenance_must_reuse_generic_mechanics",
+      "family_regex": "(?i)provenance",
+      "required_any_components": [
+        "cognee_provenance",
+        "graphiti_temporal"
+      ],
+      "allowed_modes": [
+        "reuse",
+        "extend",
+        "custom_policy",
+        "falsification"
+      ],
+      "message": "Do not create another generic provenance platform; custom work must be XiaoYu-specific authority/source/quarantine policy."
+    },
+    {
+      "id": "no_custom_vector_graph_ann",
+      "hypothesis_regex": "(?i)(build|implement|create|自研|新建).{0,24}(vector database|vector store|ANN|graph database|向量数据库|向量库|图数据库)",
+      "allowed_modes": [
+        "falsification"
+      ],
+      "message": "Custom graph/vector/ANN infrastructure is frozen; reuse an existing backend unless a falsification experiment proves it insufficient."
+    },
+    {
+      "id": "external_framework_set_frozen",
+      "family_regex": "(?i)^oss\\.audit\\.identity$",
+      "required_any_components": [
+        "mem0_oss",
+        "hindsight",
+        "cognee",
+        "graphiti",
+        "omnimemeval"
+      ],
+      "allowed_modes": [
+        "reuse",
+        "falsification"
+      ],
+      "message": "Broad framework collection is frozen to Mem0/Hindsight/Cognee/Graphiti + OmniMemEval."
+    },
+    {
+      "id": "ci_supply_chain_scope_frozen",
+      "family_regex": "(?i)^ci\\.",
+      "required_any_components": [
+        "stdlib_hashlib",
+        "xiaoyu_existing_core"
+      ],
+      "allowed_modes": [
+        "reuse",
+        "extend",
+        "falsification"
+      ],
+      "message": "CI work may maintain the minimal gate trust root but must not grow into a custom supply-chain platform."
+    }
+  ],
+  "universal_requirements": {
+    "research_engineer_plan_required": true,
+    "known_component_ids_only": true,
+    "min_gap_chars": 40,
+    "max_components": 8,
+    "no_new_infrastructure_must_be_true": true,
+    "allowed_modes": [
+      "reuse",
+      "extend",
+      "custom_policy",
+      "legacy_compat",
+      "falsification",
+      "grandfathered_recovery"
+    ]
+  },
+  "capability_requirements": {
+    "memory_retrieval": {
+      "required_any_components": [
+        "sqlite_fts5",
+        "mem0_oss",
+        "hindsight",
+        "cognee",
+        "graphiti",
+        "omnimemeval",
+        "deepseek_semantic_projector",
+        "strict_response_validator",
+        "fastembed_cognee_080_bge_small_en_v15",
+        "lancedb_cognee_local_0390",
+        "retrieval_admissibility_reference",
+        "memderive_benchmark"
+      ],
+      "message": "Memory retrieval research must anchor to an existing search/embedding/vector/reference mechanism."
+    },
+    "memory_evidence": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "cognee_provenance",
+        "graphiti_temporal",
+        "omnimemeval",
+        "deepseek_semantic_projector",
+        "strict_response_validator",
+        "agent_zero_memory_reference",
+        "memir_reference",
+        "origin_bound_authority_reference",
+        "trustmem_reference"
+      ],
+      "message": "Memory evidence research must anchor to existing XiaoYu or retained provenance/evaluation mechanisms."
+    },
+    "identity_continuity": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "sqlite_backup",
+        "omnimemeval",
+        "portable_agent_memory_reference"
+      ],
+      "message": "Identity continuity work must reuse the existing core/snapshot/evaluation mechanisms."
+    },
+    "privacy_erasure": {
+      "required_any_components": [
+        "sqlite_core",
+        "sqlite_backup",
+        "cognee_provenance",
+        "xiaoyu_existing_core",
+        "afterdeletebench_benchmark",
+        "memsecbench_benchmark"
+      ],
+      "message": "Erasure work must reuse existing storage/provenance mechanics and only customize erasure semantics."
+    },
+    "temporal_correction": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "graphiti_temporal",
+        "cognee_provenance"
+      ],
+      "message": "Temporal work must reuse existing temporal/provenance mechanisms or the existing XiaoYu state core."
+    },
+    "persona_growth": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "cognee_provenance",
+        "dyadmem_reference",
+        "personatree_reference"
+      ],
+      "message": "Persona research must reuse existing persona/provenance storage rather than create another identity engine."
+    },
+    "relationship_safety": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "omnimemeval",
+        "dyadmem_reference"
+      ],
+      "message": "Relationship-safety work must stay on the existing response/evaluation stack."
+    },
+    "personalization": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "omnimemeval"
+      ],
+      "message": "Personalization work must stay on the existing identity/evaluation stack."
+    },
+    "cost_reliability": {
+      "required_any_components": [
+        "xiaoyu_existing_core",
+        "sqlite_core",
+        "stdlib_hashlib",
+        "research_api_gateway",
+        "agent_memory_integrity_draft_reference"
+      ],
+      "message": "Reliability work must extend existing control/storage/integrity mechanisms rather than add a parallel control plane."
+    }
+  }
+}

@@ -1,0 +1,64 @@
+# Local identity / private runtime data
+identity/
+backups/
+exports/
+legacy-backup-*/
+fish_data.json
+MEMORY.md
+STATUS.json
+provider.json
+
+# Secrets / local environment
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+token.json
+secrets.json
+
+# Third-party / generated environments
+external/
+.venv/
+venv/
+**/hindsight_venv/
+node_modules/
+
+# Research runtime state and duplicated historical snapshots
+governance/registry.sqlite3
+governance/workspaces/
+governance/lead_workspaces/
+governance/history/
+operator-mcp-runs/
+
+# Databases / logs / caches / build artifacts
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+*.log
+*.pyc
+*.pyo
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Binary / large generated artifacts
+*.zip
+*.7z
+*.tar
+*.gz
+*.pkl
+*.bin
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Duplicated research snapshots / temporary helpers
+plans/history/
+governance/tmp_*.py

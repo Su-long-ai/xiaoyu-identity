@@ -1,0 +1,30 @@
+{
+  "hypothesis": "On fixed synthetic multi-session tests, source-aware retrieval increases grounded recall over a 12-message short-window baseline",
+  "falsifier": "Source-aware retrieval performs worse than the short-window baseline on unseen sessions",
+  "baseline": "12-message window, deterministic matching",
+  "metric": "accuracy on a frozen synthetic memory benchmark",
+  "delta": null,
+  "method": "Fixed seed, held-out sessions, same model and budget for each candidate",
+  "limitations": "Synthetic test only; no proof of generalization to real companion use",
+  "evidence_label": "EXPLORATORY",
+  "artifacts": [
+    "result.txt"
+  ],
+  "reuse_compliance": {
+    "components_considered": [
+      "sqlite_fts5",
+      "lancedb_cognee_local_0390"
+    ],
+    "new_dependencies": [],
+    "new_infrastructure": false,
+    "deviation": "none"
+  },
+  "paid_evidence": {
+    "call_ids": [
+      "api-0123456789abcdef0123456789abcdef"
+    ],
+    "budget_scope": "proxy:xiaoyu",
+    "phase": "smoke",
+    "max_raw_tokens": 100000
+  }
+}

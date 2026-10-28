@@ -1,0 +1,145 @@
+{
+  "schema": "xiaoyu-p1-integration-candidate-v1",
+  "created_at": "2026-10-27",
+  "stage_pins": {
+    "semantic_event_extractor": {
+      "submission": "sub-2b974fd436624d87",
+      "implementation": "caller_bound_final_per_slot_projection",
+      "representation_contract": {
+        "current_state": "final_per_slot",
+        "history_source": "immutable_raw_message",
+        "no_claim": "lossless structured intra-message transient timeline"
+      },
+      "audit_scope": "ACCEPT_E1; no P0/P1; P2 integration/provenance advisories retained"
+    },
+    "model_response_boundary": {
+      "submission": "sub-e73d88bade244116",
+      "adapter": "message_source_projection_set_e0",
+      "metrics": "governance/lead_workspaces/strict_validator_message_source_20261027/strict_validator_message_source_metrics.json",
+      "dependency": "WAIT_R19_SOURCE_MESSAGE_E1"
+    },
+    "source_identity_and_event_ledger": {
+      "submission": "sub-8f901ac959a541bc",
+      "implementation": "trusted_message_source_plus_canonical_projection_sequence",
+      "lead_e0_metrics": "governance/lead_workspaces/source_message_projection_set_20261027/source_message_projection_set_metrics.json",
+      "advisory_debt": [
+        "cross-conversation temporal ordering P2",
+        "external canonical helper receipt binding P2"
+      ]
+    },
+    "typed_state_projection": {
+      "submission": "sub-b886dcf6c85c4471",
+      "implementation": "generic_trusted_effective_time_state_projector",
+      "lead_e0_metrics": "governance/lead_workspaces/generic_typed_state_projector_20261027/generic_typed_state_projector_metrics.json",
+      "advisory_debt": "Cross-conversation state needs explicit trusted effective_at; local message_seq is not a global clock."
+    },
+    "global_source_aware_retrieval": {
+      "submission": "sub-4642b7fe04994bd6",
+      "lexical_storage": "sqlite_fts5",
+      "adapter": "R20 canonical-slot state evidence -> SQLite FTS5",
+      "metrics": "governance/lead_workspaces/state_to_fts5_evidence_20261027/state_to_fts5_evidence_metrics.json",
+      "authority_taxonomy": [
+        "user_state",
+        "user_history",
+        "user_conflict",
+        "conversation_history"
+      ],
+      "dependency": "WAIT_R20_GENERIC_STATE_E1",
+      "integration_metrics": "governance/lead_workspaces/p1_canonical_state_atomic_context_20261028/canonical_state_atomic_context_metrics.json",
+      "forbidden_message_level_current_authority": true,
+      "raw_user_message_role": "SOURCE/history only",
+      "current_state_role": "CANONICAL_CURRENT per-slot"
+    },
+    "context_packing": {
+      "submission": "sub-2dd80e4a13a44743",
+      "implementation": "whole_record_source_labeled_context_with_proxy_governed_behavior_e1",
+      "lead_e0_metrics": "governance/lead_workspaces/p1_context_pack_contract_20261027/p1_context_pack_contract_metrics.json",
+      "dependency": "WAIT_R31_ADMISSIBILITY_E1",
+      "semantic_reference_submission": "sub-c45f14e770df403c",
+      "integration_adapter": "exact_authority_atomic_formal_context_e0",
+      "integration_metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json"
+    },
+    "erasure_restore_reconciliation": {
+      "submission": "sub-a650809e040046aa",
+      "implementation": "provenance_context_separation",
+      "accepted_scope": "sealed raw provenance; model-visible event-local semantics + opaque provenance hashes",
+      "audit_reviewer": "xy-auditor-independent-20261026-01",
+      "known_predecessor_needs_work": [
+        "sub-7247623e964946bd",
+        "sub-a22bcd5d53de47fb"
+      ],
+      "integration_adapter": {
+        "kind": "event_local_history_after_partial_erasure",
+        "verified": [
+          {
+            "metrics": "governance/lead_workspaces/p1_r45_event_local_history_bridge_20261028/r45_event_local_history_bridge_metrics.json",
+            "schema": "xiaoyu-r45-partial-erasure-event-local-history-bridge-e0-v1",
+            "pass": true
+          }
+        ]
+      },
+      "nonclaims": [
+        "physical deletion of raw source/backups",
+        "offline secrecy of low-entropy plaintext represented by deterministic hashes",
+        "direct model visibility of partially erased multi-fact raw SOURCE/history"
+      ]
+    },
+    "ci_integrity": {
+      "submission": "sub-fc06b3ec2b554566",
+      "implementation": "minimal_exact_membership_and_prelaunch_hash_trust_root",
+      "runtime_hardening": "P2_DEFERRED_HOSTILE_LOCAL_WRITER_AND_CHILD_PROCESS_ISOLATION",
+      "decision_ref": "governance/decisions/ADR-010-p1-ci-runtime-stop-loss.md",
+      "advisory_submissions": [
+        "sub-f3e2d4b5587144ae",
+        "sub-a215980365ec476c",
+        "sub-429ea6c452ac44d7",
+        "sub-1d0e40a9a0cb4586"
+      ]
+    },
+    "portable_snapshot": {
+      "submission": "sub-08300cd8e3e44f62",
+      "mode": "single_authoritative_sqlite",
+      "advisory_debt": "IMPORT_RETRY_AND_METADATA_TOCTOU_P2"
+    },
+    "trusted_authority_projection": {
+      "submission": "sub-9662b50e11864b35",
+      "implementation": "R17 authority semantics; integration adapter remains source-ID agnostic",
+      "dependency": "WAIT_R19_SOURCE_AND_R27_MODEL_BOUNDARY"
+    },
+    "memory_security_lifecycle": {
+      "submission": "sub-d73a755de2ff460f",
+      "implementation": "origin_bound_poison_quarantine_and_targeted_repair",
+      "dependency": "R20_EFFECTIVE_TIME_STATE_PLUS_CONTEXT_CHAIN",
+      "advisory_debt": [
+        "trusted correction order delegated to R20",
+        "full persisted-to-model steering E2E remains future integration evidence"
+      ]
+    },
+    "retrieval_admissibility": {
+      "submission": "sub-bae49e5ea2cb483f",
+      "implementation": "R31 atomic linearization + exact authority taxonomy + formal xiaoyu-memory-context-v1 serialization",
+      "dependency": "WAIT_UPSTREAM_TYPED_STATE_CHAIN",
+      "integration_metrics": "governance/lead_workspaces/p1_exact_authority_atomic_context_20261028/exact_authority_atomic_context_metrics.json",
+      "forbidden_coarse_mapping": "confirmed_memory collapse of user_state/user_history/user_conflict",
+      "p2_send_freshness_e1": "sub-3d041cb84eb8419d",
+      "p2_send_freshness_limitations": [
+        "request principal/conversation/workspace/mode/recipient not sealed into token",
+        "multi-instance trigger installation is not yet transactionally/idempotently versioned"
+      ]
+    },
+    "conflict_resolution_semantics": {
+      "submission": "sub-176d99a46bda427e",
+      "adapter": "generic_message_source_conflict_resolution_e0",
+      "metrics": "governance/lead_workspaces/generic_conflict_resolution_adapter_20261027/generic_conflict_resolution_adapter_metrics.json",
+      "dependency": "WAIT_R20_GENERIC_STATE_E1",
+      "required": false
+    },
+    "canonical_current_atomic_context_bridge": {
+      "submission": "sub-c05ef75c0a734911",
+      "implementation": "authoritative_touched_scope_empty_reconciliation",
+      "reference_needs_work_submission": "sub-e5ed325ebfac4932",
+      "audit_result": "64/64 fresh holdout vs 24/64 pre-repair; 32/32 rollback/scope/principal boundary",
+      "p2_advisory": "upstream scope relocation is outside R43 replacement-set guarantee"
+    }
+  }
+}

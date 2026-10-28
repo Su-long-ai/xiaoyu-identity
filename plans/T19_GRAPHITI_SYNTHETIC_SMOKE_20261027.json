@@ -1,0 +1,133 @@
+{
+  "schema": "t19-graphiti-synthetic-smoke-v1",
+  "group_id": "graphiti_t19_synthetic_20261027",
+  "before_counts": {
+    "nodes": 0,
+    "relationships": 0
+  },
+  "after_ingest_counts": {
+    "nodes": 7,
+    "relationships": 8
+  },
+  "final_counts": {
+    "nodes": 0,
+    "relationships": 0
+  },
+  "cleanup_error": null,
+  "ingest_seconds": 17.334,
+  "tea_search": "Facts:\n- [FAVORITE_TEA_IS] The user's favorite tea is oolong tea. (valid: 2026-10-27)\n- [RECOMMENDS] For dinner in Florence, the assistant recommends Trattoria Sostanza. (valid: 2026-10-27)\n- [LOCATED_IN] Trattoria Sostanza is a dinner restaurant in Florence. (valid: 2026-10-27)",
+  "restaurant_search": "Facts:\n- [RECOMMENDS] For dinner in Florence, the assistant recommends Trattoria Sostanza. (valid: 2026-10-27)\n- [LOCATED_IN] Trattoria Sostanza is a dinner restaurant in Florence. (valid: 2026-10-27)\n- [FAVORITE_TEA_IS] The user's favorite tea is oolong tea. (valid: 2026-10-27)",
+  "tea_contains_oolong": true,
+  "restaurant_contains_sostanza": true,
+  "ledger_marker": 1669,
+  "new_graphiti_calls": [
+    {
+      "rowid": 1670,
+      "call_id": "api-873cc19939b94de1bffe8be5d2248f30",
+      "status": "COMMITTED",
+      "reserved_tokens": 18592,
+      "prompt_tokens": 2164,
+      "completion_tokens": 46,
+      "actual_tokens": 2210,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 2164,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1671,
+      "call_id": "api-21670425631d425893edccb9d4d3bbd1",
+      "status": "COMMITTED",
+      "reserved_tokens": 17683,
+      "prompt_tokens": 2045,
+      "completion_tokens": 76,
+      "actual_tokens": 2121,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 2045,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1672,
+      "call_id": "api-27463892f95e46a4a9f25f99b6b24be7",
+      "status": "COMMITTED",
+      "reserved_tokens": 18734,
+      "prompt_tokens": 2210,
+      "completion_tokens": 70,
+      "actual_tokens": 2280,
+      "cache_hit_tokens": 512,
+      "cache_miss_tokens": 1698,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1673,
+      "call_id": "api-c5a8b2e7601d4c1fba715a2efab10856",
+      "status": "COMMITTED",
+      "reserved_tokens": 13730,
+      "prompt_tokens": 1098,
+      "completion_tokens": 66,
+      "actual_tokens": 1164,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 1098,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1674,
+      "call_id": "api-fd62215cbcd84ed6802b82c5beee919d",
+      "status": "COMMITTED",
+      "reserved_tokens": 17896,
+      "prompt_tokens": 2111,
+      "completion_tokens": 155,
+      "actual_tokens": 2266,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 2111,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1675,
+      "call_id": "api-253d60ce52ed4c2296cad509f2ae14b2",
+      "status": "COMMITTED",
+      "reserved_tokens": 13719,
+      "prompt_tokens": 1011,
+      "completion_tokens": 16,
+      "actual_tokens": 1027,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 1011,
+      "reasoning_tokens": 0,
+      "error_class": null
+    },
+    {
+      "rowid": 1676,
+      "call_id": "api-f5627f3a85434d1284a97e67ba2762a7",
+      "status": "COMMITTED",
+      "reserved_tokens": 13705,
+      "prompt_tokens": 1009,
+      "completion_tokens": 16,
+      "actual_tokens": 1025,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 1009,
+      "reasoning_tokens": 0,
+      "error_class": null
+    }
+  ],
+  "usage": {
+    "rows": 7,
+    "status_counts": {
+      "COMMITTED": 7
+    },
+    "raw_tokens": 12093,
+    "prompt_tokens": 11648,
+    "completion_tokens": 445,
+    "cache_hit_tokens": 512,
+    "cache_miss_tokens": 11136,
+    "cache_hit_rate": 0.04395604395604396
+  },
+  "pass": true,
+  "limitations": [
+    "Synthetic two-message smoke only; not a LongMemEval quality result.",
+    "Graphiti uses local BGE embeddings; only DeepSeek LLM calls are counted by proxy:graphiti."
+  ]
+}
