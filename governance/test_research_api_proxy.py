@@ -2,7 +2,7 @@
 import unittest
 
 from research_api import ResearchBudgetError
-from research_api_proxy import research_purpose_from_headers, enforce_allowed_proxy_scope
+from research_api_proxy import research_purpose_from_headers, enforce_allowed_proxy_scope, invariant_prefix_sha256
 
 
 class TestProxyTagging(unittest.TestCase):
@@ -61,6 +61,32 @@ class TestProxyTagging(unittest.TestCase):
             enforce_allowed_proxy_scope(
                 "proxy:rotated-tag", {"allowed_proxy_tags":["hindsight","mem0oss"]}
             )
+
+
+    def test_invariant_prefix_hash_ignores_only_final_dynamic_user_payload(self):
+        a=[
+          {"role":"system","content":"fixed-system"},
+          {"role":"assistant","content":"fixed-example"},
+          {"role":"user","content":"case-A"},
+        ]
+        b=[
+          {"role":"system","content":"fixed-system"},
+          {"role":"assistant","content":"fixed-example"},
+          {"role":"user","content":"case-B"},
+        ]
+        self.assertEqual(invariant_prefix_sha256(a),invariant_prefix_sha256(b))
+        c=[dict(x) for x in b]
+        c[0]={"role":"system","content":"changed-system"}
+        self.assertNotEqual(invariant_prefix_sha256(a),invariant_prefix_sha256(c))
+
+    def test_invariant_prefix_requires_final_user_and_nonempty_prefix(self):
+        with self.assertRaisesRegex(ResearchBudgetError,"invariant prefix"):
+            invariant_prefix_sha256([{"role":"user","content":"only"}])
+        with self.assertRaisesRegex(ResearchBudgetError,"final user"):
+            invariant_prefix_sha256([
+              {"role":"system","content":"fixed"},
+              {"role":"assistant","content":"not dynamic user"},
+            ])
 
 
 if __name__=="__main__":

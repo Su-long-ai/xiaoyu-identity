@@ -18,8 +18,12 @@ class E2FreezeShapeTests(unittest.TestCase):
 
     def test_protocol_freeze_is_separate_from_phase_switch_by_contract(self):
         p=json.loads((HERE/"E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json").read_text(encoding="utf-8"))
-        self.assertEqual(p["status"],"DRAFT_PRE_FREEZE")
+        self.assertEqual(p["schema"],"xiaoyu-e2-pilot-protocol-v2")
+        self.assertIn(p["status"],("DRAFT_PRE_FREEZE","FROZEN_BEFORE_EXECUTION"))
+        self.assertEqual(p["protocol_role"],"NONPROMOTIONAL_PILOT")
+        self.assertEqual(p["claim_eligibility"],"NONE")
         self.assertFalse(p["scope"]["private_identity_data"])
+        self.assertFalse(p["scope"]["confirmatory_calls_allowed"])
         self.assertTrue(p["execution_rules"]["freeze_before_any_benchmark_paid_call"])
         self.assertTrue(all(x["ready_to_freeze"] for x in p["required_tracks"]))
         self.assertTrue(any("phase" in x.lower() or "P2" in x for x in p["freeze_blockers"]))

@@ -299,7 +299,7 @@ class ContinuationTests(unittest.TestCase):
     def test_p1_closeout_blocks_explicit_self_directed_join_but_not_backlog_claim(self):
         self.g.policy["phase_priority_guard"]["effective_after_epoch"]=0
         self.g.policy["phase_priority_guard"]["enabled"]=True
-        with self.assertRaisesRegex(GovernanceError,"P1 closeout mode"):
+        with self.assertRaisesRegex(GovernanceError,"phase closeout mode"):
             self.g.join(
                 "worker-closeout-self","research_engineer",
                 "self.directed.closeout","cost_reliability",

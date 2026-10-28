@@ -1,0 +1,72 @@
+{
+  "schema": "xiaoyu-e2-confirmatory-protocol-candidate-v1",
+  "created_at": "2026-10-28",
+  "status": "BLOCKED_UNTIL_PILOT_COMPLETE",
+  "purpose": "Independent confirmatory E2 protocol over the untouched holdout. Case membership is frozen before pilot; quantitative quality thresholds remain unset until pilot completion and must be frozen before any confirmatory call.",
+  "claim_eligibility": "E2_CANDIDATE_ONLY_AFTER_CONFIRMATORY_FREEZE_AND_INDEPENDENT_AUDIT",
+  "split_manifest": {
+    "path": "governance/E2_SPLIT_MANIFEST.json",
+    "sha256": "07f209183bea2b1c11c18f2073173a6576df3396396c4ffc520cd18afe3cfd1f"
+  },
+  "holdout": {
+    "longmemeval": {
+      "indices_source": "E2_SPLIT_MANIFEST.longmemeval.confirmatory_indices",
+      "count": 454,
+      "untouched_required": true
+    },
+    "halumem": {
+      "uuids_source": "E2_SPLIT_MANIFEST.halumem.confirmatory_uuids",
+      "user_count": 18,
+      "applies_to": [
+        "Medium",
+        "Long"
+      ],
+      "untouched_required": true
+    }
+  },
+  "structural_zero_tolerance": {
+    "private_identity_data_used": 0,
+    "inadmissible_memory_exposed_to_model": 0,
+    "authority_laundering_failures": 0,
+    "deleted_or_quarantined_state_resurrection": 0,
+    "source_role_misattribution": 0,
+    "confirmatory_case_substitution": 0,
+    "unbound_paid_calls": 0
+  },
+  "quantitative_thresholds": {
+    "status": "UNSET_UNTIL_PILOT_COMPLETE",
+    "rule": "Lead may set these once from pilot/descriptive evidence and retained external baselines, but before any confirmatory case is executed. After freeze they are immutable.",
+    "longmemeval": null,
+    "halumem": null
+  },
+  "scoring": {
+    "required_layers": [
+      "source_or_stored_state_correctness",
+      "derived_or_current_state_correctness",
+      "retrieved_and_admitted_context_correctness",
+      "final_answer_correctness"
+    ],
+    "targets": [
+      "RAW",
+      "SOURCE",
+      "CANONICAL_CURRENT",
+      "TASK_DEFINED"
+    ],
+    "no_retroactive_metric_selection": true
+  },
+  "execution_rules": {
+    "no_confirmatory_calls_before_status_frozen": true,
+    "no_case_substitution": true,
+    "prompt_and_model_config_frozen_before_first_confirmatory_call": true,
+    "checkpoint_resume_no_duplicate_paid_work": true,
+    "independent_auditor_required": true,
+    "pilot_cases_forbidden": true
+  },
+  "freeze_prerequisites": [
+    "Nonpromotional pilot completed under frozen pilot protocol.",
+    "Pilot hard requirements passed and artifacts/paid-call receipts are bound.",
+    "Quantitative thresholds populated exactly once.",
+    "Prompt/model/scorer hashes pinned.",
+    "Independent pre-execution audit verifies holdout remains untouched."
+  ]
+}

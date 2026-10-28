@@ -391,6 +391,12 @@ class ReuseGuardTests(unittest.TestCase):
     def test_reuse_doctor_rejects_active_candidate_outside_current_phase(self):
         path=self.root/"governance"/"RESEARCH_BACKLOG.json"
         data=json.loads(path.read_text(encoding="utf-8"))
+        # Make the fixture's allowed phase explicit so the test remains valid
+        # after the real project advances from P1/P2 into E2_PILOT.
+        phase=data.setdefault("phase_policy",{})
+        phase["auto_assign_plans"]=["P2"]
+        phase["current_phase"]="SYNTHETIC_P2"
+        phase["require_hold_outside_auto_assign"]=True
         row=next(x for x in data["candidates"] if x["id"]=="R31")
         row["status"]="active"
         row.pop("completion_submission",None)
@@ -402,6 +408,26 @@ class ReuseGuardTests(unittest.TestCase):
         self.assertTrue(any(x["type"]=="active_backlog_outside_phase"
                             and x["backlog_id"]=="R31"
                             for x in report["issues"]))
+
+    def test_phase_closeout_blocks_new_self_directed_research_but_not_auditor(self):
+        path=self.root/"governance"/"RESEARCH_BACKLOG.json"
+        data=json.loads(path.read_text(encoding="utf-8"))
+        phase=data.setdefault("phase_policy",{})
+        phase["closeout_mode"]=True
+        phase["closeout_required_backlog"]=[]
+        phase["closeout_reason"]="synthetic phase closeout"
+        path.write_text(json.dumps(data),encoding="utf-8")
+        self.now[0]=max(
+            self.now[0],
+            float(self.g.policy.get("phase_priority_guard",{}).get("effective_after_epoch",0))+10)
+        with self.assertRaisesRegex(GovernanceError,"phase closeout mode"):
+            self.join(agent_id="closeout_researcher")
+
+        out=self.g.join(
+            "closeout_auditor","auditor","audit.closeout.synthetic","memory_evidence",
+            "Independently review already-submitted synthetic evidence during phase closeout.",
+            "evaluation_data")
+        self.assertEqual(out["reuse_guard"]["status"],"NOT_REQUIRED")
 
     def test_auditor_is_exempt_from_build_gate(self):
         out=self.g.join(

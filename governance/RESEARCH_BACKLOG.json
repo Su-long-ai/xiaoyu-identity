@@ -1808,23 +1808,33 @@
     "done": "completed externally or by a historically matching claim; continuation must skip"
   },
   "phase_policy": {
-    "current_phase": "P2",
-    "auto_assign_plans": [
-      "P2"
-    ],
+    "current_phase": "E2_PILOT",
+    "auto_assign_plans": [],
     "require_hold_outside_auto_assign": true,
     "P1": "Only active P1 blockers may auto-assign before P1 integration freeze.",
     "P2": "Only Lead-unlocked P2 candidates R24/R25/R23 auto-assign. New P2 directions still require Build-vs-Reuse/prior-work review.",
     "P3": "P3 remains HOLD until product scope explicitly expands.",
     "legacy": "Older Txx/alternative candidates remain preserved but held until P1 freeze or explicit falsifier.",
     "note": "continuation.py enforces auto_assign_plans in addition to lifecycle status, so an accidentally active later-phase row cannot steal a P1 slot.",
-    "closeout_mode": false,
+    "closeout_mode": true,
     "closeout_required_backlog": [],
-    "closeout_reason": "P1 is frozen integration-ready. P2 is explicitly opened only for the three pre-frozen hardening questions R24/R25/R23.",
-    "closeout_unlock": "Disable only after Lead re-runs the integration doctor and the direct blocker set changes or P1 freeze completes.",
+    "closeout_reason": "P1 and P2 are closed. Only the frozen E2 non-promotional pilot protocol may execute; self-directed research and confirmatory E2 work remain closed.",
+    "closeout_unlock": "Reopen only by an explicit Lead transition tied to the frozen E2 protocol or a reproducible material regression against the frozen P1/P2 baselines.",
     "p1_research_closeout_complete": true,
     "p1_freeze_checkpoint": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
-    "p2_opened_at": "2026-10-28T13:44+08:00"
+    "p2_opened_at": "2026-10-28T13:44+08:00",
+    "p2_research_closeout_started": true,
+    "p2_closeout_gate": "governance/P2_INTEGRATION_CONTRACT.json + governance/p2_integration_doctor.py",
+    "p2_research_closeout_complete": true,
+    "p2_closeout_checkpoint": "plans/P2_CLOSEOUT_SMOKE_EXIT_CHECKPOINT_20261028.md",
+    "e2_protocol": "governance/E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json",
+    "e2_protocol_freeze_record": "governance/E2_PROTOCOL_FREEZE_RECORD.json",
+    "benchmark_unlock_record": "governance/BENCHMARK_PHASE_UNLOCK_RECORD.json",
+    "e2_pilot_claim_eligibility": "NONE",
+    "e2_confirmatory_calls_allowed": false,
+    "e2_paid_phase": "benchmark",
+    "e2_benchmark_unlocked": true,
+    "e2_entered_at_epoch": 1793176235.298379
   },
   "semantic_extractor_resolution_policy": {
     "preferred": "R37 whole-message singleton fresh replication",

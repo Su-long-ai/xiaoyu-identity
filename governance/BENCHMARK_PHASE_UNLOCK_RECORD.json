@@ -1,0 +1,13 @@
+{
+  "schema": "xiaoyu-benchmark-phase-unlock-v1",
+  "switched_at_epoch": 1793176101.6700406,
+  "from_phase": "smoke",
+  "to_phase": "benchmark",
+  "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+  "smoke_used_or_reserved_tokens": 4561306,
+  "smoke_remaining_tokens": 438694,
+  "unknown_calls": 5,
+  "reserved_calls": 0,
+  "e2_claim_allowed": false,
+  "note": "This unlock authorizes only paid execution under the frozen prospective protocol; it is not an E2/E3 scientific or product claim."
+}

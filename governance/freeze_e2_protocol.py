@@ -39,8 +39,24 @@ def budget_status():
 def preflight():
     protocol=load(PROTOCOL); contract=load(CONTRACT)
     errors=[]; blockers=[]
-    if protocol.get("schema")!="xiaoyu-e2-prospective-protocol-candidate-v1":
+    if protocol.get("schema") not in (
+            "xiaoyu-e2-prospective-protocol-candidate-v1",
+            "xiaoyu-e2-pilot-protocol-v2"):
         errors.append({"type":"protocol_schema"})
+    if protocol.get("schema")=="xiaoyu-e2-pilot-protocol-v2":
+        if protocol.get("protocol_role")!="NONPROMOTIONAL_PILOT":
+            errors.append({"type":"pilot_protocol_role_invalid"})
+        if protocol.get("claim_eligibility")!="NONE":
+            errors.append({"type":"pilot_claim_eligibility_must_be_none"})
+        if protocol.get("scope",{}).get("confirmatory_calls_allowed") is not False:
+            errors.append({"type":"pilot_confirmatory_calls_not_forbidden"})
+        split=protocol.get("split_manifest") or {}
+        split_path=ROOT/split.get("path","")
+        actual=(hashlib.sha256(split_path.read_bytes()).hexdigest()
+                if split_path.is_file() else None)
+        if actual!=split.get("sha256"):
+            errors.append({"type":"pilot_split_manifest_hash_drift",
+                           "expected":split.get("sha256"),"actual":actual})
     if protocol.get("status") not in ("DRAFT_PRE_FREEZE","FROZEN_BEFORE_EXECUTION"):
         errors.append({"type":"protocol_status_invalid","actual":protocol.get("status")})
     tracks=protocol.get("required_tracks") or []
@@ -64,7 +80,14 @@ def preflight():
     if not p2r.get("p2_closeout_ready"):
         blockers.append({"type":"p2_not_closed",
                          "blocked_stages":p2r.get("blocked_required_stages",[])})
-    scope=sx._p2_scope_state(DB,contract.get("p2_scope_lineages") or [])
+    scope=sx._p2_scope_state(
+        DB,
+        contract.get("p2_scope_lineages_legacy") or contract.get("p2_scope_lineages") or [],
+        contract.get("blocking_scopes") or [])
+    evidence=sx._prefreeze_evidence(DB,contract.get("required_prefreeze_evidence") or [])
+    if not evidence["ok"]:
+        blockers.append({"type":"prefreeze_evidence_incomplete",
+                         "checks":[x for x in evidence["checks"] if not x["ok"]]})
     if scope["active"]:
         blockers.append({"type":"p2_scope_active",
                          "leases":[x["lease_id"] for x in scope["active"]]})
@@ -93,6 +116,7 @@ def preflight():
       "p2_closeout_ready":bool(p2r.get("p2_closeout_ready")),
       "p2_blocked_stages":p2r.get("blocked_required_stages",[]),
       "p2_scope_state":scope,
+      "prefreeze_evidence":evidence,
       "paid_phase":{
         "active_phase":bs.get("active_phase"),
         "benchmark_unlocked":bool(bs.get("benchmark_unlocked")),

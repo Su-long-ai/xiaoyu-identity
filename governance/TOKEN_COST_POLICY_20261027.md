@@ -81,3 +81,26 @@ Historical calls predating cache telemetry can never be reconstructed exactly. C
 The 95M benchmark phase remains locked. Even after a future explicit unlock, weekday Beijing peak calls are blocked by default. Large benchmark execution should use off-peak pricing unless Lead deliberately records a reason to override the policy.
 
 A benchmark service being online is not permission for an old client to resume unlimited work. The scope ceilings are the final provider-side circuit breaker.
+
+
+## E2 token-efficiency refinement — 2026-10-28
+
+Historical lifetime cache telemetry at E2 entry was 37.6218% over measured cache tokens. This number includes heterogeneous smoke/framework traffic and is not an E2 success metric.
+
+E2 adds `governance/E2_TOKEN_EFFICIENCY_CONTRACT.json` and phase-local telemetry.
+
+The optimization target is now:
+- stable invariant prompt prefix cache-hit rate: target >=95%;
+- whole-prompt cache-hit rate: observe only, because case-specific benchmark material is inherently novel;
+- duplicate paid case execution: 0;
+- duplicate paid ingest after resume: 0;
+- paid synthetic cache-warmup calls: 0;
+- weekday Beijing peak benchmark calls: 0 under the current policy.
+
+Execution must keep frozen system/schema/few-shot content first and byte-stable, put case-specific payload last, use deterministic JSON serialization, and freeze a per-track prompt/template hash and completion cap before the first paid call.
+
+For each track, the first two **real frozen pilot cases** should execute serially to establish provider cache prefixes; later cases may use bounded parallelism. This ordering is a cost optimization only and may not change case content, scoring, model parameters, or gold visibility.
+
+Checkpoint/resume must reuse completed local artifacts rather than issue the same paid case again. A paid retry requires a recorded provider failure or explicit UNKNOWN reconciliation.
+
+`research_api.py status` now reports both lifetime `cache_observation` and current-phase `phase_cache_observation`; use the latter for E2 decisions.

@@ -1,8 +1,8 @@
 {
-  "schema": "xiaoyu-e2-prospective-protocol-candidate-v1",
+  "schema": "xiaoyu-e2-pilot-protocol-v2",
   "created_at": "2026-10-28",
-  "status": "DRAFT_PRE_FREEZE",
-  "purpose": "Prospective E2 scientific validation after P1 freeze and P2 hardening closeout. This file is not an unlock and not a product claim.",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "purpose": "Frozen nonpromotional benchmark pilot after P1/P2 closeout. Pilot validates harness, cost, scoring plumbing and failure modes only; it cannot support an E2 scientific claim.",
   "scope": {
     "data_policy": "public_or_synthetic_only",
     "private_identity_data": false,
@@ -11,7 +11,9 @@
     "model_track": "DeepSeek-V4.1-Flash-1017, non-thinking, temperature 0, top_p 1 unless a whole-track frozen amendment changes all compared arms",
     "benchmark_budget_ceiling_tokens": 95000000,
     "initial_benchmark_pilot_cap_tokens": 1000000,
-    "note": "95M is a ceiling, not a target. Start with the frozen pilot; larger execution requires the same protocol and passing pilot integrity/cost gates."
+    "note": "The 95M benchmark allocation is a ceiling. This protocol authorizes only the <=1M nonpromotional pilot split. Confirmatory calls remain forbidden until a separate protocol is frozen.",
+    "confirmatory_calls_allowed": false,
+    "confirmatory_protocol": "governance/E2_CONFIRMATORY_PROTOCOL_CANDIDATE.json"
   },
   "scoring": {
     "required_layers": [
@@ -43,7 +45,60 @@
         "CANONICAL_CURRENT"
       ],
       "ready_to_freeze": true,
-      "blocker": null
+      "blocker": null,
+      "execution_scope": "PILOT_ONLY",
+      "pilot_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        70,
+        71,
+        72,
+        73,
+        74,
+        132,
+        133,
+        134,
+        135,
+        136,
+        233,
+        234,
+        235,
+        236,
+        237,
+        366,
+        367,
+        368,
+        369,
+        370,
+        444,
+        445,
+        446,
+        447,
+        448,
+        499
+      ],
+      "pilot_count": 46,
+      "confirmatory_count_reserved": 454,
+      "pilot_data_status": "ALREADY_EXPOSED_DURING_T19",
+      "claim_eligible": false
     },
     {
       "id": "halumem_operation_hallucination",
@@ -84,7 +139,15 @@
           "sha256": "dfdbed570b402b7b8c17e0d7808fc6f3ae7a53b6144f18feb16bbdd3f55cb0c9"
         }
       ],
-      "local_cache": "external/halumem_dataset_cache (gitignored; public benchmark data only)"
+      "local_cache": "external/halumem_dataset_cache (gitignored; public benchmark data only)",
+      "execution_scope": "PILOT_ONLY",
+      "pilot_uuids": [
+        "d850d98b-ba45-3fd5-e3fa-2104b6724e10",
+        "2e36c193-a605-8cc7-70ff-80b2336d4980"
+      ],
+      "pilot_user_count": 2,
+      "confirmatory_user_count_reserved": 18,
+      "claim_eligible": false
     },
     {
       "id": "trust_layer_controls",
@@ -98,7 +161,9 @@
       "paid_model_required": false,
       "ready_to_freeze": true,
       "blocker": null,
-      "rule": "Reuse receipt-bound frozen cases; do not create a new private benchmark."
+      "rule": "Reuse receipt-bound frozen cases; do not create a new private benchmark.",
+      "execution_scope": "PILOT_AND_REGRESSION_CONTROL",
+      "claim_eligible": false
     }
   ],
   "optional_post_core_tracks": [
@@ -129,17 +194,65 @@
     "random_seed_policy": "Record every seed; no seed substitution after first outcome is observed.",
     "prompt_policy": "Freeze prompt/template/hash per track before prospective execution.",
     "failure_policy": "Structural privacy/admissibility/source-authority failure is fail-closed regardless of final answer quality.",
-    "stop_loss": "Stop a track on a deterministic structural falsifier or when its frozen cost ceiling is reached."
+    "stop_loss": "Stop a track on a deterministic structural falsifier or when its frozen cost ceiling is reached.",
+    "pilot_results_may_support_e2_claim": false,
+    "confirmatory_case_execution_forbidden": true,
+    "confirmatory_protocol_must_be_frozen_before_confirmatory_call": true
   },
   "audit_rules": {
     "independent_auditor_required": true,
     "auditor_must_not_author_candidate_artifacts": true,
     "scoring_code_and_dataset_fingerprints_must_be_receipt_bound": true,
-    "no_retroactive_metric_or_target_selection": true
+    "no_retroactive_metric_or_target_selection": true,
+    "pilot_and_confirmatory_case_sets_must_be_disjoint": true,
+    "confirmatory_thresholds_must_be_frozen_before_confirmatory_call": true
   },
   "freeze_blockers": [
     "P2 integration doctor must report p2_closeout_ready=true.",
-    "No ACTIVE/PENDING P2-scope lease may remain.",
-    "This protocol status must be changed once, by Lead, from DRAFT_PRE_FREEZE to FROZEN_BEFORE_EXECUTION after all blocker checks pass."
-  ]
+    "All exact smoke-exit blocking scopes and required prefreeze evidence must be quiescent/complete.",
+    "Split manifest hash must match; LongMemEval pilot is the complete previously-exposed set and HaluMem split is user-level.",
+    "This pilot protocol may then be frozen before execution. It does not freeze or authorize E2 confirmatory thresholds."
+  ],
+  "protocol_role": "NONPROMOTIONAL_PILOT",
+  "claim_eligibility": "NONE",
+  "split_manifest": {
+    "path": "governance/E2_SPLIT_MANIFEST.json",
+    "sha256": "07f209183bea2b1c11c18f2073173a6576df3396396c4ffc520cd18afe3cfd1f"
+  },
+  "pilot_success_gate": {
+    "promotion_effect": "May permit freezing the separate confirmatory protocol; never grants E2.",
+    "hard_requirements": {
+      "dataset_fingerprints_match": true,
+      "case_ids_deterministic": true,
+      "answer_or_gold_fields_excluded_from_model_inputs": true,
+      "checkpoint_resume_duplicate_case_executions": 0,
+      "checkpoint_resume_duplicate_paid_ingest": 0,
+      "all_paid_calls_receipt_bound": true,
+      "all_calls_via_allowlisted_proxy": true,
+      "structural_privacy_authority_admissibility_failures": 0,
+      "cleanup_verified": true,
+      "pilot_used_or_reserved_tokens_lte": 1000000
+    },
+    "quality_metrics": "DESCRIPTIVE_ONLY",
+    "quality_thresholds_for_e2_claim": "FORBIDDEN_IN_PILOT",
+    "note": "Pilot observations may inform confirmatory quantitative thresholds only because confirmatory cases are already fixed and untouched."
+  },
+  "freeze_metadata": {
+    "frozen_at_epoch": 1793174876.9302273,
+    "basis": "P1 integration-ready + P2 closeout-ready + quiescent P2 scope + pinned benchmark inputs + smoke budget within cap",
+    "phase_switch_performed": false,
+    "e2_claim_allowed": false,
+    "preflight_snapshot": {
+      "p1_integration_ready": true,
+      "p2_closeout_ready": true,
+      "paid_phase": {
+        "active_phase": "smoke",
+        "benchmark_unlocked": false,
+        "used": 4561306,
+        "cap": 5000000,
+        "remaining": 438694,
+        "unknown_calls": 5
+      }
+    }
+  }
 }

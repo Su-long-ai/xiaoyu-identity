@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Offline tests for the capped XiaoYu paid-research API gateway."""
+import hashlib
 import json
 import tempfile
 import unittest
@@ -223,6 +224,23 @@ class TestRuntimeCostGuard(unittest.TestCase):
             self.assertEqual(rep["groups"][0]["scope"],"direct:report_case_#")
         finally:b.close()
 
+    def test_status_separates_current_phase_cache_observation(self):
+        self._write_policy()
+        b=ResearchApiBudget(self.root,clock=lambda:10000,transport=self._fake)
+        try:
+            b.chat([{"role":"user","content":"phase telemetry"}],max_tokens=2,purpose="phase telemetry 1")
+            s=b.status()
+            phase=s["phase_cache_observation"]
+            self.assertEqual(phase["committed_calls"],1)
+            self.assertEqual(phase["prompt_tokens_total"],10)
+            self.assertEqual(phase["completion_tokens_total"],2)
+            self.assertEqual(phase["hit_tokens"],8)
+            self.assertEqual(phase["miss_tokens"],2)
+            self.assertAlmostEqual(phase["hit_rate"],0.8)
+            self.assertAlmostEqual(phase["avg_cache_miss_tokens_per_call"],2.0)
+            self.assertTrue(s["phase_cost_estimate"]["available"])
+        finally:b.close()
+
     def test_benchmark_weekday_peak_block(self):
         from datetime import datetime,timezone,timedelta
         paid=self.policy["budget"]["paid_research"]
@@ -316,6 +334,159 @@ class TestRuntimeCostGuard(unittest.TestCase):
             normalize_budget_scope("HaluMem DF10 case 14"),
             normalize_budget_scope("HaluMem DF11 case 15"),
         )
+
+class TestE2PilotPaidWorkGuard(unittest.TestCase):
+    def setUp(self):
+        import hashlib
+        self.tmp=tempfile.TemporaryDirectory()
+        self.root=Path(self.tmp.name)
+        gov=self.root/"governance";gov.mkdir()
+        self.scope="proxy:xiaoyu:e2_test_pilot"
+        self.prefix="a"*64
+        manifest={
+          "schema":"xiaoyu-e2-pilot-execution-manifest-v1",
+          "status":"FROZEN_BEFORE_FIRST_E2_PAID_CALL",
+          "benchmark_pilot_hard_cap_tokens":10000,
+          "warmup":{"serial_real_cases_per_scope":2},
+          "tracks":{"test":{
+            "scope":self.scope,
+            "case_ids":["case-a","case-b","case-c","case-d","case-e"],
+            "max_completion_tokens":100,
+            "response_format":{"type":"json_object"},
+            "invariant_prefix_sha256":self.prefix,
+          }}
+        }
+        manifest_path=gov/"E2_PILOT_EXECUTION_MANIFEST.json"
+        manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+        manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        # Minimal protocol/split fixtures bound by the execution manifest.
+        protocol=gov/"E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json"
+        split=gov/"E2_SPLIT_MANIFEST.json"
+        protocol.write_text("{}",encoding="utf-8")
+        split.write_text("{}",encoding="utf-8")
+        manifest["protocol_sha256"]=hashlib.sha256(protocol.read_bytes()).hexdigest()
+        manifest["split_manifest_sha256"]=hashlib.sha256(split.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+        manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        policy={"budget":{"max_paid_api_calls_per_day":1000,"max_parallel_experiments":2,"paid_research":{
+          "enabled":True,"provider":"deepseek","active_phase":"benchmark",
+          "benchmark_unlocked":True,"max_total_tokens":100000,
+          "smoke_max_tokens":5000,"benchmark_max_tokens":95000,
+          "runtime_guard":{
+            "enabled":True,"effective_after_epoch":0,"require_proxy_tag":True,
+            "rolling_window_seconds":900,
+            "scope_raw_token_cap":100000,"scope_cache_miss_cap":100000,
+            "scope_output_token_cap":100000,"scope_call_cap":1,
+            "scope_epoch_raw_token_cap":100000,"scope_epoch_cache_miss_cap":100000,
+            "scope_epoch_output_token_cap":100000,"scope_epoch_call_cap":1,
+            "max_single_reservation_tokens":10000,
+            "block_benchmark_weekday_peak":False,
+            "scope_overrides":{self.scope:{
+              "rolling_call_cap":10,"epoch_call_cap":10
+            }}
+          }
+        }},"e2_transition":{
+          "current_stage":"E2_PILOT",
+          "pilot_execution_manifest":"governance/E2_PILOT_EXECUTION_MANIFEST.json",
+          "pilot_execution_manifest_sha256":manifest_sha,
+          "pilot_hard_cap_tokens":10000
+        }}
+        (gov/"policy.json").write_text(json.dumps(policy),encoding="utf-8")
+        (self.root/"provider.json").write_text(json.dumps({
+          "provider":"deepseek","model":"deepseek-flash",
+          "url":"https://api.deepseek.com/chat/completions","key_env":"DEEPSEEK_API_KEY"
+        }),encoding="utf-8")
+        self.messages=[{"role":"system","content":"fixed"},{"role":"user","content":"dynamic"}]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def reserve(self,b,case="case-a",scope=None,prefix=None,max_tokens=50):
+        return b.reserve(
+          self.messages,max_tokens,"e2 test",phase="benchmark",
+          response_format={"type":"json_object"},
+          budget_scope=scope or self.scope,
+          case_id=case,prompt_prefix_sha256=prefix or self.prefix,
+          _proxy_auth=_PROXY_AUTH_SENTINEL)
+
+    def test_exact_frozen_case_is_reservable_and_duplicate_is_blocked(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            self.reserve(b)
+            with self.assertRaisesRegex(ResearchBudgetError,"duplicate paid case"):
+                self.reserve(b)
+        finally:b.close()
+
+    def test_wrong_scope_case_prefix_and_completion_cap_fail_before_reservation(self):
+        for kwargs,needle in [
+          ({"scope":"proxy:xiaoyu:old-client"},"not authorized"),
+          ({"case":"confirmatory-case"},"outside frozen pilot"),
+          ({"prefix":"b"*64},"prefix hash mismatch"),
+          ({"max_tokens":101},"exceeds frozen track cap"),
+        ]:
+            b=ResearchApiBudget(self.root,clock=lambda:10000)
+            try:
+                with self.assertRaisesRegex(ResearchBudgetError,needle):
+                    self.reserve(b,**kwargs)
+                self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+            finally:b.close()
+
+    def test_scope_override_allows_frozen_track_beyond_generic_call_cap(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            c1,_,_=self.reserve(b,case="case-a")
+            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            c2,_,_=self.reserve(b,case="case-b")
+            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            self.assertEqual(b.conn.execute(
+                "select count(*) from calls where status='COMMITTED'").fetchone()[0],2)
+        finally:b.close()
+
+    def test_first_two_real_cases_are_serial_then_global_parallel_cap_applies(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            c1,_,_=self.reserve(b,case="case-a")
+            with self.assertRaisesRegex(ResearchBudgetError,"cache warmup requires serial"):
+                self.reserve(b,case="case-b")
+            b.finalize(c1,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            c2,_,_=self.reserve(b,case="case-b")
+            with self.assertRaisesRegex(ResearchBudgetError,"cache warmup requires serial"):
+                self.reserve(b,case="case-c")
+            b.finalize(c2,{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12})
+            self.reserve(b,case="case-c")
+            self.reserve(b,case="case-d")
+            with self.assertRaisesRegex(ResearchBudgetError,"parallel reservation cap"):
+                self.reserve(b,case="case-e")
+        finally:b.close()
+
+    def test_execution_manifest_hash_drift_fails_closed(self):
+        path=self.root/"governance"/"E2_PILOT_EXECUTION_MANIFEST.json"
+        m=json.loads(path.read_text())
+        m["status"]="TAMPERED"
+        path.write_text(json.dumps(m),encoding="utf-8")
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"manifest hash"):
+                self.reserve(b)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
+    def test_pilot_hard_cap_blocks_before_provider(self):
+        path=self.root/"governance"/"E2_PILOT_EXECUTION_MANIFEST.json"
+        m=json.loads(path.read_text())
+        m["benchmark_pilot_hard_cap_tokens"]=1000
+        path.write_text(json.dumps(m),encoding="utf-8")
+        policy_path=self.root/"governance"/"policy.json"
+        policy=json.loads(policy_path.read_text())
+        policy["e2_transition"]["pilot_execution_manifest_sha256"]=hashlib.sha256(path.read_bytes()).hexdigest()
+        policy_path.write_text(json.dumps(policy),encoding="utf-8")
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"pilot token cap"):
+                self.reserve(b)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
 
 if __name__=="__main__":
     unittest.main()

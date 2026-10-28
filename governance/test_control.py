@@ -50,8 +50,9 @@ class TestGovernance(unittest.TestCase):
         self.assertEqual(s["paid_research_token_budget"]["max_total_tokens"],100_000_000)
         self.assertEqual(s["paid_research_token_budget"]["smoke_max_tokens"],5_000_000)
         self.assertEqual(s["paid_research_token_budget"]["benchmark_max_tokens"],95_000_000)
-        self.assertEqual(s["paid_research_token_budget"]["active_phase"],"smoke")
-        self.assertFalse(s["paid_research_token_budget"]["benchmark_unlocked"])
+        expected=self.g.policy["budget"]["paid_research"]
+        self.assertEqual(s["paid_research_token_budget"]["active_phase"],expected["active_phase"])
+        self.assertEqual(s["paid_research_token_budget"]["benchmark_unlocked"],bool(expected["benchmark_unlocked"]))
         self.assertFalse(s["identity_data_access"])
 
     def test_duplicate_and_unique_agent_claim(self):

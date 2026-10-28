@@ -40,33 +40,93 @@ def _budget_status(root):
         budget.close()
 
 
-def _p2_scope_state(db_path, lineages):
+def _prefreeze_evidence(db_path, specs):
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     try:
+        rows = []
+        all_ok = True
+        for spec in specs or []:
+            r = con.execute(
+                """SELECT s.submission_id,s.evidence_label,s.decision,s.at,
+                          l.lease_id,l.family,l.lineage,l.agent_id
+                     FROM submissions s JOIN leases l ON l.lease_id=s.lease_id
+                    WHERE l.family=? AND l.lineage=?
+                    ORDER BY s.at DESC LIMIT 1""",
+                (spec["family"], spec["lineage"]),
+            ).fetchone()
+            allowed = set(spec.get("allowed_decisions") or [])
+            actual = None if r is None else r["decision"]
+            ok = r is not None and actual in allowed
+            all_ok = all_ok and ok
+            rows.append({
+                "id": spec.get("id"),
+                "family": spec["family"],
+                "lineage": spec["lineage"],
+                "submission_id": None if r is None else r["submission_id"],
+                "decision": actual,
+                "evidence_label": None if r is None else r["evidence_label"],
+                "allowed_decisions": sorted(allowed),
+                "ok": ok,
+            })
+        return {"ok": all_ok, "checks": rows}
+    finally:
+        con.close()
+
+
+def _p2_scope_state(db_path, lineages=None, scopes=None):
+    """Return active/pending work that is allowed to block the phase transition.
+
+    New contracts use exact family+lineage scopes. The lineage-only path remains
+    for old/synthetic fixtures and is deliberately broader.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    try:
+        lineages=list(lineages or [])
+        scopes=list(scopes or [])
+        active=[];pending=[]
+        seen_active=set();seen_pending=set()
+
+        if scopes:
+            for spec in scopes:
+                fam=spec["family"];lin=spec["lineage"]
+                for r in con.execute(
+                    """SELECT lease_id,agent_id,role,family,lineage,capability,state
+                         FROM leases
+                        WHERE state='ACTIVE' AND family=? AND lineage=?
+                        ORDER BY claimed_at""",(fam,lin)).fetchall():
+                    if r["lease_id"] not in seen_active:
+                        active.append(dict(r));seen_active.add(r["lease_id"])
+                for r in con.execute(
+                    """SELECT s.submission_id,s.evidence_label,s.decision,
+                              l.lease_id,l.agent_id,l.role,l.family,l.lineage
+                         FROM submissions s JOIN leases l ON l.lease_id=s.lease_id
+                        WHERE s.decision='PENDING' AND l.family=? AND l.lineage=?
+                        ORDER BY s.at""",(fam,lin)).fetchall():
+                    if r["submission_id"] not in seen_pending:
+                        pending.append(dict(r));seen_pending.add(r["submission_id"])
+            return {"active":active,"pending_e1":pending,"mode":"exact_scopes"}
+
         if not lineages:
-            return {"active": [], "pending_e1": []}
-        marks = ",".join("?" for _ in lineages)
-        active = [
+            return {"active":[],"pending_e1":[],"mode":"none"}
+        marks=",".join("?" for _ in lineages)
+        active=[
             dict(r) for r in con.execute(
                 f"""SELECT lease_id,agent_id,role,family,lineage,capability,state
                       FROM leases
                      WHERE state='ACTIVE' AND lineage IN ({marks})
-                     ORDER BY claimed_at""",
-                tuple(lineages),
-            ).fetchall()
+                     ORDER BY claimed_at""",tuple(lineages)).fetchall()
         ]
-        pending = [
+        pending=[
             dict(r) for r in con.execute(
                 f"""SELECT s.submission_id,s.evidence_label,s.decision,
                            l.lease_id,l.agent_id,l.role,l.family,l.lineage
                       FROM submissions s JOIN leases l ON l.lease_id=s.lease_id
                      WHERE s.decision='PENDING' AND l.lineage IN ({marks})
-                     ORDER BY s.at""",
-                tuple(lineages),
-            ).fetchall()
+                     ORDER BY s.at""",tuple(lineages)).fetchall()
         ]
-        return {"active": active, "pending_e1": pending}
+        return {"active":active,"pending_e1":pending,"mode":"legacy_lineages"}
     finally:
         con.close()
 
@@ -132,7 +192,10 @@ def evaluate(
     protocol_check = {
         "path": str(protocol_path),
         "present": protocol is not None,
-        "schema_ok": bool(protocol and protocol.get("schema") == "xiaoyu-e2-prospective-protocol-candidate-v1"),
+        "schema_ok": bool(protocol and protocol.get("schema") in (
+            "xiaoyu-e2-prospective-protocol-candidate-v1",
+            "xiaoyu-e2-pilot-protocol-v2",
+        )),
         "status": protocol.get("status") if protocol else None,
         "required_status": c.get("required_e2_protocol_status"),
         "private_identity_data": (
@@ -153,6 +216,22 @@ def evaluate(
             })
         if protocol.get("scope", {}).get("private_identity_data") is not False:
             errors.append({"type": "e2_protocol_private_data_not_forbidden"})
+        if protocol.get("schema")=="xiaoyu-e2-pilot-protocol-v2":
+            if protocol.get("protocol_role")!="NONPROMOTIONAL_PILOT":
+                errors.append({"type":"pilot_protocol_role_invalid"})
+            if protocol.get("claim_eligibility")!="NONE":
+                errors.append({"type":"pilot_claim_eligibility_must_be_none"})
+            split=protocol.get("split_manifest") or {}
+            split_path=root/split.get("path","")
+            actual_split=(sha(split_path) if split_path.is_file() else None)
+            protocol_check["split_manifest"]={
+                "path":str(split_path),"expected":split.get("sha256"),
+                "actual":actual_split,"ok":actual_split==split.get("sha256")
+            }
+            if actual_split!=split.get("sha256"):
+                errors.append({"type":"pilot_split_manifest_hash_drift"})
+            if protocol.get("scope",{}).get("confirmatory_calls_allowed") is not False:
+                errors.append({"type":"pilot_must_forbid_confirmatory_calls"})
         tracks = protocol.get("required_tracks") or []
         unready = [
             {"id": t.get("id"), "blocker": t.get("blocker")}
@@ -173,7 +252,17 @@ def evaluate(
         if not minimum_layers.issubset(required_layers):
             errors.append({"type": "e2_scoring_layers_incomplete"})
 
-    scope_state = _p2_scope_state(db_path, c.get("p2_scope_lineages") or [])
+    scope_state = _p2_scope_state(
+        db_path,
+        c.get("p2_scope_lineages_legacy") or c.get("p2_scope_lineages") or [],
+        c.get("blocking_scopes") or [])
+    prefreeze_evidence = _prefreeze_evidence(
+        db_path, c.get("required_prefreeze_evidence") or [])
+    if not prefreeze_evidence["ok"]:
+        blockers.append({
+            "type": "prefreeze_evidence_incomplete",
+            "checks": [x for x in prefreeze_evidence["checks"] if not x["ok"]],
+        })
     if scope_state["active"]:
         blockers.append({
             "type": "p2_scope_not_quiescent",
@@ -198,6 +287,8 @@ def evaluate(
         "phase_remaining_tokens": int(budget_status.get("phase_remaining_tokens", 0)),
         "unknown_calls": int((budget_status.get("calls_by_status") or {}).get("UNKNOWN", 0)),
         "max_unknown_calls": int(paid.get("max_unknown_calls", 0)),
+        "reserved_calls": int((budget_status.get("calls_by_status") or {}).get("RESERVED", 0)),
+        "max_reserved_calls": int(paid.get("max_reserved_calls", 0)),
         "consume_remaining_tokens_to_exit": bool(paid.get("consume_remaining_tokens_to_exit", False)),
     }
     if phase_checks["active_phase"] != phase_checks["required_current_phase"]:
@@ -220,6 +311,12 @@ def evaluate(
             "actual": phase_checks["unknown_calls"],
             "allowed": phase_checks["max_unknown_calls"],
         })
+    if phase_checks["reserved_calls"] > phase_checks["max_reserved_calls"]:
+        blockers.append({
+            "type": "paid_calls_still_reserved",
+            "actual": phase_checks["reserved_calls"],
+            "allowed": phase_checks["max_reserved_calls"],
+        })
 
     ready = not errors and not blockers
     return {
@@ -230,6 +327,7 @@ def evaluate(
         "p2_closeout_ready": p2_ready,
         "p2_blocked_stages": p2_result.get("blocked_required_stages", []),
         "p2_scope_state": scope_state,
+        "prefreeze_evidence": prefreeze_evidence,
         "e2_protocol": protocol_check,
         "paid_phase": phase_checks,
         "errors": errors,

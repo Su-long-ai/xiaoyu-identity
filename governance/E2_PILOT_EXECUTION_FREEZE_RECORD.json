@@ -1,0 +1,64 @@
+{
+  "schema": "xiaoyu-e2-pilot-execution-freeze-record-v1",
+  "created_at_epoch": 1793179331.5277076,
+  "status": "FROZEN_BEFORE_FIRST_E2_PAID_CALL",
+  "hashes": {
+    "protocol": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+    "split": "07f209183bea2b1c11c18f2073173a6576df3396396c4ffc520cd18afe3cfd1f",
+    "prompt_freeze": "19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9",
+    "execution_manifest": "abe84b9c5620b8dd5c1218f96c4d3b09c90a824c13572e1f515f2323254513d6",
+    "token_contract": "123ca8f31fb6c1e08ca3cbd70163f1a717581030d435e4a4acd19352270625c6",
+    "builder": "7db1f7c21481a947669d558d84a9227a805e54b787eaa4ccc5f60f8c5cede272",
+    "freeze_script": "734f91ae6141fa1b54606284d410255fae0ebf1d5ad8fc76d9e62d18a8184900",
+    "research_api": "fed4b03ccd10a07f33dd873154c25d4c0409035d7eab760e8ee8bd949fd0ab4f",
+    "research_proxy": "401ace2fe0406c4aee0eee4a6b5d819482af1b3b9dc82f7c90583ab63ca18030",
+    "p1_contract": "b8dcb1659f40886e984a3531dcaf11f4858d38252935d70bb3ca3332dc9e4668",
+    "p1_candidate": "2a20aa552c4bc50356f6bffeaa08cb58b8f40d1c9302586aea8b43c4bc78fe83",
+    "p2_contract": "42d2d22ce56a267a3cb4570d445487f47ce826d283619d201a04799471f9c586"
+  },
+  "scientific_protocol_unchanged": true,
+  "scientific_split_unchanged": true,
+  "prompt_semantics_unchanged_from_accepted_p1": true,
+  "e2_claim_allowed": false,
+  "confirmatory_calls_allowed": false,
+  "benchmark_pilot_hard_cap_tokens": 1000000,
+  "paid_case_count": 129,
+  "track_case_counts": {
+    "longmemeval_answer": 46,
+    "halumem_extract": 32,
+    "halumem_qa": 51
+  },
+  "halumem_operation_subsample": {
+    "role": "NONPROMOTIONAL_ENGINEERING_SUBSAMPLE_WITHIN_FROZEN_PILOT_USERS",
+    "full_pilot_extract_count": 363,
+    "full_pilot_qa_count": 652,
+    "selected_extract_count": 32,
+    "selected_qa_count": 51,
+    "confirmatory_users_touched": 0,
+    "selection_before_first_e2_paid_call": true
+  },
+  "provider_state_at_freeze": {
+    "benchmark_calls": 0,
+    "benchmark_used_or_reserved_tokens": 0
+  },
+  "guards": [
+    "execution_manifest_sha_bound_in_policy",
+    "prompt_freeze_sha_bound_in_policy",
+    "protocol_and_split_hash_revalidated_on_e2_manifest_load",
+    "benchmark_scope_exact_allowlist",
+    "pilot_case_id_exact_allowlist",
+    "invariant_prefix_hash_recomputed_by_proxy",
+    "per_track_completion_cap",
+    "duplicate_case_check_under_begin_immediate",
+    "first_two_real_cases_serial_per_scope",
+    "global_paid_parallel_cap_2",
+    "pilot_hard_cap_1m",
+    "weekday_beijing_peak_block",
+    "confirmatory_forbidden"
+  ],
+  "nonclaims": [
+    "stable-prefix provider cache hit >=95% has not yet been empirically observed",
+    "pilot quality cannot support E2 scientific acceptance",
+    "confirmatory holdout remains untouched"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "xiaoyu-e2-token-efficiency-contract-v1",
+  "created": "2026-10-28",
+  "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+  "scope": "E2 non-promotional pilot only",
+  "semantic_change_allowed": false,
+  "targets": {
+    "stable_prefix_cache_hit_rate": 0.95,
+    "overall_prompt_cache_hit_rate": "OBSERVE_NOT_HARD_GATE",
+    "duplicate_paid_case_execution": 0,
+    "duplicate_paid_ingest": 0,
+    "benchmark_peak_paid_calls": 0
+  },
+  "execution_rules": {
+    "invariant_prefix_first": true,
+    "case_specific_payload_last": true,
+    "timestamps_random_ids_before_invariant_prefix_forbidden": true,
+    "deterministic_json_serialization_required": true,
+    "prompt_template_hash_required_per_track_before_first_paid_call": true,
+    "completion_cap_required_per_track_before_first_paid_call": true,
+    "first_real_cases_serial_warmup_count": 2,
+    "warmup_must_use_real_frozen_pilot_cases": true,
+    "synthetic_paid_warmup_forbidden": true,
+    "track_contiguous_execution_preferred": true,
+    "checkpoint_resume_must_reuse_completed_case_artifacts": true,
+    "paid_retry_requires_recorded_failure_or_unknown_reconciliation": true,
+    "confirmatory_calls_forbidden": true
+  },
+  "metrics": [
+    "phase_prompt_tokens",
+    "phase_completion_tokens",
+    "phase_cache_hit_tokens",
+    "phase_cache_miss_tokens",
+    "phase_cache_hit_rate",
+    "cache_miss_tokens_per_measured_call",
+    "completion_tokens_per_call",
+    "cost_per_track"
+  ],
+  "notes": [
+    "The 95% target applies to the byte/token-stable invariant prefix, not necessarily to the whole prompt because case-specific benchmark content is inherently novel.",
+    "DeepSeek context cache is automatic, prefix-based and best-effort. Execution ordering may improve cache reuse but must not alter benchmark case content, gold data, scoring target or model parameters.",
+    "No prompt shortening, batching or context deletion is allowed merely to improve cache statistics if it changes frozen scientific semantics."
+  ]
+}

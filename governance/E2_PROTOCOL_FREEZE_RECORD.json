@@ -1,0 +1,78 @@
+{
+  "schema": "xiaoyu-e2-protocol-freeze-record-v1",
+  "protocol": "governance/E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json",
+  "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+  "frozen_at_epoch": 1793174876.9302273,
+  "phase_switch_performed": true,
+  "e2_claim_allowed": false,
+  "preflight": {
+    "schema": "xiaoyu-e2-protocol-freeze-preflight-v1",
+    "protocol_status": "DRAFT_PRE_FREEZE",
+    "required_tracks_ready": true,
+    "p1_integration_ready": true,
+    "p2_closeout_ready": true,
+    "p2_blocked_stages": [],
+    "p2_scope_state": {
+      "active": [],
+      "pending_e1": [],
+      "mode": "exact_scopes"
+    },
+    "prefreeze_evidence": {
+      "ok": true,
+      "checks": [
+        {
+          "id": "protocol_integrity",
+          "family": "protocol.e2.prefreeze_integrity",
+          "lineage": "evaluation.e2.protocol",
+          "submission_id": "sub-1dd1c023c21640b9",
+          "decision": "EVIDENCE_ONLY",
+          "evidence_label": "EVIDENCE_ONLY",
+          "allowed_decisions": [
+            "ACCEPT_E1",
+            "EVIDENCE_ONLY"
+          ],
+          "ok": true
+        },
+        {
+          "id": "execution_dryrun",
+          "family": "protocol.e2.execution_dryrun",
+          "lineage": "evaluation.e2.runner",
+          "submission_id": "sub-77c8dbdc0270403f",
+          "decision": "EVIDENCE_ONLY",
+          "evidence_label": "EVIDENCE_ONLY",
+          "allowed_decisions": [
+            "ACCEPT_E1",
+            "EVIDENCE_ONLY"
+          ],
+          "ok": true
+        },
+        {
+          "id": "conflict_context_bridge",
+          "family": "audit.reference.conflict_context_bridge",
+          "lineage": "audit.derived_state.formal_context",
+          "submission_id": "sub-7ebc463d0da84807",
+          "decision": "EVIDENCE_ONLY",
+          "evidence_label": "EXPLORATORY",
+          "allowed_decisions": [
+            "ACCEPT_E1",
+            "EVIDENCE_ONLY"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "paid_phase": {
+      "active_phase": "smoke",
+      "benchmark_unlocked": false,
+      "used": 4561306,
+      "cap": 5000000,
+      "remaining": 438694,
+      "unknown_calls": 5
+    },
+    "errors": [],
+    "blockers": [],
+    "freeze_allowed": true
+  },
+  "phase_switch_at_epoch": 1793176101.6700406,
+  "benchmark_unlock_protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14"
+}

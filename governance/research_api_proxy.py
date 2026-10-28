@@ -13,6 +13,7 @@ Cost controls:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import time
@@ -23,6 +24,18 @@ from research_api import ResearchApiBudget, ResearchBudgetError, _PROXY_AUTH_SEN
 
 _TAG_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _RUN_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_CASE_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+def invariant_prefix_sha256(messages) -> str:
+    """Hash all invariant messages before the final dynamic user payload."""
+    if not isinstance(messages,list) or len(messages)<2:
+        raise ResearchBudgetError("E2 benchmark requires invariant prefix + final dynamic user message")
+    if not isinstance(messages[-1],dict) or messages[-1].get("role")!="user":
+        raise ResearchBudgetError("E2 benchmark dynamic case payload must be the final user message")
+    prefix=messages[:-1]
+    raw=json.dumps(prefix,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
 
 
 def research_purpose_from_headers(headers, *, require_tag: bool = False) -> tuple[str, str]:
@@ -187,6 +200,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.headers, require_tag=require_tag
             )
             enforce_allowed_proxy_scope(scope, guard)
+
+            case_id=None
+            prefix_sha=None
+            e2_cfg=budget.policy.get("e2_transition") or {}
+            if cfg.get("active_phase")=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+                case_id=str(self.headers.get("X-XiaoYu-Case-ID") or "").strip()
+                if not _CASE_RE.fullmatch(case_id):
+                    raise ResearchBudgetError(
+                        "Frozen E2 pilot requires X-XiaoYu-Case-ID (1-128 safe characters)")
+                prefix_sha=invariant_prefix_sha256(messages)
+
             if cfg.get("active_phase") == "smoke":
                 completion_cap = int(
                     guard.get("max_proxy_completion_tokens_smoke") or 0
@@ -214,6 +238,8 @@ class Handler(BaseHTTPRequestHandler):
                 purpose=purpose,
                 budget_scope=scope,
                 response_format=response_format,
+                case_id=case_id,
+                prompt_prefix_sha256=prefix_sha,
                 _proxy_auth=_PROXY_AUTH_SENTINEL,
             )
             created = int(time.time())

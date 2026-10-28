@@ -104,7 +104,9 @@ class ResearchApiBudget:
             error_class TEXT,
             budget_scope TEXT,
             request_bytes INTEGER,
-            gateway_origin TEXT
+            gateway_origin TEXT,
+            case_id TEXT,
+            prompt_prefix_sha256 TEXT
         )""")
         existing = {r[1] for r in self.conn.execute("PRAGMA table_info(calls)")}
         migrations = {
@@ -114,6 +116,8 @@ class ResearchApiBudget:
             "budget_scope": "TEXT",
             "request_bytes": "INTEGER",
             "gateway_origin": "TEXT",
+            "case_id": "TEXT",
+            "prompt_prefix_sha256": "TEXT",
         }
         for name, typ in migrations.items():
             if name not in existing:
@@ -182,6 +186,38 @@ class ResearchApiBudget:
         ).fetchone()
         return {k: int(row[k] or 0) for k in ("calls", "raw", "miss", "output")}
 
+    def _e2_execution_manifest(self) -> dict | None:
+        cfg=self.policy.get("e2_transition") or {}
+        rel=cfg.get("pilot_execution_manifest")
+        if not rel:
+            return None
+        path=self.root/str(rel)
+        if not path.is_file():
+            raise ResearchBudgetError("E2 pilot execution manifest is missing")
+        raw=path.read_bytes()
+        actual=__import__("hashlib").sha256(raw).hexdigest()
+        expected=str(cfg.get("pilot_execution_manifest_sha256") or "")
+        if not expected or actual!=expected:
+            raise ResearchBudgetError("E2 pilot execution manifest hash does not match frozen policy")
+        data=json.loads(raw.decode("utf-8"))
+        if data.get("schema")!="xiaoyu-e2-pilot-execution-manifest-v1":
+            raise ResearchBudgetError("Unsupported E2 pilot execution manifest schema")
+        protocol=self.gov/"E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json"
+        split=self.gov/"E2_SPLIT_MANIFEST.json"
+        if not protocol.is_file() or __import__("hashlib").sha256(protocol.read_bytes()).hexdigest()!=data.get("protocol_sha256"):
+            raise ResearchBudgetError("E2 protocol hash drift against execution manifest")
+        if not split.is_file() or __import__("hashlib").sha256(split.read_bytes()).hexdigest()!=data.get("split_manifest_sha256"):
+            raise ResearchBudgetError("E2 split hash drift against execution manifest")
+        return data
+
+    @staticmethod
+    def _scope_guard_value(guard: dict, scope: str, override_key: str, base_key: str) -> int:
+        overrides=guard.get("scope_overrides") or {}
+        row=overrides.get(scope) if isinstance(overrides,dict) else None
+        if isinstance(row,dict) and row.get(override_key) is not None:
+            return int(row.get(override_key) or 0)
+        return int(guard.get(base_key) or 0)
+
     def _pricing(self) -> dict:
         p = self._cfg().get("pricing_cny_per_million") or {}
         return p if isinstance(p, dict) else {}
@@ -242,6 +278,70 @@ class ResearchApiBudget:
         measured = int(cache["measured"])
         denom = hit + miss
         measured_prompt_coverage = (denom / prompt) if prompt else None
+        phase_cache = self.conn.execute("""SELECT
+            COALESCE(SUM(prompt_tokens),0) AS prompt,
+            COALESCE(SUM(completion_tokens),0) AS completion,
+            COALESCE(SUM(cache_hit_tokens),0) AS hit,
+            COALESCE(SUM(cache_miss_tokens),0) AS miss,
+            COUNT(cache_hit_tokens) AS measured,
+            COUNT(*) AS committed
+            FROM calls WHERE status='COMMITTED' AND phase=?""",(phase,)).fetchone()
+        phase_prompt=int(phase_cache["prompt"] or 0)
+        phase_completion=int(phase_cache["completion"] or 0)
+        phase_hit=int(phase_cache["hit"] or 0)
+        phase_miss=int(phase_cache["miss"] or 0)
+        phase_measured=int(phase_cache["measured"] or 0)
+        phase_committed=int(phase_cache["committed"] or 0)
+        phase_denom=phase_hit+phase_miss
+        phase_observation={
+            "committed_calls":phase_committed,
+            "measured_committed_calls":phase_measured,
+            "prompt_tokens_total":phase_prompt,
+            "completion_tokens_total":phase_completion,
+            "hit_tokens":phase_hit,
+            "miss_tokens":phase_miss,
+            "hit_rate":round(phase_hit/phase_denom,6) if phase_denom else None,
+            "measured_prompt_coverage":round(phase_denom/phase_prompt,6) if phase_prompt else None,
+            "avg_prompt_tokens_per_call":round(phase_prompt/phase_committed,2) if phase_committed else None,
+            "avg_completion_tokens_per_call":round(phase_completion/phase_committed,2) if phase_committed else None,
+            "avg_cache_miss_tokens_per_call":round(phase_miss/phase_measured,2) if phase_measured else None,
+            "note":"Current paid phase only; use this for E2 optimization rather than lifetime smoke history."
+        }
+        e2_cfg=self.policy.get("e2_transition") or {}
+        e2_pilot_guard=None
+        if e2_cfg.get("current_stage")=="E2_PILOT":
+            try:
+                em=self._e2_execution_manifest()
+                pilot_cap=int(em.get("benchmark_pilot_hard_cap_tokens") or 0)
+                allowed_scopes=[t.get("scope") for t in (em.get("tracks") or {}).values()]
+                case_count=sum(int(t.get("case_count") or 0) for t in (em.get("tracks") or {}).values())
+                case_rows=self.conn.execute("""SELECT
+                    COUNT(*) AS calls,
+                    COUNT(DISTINCT case_id) AS unique_cases,
+                    SUM(CASE WHEN status='RESERVED' THEN 1 ELSE 0 END) AS reserved,
+                    SUM(CASE WHEN status='UNKNOWN' THEN 1 ELSE 0 END) AS unknown
+                    FROM calls WHERE phase='benchmark'""").fetchone()
+                e2_pilot_guard={
+                    "healthy":True,
+                    "hard_cap_tokens":pilot_cap,
+                    "used_or_reserved_tokens":phase_used if phase=="benchmark" else 0,
+                    "remaining_tokens":max(0,pilot_cap-(phase_used if phase=="benchmark" else 0)),
+                    "manifest_case_count":case_count,
+                    "paid_calls":int(case_rows["calls"] or 0),
+                    "unique_paid_cases":int(case_rows["unique_cases"] or 0),
+                    "reserved_calls":int(case_rows["reserved"] or 0),
+                    "unknown_calls":int(case_rows["unknown"] or 0),
+                    "allowed_scopes":allowed_scopes,
+                    "manifest_sha256":e2_cfg.get("pilot_execution_manifest_sha256"),
+                    "duplicate_paid_case_forbidden":True,
+                    "invariant_prefix_hash_required":True,
+                }
+            except Exception as exc:
+                e2_pilot_guard={
+                    "healthy":False,
+                    "error":type(exc).__name__+":"+str(exc),
+                    "hard_cap_tokens":e2_cfg.get("pilot_hard_cap_tokens"),
+                }
         guard = self._guard_cfg()
         return {
             "enabled": True,
@@ -260,6 +360,11 @@ class ResearchApiBudget:
                     "SELECT status,count(*) AS n FROM calls GROUP BY status"
                 )
             },
+            "phase_cache_observation": phase_observation,
+            "phase_cost_estimate": self._cost_range_from_counts(
+                phase_prompt, phase_completion, phase_hit, phase_miss, self._pricing()
+            ),
+            "e2_pilot_guard": e2_pilot_guard,
             "cache_observation": {
                 "measured_committed_calls": measured,
                 "prompt_tokens_total": prompt,
@@ -376,6 +481,8 @@ class ResearchApiBudget:
         phase: str | None = None,
         response_format=None,
         budget_scope: str | None = None,
+        case_id: str | None = None,
+        prompt_prefix_sha256: str | None = None,
         _proxy_auth=None,
     ) -> tuple[str, int, dict]:
         if response_format is not None and response_format != {"type": "json_object"}:
@@ -419,6 +526,49 @@ class ResearchApiBudget:
                     "Direct paid research calls are forbidden while runtime_guard.require_proxy_tag=true; "
                     "use an allowlisted local-budget-proxy tag")
         gateway_origin="http_proxy" if proxy_authenticated else "direct"
+
+        # E2 pilot execution envelope: benchmark access is restricted to the
+        # frozen pilot manifest, with exact case membership, byte-stable
+        # invariant prompt prefix and durable duplicate-paid-work prevention.
+        e2_cfg=self.policy.get("e2_transition") or {}
+        e2_manifest=None
+        e2_track=None
+        if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+            e2_manifest=self._e2_execution_manifest()
+            if e2_manifest is None:
+                raise ResearchBudgetError("E2 pilot execution manifest is required")
+            tracks=e2_manifest.get("tracks") or {}
+            for _name,_track in tracks.items():
+                if isinstance(_track,dict) and _track.get("scope")==scope:
+                    e2_track=_track
+                    break
+            if e2_track is None:
+                raise ResearchBudgetError(
+                    f"Benchmark scope '{scope}' is not authorized by frozen E2 pilot manifest")
+            case_id=str(case_id or "").strip()
+            if not case_id:
+                raise ResearchBudgetError("E2 benchmark case_id is required")
+            allowed=set(str(x) for x in e2_track.get("case_ids",[]))
+            if case_id not in allowed:
+                raise ResearchBudgetError("E2 benchmark case_id is outside frozen pilot split")
+            expected_prefix=str(e2_track.get("invariant_prefix_sha256") or "")
+            if not expected_prefix or str(prompt_prefix_sha256 or "")!=expected_prefix:
+                raise ResearchBudgetError("E2 benchmark invariant prompt prefix hash mismatch")
+            cap=int(e2_track.get("max_completion_tokens") or 0)
+            if cap<=0 or max_tokens>cap:
+                raise ResearchBudgetError(
+                    f"E2 benchmark max_tokens {max_tokens} exceeds frozen track cap {cap}")
+            required_fmt=e2_track.get("response_format")
+            if required_fmt is not None and response_format!=required_fmt:
+                raise ResearchBudgetError("E2 benchmark response_format differs from frozen track")
+            prior=self.conn.execute(
+                """SELECT call_id,status FROM calls
+                   WHERE phase='benchmark' AND case_id=? AND status IN ('RESERVED','COMMITTED','UNKNOWN')
+                   ORDER BY created_at DESC LIMIT 1""",(case_id,)).fetchone()
+            if prior is not None:
+                raise ResearchBudgetError(
+                    f"E2 duplicate paid case blocked: {case_id} already {prior['status']}")
+
         request_bytes = self.request_bytes(messages)
         reserve = self.conservative_reservation(messages, max_tokens)
         max_single = int(guard.get("max_single_reservation_tokens") or 0)
@@ -442,6 +592,37 @@ class ResearchApiBudget:
         call_id = "api-" + uuid.uuid4().hex
         self.conn.execute("BEGIN IMMEDIATE")
         try:
+            # Authoritative duplicate check under the SQLite write lock. The
+            # earlier check is only a fast failure path; this closes two-process
+            # check-then-insert races.
+            if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+                prior=self.conn.execute(
+                    """SELECT call_id,status FROM calls
+                       WHERE phase='benchmark' AND case_id=?
+                         AND status IN ('RESERVED','COMMITTED','UNKNOWN')
+                       ORDER BY created_at DESC LIMIT 1""",(case_id,)).fetchone()
+                if prior is not None:
+                    raise ResearchBudgetError(
+                        f"E2 duplicate paid case blocked atomically: {case_id} already {prior['status']}")
+                warmup_n=int((e2_manifest or {}).get("warmup",{}).get(
+                    "serial_real_cases_per_scope") or 0)
+                if warmup_n>0:
+                    committed_scope=int(self.conn.execute(
+                        "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='COMMITTED'",
+                        (scope,)).fetchone()[0])
+                    reserved_scope=int(self.conn.execute(
+                        "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='RESERVED'",
+                        (scope,)).fetchone()[0])
+                    if committed_scope < warmup_n and reserved_scope>0:
+                        raise ResearchBudgetError(
+                            f"E2 cache warmup requires serial execution for first {warmup_n} committed cases in scope '{scope}'")
+            parallel_cap=int(self.policy.get("budget",{}).get("max_parallel_experiments") or 0)
+            if parallel_cap>0:
+                reserved_now=int(self.conn.execute(
+                    "SELECT count(*) FROM calls WHERE status='RESERVED'").fetchone()[0])
+                if reserved_now>=parallel_cap:
+                    raise ResearchBudgetError(
+                        f"Paid research parallel reservation cap reached ({reserved_now} >= {parallel_cap})")
             total = self._used_locked()
             phase_used = self._used_locked(phase)
             max_calls = int(self.policy.get("budget", {}).get("max_paid_api_calls_per_day") or 0)
@@ -463,15 +644,23 @@ class ResearchApiBudget:
                 raise ResearchBudgetError("Phase-1 total token budget would be exceeded")
             if phase_used + reserve > phase_cap:
                 raise ResearchBudgetError(f"{phase} token budget would be exceeded")
+            if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+                pilot_cap=int((e2_manifest or {}).get("benchmark_pilot_hard_cap_tokens") or
+                              e2_cfg.get("pilot_hard_cap_tokens") or 0)
+                if pilot_cap<=0:
+                    raise ResearchBudgetError("E2 pilot hard token cap is missing")
+                if phase_used + reserve > pilot_cap:
+                    raise ResearchBudgetError(
+                        f"E2 pilot token cap would be exceeded ({phase_used} + {reserve} > {pilot_cap})")
 
             if guard_enabled and now >= effective_after:
                 window = max(1, int(guard.get("rolling_window_seconds") or 900))
                 since = max(effective_after, now - window)
                 usage = self._scope_usage_locked(scope, since)
-                raw_cap = int(guard.get("scope_raw_token_cap") or 0)
-                miss_cap = int(guard.get("scope_cache_miss_cap") or 0)
-                output_cap = int(guard.get("scope_output_token_cap") or 0)
-                call_cap = int(guard.get("scope_call_cap") or 0)
+                raw_cap = self._scope_guard_value(guard,scope,"rolling_raw_token_cap","scope_raw_token_cap")
+                miss_cap = self._scope_guard_value(guard,scope,"rolling_cache_miss_cap","scope_cache_miss_cap")
+                output_cap = self._scope_guard_value(guard,scope,"rolling_output_token_cap","scope_output_token_cap")
+                call_cap = self._scope_guard_value(guard,scope,"rolling_call_cap","scope_call_cap")
                 if raw_cap > 0 and usage["raw"] + reserve > raw_cap:
                     raise ResearchBudgetError(
                         f"Scope '{scope}' rolling raw-token guard would be exceeded "
@@ -494,10 +683,10 @@ class ResearchApiBudget:
                     )
 
                 epoch_usage = self._scope_usage_locked(scope, effective_after)
-                epoch_raw_cap = int(guard.get("scope_epoch_raw_token_cap") or 0)
-                epoch_miss_cap = int(guard.get("scope_epoch_cache_miss_cap") or 0)
-                epoch_output_cap = int(guard.get("scope_epoch_output_token_cap") or 0)
-                epoch_call_cap = int(guard.get("scope_epoch_call_cap") or 0)
+                epoch_raw_cap = self._scope_guard_value(guard,scope,"epoch_raw_token_cap","scope_epoch_raw_token_cap")
+                epoch_miss_cap = self._scope_guard_value(guard,scope,"epoch_cache_miss_cap","scope_epoch_cache_miss_cap")
+                epoch_output_cap = self._scope_guard_value(guard,scope,"epoch_output_token_cap","scope_epoch_output_token_cap")
+                epoch_call_cap = self._scope_guard_value(guard,scope,"epoch_call_cap","scope_epoch_call_cap")
                 if epoch_raw_cap > 0 and epoch_usage["raw"] + reserve > epoch_raw_cap:
                     raise ResearchBudgetError(
                         f"Scope '{scope}' epoch raw-token guard would be exceeded "
@@ -522,8 +711,8 @@ class ResearchApiBudget:
             self.conn.execute(
                 """INSERT INTO calls(
                     call_id,created_at,phase,purpose,provider,model,status,reserved_tokens,
-                    budget_scope,request_bytes,gateway_origin)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                    budget_scope,request_bytes,gateway_origin,case_id,prompt_prefix_sha256)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     call_id,
                     now,
@@ -536,6 +725,8 @@ class ResearchApiBudget:
                     scope,
                     request_bytes,
                     gateway_origin,
+                    case_id,
+                    prompt_prefix_sha256,
                 ),
             )
             self.conn.execute("COMMIT")
@@ -631,6 +822,8 @@ class ResearchApiBudget:
         phase=None,
         response_format=None,
         budget_scope=None,
+        case_id=None,
+        prompt_prefix_sha256=None,
         _proxy_auth=None,
     ):
         call_id, reserved, provider_cfg = self.reserve(
@@ -640,6 +833,8 @@ class ResearchApiBudget:
             phase,
             response_format=response_format,
             budget_scope=budget_scope,
+            case_id=case_id,
+            prompt_prefix_sha256=prompt_prefix_sha256,
             _proxy_auth=_proxy_auth,
         )
         try:

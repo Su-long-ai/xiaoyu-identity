@@ -62,7 +62,7 @@ class SmokeExitDoctorTests(unittest.TestCase):
           "active_phase":"smoke","benchmark_unlocked":False,
           "phase_used_or_reserved_tokens":4500000,"phase_cap_tokens":5000000,
           "phase_remaining_tokens":500000,
-          "calls_by_status":{"COMMITTED":10,"UNKNOWN":5}
+          "calls_by_status":{"COMMITTED":10,"UNKNOWN":5,"RESERVED":0}
         }
 
     def tearDown(self):
@@ -83,6 +83,7 @@ class SmokeExitDoctorTests(unittest.TestCase):
             "required_current_phase":"smoke",
             "required_benchmark_unlocked":False,
             "max_unknown_calls":5,
+            "max_reserved_calls":0,
             "consume_remaining_tokens_to_exit":False
           },
           "p2_scope_lineages":["ln.p2"]
@@ -140,12 +141,66 @@ class SmokeExitDoctorTests(unittest.TestCase):
         self.assertFalse(out["smoke_exit_ready"])
         self.assertTrue(any(x["type"]=="new_unknown_paid_outcomes" for x in out["blockers"]))
 
+    def test_reserved_paid_call_blocks_exit(self):
+        self.budget["calls_by_status"]["RESERVED"]=1
+        out=self.eval()
+        self.assertFalse(out["smoke_exit_ready"])
+        self.assertTrue(any(x["type"]=="paid_calls_still_reserved" for x in out["blockers"]))
+
     def test_pinned_input_drift_is_contract_error(self):
         (self.root/"plans"/"matrix.md").write_text("mutated\n",encoding="utf-8")
         out=self.eval()
         self.assertFalse(out["smoke_exit_ready"])
         self.assertTrue(any(x["type"]=="pinned_input_hash_drift" for x in out["errors"]))
 
+
+    def test_exact_blocking_scope_ignores_optional_same_lineage(self):
+        c=json.loads(self.contract.read_text(encoding="utf-8"))
+        c["blocking_scopes"]=[{"family":"required.family","lineage":"ln.p2"}]
+        self.contract.write_text(json.dumps(c),encoding="utf-8")
+        con=sqlite3.connect(self.db)
+        con.execute("INSERT INTO leases VALUES(?,?,?,?,?,?,?,?)",
+                    ("opt1","a","research_engineer","optional.family","ln.p2",
+                     "memory_evidence","ACTIVE",1.0))
+        con.commit();con.close()
+        out=self.eval()
+        self.assertTrue(out["smoke_exit_ready"])
+        self.assertEqual(out["p2_scope_state"]["mode"],"exact_scopes")
+
+        con=sqlite3.connect(self.db)
+        con.execute("INSERT INTO leases VALUES(?,?,?,?,?,?,?,?)",
+                    ("req1","b","research_engineer","required.family","ln.p2",
+                     "memory_evidence","ACTIVE",2.0))
+        con.commit();con.close()
+        out=self.eval()
+        self.assertFalse(out["smoke_exit_ready"])
+        self.assertTrue(any(x["type"]=="p2_scope_not_quiescent"
+                            for x in out["blockers"]))
+
+    def test_required_prefreeze_evidence_must_exist_and_be_nonfailure(self):
+        c=json.loads(self.contract.read_text(encoding="utf-8"))
+        c["required_prefreeze_evidence"]=[{
+            "id":"runner","family":"protocol.e2.execution_dryrun",
+            "lineage":"evaluation.e2.runner",
+            "allowed_decisions":["EVIDENCE_ONLY","ACCEPT_E1"]
+        }]
+        self.contract.write_text(json.dumps(c),encoding="utf-8")
+        out=self.eval()
+        self.assertFalse(out["smoke_exit_ready"])
+        self.assertTrue(any(x["type"]=="prefreeze_evidence_incomplete"
+                            for x in out["blockers"]))
+
+        con=sqlite3.connect(self.db)
+        con.execute("INSERT INTO leases VALUES(?,?,?,?,?,?,?,?)",
+                    ("pr1","a","research_engineer","protocol.e2.execution_dryrun",
+                     "evaluation.e2.runner","cost_reliability","SUBMITTED",1.0))
+        con.execute("INSERT INTO submissions VALUES(?,?,?,?,?)",
+                    ("ps1","pr1","EVIDENCE_ONLY","EVIDENCE_ONLY",2.0))
+        con.commit();con.close()
+        out=self.eval()
+        self.assertTrue(out["prefreeze_evidence"]["ok"])
+        self.assertFalse(any(x["type"]=="prefreeze_evidence_incomplete"
+                             for x in out["blockers"]))
 
 if __name__=="__main__":
     unittest.main(verbosity=2)

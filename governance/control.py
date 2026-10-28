@@ -784,7 +784,7 @@ class Governance:
                 if phase_status.get("closeout_mode"):
                     targets=",".join(str(x) for x in phase_status.get("closeout_required_backlog",[])[:8])
                     raise GovernanceError(
-                        "Phase-priority gate: P1 closeout mode is active"
+                        "Phase-priority gate: phase closeout mode is active"
                         +((" ("+targets+")") if targets else "")
                         +"; self-directed research is closed until Lead reopens the phase")
                 available=phase_status.get("available_unclaimed",[])

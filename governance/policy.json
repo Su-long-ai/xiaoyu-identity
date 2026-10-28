@@ -26,8 +26,8 @@
       "max_total_tokens": 100000000,
       "smoke_max_tokens": 5000000,
       "benchmark_max_tokens": 95000000,
-      "active_phase": "smoke",
-      "benchmark_unlocked": false,
+      "active_phase": "benchmark",
+      "benchmark_unlocked": true,
       "public_or_synthetic_data_only": true,
       "gateway": "governance/research_api.py",
       "unknown_outcome_counts_reserved": true,
@@ -37,7 +37,7 @@
       "comparison_note": "Controlled self-hosted track uses non-thinking DeepSeek Flash unless a separately frozen experiment changes this for all compared backends.",
       "temperature": 0.0,
       "top_p": 1.0,
-      "budget_note": "Owner authorized 100M raw tokens. Smoke remains 5M and benchmark 95M locked. Runtime cost guard limits each normalized scope to 300k raw / 100k cache-miss / 75k output / 150 calls per 15 minutes; benchmark weekday peak is blocked by default for cost control.",
+      "budget_note": "Owner authorized 100M raw tokens. Smoke exited at 4,561,306/5M; benchmark phase is now explicitly unlocked only for the frozen E2 non-promotional pilot. Runtime scope guards remain unchanged and weekday Beijing peak benchmark calls remain blocked.",
       "runtime_guard": {
         "enabled": true,
         "effective_after_epoch": 1793088025.885803,
@@ -62,7 +62,39 @@
           "cognee",
           "xiaoyu"
         ],
-        "direct_calls_forbidden_when_proxy_tag_required": true
+        "direct_calls_forbidden_when_proxy_tag_required": true,
+        "scope_overrides": {
+          "proxy:xiaoyu:e2_lme_answer_pilot": {
+            "rolling_raw_token_cap": 120000,
+            "rolling_cache_miss_cap": 80000,
+            "rolling_output_token_cap": 30000,
+            "rolling_call_cap": 60,
+            "epoch_raw_token_cap": 120000,
+            "epoch_cache_miss_cap": 80000,
+            "epoch_output_token_cap": 30000,
+            "epoch_call_cap": 60
+          },
+          "proxy:xiaoyu:e2_halumem_extract_pilot": {
+            "rolling_raw_token_cap": 600000,
+            "rolling_cache_miss_cap": 350000,
+            "rolling_output_token_cap": 200000,
+            "rolling_call_cap": 50,
+            "epoch_raw_token_cap": 600000,
+            "epoch_cache_miss_cap": 350000,
+            "epoch_output_token_cap": 200000,
+            "epoch_call_cap": 50
+          },
+          "proxy:xiaoyu:e2_halumem_qa_pilot": {
+            "rolling_raw_token_cap": 700000,
+            "rolling_cache_miss_cap": 400000,
+            "rolling_output_token_cap": 200000,
+            "rolling_call_cap": 80,
+            "epoch_raw_token_cap": 700000,
+            "epoch_cache_miss_cap": 400000,
+            "epoch_output_token_cap": 200000,
+            "epoch_call_cap": 80
+          }
+        }
       },
       "pricing_cny_per_million": {
         "model": "deepseek-flash",
@@ -81,6 +113,19 @@
         },
         "source": "DeepSeek official Models & Pricing, verified 2026-10-27",
         "note": "Weekday Beijing peak 09:00-12:00 and 14:00-18:00 excluding Chinese public holidays; off-peak is half price."
+      },
+      "benchmark_unlock": {
+        "schema": "xiaoyu-benchmark-phase-unlock-v1",
+        "switched_at_epoch": 1793176101.6700406,
+        "from_phase": "smoke",
+        "to_phase": "benchmark",
+        "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+        "smoke_used_or_reserved_tokens": 4561306,
+        "smoke_remaining_tokens": 438694,
+        "unknown_calls": 5,
+        "reserved_calls": 0,
+        "e2_claim_allowed": false,
+        "note": "This unlock authorizes only paid execution under the frozen prospective protocol; it is not an E2/E3 scientific or product claim."
       }
     }
   },
@@ -287,5 +332,33 @@
       "CANONICAL_CURRENT"
     ],
     "decision_ref": "governance/decisions/ADR-010-structured-current-vs-source-history.md"
+  },
+  "e2_transition": {
+    "current_stage": "E2_PILOT",
+    "protocol": "governance/E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json",
+    "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+    "freeze_record": "governance/E2_PROTOCOL_FREEZE_RECORD.json",
+    "benchmark_unlock_record": "governance/BENCHMARK_PHASE_UNLOCK_RECORD.json",
+    "pilot_claim_eligibility": "NONE",
+    "confirmatory_calls_allowed": false,
+    "e2_claim_allowed": false,
+    "entry_checkpoint": "plans/E2_PILOT_ENTRY_CHECKPOINT_20261028.md",
+    "token_efficiency_contract": "governance/E2_TOKEN_EFFICIENCY_CONTRACT.json",
+    "stable_prefix_cache_hit_target": 0.95,
+    "overall_prompt_cache_hit_target": "OBSERVE_NOT_HARD_GATE",
+    "duplicate_paid_case_execution_allowed": 0,
+    "prompt_template_hash_required_before_paid_track": true,
+    "completion_cap_required_before_paid_track": true,
+    "pilot_execution_manifest": "governance/E2_PILOT_EXECUTION_MANIFEST.json",
+    "pilot_execution_manifest_sha256": "abe84b9c5620b8dd5c1218f96c4d3b09c90a824c13572e1f515f2323254513d6",
+    "pilot_hard_cap_tokens": 1000000,
+    "benchmark_scope_allowlist_from_manifest": true,
+    "benchmark_case_membership_required": true,
+    "benchmark_duplicate_paid_case_forbidden": true,
+    "benchmark_invariant_prefix_hash_required": true,
+    "pilot_execution_freeze_record": "governance/E2_PILOT_EXECUTION_FREEZE_RECORD.json",
+    "pilot_execution_freeze_record_sha256": "f52413c63c877e3a875623e384ba4de4dfd2db41550b5e01615ea0d7e3087851",
+    "pilot_prompt_freeze": "governance/E2_PILOT_PROMPTS.json",
+    "pilot_prompt_freeze_sha256": "19300dd3f3cc7c52ae9a4836e637f0bc8b6f7ca20b2cce56649078d48729ddf9"
   }
 }
