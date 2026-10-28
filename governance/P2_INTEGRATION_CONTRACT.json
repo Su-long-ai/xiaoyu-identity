@@ -1,0 +1,97 @@
+{
+  "schema": "xiaoyu-p2-integration-contract-v1",
+  "created_at": "2026-10-28",
+  "purpose": "Close P2 hardening against the frozen P1 baseline without granting E2/E3.",
+  "p1_baseline": {
+    "checkpoint": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+    "contract": "governance/P1_INTEGRATION_CONTRACT.json",
+    "contract_sha256": "b8dcb1659f40886e984a3531dcaf11f4858d38252935d70bb3ca3332dc9e4668",
+    "candidate": "governance/P1_INTEGRATION_CANDIDATE.json",
+    "candidate_sha256": "2a20aa552c4bc50356f6bffeaa08cb58b8f40d1c9302586aea8b43c4bc78fe83"
+  },
+  "stages": [
+    {
+      "id": "derived_state_dependency",
+      "required": true,
+      "source": "fixed_submission",
+      "submission_id": "sub-4277b1ce66144707",
+      "expected_family": "state.derived.dependency_propagation",
+      "expected_lineage": "memory.pipeline.derived_state",
+      "note": "R23 core dependency propagation."
+    },
+    {
+      "id": "rollback_integrity",
+      "required": true,
+      "source": "fixed_submission",
+      "submission_id": "sub-e6e8fa740ced4a32",
+      "expected_family": "identity.snapshot.rollback_integrity",
+      "expected_lineage": "identity.portability.integrity",
+      "note": "R25 external freshness/integrity anchor."
+    },
+    {
+      "id": "behavioral_erasure_closure",
+      "required": true,
+      "source": "fixed_or_remediation",
+      "submission_id": "sub-5bf13711908c42da",
+      "expected_family": "privacy.erasure.behavioral_closure",
+      "expected_lineage": "memory.erasure.behavioral_closure",
+      "remediation_family": "privacy.erasure.behavioral_closure.metadata_sidechannel",
+      "remediation_lineage": "memory.erasure.behavioral_closure",
+      "note": "R24 core closure. Original NEEDS_WORK was immutable evidence-package binding; an independently ACCEPT_E1 remediation in the named family closes the stage without rewriting the original decision."
+    },
+    {
+      "id": "direct_conflict_blocker",
+      "required": true,
+      "source": "accepted_family",
+      "family": "state.derived.direct_conflict_blocker",
+      "lineage": "memory.pipeline.derived_state",
+      "note": "R23 treats unresolved direct conflict as ordinary absence and can regenerate same-slot/downstream derived current. P2 requires an independently accepted explicit direct-conflict blocker so unresolved direct authority suppresses derived fallback until direct resolution."
+    },
+    {
+      "id": "derived_formal_context_authority",
+      "required": true,
+      "source": "accepted_family",
+      "family": "pipeline.derived.formal_context_authority",
+      "lineage": "memory.pipeline.derived_context",
+      "note": "Derived claims remain distinguishable from direct user_state in model-visible formal context."
+    },
+    {
+      "id": "anchor_runtime_validation",
+      "required": true,
+      "source": "accepted_family",
+      "family": "identity.snapshot.anchor_runtime_validation",
+      "lineage": "identity.portability.integrity",
+      "note": "Every current-authority use validates external anchor schema/self-hash/generation/predecessor/snapshot binding fail-closed."
+    },
+    {
+      "id": "derived_rule_admission_guard",
+      "required": true,
+      "source": "fixed_or_remediation",
+      "note": "Original rule-admission candidate remains immutable NEEDS_WORK because independent two-connection races bypassed both checks. P2 closes only through the already-active Research B atomic repair, independently ACCEPT_E1, serializing admission recheck and protected R23 mutation on the existing SQLite connection.",
+      "submission_id": "sub-df8f3d6fb22e472c",
+      "expected_family": "state.derived.rule_admission_guard",
+      "expected_lineage": "memory.pipeline.derived_state",
+      "remediation_family": "state.derived.rule_admission_guard_atomic_repair",
+      "remediation_lineage": "memory.pipeline.derived_state"
+    }
+  ],
+  "nonblocking_advisories": [
+    {
+      "source_submission": "sub-4277b1ce66144707",
+      "issue": "Derived engine scheduler scans the full current rule set even when derive attempts are descendant-local.",
+      "disposition": "P3/performance unless scale measurements make it material; do not block P2 correctness closeout."
+    },
+    {
+      "source_submission": "sub-e6e8fa740ced4a32",
+      "issue": "External anchor custody/atomic persistence is not a deployed keychain/TPM/service.",
+      "disposition": "Trust-root deployment is E2/E3 architecture; P2 requires runtime record validation but does not invent a new anchor service."
+    }
+  ],
+  "global_rules": {
+    "p1_hashes_must_match": true,
+    "p1_integration_ready_must_remain_true": true,
+    "accepted_e1_does_not_grant_e2": true,
+    "no_new_memory_framework_required": true,
+    "no_private_identity_data": true
+  }
+}

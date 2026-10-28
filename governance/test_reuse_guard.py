@@ -17,8 +17,17 @@ class ReuseGuardTests(unittest.TestCase):
         gov.mkdir()
         for name in ("policy.json","RESEARCH_BACKLOG.json","REUSE_CATALOG.json"):
             (gov/name).write_bytes((HERE/name).read_bytes())
-        # Use the current backlog lifecycle as-is. The production phase may advance
-        # (P1 -> P2), so tests must not resurrect a completed earlier-phase task.
+        # Keep production lifecycle immutable, but give the isolated fixture one
+        # current-phase vetted task so backlog-claim tests do not depend on whether
+        # the real project has already closed R24.
+        backlog_path=gov/"RESEARCH_BACKLOG.json"
+        backlog=json.loads(backlog_path.read_text(encoding="utf-8"))
+        fixture_row=next(r for r in backlog["candidates"] if r.get("id")=="R24")
+        fixture_row["status"]="active"
+        fixture_row.pop("completion_submission",None)
+        fixture_row.pop("completion_level",None)
+        fixture_row.pop("completion_note",None)
+        backlog_path.write_text(json.dumps(backlog,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
         policy=json.loads((gov/"policy.json").read_text(encoding="utf-8"))
         self.effective=float(policy["reuse_guard"]["effective_after_epoch"])
         self.v2_effective=float(policy["reuse_guard"].get("v2_effective_after_epoch",self.effective))

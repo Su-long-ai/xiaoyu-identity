@@ -1024,7 +1024,7 @@
       "id": "R24",
       "plan": "P2",
       "priority": 0,
-      "status": "active",
+      "status": "done",
       "capability": "privacy_erasure",
       "family": "privacy.erasure.behavioral_closure",
       "lineage": "memory.erasure.behavioral_closure",
@@ -1048,7 +1048,10 @@
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
       "hold_reason": "Behavioral deletion closure is a P2 extension of the P1 canonical erasure/restore gate; run only after R12 and P1 integration freeze.",
       "unlock_condition": "P1 erasure/provenance-context stage is READY via R45 ACCEPT_E1 plus the required event-local-history integration bridge.",
-      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+      "completion_submission": "sub-aa1aeb5ec9894bff",
+      "completion_level": "ACCEPT_E1_REMEDIATION",
+      "completion_note": "Original R24 submission sub-5bf13711908c42da remains immutable NEEDS_WORK for artifact binding; independently audited remediation sub-aa1aeb5ec9894bff closes the named behavioral-closure stage without rewriting history."
     },
     {
       "id": "R03",
@@ -1104,7 +1107,7 @@
       "id": "R23",
       "plan": "P2",
       "priority": 2,
-      "status": "active",
+      "status": "done",
       "capability": "temporal_correction",
       "family": "state.derived.dependency_propagation",
       "lineage": "memory.pipeline.derived_state",
@@ -1127,13 +1130,16 @@
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
       "hold_reason": "P2 derived-state work must not consume research slots before the direct-state P1 interface is frozen.",
       "unlock_condition": "P1 typed-state interface is accepted/integrated and the full P1 contract is frozen; derived-state dependency work may proceed without changing the P1 direct-state contract.",
-      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+      "completion_submission": "sub-4277b1ce66144707",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent E1 audit accepted; follow-up integration advisories remain tracked separately and do not reopen the frozen backlog hypothesis."
     },
     {
       "id": "R25",
       "plan": "P2",
       "priority": 1,
-      "status": "active",
+      "status": "done",
       "capability": "identity_continuity",
       "family": "identity.snapshot.rollback_integrity",
       "lineage": "identity.portability.integrity",
@@ -1156,7 +1162,10 @@
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
       "hold_reason": "Whole-store rollback/control-state freshness is P2 hardening of the already-accepted portable snapshot, not a blocker for the current text-memory P1 assembly.",
       "unlock_condition": "P1 integration contract is frozen and 12/12 required stages are READY; deterministic at-rest rollback/control-state hardening may proceed.",
-      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+      "completion_submission": "sub-e6e8fa740ced4a32",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Independent E1 audit accepted; follow-up integration advisories remain tracked separately and do not reopen the frozen backlog hypothesis."
     },
     {
       "id": "R05",
@@ -1728,6 +1737,47 @@
       "completion_submission": "sub-a650809e040046aa",
       "completion_level": "ACCEPT_E1",
       "completion_note": "Independent R45 audit accepted; pinned into the P1 erasure/provenance-context stage."
+    },
+    {
+      "id": "R46",
+      "plan": "P2",
+      "priority": -1,
+      "status": "superseded",
+      "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
+      "capability": "temporal_correction",
+      "family": "state.derived.rule_admission_atomicity",
+      "lineage": "memory.pipeline.derived_state",
+      "lane": "main_bottleneck",
+      "hypothesis": "Acquiring the SQLite writer boundary before derived-state admission reads, and keeping admission plus the accepted R23 mutation on the same connection until commit, prevents concurrent stale direct-watermark rewind and concurrent multiple-rule_id admission for one output while preserving the accepted serial R23/admission semantics.",
+      "falsifier": "In deterministic two-connection trials, an older direct update is accepted after a newer one and rewinds watermark/current/history; two distinct rule_ids for the same output both commit; the writer boundary deadlocks or loses valid serial replays; or accepted R23 monotonic single-rule behavior regresses.",
+      "baseline": "NEEDS_WORK sub-df8f3d6fb22e472c independently reproduced the serial candidate but found both admission invariants bypassable in 12/12 deterministic two-connection races. Lead E0 p2_rule_admission_atomicity_20261028 closes both races 64/64 by moving the admission read and protected mutation under one BEGIN IMMEDIATE boundary on the existing SQLite connection.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "graphiti_temporal",
+          "memderive_benchmark"
+        ],
+        "gap": "Reuse the accepted R23 engine, existing SQLite store and temporal/derived-state semantics. The only missing capability is transaction atomicity between admission checks and the already-accepted mutation; add no new state engine, graph store, rule system or model dependency.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "lead_e0": {
+        "workspace": "governance/lead_workspaces/p2_rule_admission_atomicity_20261028",
+        "metrics": "atomic_admission_metrics.json",
+        "direct_race_trials": 64,
+        "rule_race_trials": 64,
+        "pass": true,
+        "replication_required": true
+      },
+      "cost_rule": "Offline SQLite concurrency replication only; no paid model calls are required.",
+      "remediates_submission": "sub-df8f3d6fb22e472c",
+      "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
+      "superseded_by_existing_lease": "fish-019bcbeeb3b74d25",
+      "superseded_by_family": "state.derived.rule_admission_guard_atomic_repair",
+      "completion_level": "SUPERSEDED_DUPLICATE_BEFORE_EXECUTION",
+      "completion_note": "Lead registered R46 after Research B had already claimed an equivalent atomic repair. Reuse/prior-work inspection showed the live lease directly remediates sub-df8f3d6fb22e472c and cites the independent concurrency audit. R46 is therefore non-assignable; no duplicate experiment should run."
     }
   ],
   "lead_reuse_constraints": {

@@ -1,0 +1,50 @@
+{
+  "schema": "xiaoyu-smoke-exit-contract-v1",
+  "created_at": "2026-10-28",
+  "purpose": "Machine-check the scientific/governance conditions for ending the paid smoke phase. Passing this contract permits a separate explicit Lead phase switch; it never changes policy by itself.",
+  "pinned_inputs": {
+    "benchmark_capability_matrix": {
+      "path": "plans/P1_BENCHMARK_CAPABILITY_MATRIX_20261027.md",
+      "sha256": "d0dc5704f814a1203537dff6bfd3d181b87937cf8c3e98b65b75637cecfe4a4a"
+    },
+    "benchmark_scoring_policy": {
+      "path": "plans/P1_BENCHMARK_SCORING_POLICY_20261027.md",
+      "sha256": "db5d51451381f545cd5b969faac13527fdf83c14b631de111dbbe39a9845314a"
+    },
+    "comparator_freeze": {
+      "path": "plans/T19_ASSISTANT_ORIGIN_COMPARATOR_FREEZE_20261027.md",
+      "sha256": "51653b425f88fb353e5e93ee3edc48717fadc814b1e38d88073e3f8b00787a67"
+    },
+    "p2_contract": {
+      "path": "governance/P2_INTEGRATION_CONTRACT.json",
+      "sha256": "42d2d22ce56a267a3cb4570d445487f47ce826d283619d201a04799471f9c586"
+    }
+  },
+  "e2_protocol": "governance/E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json",
+  "required_e2_protocol_status": "FROZEN_BEFORE_EXECUTION",
+  "paid_phase": {
+    "required_current_phase": "smoke",
+    "required_benchmark_unlocked": false,
+    "max_unknown_calls": 5,
+    "smoke_cap_tokens": 5000000,
+    "consume_remaining_tokens_to_exit": false,
+    "note": "Remaining smoke budget is contingency reserve; exhaustion is not an exit criterion."
+  },
+  "p2_scope_lineages": [
+    "memory.pipeline.derived_state",
+    "identity.portability.integrity",
+    "memory.erasure.behavioral_closure",
+    "memory.pipeline.derived_context",
+    "evaluation.e2.protocol"
+  ],
+  "rules": {
+    "p1_integration_ready": true,
+    "p2_closeout_ready": true,
+    "p2_scope_active_leases": 0,
+    "p2_scope_pending_e1": 0,
+    "all_required_e2_tracks_ready_to_freeze": true,
+    "input_hashes_must_match": true,
+    "no_private_identity_data": true,
+    "phase_switch_is_manual_and_separate": true
+  }
+}
