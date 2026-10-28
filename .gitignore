@@ -67,3 +67,6 @@ governance/tmp_*.py
 governance/e2_pilot_runtime/
 # Deterministic E2 pilot payload materializations (regenerable)
 governance/e2_pilot_inputs/
+
+# Regenerable public benchmark-derived E2 source material
+governance/E2_HALUMEM_PAIR_SOURCE_CANDIDATE.json

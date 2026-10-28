@@ -1,0 +1,54 @@
+{
+  "schema": "xiaoyu-e2-pilot-audit-v1",
+  "date": "2026-10-28",
+  "status": "OVERALL_PILOT_INCOMPLETE_REQUIRED_HALUMEM_HELD",
+  "scientific_claim_allowed": false,
+  "confirmatory_calls_allowed": false,
+  "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
+  "execution_manifest_sha256": "357d5f9192c14bfec3e3e9e54861e23a0c22c84f20a3c353a6bcbe1e0d00b175",
+  "longmemeval": {
+    "status": "COMPLETE",
+    "committed": 46,
+    "expected": 46,
+    "ledger_mismatches": 0,
+    "tokens": {
+      "prompt": 62065,
+      "completion": 1849,
+      "total": 63914,
+      "cache_hit": 0,
+      "cache_miss": 62065
+    },
+    "descriptive": {
+      "resolved": 21,
+      "unknown": 22,
+      "conflict": 3,
+      "normalized_exact": 12,
+      "normalized_exact_rate": 0.2608695652173913,
+      "normalized_substring": 16,
+      "normalized_substring_rate": 0.34782608695652173,
+      "answer_session_hit_at_7": 32,
+      "answer_session_hit_rate": 0.6956521739130435,
+      "exact_given_hit": 0.375,
+      "exact_given_miss": 0
+    }
+  },
+  "halumem": {
+    "status": "BLOCKED",
+    "extract": "HOLD_OPEN_DOMAIN_SCHEMA_MISMATCH",
+    "qa": "HOLD_DEPENDS_ON_VALID_HALUMEM_MEMORY_PIPELINE",
+    "paid_calls": 0
+  },
+  "trust_layer_controls": {
+    "status": "INHERITED_ACCEPTED_P1_P2_RECEIPTS",
+    "paid_calls_required": false
+  },
+  "overall_pilot_complete": false,
+  "confirmatory_freeze_allowed": false,
+  "next_required_transition": "SEPARATELY_REVIEWED_AND_FROZEN_OPEN_DOMAIN_HALUMEM_PIPELINE_OR_EXPLICIT_LEAD_PROTOCOL_AMENDMENT",
+  "nonclaims": [
+    "No E2 scientific acceptance",
+    "No official LLM-judge LongMemEval accuracy",
+    "No confirmatory threshold frozen",
+    "No confirmatory calls"
+  ]
+}

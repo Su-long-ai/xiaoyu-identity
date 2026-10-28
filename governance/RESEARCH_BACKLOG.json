@@ -1778,6 +1778,238 @@
       "superseded_by_family": "state.derived.rule_admission_guard_atomic_repair",
       "completion_level": "SUPERSEDED_DUPLICATE_BEFORE_EXECUTION",
       "completion_note": "Lead registered R46 after Research B had already claimed an equivalent atomic repair. Reuse/prior-work inspection showed the live lease directly remediates sub-df8f3d6fb22e472c and cites the independent concurrency audit. R46 is therefore non-assignable; no duplicate experiment should run."
+    },
+    {
+      "id": "R47",
+      "plan": "E2",
+      "priority": 0,
+      "status": "done",
+      "phase_gate": "E2_PILOT_RESEARCH",
+      "capability": "memory_evidence",
+      "family": "memory.halumem.open_domain_ingest",
+      "lineage": "memory.pipeline.open_domain",
+      "lane": "main_bottleneck",
+      "hypothesis": "A provenance-preserving open-domain memory ingest and update path that reuses the existing event ledger, SQLite/FTS5 retrieval and authority rules can represent HaluMem facts and supersession without the finite-slot extractor, while keeping assistant-origin text from becoming user current state and without touching confirmatory users.",
+      "falsifier": "On frozen public/synthetic HaluMem pilot-only cases, the candidate cannot represent ordinary open-domain facts without a predeclared finite slot; an update/supersession leaves stale active memory; assistant-origin text becomes authoritative user current state; provenance/source identity is lost; restart/replay changes state; or the design requires touching any of the 18 confirmatory users.",
+      "baseline": "E2 pilot execution has HaluMem extraction and QA hard-HOLD because the accepted P1 R27/R35 finite-slot current-state extractor is scientifically mismatched to open-domain HaluMem. Existing HaluMem audits establish relation/provenance/state failure modes but do not provide a governed open-domain ingest/update representation.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_fts5",
+          "omnimemeval",
+          "halumem_benchmark",
+          "strict_response_validator",
+          "origin_bound_authority_reference",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse XiaoYu source identity, provenance, authority, SQLite/FTS5 retrieval, strict response validation and the public HaluMem assets. Add only the minimum open-domain memory representation/update contract needed where the finite-slot P1 extractor is inapplicable; do not build a new vector DB, graph DB, provenance platform, retrieval engine or generic memory framework.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-bf1f765b690c4f89",
+            "fish-faf3fbaaa47448f0",
+            "fish-d4483c731a21465b",
+            "fish-8ebdc9747f0d4638",
+            "fish-d5af5dcfb1644be6",
+            "fish-c9c1314089094f52",
+            "fish-77a377cf2a0d4c90"
+          ],
+          "novelty": "Prior HaluMem work measured conflict, relation, provenance-taint and grounding failures, while P1 event-ledger work solved finite-slot current-state extraction. R47 targets the still-unimplemented bridge: open-domain source-grounded ingest/update semantics that can feed the already accepted provenance and retrieval layers without reopening those subsystems.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Start offline on public HaluMem pilot users and synthetic adversarial cases only. Zero paid model calls until the representation, source envelope, update semantics and holdout are frozen. The 18 confirmatory users are forbidden. Any later paid call must use the existing E2 proxy and a Lead-frozen execution manifest.",
+      "required_attacks": [
+        "direct open-domain fact with no finite slot can be represented and retrieved with exact source provenance",
+        "same fact updated later supersedes prior active value without deleting immutable source history",
+        "conflicting user evidence is not silently collapsed to a single current fact",
+        "assistant-origin assertion remains conversation_history and cannot become user current state",
+        "secondary/derived memory retains ancestor provenance and taint/retraction propagation",
+        "restart/replay is deterministic and preserves update/supersession state",
+        "unrelated memories remain unchanged after an update or retraction",
+        "no confirmatory HaluMem user or answer/gold field is read during development"
+      ],
+      "note": "This task exists specifically to unblock the two frozen HaluMem E2 tracks. A candidate must be independently audited before those tracks may leave HOLD.",
+      "completion_submission": "sub-11f98bdaf62a4035",
+      "completion_level": "ACCEPT_E1",
+      "completion_note": "Open-domain claim/update representation remediation independently accepted: same-target destructive mutations and partial conflict-component resolution now fail closed; Chinese recall remains P2 advisory; semantic extraction/target discovery and HaluMem QA are not granted."
+    },
+    {
+      "id": "R48",
+      "plan": "E2",
+      "priority": 1,
+      "status": "active",
+      "phase_gate": "E2_PILOT_RESEARCH",
+      "capability": "memory_retrieval",
+      "family": "retrieval.longmemeval.history_recall",
+      "lineage": "memory.retrieval.source_aware",
+      "lane": "main_bottleneck",
+      "hypothesis": "On the frozen LongMemEval pilot, a source-aware retrieval repair that reuses SQLite FTS5 and existing authority metadata but removes the brittle single-rarest-term/message-only failure mode can recover answer evidence for morphological and same-session cross-turn cases without increasing assistant-origin current-state promotion or materially inflating context.",
+      "falsifier": "On a fresh frozen pilot-development subset, the repair fails to recover known answer evidence for morphology/cross-turn cases; materially reduces already-correct recall; causes assistant-origin content to outrank or masquerade as user evidence; exceeds the same context budget materially; or requires a new retrieval database/vector backend instead of the accepted SQLite FTS5 path.",
+      "baseline": "All 46 frozen LongMemEval nonpromotional pilot cases are now COMMITTED under the original retrieval policy. Postrun audit: normalized exact 12/46 (26.09%), answer-session hit@7 32/46 (69.57%), exact_given_hit 12/32 (37.5%), exact_given_miss 0/14. Retrieval misses and context-to-answer failures are separable; temporal is 0/5 exact despite 5/5 answer-session hit. Existing P1 source-aware FTS5 remains authority-correct and is the required baseline.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_fts5",
+          "omnimemeval",
+          "origin_bound_authority_reference",
+          "strict_response_validator"
+        ],
+        "gap": "Reuse the accepted source-aware SQLite FTS5 store and authority/admissibility metadata. Investigate only retrieval/query and context-packing behavior needed to fix observed LongMemEval recall failures, such as bounded multi-term/session-aware retrieval or normalization. Do not introduce a new vector DB, ANN, graph DB or generic semantic store.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "fish-83627a128f59471f",
+            "fish-d8aaf59ff46a4d04",
+            "fish-72ecaa8227c6466c",
+            "fish-b78680f33b0d45b8",
+            "fish-e5e80749986049dd",
+            "fish-da5b7cfc783048ae"
+          ],
+          "novelty": "P1 already proved persistent source-aware FTS5 and admissibility. R48 does not reopen those systems; it is triggered by new real E2 falsifiers showing that the specific rarest-term/message-only query policy misses morphological evidence and facts distributed across turns within one answer session. The task is a bounded retrieval-policy repair with authority preservation.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "No further LongMemEval paid pilot calls: all 46 frozen pilot cases are already exposed. R48 development may use those 46 retrospectively and synthetic/pre-frozen nonconfirmatory probes only. The 454 confirmatory cases remain untouched. A remediation candidate may be accepted as an implementation/retrieval repair only; any new LongMemEval outcome claim must wait for a separately frozen confirmatory protocol.",
+      "required_attacks": [
+        "reproduce the observed answer-session retrieval misses on already-exposed pilot cases without using answer/gold as retrieval input",
+        "show on synthetic/pre-frozen probes that morphology and same-session cross-turn evidence can be recovered without semantic-key leakage",
+        "preserve evidence/source authority labels and never promote assistant history to user current state",
+        "do not regress deterministic context/evidence behavior on already-correct pilot cases under retrospective replay",
+        "bound context size at the existing top-7 record budget or justify an explicitly frozen equivalent budget",
+        "test common distractor terms so query expansion does not flood context with semantically unrelated records",
+        "restart/deterministic ordering yields byte-stable context for the same query and store",
+        "do not issue any new LME paid pilot or confirmatory call during R48 research",
+        "same-session zero-overlap neighbor expansion must apply accepted temporal/commitment/admissibility metadata before the top-7 budget; user role alone is insufficient",
+        "on the pre-frozen 60-case session-neighbor audit pattern, stale/hypothetical/negated/third-party/retracted user neighbors must not enter admitted context, and cross-turn crowding must retain the valid answer evidence without exceeding the frozen context budget"
+      ],
+      "note": "Do not mutate or rerun the 46 paid pilot receipts. There is no unexecuted pilot holdout left. Candidate evaluation must report retrospective pilot diagnostics separately from synthetic/frozen implementation tests and must not promote either into an E2 scientific claim.",
+      "supporting_lead_e0": "governance/workspaces/fish-b31690739da4400c/R48_SESSION_NEIGHBOR_E0_REPORT.md"
+    },
+    {
+      "id": "R49",
+      "plan": "E2",
+      "priority": 0,
+      "status": "active",
+      "phase_gate": "E2_PILOT_RESEARCH",
+      "capability": "memory_evidence",
+      "family": "pipeline.halumem.open_domain_semantic_transition",
+      "lineage": "memory.pipeline.open_domain",
+      "lane": "main_bottleneck",
+      "hypothesis": "A frozen source-grounded open-domain semantic transition contract can map HaluMem pilot dialogue turns into validated claim text plus NEW/SUPERSEDE/CONFLICT/RETRACT proposals over caller-supplied target candidates, without finite slots, model-owned identity/authority fields, benchmark memory_points/gold leakage, or silent mutation when target binding is ambiguous.",
+      "falsifier": "On frozen synthetic and pilot-development-only source turns, the contract cannot extract ordinary open-domain claims without finite slots; emits evidence not exactly grounded in the source; invents target IDs or authority/lifecycle fields; silently supersedes under ambiguous targets; collapses user conflicts; promotes assistant-origin claims to user current state; is nondeterministic under replay; requires benchmark memory_points/original_memories/answers; or touches any of the 18 confirmatory users.",
+      "baseline": "R47 ACCEPT_E1 provides a provenance-preserving open-domain claim/update store and fail-closed state-transition semantics, but explicitly does not establish semantic extraction quality or update-target discovery. The E2 HaluMem extract/QA tracks therefore remain provider-side HOLD. E2_HALUMEM_OPEN_DOMAIN_TRANSITION_CANDIDATE.json already freezes the required transition shape and forbids benchmark memory_points/original_memories/gold at runtime.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_core",
+          "sqlite_fts5",
+          "omnimemeval",
+          "halumem_benchmark",
+          "strict_response_validator",
+          "origin_bound_authority_reference",
+          "cognee_provenance"
+        ],
+        "gap": "Reuse the ACCEPT_E1 R47 open-domain store/state transition as the fixed downstream representation, plus existing source identity, authority, SQLite/FTS5 candidate retrieval and strict response validation. Add only the dialogue-to-candidate semantic transition contract: prompt/schema, exact evidence grounding, bounded caller-owned target candidate selection and ambiguity fail-closed. No new vector DB, graph DB, memory framework, provenance service or storage layer.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "sub-11f98bdaf62a4035",
+            "governance/E2_HALUMEM_OPEN_DOMAIN_TRANSITION_CANDIDATE.json",
+            "governance/E2_HALUMEM_PILOT_SHAPE_AUDIT.json",
+            "R27/R35 finite-slot event extraction",
+            "R18/R29 strict context-answer validation"
+          ],
+          "novelty": "R47 closed representation/update-state invariants but intentionally left semantic claim extraction and update-target discovery unresolved. R49 is the minimum remaining bridge needed before the frozen HaluMem paid extraction track can leave HOLD.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "Offline first. Zero paid model calls until the open-domain prompt/schema, exact evidence validator, bounded target-candidate builder, ambiguity rule, frozen synthetic attack set and pilot-only payload manifest are all hashed and independently pre-execution audited. The 18 confirmatory users, HaluMem memory_points/original_memories and QA answers/gold are forbidden. Any later paid pilot extraction requires a new Lead-frozen E2 execution manifest/scope and remains nonpromotional.",
+      "required_attacks": [
+        "ordinary open-domain user fact with no finite slot yields a grounded candidate with an exact unique evidence quote",
+        "assistant-origin fact preserves source_role=assistant and cannot become authoritative user current state after R47 ingestion",
+        "clear update selects exactly one caller-supplied admissible prior target and proposes SUPERSEDE without model-invented IDs",
+        "ambiguous multiple plausible update targets fails closed or emits unresolved/no-mutation rather than silently selecting one",
+        "explicit contradictory user evidence proposes CONFLICT rather than silent overwrite",
+        "explicit retraction proposes RETRACT only against an exact caller-supplied active target",
+        "multi-claim source turns preserve separate exact evidence spans and cannot consume the same destructive target twice",
+        "all source_event_id/claim_id/authority/principal/lifecycle fields remain caller-owned and absent from model-owned output",
+        "exact replay of the same source/prompt/candidate set is deterministic at validated semantic output",
+        "forbidden runtime fields memory_points/original_memories/question answer/gold are absent from every development payload",
+        "no confirmatory HaluMem user is selected, read or scored during development"
+      ],
+      "promotion_exclusions": [
+        "does not grant HaluMem QA quality",
+        "does not grant E2 scientific acceptance",
+        "does not unlock confirmatory users",
+        "does not replace the ACCEPT_E1 R47 store/state machine",
+        "does not authorize paid execution until a separate pre-execution freeze/audit"
+      ],
+      "supporting_lead_e0": "governance/E2_HALUMEM_OPEN_DOMAIN_TRANSITION_CANDIDATE.json",
+      "note": "Direct E2 blocker discovered after R47 ACCEPT_E1: representation/update semantics are accepted, but HaluMem dialogue-to-claim/relation/target semantics remain unvalidated. R49 must close only that bridge."
+    },
+    {
+      "id": "R50",
+      "plan": "E2",
+      "priority": 2,
+      "status": "hold",
+      "phase_gate": "E2_PILOT_RESEARCH",
+      "capability": "temporal_correction",
+      "family": "reasoning.longmemeval.temporal_current_state",
+      "lineage": "memory.reasoning.temporal_state",
+      "lane": "main_bottleneck",
+      "hypothesis": "After source-aware retrieval is repaired, a bounded temporal/current-state consumption layer can use already-admitted evidence to answer LongMemEval temporal-reasoning and knowledge-update cases without treating every historical disagreement as unresolved conflict or weakening source authority.",
+      "falsifier": "On frozen synthetic/pre-exposed pilot diagnostics, temporal/current-state consumption still returns unknown/conflict when the admissible evidence uniquely determines order/latest state; silently chooses under genuine unresolved conflict; rewrites source authority; requires new paid LME pilot/confirmatory calls; or merely masks retrieval misses instead of consuming retrieved evidence.",
+      "baseline": "Lead E0 post-run decomposition: 46 exposed LME pilot cases contain 14 retrieval misses, but independently 5/5 temporal-reasoning cases have answer-session hit and 0/5 exact (all unknown), and 3 knowledge-update cases have answer-session hit but are rejected as conflict although the benchmark expects the temporally newer state. These failures cannot be closed by retrieval alone.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "origin_bound_authority_reference",
+          "sqlite_fts5",
+          "strict_response_validator"
+        ],
+        "gap": "Reuse repaired R48 retrieval/admissibility output and existing temporal/derived-state/conflict semantics. Add only the minimum context-consumption/current-state reasoning needed for already-retrieved evidence; do not build a new retrieval backend or generic reasoning framework.",
+        "no_new_infrastructure": true,
+        "new_dependencies": [],
+        "prior_work": {
+          "reviewed": [
+            "E2_LME_PILOT_POSTRUN_AUDIT.json",
+            "governance/lead_workspaces/e2_lme_gap_decomposition_20261028/REPORT.md",
+            "R48"
+          ],
+          "novelty": "R50 is triggered only by real pilot cases where answer-session evidence is already present. It is explicitly downstream of R48 and does not duplicate retrieval repair.",
+          "replication_of": null
+        }
+      },
+      "cost_rule": "HOLD until R48 is independently resolved. Zero new LongMemEval paid pilot or confirmatory calls. Use exposed pilot cases only for retrospective diagnosis plus synthetic/pre-frozen attacks. Any outcome claim requires a later separately frozen confirmatory protocol.",
+      "required_attacks": [
+        "all temporal ordering/date-difference logic operates only on already-admitted evidence and caller-owned timestamps",
+        "latest-state selection distinguishes supersession from genuine unresolved conflict",
+        "genuine conflicting current evidence still fails closed",
+        "assistant-origin history is never promoted to user current state by temporal reasoning",
+        "multi-session aggregation is deterministic and bounded",
+        "no retrieval-miss case is counted as a reasoning success",
+        "no new paid LME pilot or confirmatory call",
+        "surface-form exact mismatches are not used as false capability failures"
+      ],
+      "hold_reason": "R48 retrieval/admissibility must be independently resolved first so R50 evaluates context consumption rather than compensating for retrieval defects.",
+      "unlock_condition": "R48 reaches ACCEPT_E1 or is explicitly retired with a frozen replacement retrieval contract.",
+      "supporting_lead_e0": "plans/E2_LME_GAP_DECOMPOSITION_20261028.md",
+      "promotion_exclusions": [
+        "does not grant E2 scientific acceptance",
+        "does not unlock confirmatory cases",
+        "does not replace R48 retrieval",
+        "does not authorize new paid LME calls"
+      ]
     }
   ],
   "lead_reuse_constraints": {
@@ -1809,7 +2041,9 @@
   },
   "phase_policy": {
     "current_phase": "E2_PILOT",
-    "auto_assign_plans": [],
+    "auto_assign_plans": [
+      "E2"
+    ],
     "require_hold_outside_auto_assign": true,
     "P1": "Only active P1 blockers may auto-assign before P1 integration freeze.",
     "P2": "Only Lead-unlocked P2 candidates R24/R25/R23 auto-assign. New P2 directions still require Build-vs-Reuse/prior-work review.",
@@ -1817,9 +2051,12 @@
     "legacy": "Older Txx/alternative candidates remain preserved but held until P1 freeze or explicit falsifier.",
     "note": "continuation.py enforces auto_assign_plans in addition to lifecycle status, so an accidentally active later-phase row cannot steal a P1 slot.",
     "closeout_mode": true,
-    "closeout_required_backlog": [],
-    "closeout_reason": "P1 and P2 are closed. Only the frozen E2 non-promotional pilot protocol may execute; self-directed research and confirmatory E2 work remain closed.",
-    "closeout_unlock": "Reopen only by an explicit Lead transition tied to the frozen E2 protocol or a reproducible material regression against the frozen P1/P2 baselines.",
+    "closeout_required_backlog": [
+      "R48",
+      "R49"
+    ],
+    "closeout_reason": "E2 pilot has two active direct gaps (R48 LongMemEval retrieval/admissibility and R49 HaluMem semantic transition). R50 temporal/current-state consumption is HOLD behind R48 based on real hit-but-failed pilot falsifiers; self-directed research remains closed.",
+    "closeout_unlock": "After R48 and R49 are independently resolved or explicitly retired, Lead decides whether R50 must be unlocked from the observed non-retrieval falsifiers before any confirmatory protocol freeze.",
     "p1_research_closeout_complete": true,
     "p1_freeze_checkpoint": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
     "p2_opened_at": "2026-10-28T13:44+08:00",

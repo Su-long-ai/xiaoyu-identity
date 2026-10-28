@@ -78,7 +78,8 @@ class ContinuationTests(unittest.TestCase):
         manifest=dict(hypothesis=row["hypothesis"],falsifier="Fails when the evidence is contradicted.",
                       baseline="Small synthetic V2 baseline",
                       metric="Exact answers on held-out artificial examples",
-                      delta=None,method="Offline single-pass synthetic validation",
+                      delta=(0.1 if label=="LEAD_READY" else None),
+                      method="Offline single-pass synthetic validation",
                       limitations="Not a real model or real person's conversations",
                       evidence_label=label,artifacts=["evidence.txt"])
         (w/"result.json").write_text(json.dumps(manifest),encoding="utf-8")
@@ -193,6 +194,59 @@ class ContinuationTests(unittest.TestCase):
         # Administrative release remains available so the successor can be claimed.
         released=self.g.release(lease["lease_id"],"worker-superseded")
         self.assertEqual(released["state"],"RELEASED")
+
+    def test_needs_work_backlog_requeues_to_same_author_with_findings(self):
+        from continuation import _specs
+        spec=next(x for x in _specs(self.g,"research_engineer") if x.get("backlog_id")=="R45")
+        first=self.g.join(
+            "worker-remediate","research_engineer",spec["family"],spec["capability"],
+            spec["hypothesis"],spec["lane"],lineage=spec["lineage"],
+            reuse_plan=spec.get("reuse_plan"),backlog_id="R45")
+        submitted=self.submit(first,"worker-remediate",label="LEAD_READY")
+        self.assertEqual(submitted["lead_decision"],"PENDING")
+
+        # Register a distinct auditor and give the candidate a concrete P1 blocker.
+        self.initial(agent="auditor-remediate",role="auditor")
+        finding={
+            "severity":"P1",
+            "issue":"Synthetic same-target transition creates two active replacements.",
+            "impact":"The current-state view becomes contradictory after one source batch.",
+            "fix":"Fail closed on overlapping same-target mutations and add a regression.",
+            "blocking":True,
+            "observed":True,
+            "reproduction":"Create A, then submit B and C that both supersede A in one source batch.",
+            "evidence":"Synthetic adversarial artifact records two active replacements for the same target."
+        }
+        review=self.g.review(
+            submitted["submission_id"],"auditor-remediate","NEEDS_WORK",
+            "Independent synthetic rerun reproduces a blocking same-target state consistency failure.",
+            [finding])
+        self.assertEqual(review["decision"],"NEEDS_WORK")
+
+        phase=self.g.phase_priority_status()
+        row=next(x for x in phase["available_unclaimed"] if x["id"]=="R45")
+        self.assertTrue(row["remediation"])
+        self.assertEqual(row["previous_agent_id"],"worker-remediate")
+        self.assertEqual(row["previous_lease_id"],first["lease_id"])
+
+        out=self.g.continue_agent("worker-remediate")
+        self.assertTrue(out["continue_research"])
+        self.assertEqual(out["next_step"],"REMEDIATE_NEEDS_WORK")
+        self.assertEqual(out["next_task"]["backlog_id"],"R45")
+        self.assertNotEqual(out["next_lease_id"],first["lease_id"])
+        self.assertEqual(out["previous_lease_id"],first["lease_id"])
+        self.assertEqual(out["previous_submission_id"],submitted["submission_id"])
+        self.assertEqual(out["previous_decision"],"NEEDS_WORK")
+        self.assertEqual(len(out["remediation_findings"]),1)
+        self.assertEqual(out["remediation_findings"][0]["severity"],"P1")
+        self.assertEqual(out["recovery_state"],
+                         "NEW_REMEDIATION_LEASE_OLD_WORKSPACE_READ_ONLY")
+        old=self.g.db.execute("SELECT state FROM leases WHERE lease_id=?",
+                              (first["lease_id"],)).fetchone()
+        new=self.g.db.execute("SELECT state FROM leases WHERE lease_id=?",
+                              (out["next_lease_id"],)).fetchone()
+        self.assertEqual(old["state"],"SUBMITTED")
+        self.assertEqual(new["state"],"ACTIVE")
 
     def test_backlog_next_exposes_full_task_contract(self):
         from continuation import _specs
@@ -396,6 +450,33 @@ class ContinuationTests(unittest.TestCase):
         resumed=self.g.continue_agent("worker-a")
         self.assertEqual(resumed["next_lease_id"],out["next_lease_id"])
         self.assertTrue(resumed["resumed"])
+
+    def test_stale_formal_backlog_recovery_preserves_backlog_binding_and_contract(self):
+        from continuation import _specs
+        spec=next(x for x in _specs(self.g,"research_engineer") if x.get("backlog_id")=="R45")
+        a=self.g.join(
+            "worker-formal-recover","research_engineer",
+            spec["family"],spec["capability"],spec["hypothesis"],spec["lane"],
+            lineage=spec["lineage"],reuse_plan=spec.get("reuse_plan"),backlog_id="R45")
+        old=Path(a["workspace"])
+        (old/"partial.txt").write_text("formal-progress\n",encoding="utf-8")
+        self.g.clock=lambda:1_005_500.0
+        out=self.g.continue_agent("worker-formal-recover")
+        self.assertEqual(out["next_step"],"RECOVER_FROM_PREVIOUS_WORKSPACE")
+        self.assertEqual(out["previous_lease_id"],a["lease_id"])
+        self.assertEqual(out["next_task"]["backlog_id"],"R45")
+        self.assertEqual(out["next_task"]["family"],spec["family"])
+        self.assertIn("task_contract",out["next_task"])
+        fixture=json.loads((self.home/"governance"/"RESEARCH_BACKLOG.json").read_text(encoding="utf-8"))
+        expected_row=next(x for x in fixture["candidates"] if x.get("id")=="R45")
+        self.assertEqual(out["next_task"]["task_contract"]["falsifier"],expected_row["falsifier"])
+        fresh=self.g.db.execute(
+            "SELECT backlog_id,reuse_guard_version,reuse_plan_json FROM leases WHERE lease_id=?",
+            (out["next_lease_id"],)).fetchone()
+        self.assertEqual(fresh["backlog_id"],"R45")
+        self.assertGreater(int(fresh["reuse_guard_version"] or 0),0)
+        self.assertTrue(fresh["reuse_plan_json"])
+        self.assertEqual((old/"partial.txt").read_text(encoding="utf-8"),"formal-progress\n")
 
     def test_ttl_reentry_preserves_files_even_after_timeout(self):
         self.hold_all_backlog()

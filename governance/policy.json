@@ -344,7 +344,7 @@
     "e2_claim_allowed": false,
     "entry_checkpoint": "plans/E2_PILOT_ENTRY_CHECKPOINT_20261028.md",
     "token_efficiency_contract": "governance/E2_TOKEN_EFFICIENCY_CONTRACT.json",
-    "stable_prefix_cache_hit_target": 0.95,
+    "stable_prefix_cache_hit_target": "OBSERVE_NOT_HARD_GATE",
     "overall_prompt_cache_hit_target": "OBSERVE_NOT_HARD_GATE",
     "duplicate_paid_case_execution_allowed": 0,
     "prompt_template_hash_required_before_paid_track": true,
@@ -367,6 +367,15 @@
     "runtime_efficiency_policy_sha256": "b2702dfd26ab4755fa30351dbb944599971842f23482b91b547bb34941554003",
     "longmemeval_cache_gate": "MISS_TOKENS_TOTAL_TOKENS_COST_PER_CASE",
     "legacy_95pct_cache_target_status": "NOT_APPLICABLE_AS_LONGMEMEVAL_RUNTIME_GATE",
-    "current_pilot_batching": false
+    "current_pilot_batching": false,
+    "pilot_efficiency_metric_addendum": "governance/E2_PILOT_EFFICIENCY_METRIC_ADDENDUM.json",
+    "pilot_efficiency_metric_addendum_sha256": "720c98b5a87f55c7f8b74038d257af0776b35ef274f7dfc7f6ec9d73b27472da",
+    "primary_efficiency_metrics": [
+      "cache_miss_tokens_per_committed_case",
+      "raw_tokens_per_committed_case",
+      "completion_tokens_per_committed_case",
+      "offpeak_cost_cny_per_committed_case"
+    ],
+    "cache_target_revision_reason": "Post-first-real-batch evidence shows LongMemEval's 158-token common prefix is structurally below a reusable V4.1 128-token block after SWA backoff; do not mutate the frozen pilot prompt to chase cache hit rate."
   }
 }

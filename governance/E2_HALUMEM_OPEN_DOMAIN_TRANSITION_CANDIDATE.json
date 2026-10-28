@@ -1,0 +1,88 @@
+{
+  "schema": "xiaoyu-e2-halumem-open-domain-transition-candidate-v1",
+  "date": "2026-10-28",
+  "status": "PROPOSAL_ONLY_NOT_AUTHORIZED_FOR_PAID_EXECUTION",
+  "current_blocker": {
+    "extract": "HOLD_OPEN_DOMAIN_SCHEMA_MISMATCH",
+    "qa": "HOLD_DEPENDS_ON_VALID_HALUMEM_MEMORY_PIPELINE",
+    "overall_pilot_complete": false,
+    "confirmatory_freeze_allowed": false
+  },
+  "pilot_shape": {
+    "selected_sessions": 32,
+    "user_turns": 647,
+    "assistant_turns": 647,
+    "memory_points": 213,
+    "updates": 45,
+    "memory_types": {
+      "persona": 124,
+      "event": 67,
+      "relationship": 22
+    },
+    "lexical_support_lean": {
+      "assistant": 142,
+      "tie": 66,
+      "user": 5
+    },
+    "source_audit": "governance/E2_HALUMEM_PILOT_SHAPE_AUDIT.json"
+  },
+  "reuse": {
+    "direct": [
+      "xiaoyu_existing_core",
+      "sqlite_core",
+      "sqlite_fts5",
+      "research_api_gateway",
+      "accepted stable source/event identity",
+      "accepted P1/P2 trust/admissibility/lifecycle",
+      "accepted R18/R29 context-answer protocol",
+      "accepted temporal/derived-state patterns"
+    ],
+    "reference_only": [
+      "mem0_oss",
+      "hindsight",
+      "cognee",
+      "graphiti",
+      "cognee_provenance",
+      "graphiti_temporal"
+    ],
+    "not_directly_reusable": {
+      "R27/R35": "finite-slot user-only projector; schema/source granularity mismatch",
+      "MEME": "FACT/DELETE/RULE pattern useful, but accepted extractor uses fixed 89-entity schema",
+      "historical HaluMem V2": "benchmark memory_points ingested directly; not dialogue-to-memory extraction"
+    }
+  },
+  "proposed_new_component": "source-grounded open-domain claim projection + update-target binding",
+  "proposed_granularity": "647 exchange-pair cases (user + corresponding assistant), preserving caller-owned source role/index",
+  "no_model_owned_fields": [
+    "source_event_id",
+    "claim_id",
+    "authority",
+    "principal",
+    "lifecycle",
+    "conversation_id",
+    "user_id"
+  ],
+  "update_target_rule": "target only caller-supplied prior candidate; ambiguous => unresolved/no silent supersession",
+  "exact_string_target_baseline_hit_ratio": 0.21092925026399156,
+  "forbidden_runtime_inputs": [
+    "memory_points",
+    "original_memories",
+    "question answer/gold",
+    "confirmatory-user outcomes"
+  ],
+  "confirmatory_users_reserved": 18,
+  "confirmatory_execution_allowed": false,
+  "paid_execution_authorized": false,
+  "required_prefreeze": [
+    "open-domain prompt/hash",
+    "exchange-pair builder/hash",
+    "validator/hash",
+    "target resolver contract/hash",
+    "new pilot-only transition manifest/payload hashes",
+    "new paid scope",
+    "token projection <= remaining hard cap",
+    "descriptive scoring freeze",
+    "independent pre-execution audit"
+  ],
+  "recommendation": "FREEZE_MINIMAL_OPEN_DOMAIN_TRANSITION_BEFORE_ANY_HALUMEM_PAID_CALL"
+}

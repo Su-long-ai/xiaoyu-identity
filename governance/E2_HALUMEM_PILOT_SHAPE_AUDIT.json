@@ -1,0 +1,115 @@
+{
+  "sampling_specs": [
+    {
+      "variant": "HaluMem-Medium.jsonl",
+      "uuid": "d850d98b-ba45-3fd5-e3fa-2104b6724e10",
+      "session_count_total": 58,
+      "session_window_start": 5,
+      "session_window_count": 8,
+      "selected_session_indices": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "selected_user_turn_count": 161,
+      "questions_in_window": 19,
+      "selected_qa_count": 16,
+      "selection_basis": "SHA256 dataset_revision|variant|uuid chooses contiguous session window; SHA256 variant|uuid|session|question ranks QA within window; no outcome/gold used."
+    },
+    {
+      "variant": "HaluMem-Medium.jsonl",
+      "uuid": "2e36c193-a605-8cc7-70ff-80b2336d4980",
+      "session_count_total": 72,
+      "session_window_start": 19,
+      "session_window_count": 8,
+      "selected_session_indices": [
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "selected_user_turn_count": 172,
+      "questions_in_window": 21,
+      "selected_qa_count": 16,
+      "selection_basis": "SHA256 dataset_revision|variant|uuid chooses contiguous session window; SHA256 variant|uuid|session|question ranks QA within window; no outcome/gold used."
+    },
+    {
+      "variant": "HaluMem-Long.jsonl",
+      "uuid": "d850d98b-ba45-3fd5-e3fa-2104b6724e10",
+      "session_count_total": 106,
+      "session_window_start": 42,
+      "session_window_count": 8,
+      "selected_session_indices": [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49
+      ],
+      "selected_user_turn_count": 118,
+      "questions_in_window": 3,
+      "selected_qa_count": 3,
+      "selection_basis": "SHA256 dataset_revision|variant|uuid chooses contiguous session window; SHA256 variant|uuid|session|question ranks QA within window; no outcome/gold used."
+    },
+    {
+      "variant": "HaluMem-Long.jsonl",
+      "uuid": "2e36c193-a605-8cc7-70ff-80b2336d4980",
+      "session_count_total": 127,
+      "session_window_start": 32,
+      "session_window_count": 8,
+      "selected_session_indices": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "selected_user_turn_count": 196,
+      "questions_in_window": 17,
+      "selected_qa_count": 16,
+      "selection_basis": "SHA256 dataset_revision|variant|uuid chooses contiguous session window; SHA256 variant|uuid|session|question ranks QA within window; no outcome/gold used."
+    }
+  ],
+  "selected_sessions": 32,
+  "dialogue_turns": {
+    "user": 647,
+    "assistant": 647
+  },
+  "memory_points": 213,
+  "updates": 45,
+  "memory_types": {
+    "Event Memory": 67,
+    "Persona Memory": 124,
+    "Relationship Memory": 22
+  },
+  "memory_sources": {
+    "secondary": 165,
+    "interference": 43,
+    "system": 5
+  },
+  "lexical_support_lean": {
+    "assistant_lean": 142,
+    "tie": 66,
+    "user_lean": 5
+  },
+  "mean_memory_token_coverage_user": 0.5901410960826349,
+  "mean_memory_token_coverage_assistant": 0.770817590992643,
+  "interpretation": "Lexical overlap is diagnostic only, not provenance proof. Any material assistant-lean population is sufficient to reject a user-only extraction contract as a faithful implementation of official full-dialogue ingestion.",
+  "confirmatory_user_records_selected_or_analyzed": 0,
+  "provider_calls": 0
+}

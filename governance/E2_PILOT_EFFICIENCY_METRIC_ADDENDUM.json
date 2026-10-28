@@ -1,0 +1,39 @@
+{
+  "schema": "xiaoyu-e2-pilot-efficiency-metric-addendum-v1",
+  "created": "2026-10-28",
+  "scope": "post-first-real-batch interpretation; does not mutate the frozen pre-execution token contract",
+  "supersedes_for_longmemeval": {
+    "frozen_target": "stable_prefix_cache_hit_rate >= 0.95",
+    "new_status": "OBSERVATIONAL_ONLY_NOT_A_GATE",
+    "reason": "Real E2 telemetry plus DeepSeek V4 tokenizer and V4.1 128-token/SWA cache behavior show the LongMemEval invariant common prefix is only 158 tokens. A one-block SWA backoff predicts zero reusable cache blocks, matching 0/0/0 observed hits. Independent cases do not share enough prompt content for a 95% whole-prompt hit rate."
+  },
+  "primary_longmemeval_efficiency_metrics": [
+    "cache_miss_tokens_per_committed_case",
+    "raw_tokens_per_committed_case",
+    "completion_tokens_per_committed_case",
+    "offpeak_cost_cny_per_committed_case",
+    "answer_exact_rate",
+    "evidence_valid_rate"
+  ],
+  "rules": {
+    "current_pilot_prompt_mutation_for_cache": false,
+    "meaningless_padding_to_cross_cache_boundary": false,
+    "current_pilot_batching_change": false,
+    "confirmatory_batching_requires_new_prefrozen_protocol": true,
+    "cache_correctness_independent": true
+  },
+  "evidence": {
+    "root_cause_note": "plans/E2_CACHE_ZERO_ROOT_CAUSE_20261028.md",
+    "observed_real_calls": 3,
+    "observed_cache_hit_tokens": 0,
+    "observed_cache_miss_tokens": 2993,
+    "current_lme_common_prefix_v4_tokens": 158,
+    "historical_positive_control_common_prefix_v4_tokens": 294,
+    "historical_positive_control_observed_hit_tokens": 128
+  },
+  "nonclaims": [
+    "The frozen pre-execution contract is not rewritten.",
+    "Cache hit rate is not a scientific correctness metric.",
+    "No confirmatory protocol is changed by this addendum."
+  ]
+}

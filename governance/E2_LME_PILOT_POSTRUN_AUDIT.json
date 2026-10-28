@@ -1,0 +1,879 @@
+{
+  "schema": "xiaoyu-e2-lme-pilot-postrun-audit-v1",
+  "scientific_claim_allowed": false,
+  "confirmatory_calls": 0,
+  "cases_expected": 46,
+  "cases_audited": 46,
+  "all_runtime_receipts_present": true,
+  "ledger_mismatch_count": 0,
+  "ledger_mismatches": [],
+  "usage": {
+    "prompt_tokens": 62065,
+    "completion_tokens": 1849,
+    "actual_tokens": 63914,
+    "cache_hit_tokens": 0,
+    "cache_miss_tokens": 62065
+  },
+  "cache_hit_rate": 0.0,
+  "status_counts": {
+    "resolved": 21,
+    "unknown": 22,
+    "conflict": 3
+  },
+  "deterministic_quality": {
+    "normalized_exact": 12,
+    "normalized_exact_rate": 0.2608695652173913,
+    "normalized_substring": 16,
+    "normalized_substring_rate": 0.34782608695652173,
+    "mean_token_f1": 0.3498098173135654,
+    "median_token_f1": 0.0
+  },
+  "retrieval_diagnostic": {
+    "cases_with_answer_session_labels": 46,
+    "answer_session_hit_at_7": 32,
+    "answer_session_hit_rate": 0.6956521739130435,
+    "hit_and_exact": 12,
+    "miss_and_exact": 0,
+    "exact_given_hit": 0.375,
+    "exact_given_miss": 0.0
+  },
+  "by_question_type": {
+    "knowledge-update": {
+      "n": 5,
+      "exact": 1,
+      "substring": 1,
+      "resolved": 1,
+      "answer_session_hit": 4
+    },
+    "multi-session": {
+      "n": 5,
+      "exact": 0,
+      "substring": 0,
+      "resolved": 1,
+      "answer_session_hit": 3
+    },
+    "single-session-assistant": {
+      "n": 6,
+      "exact": 1,
+      "substring": 2,
+      "resolved": 4,
+      "answer_session_hit": 4
+    },
+    "single-session-preference": {
+      "n": 5,
+      "exact": 0,
+      "substring": 0,
+      "resolved": 1,
+      "answer_session_hit": 1
+    },
+    "single-session-user": {
+      "n": 20,
+      "exact": 10,
+      "substring": 13,
+      "resolved": 14,
+      "answer_session_hit": 15
+    },
+    "temporal-reasoning": {
+      "n": 5,
+      "exact": 0,
+      "substring": 0,
+      "resolved": 0,
+      "answer_session_hit": 5
+    }
+  },
+  "cases": [
+    {
+      "case_id": "lme-a-000",
+      "dataset_index": 0,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "Business Administration",
+      "gold": [
+        "Business Administration"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:0:51:answer_280352e9:4"
+      ]
+    },
+    {
+      "case_id": "lme-a-001",
+      "dataset_index": 1,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "45 minutes each way",
+      "gold": [
+        "45 minutes each way"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:1:7:answer_40a90d51:8"
+      ]
+    },
+    {
+      "case_id": "lme-a-002",
+      "dataset_index": 2,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "Target"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-003",
+      "dataset_index": 3,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "The Glass Menagerie"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 2,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-004",
+      "dataset_index": 4,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "Summer Vibes",
+      "gold": [
+        "Summer Vibes"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:4:13:answer_3e012175:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-005",
+      "dataset_index": 5,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "Johnson",
+      "gold": [
+        "Johnson"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:5:36:answer_f6168136:0"
+      ]
+    },
+    {
+      "case_id": "lme-a-006",
+      "dataset_index": 6,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "Serenity Yoga"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 5,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-007",
+      "dataset_index": 7,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "a lighter shade of gray",
+      "gold": [
+        "a lighter shade of gray"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 3,
+      "evidence_ids": [
+        "lme:7:37:answer_feb5200f:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-008",
+      "dataset_index": 8,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "February 14th"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-009",
+      "dataset_index": 9,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "a sports store downtown",
+      "gold": [
+        "the sports store downtown"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.75,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:9:27:answer_c3567066:4"
+      ]
+    },
+    {
+      "case_id": "lme-a-010",
+      "dataset_index": 10,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "Marketing specialist at a small startup"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 3,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-011",
+      "dataset_index": 11,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "$800",
+      "gold": [
+        "$800"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:11:15:answer_7cb94507:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-012",
+      "dataset_index": 12,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "20",
+      "gold": [
+        "20"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:12:4:answer_e05e4612:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-013",
+      "dataset_index": 13,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "University of Melbourne",
+      "gold": [
+        "University of Melbourne in Australia"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": true,
+      "token_f1": 0.7499999999999999,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:13:21:answer_94030872:8"
+      ]
+    },
+    {
+      "case_id": "lme-a-014",
+      "dataset_index": 14,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "10%",
+      "gold": [
+        "10%"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 7,
+      "evidence_ids": [
+        "lme:14:11:answer_f38f679b:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-015",
+      "dataset_index": 15,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "4 hours",
+      "gold": [
+        "4 hours"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 3,
+      "evidence_ids": [
+        "lme:15:46:answer_c63c0458:3"
+      ]
+    },
+    {
+      "case_id": "lme-a-016",
+      "dataset_index": 16,
+      "question_type": "single-session-user",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "a yellow dress"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 6,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-017",
+      "dataset_index": 17,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "500 Mbps",
+      "gold": [
+        "500 Mbps"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 5,
+      "evidence_ids": [
+        "lme:17:16:answer_679840f8:4"
+      ]
+    },
+    {
+      "case_id": "lme-a-018",
+      "dataset_index": 18,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "7 shirts",
+      "gold": [
+        "7"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": true,
+      "token_f1": 0.6666666666666666,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:18:44:answer_82a04f59:6"
+      ]
+    },
+    {
+      "case_id": "lme-a-019",
+      "dataset_index": 19,
+      "question_type": "single-session-user",
+      "status": "resolved",
+      "prediction": "You used to be a staunch atheist.",
+      "gold": [
+        "A staunch atheist"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": true,
+      "token_f1": 0.4,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:19:17:answer_8f276838:0"
+      ]
+    },
+    {
+      "case_id": "lme-a-070",
+      "dataset_index": 70,
+      "question_type": "multi-session",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "3"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 5,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-071",
+      "dataset_index": 71,
+      "question_type": "multi-session",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "2"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-072",
+      "dataset_index": 72,
+      "question_type": "multi-session",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "I have worked on or bought five model kits. The scales of the models are: Revell F-15 Eagle (scale not mentioned), Tamiya 1/48 scale Spitfire Mk.V, 1/16 scale German Tiger I tank, 1/72 scale B-29 bomber, and 1/24 scale '69 Camaro."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 3,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-073",
+      "dataset_index": 73,
+      "question_type": "multi-session",
+      "status": "resolved",
+      "prediction": "3 days",
+      "gold": [
+        "8 days."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:73:43:answer_a8b4290f_2:0"
+      ]
+    },
+    {
+      "case_id": "lme-a-074",
+      "dataset_index": 74,
+      "question_type": "multi-session",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "3.5 weeks"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 3,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-132",
+      "dataset_index": 132,
+      "question_type": "single-session-preference",
+      "status": "resolved",
+      "prediction": "The assistant recommended Adobe Premiere Pro's official documentation and tutorials; YouTube channels like Premiere Bro, Video Copilot, and Adobe Creative Cloud; online courses on platforms like Udemy, LinkedIn Learning, and Skillshare; and Premiere Pro communities and forums such as Reddit's r/premierepro and Adobe's Premiere Pro forum.",
+      "gold": [
+        "The user would prefer responses that suggest resources specifically tailored to Adobe Premiere Pro, especially those that delve into its advanced settings. They might not prefer general video editing resources or resources related to other video editing software."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.11494252873563218,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:132:8:answer_edb03329:1"
+      ]
+    },
+    {
+      "case_id": "lme-a-133",
+      "dataset_index": 133,
+      "question_type": "single-session-preference",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "The user would prefer suggestions of Sony-compatible accessories or high-quality photography gear that can enhance their photography experience. They may not prefer suggestions of other brands' equipment or low-quality gear."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-134",
+      "dataset_index": 134,
+      "question_type": "single-session-preference",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "The user would prefer suggestions related to recent research papers, articles, or conferences that focus on artificial intelligence in healthcare, particularly those that involve deep learning for medical image analysis. They would not be interested in general AI topics or those unrelated to healthcare."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 2,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-135",
+      "dataset_index": 135,
+      "question_type": "single-session-preference",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "The user would prefer suggestions of hotels in Miami that offer great views, possibly of the ocean or the city skyline, and have unique features such as a rooftop pool or a hot tub on the balcony. They may not prefer suggestions of basic or budget hotels without these features."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 7,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-136",
+      "dataset_index": 136,
+      "question_type": "single-session-preference",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "The user would prefer responses that suggest cultural events where they can practice their language skills, particularly Spanish and French. They would also appreciate if the event has a focus on language learning resources. They would not prefer events that do not provide opportunities for language practice or cultural exchange."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 5,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-233",
+      "dataset_index": 233,
+      "question_type": "temporal-reasoning",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "7 days. 8 days (including the last day) is also acceptable."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-234",
+      "dataset_index": 234,
+      "question_type": "temporal-reasoning",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "First, I helped my friend prepare the nursery, then I helped my cousin pick out stuff for her baby shower, and lastly, I ordered a customized phone case for my friend's birthday."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-235",
+      "dataset_index": 235,
+      "question_type": "temporal-reasoning",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "4"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-236",
+      "dataset_index": 236,
+      "question_type": "temporal-reasoning",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "2"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-237",
+      "dataset_index": 237,
+      "question_type": "temporal-reasoning",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "6 days. 7 days (including the last day) is also acceptable."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-366",
+      "dataset_index": 366,
+      "question_type": "knowledge-update",
+      "status": "conflict",
+      "prediction": null,
+      "gold": [
+        "25 minutes and 50 seconds (or 25:50)"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 4,
+      "evidence_ids": [
+        "lme:366:39:answer_a25d4a91_2:0",
+        "lme:366:19:answer_a25d4a91_1:4"
+      ]
+    },
+    {
+      "case_id": "lme-a-367",
+      "dataset_index": 367,
+      "question_type": "knowledge-update",
+      "status": "conflict",
+      "prediction": null,
+      "gold": [
+        "four"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 5,
+      "evidence_ids": [
+        "lme:367:35:answer_3f9693b7_1:8",
+        "lme:367:46:answer_3f9693b7_2:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-368",
+      "dataset_index": 368,
+      "question_type": "knowledge-update",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "the suburbs"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 4,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-369",
+      "dataset_index": 369,
+      "question_type": "knowledge-update",
+      "status": "conflict",
+      "prediction": null,
+      "gold": [
+        "$400,000"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": true,
+      "context_count": 3,
+      "evidence_ids": [
+        "lme:369:36:answer_3a6f1e82_2:0",
+        "lme:369:2:answer_3a6f1e82_1:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-370",
+      "dataset_index": 370,
+      "question_type": "knowledge-update",
+      "status": "resolved",
+      "prediction": "Three times a week.",
+      "gold": [
+        "Three times a week."
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 7,
+      "evidence_ids": [
+        "lme:370:19:answer_6a4f8626_2:2"
+      ]
+    },
+    {
+      "case_id": "lme-a-444",
+      "dataset_index": 444,
+      "question_type": "single-session-assistant",
+      "status": "resolved",
+      "prediction": "Admon was on the 8 am - 4 pm (Day Shift) on Sunday.",
+      "gold": [
+        "Admon was assigned to the 8 am - 4 pm (Day Shift) on Sundays."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.8148148148148148,
+      "answer_session_hit": true,
+      "context_count": 2,
+      "evidence_ids": [
+        "lme:444:11:answer_sharegpt_5Lzox6N_0:13"
+      ]
+    },
+    {
+      "case_id": "lme-a-445",
+      "dataset_index": 445,
+      "question_type": "single-session-assistant",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "Miss Bee Providore"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    },
+    {
+      "case_id": "lme-a-446",
+      "dataset_index": 446,
+      "question_type": "single-session-assistant",
+      "status": "resolved",
+      "prediction": "blue",
+      "gold": [
+        "The Plesiosaur had a blue scaly body."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": true,
+      "token_f1": 0.25,
+      "answer_session_hit": true,
+      "context_count": 1,
+      "evidence_ids": [
+        "lme:446:16:answer_sharegpt_YkWn1Ne_0:1"
+      ]
+    },
+    {
+      "case_id": "lme-a-447",
+      "dataset_index": 447,
+      "question_type": "single-session-assistant",
+      "status": "resolved",
+      "prediction": "The Sugar Factory - a sweet shop at Icon Park with an enormous menu of sweet treats, including specialty drinks and giant milkshakes.",
+      "gold": [
+        "The Sugar Factory at Icon Park."
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.3448275862068966,
+      "answer_session_hit": true,
+      "context_count": 1,
+      "evidence_ids": [
+        "lme:447:10:answer_ultrachat_480665:7"
+      ]
+    },
+    {
+      "case_id": "lme-a-448",
+      "dataset_index": 448,
+      "question_type": "single-session-assistant",
+      "status": "resolved",
+      "prediction": "Roscioli",
+      "gold": [
+        "Roscioli"
+      ],
+      "normalized_exact": true,
+      "normalized_substring": true,
+      "token_f1": 1.0,
+      "answer_session_hit": true,
+      "context_count": 3,
+      "evidence_ids": [
+        "lme:448:46:answer_ultrachat_448704:3"
+      ]
+    },
+    {
+      "case_id": "lme-a-499",
+      "dataset_index": 499,
+      "question_type": "single-session-assistant",
+      "status": "unknown",
+      "prediction": null,
+      "gold": [
+        "Grilled Snapper with Mango Salsa"
+      ],
+      "normalized_exact": false,
+      "normalized_substring": false,
+      "token_f1": 0.0,
+      "answer_session_hit": false,
+      "context_count": 1,
+      "evidence_ids": []
+    }
+  ],
+  "notes": [
+    "Gold is read only after all frozen paid calls were committed.",
+    "No LLM judge is invoked because confirmatory calls are forbidden in the frozen pilot.",
+    "Normalized exact/substring/token-F1 are engineering diagnostics, not official LongMemEval LLM-judge accuracy.",
+    "answer_session_hit@7 diagnoses whether frozen lexical retrieval exposed any gold answer session; it does not prove the exact answer sentence was present."
+  ]
+}

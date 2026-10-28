@@ -43,13 +43,52 @@ def _spec_matches_lease(spec,row):
             and spec.get("lineage")==row["lineage"]
             and spec.get("hypothesis")==row["hypothesis"])
 
+def _prior_assignment(g,spec):
+    """Return the newest lease/submission/review for this exact backlog task.
+
+    Historical family/capability matches still consume legacy rows, but only an
+    exact backlog-bound NEEDS_WORK submission is eligible for automatic
+    remediation. This prevents an E1-rejected active backlog item from becoming
+    permanently unclaimable while avoiding cross-task family reuse.
+    """
+    backlog_id=str(spec.get("backlog_id") or "")
+    lease=None
+    if backlog_id:
+        lease=g.db.execute(
+            "SELECT * FROM leases WHERE backlog_id=? ORDER BY claimed_at DESC LIMIT 1",
+            (backlog_id,)).fetchone()
+    if lease is None:
+        # Preserve compatibility with pre-backlog/legacy claims that used the
+        # same formal family+capability but had no backlog_id recorded.
+        lease=g.db.execute(
+            "SELECT * FROM leases WHERE family=? AND capability=? "
+            "ORDER BY claimed_at DESC LIMIT 1",
+            (spec["family"],spec["capability"])).fetchone()
+    if not lease:
+        return None
+    sub=g.db.execute(
+        "SELECT * FROM submissions WHERE lease_id=? ORDER BY at DESC LIMIT 1",
+        (lease["lease_id"],)).fetchone()
+    review=None
+    if sub:
+        review=g.db.execute(
+            "SELECT * FROM reviews WHERE submission_id=? ORDER BY at DESC LIMIT 1",
+            (sub["submission_id"],)).fetchone()
+    return {"lease":lease,"submission":sub,"review":review}
+
+def _is_needs_work_remediation(prior,spec):
+    if not prior or not spec.get("backlog_id"):
+        return False
+    lease=prior["lease"]; sub=prior["submission"]
+    return (str(lease["backlog_id"] or "")==str(spec["backlog_id"])
+            and sub is not None and sub["decision"]=="NEEDS_WORK"
+            and lease["state"]=="SUBMITTED")
+
 def _unclaimed_specs(g,role):
     out=[]
     for spec in _specs(g,role):
-        already=g.db.execute(
-            "SELECT 1 FROM leases WHERE family=? AND capability=? LIMIT 1",
-            (spec["family"],spec["capability"])).fetchone()
-        if not already:
+        prior=_prior_assignment(g,spec)
+        if prior is None or _is_needs_work_remediation(prior,spec):
             out.append(spec)
     return out
 
@@ -122,9 +161,17 @@ def assign_next(g, agent_id, governance_error):
         # Never mutate the stale/expired lease or its historic workspace.
         # Claim a *new* lease with the original stable scientific hypothesis.
         try:
+            reuse_plan=None
+            if interrupted["reuse_plan_json"]:
+                try:
+                    reuse_plan=json.loads(interrupted["reuse_plan_json"])
+                except Exception:
+                    reuse_plan=None
             new_lease=g.join(agent_id,role,interrupted["family"],
                              interrupted["capability"],interrupted["hypothesis"],
                              interrupted["lane"],lineage=interrupted["lineage"],
+                             reuse_plan=reuse_plan,
+                             backlog_id=str(interrupted["backlog_id"] or ""),
                              recovery_of=interrupted["lease_id"])
         except governance_error as e:
             data=dict(continue_research=False,next_task=None,next_step="RECOVERY_CLAIM_BLOCKED",
@@ -143,16 +190,32 @@ def assign_next(g, agent_id, governance_error):
                             recovery_state="NEW_LEASE_WRITE_ONLY_OLD_WORKSPACE_READ_ONLY")
     errors=[]
     for spec in _specs(g, role):
-        already = g.db.execute(
-            "SELECT 1 FROM leases WHERE family=? AND capability=? LIMIT 1",
-            (spec["family"],spec["capability"])).fetchone()
-        if already:
+        prior=_prior_assignment(g,spec)
+        remediation=_is_needs_work_remediation(prior,spec)
+        if prior is not None and not remediation:
+            continue
+        if remediation and prior["lease"]["agent_id"]!=agent_id:
+            # Preserve author continuity for automatic remediation. Lead may
+            # explicitly reassign by changing the backlog contract if needed.
             continue
         try:
-            lease = g.join(agent_id,role,spec["family"],spec["capability"],
-                           spec["hypothesis"],spec["lane"],lineage=spec["lineage"],
-                           reuse_plan=spec.get("reuse_plan"),
-                           backlog_id=spec.get("backlog_id") or "")
+            if remediation:
+                review=prior.get("review")
+                reason=(review["reason"] if review else
+                        prior["submission"]["decision_reason"] or "Independent E1 NEEDS_WORK")
+                reopen=("Independent E1 NEEDS_WORK remediation for backlog "
+                        +str(spec.get("backlog_id"))+": "+str(reason))[:1000]
+                lease = g.join(agent_id,role,spec["family"],spec["capability"],
+                               spec["hypothesis"],spec["lane"],lineage=spec["lineage"],
+                               reopen_basis=reopen,
+                               reuse_plan=spec.get("reuse_plan"),
+                               backlog_id=spec.get("backlog_id") or "",
+                               recovery_of=prior["lease"]["lease_id"])
+            else:
+                lease = g.join(agent_id,role,spec["family"],spec["capability"],
+                               spec["hypothesis"],spec["lane"],lineage=spec["lineage"],
+                               reuse_plan=spec.get("reuse_plan"),
+                               backlog_id=spec.get("backlog_id") or "")
         except governance_error as e:
             # Concurrent worker, capacity or stop-loss may reject this candidate.
             errors.append(str(e))
@@ -162,6 +225,24 @@ def assign_next(g, agent_id, governance_error):
         fresh = g.db.execute("SELECT * FROM leases WHERE lease_id=?",
                              (lease["lease_id"],)).fetchone()
         data=_lease_payload(fresh,resumed=bool(lease.get("resumed")),g=g)
+        if remediation:
+            review=prior.get("review")
+            findings=[]
+            if review and review["findings_json"]:
+                try: findings=json.loads(review["findings_json"])
+                except Exception: findings=[]
+            data.update(
+                next_step="REMEDIATE_NEEDS_WORK",
+                previous_lease_id=prior["lease"]["lease_id"],
+                previous_workspace=prior["lease"]["workspace"],
+                previous_submission_id=prior["submission"]["submission_id"],
+                previous_decision="NEEDS_WORK",
+                remediation_findings=findings,
+                remediation_reason=(review["reason"] if review else
+                                    prior["submission"]["decision_reason"]))
+            return attach_files(
+                data,prior["lease"]["workspace"],
+                recovery_state="NEW_REMEDIATION_LEASE_OLD_WORKSPACE_READ_ONLY")
         if deferred_interrupted is not None:
             data["deferred_recovery"]={
                 "lease_id":deferred_interrupted["lease_id"],

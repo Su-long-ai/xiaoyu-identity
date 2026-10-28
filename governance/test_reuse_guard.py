@@ -17,16 +17,36 @@ class ReuseGuardTests(unittest.TestCase):
         gov.mkdir()
         for name in ("policy.json","RESEARCH_BACKLOG.json","REUSE_CATALOG.json"):
             (gov/name).write_bytes((HERE/name).read_bytes())
-        # Keep production lifecycle immutable, but give the isolated fixture one
-        # current-phase vetted task so backlog-claim tests do not depend on whether
-        # the real project has already closed R24.
+        # Keep production lifecycle immutable. The isolated fixture must follow
+        # the copied backlog's current phase instead of resurrecting a historic
+        # P1/P2 task after the real project advances.
         backlog_path=gov/"RESEARCH_BACKLOG.json"
         backlog=json.loads(backlog_path.read_text(encoding="utf-8"))
-        fixture_row=next(r for r in backlog["candidates"] if r.get("id")=="R24")
-        fixture_row["status"]="active"
-        fixture_row.pop("completion_submission",None)
-        fixture_row.pop("completion_level",None)
-        fixture_row.pop("completion_note",None)
+        phase=backlog.get("phase_policy") or {}
+        allowed=set(phase.get("auto_assign_plans") or [])
+        current_active=[
+            r for r in backlog.get("candidates",[])
+            if r.get("status","active")=="active" and r.get("plan") in allowed
+        ]
+        if current_active:
+            fixture_row=sorted(current_active,key=lambda r:(r.get("priority",999),r.get("id","")))[0]
+        elif allowed:
+            fixture_row=next(r for r in backlog["candidates"] if r.get("plan") in allowed)
+            fixture_row["status"]="active"
+            fixture_row.pop("completion_submission",None)
+            fixture_row.pop("completion_level",None)
+            fixture_row.pop("completion_note",None)
+        else:
+            fixture_row=None
+        if fixture_row is not None:
+            # The temp registry intentionally has no production lease history, so
+            # sanitize only the fixture copy's prior-work references.
+            prior=((fixture_row.get("reuse_plan") or {}).get("prior_work") or {})
+            prior["reviewed"]=[]
+            prior["replication_of"]=None
+            self.fixture_backlog_id=fixture_row["id"]
+        else:
+            self.fixture_backlog_id=None
         backlog_path.write_text(json.dumps(backlog,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
         policy=json.loads((gov/"policy.json").read_text(encoding="utf-8"))
         self.effective=float(policy["reuse_guard"]["effective_after_epoch"])
@@ -136,18 +156,18 @@ class ReuseGuardTests(unittest.TestCase):
 
     def test_backlog_vetted_plan_claims_and_persists_decision(self):
         rows=json.loads((self.root/"governance"/"RESEARCH_BACKLOG.json").read_text(encoding="utf-8"))["candidates"]
-        r=next(x for x in rows if x["id"]=="R24")
+        r=next(x for x in rows if x["id"]==self.fixture_backlog_id)
         lease=self.g.join(
             "reuse_worker_01","research_engineer",r["family"],r["capability"],
             r["hypothesis"],r["lane"],lineage=r["lineage"],
-            backlog_id="R24",reuse_plan=r["reuse_plan"])
+            backlog_id=r["id"],reuse_plan=r["reuse_plan"])
         self.assertEqual(lease["reuse_guard"]["status"],"PASS")
         self.assertEqual(lease["reuse_guard"]["source"],"backlog_vetted")
-        self.assertIn("afterdeletebench_benchmark",lease["reuse_guard"]["plan"]["components"])
+        self.assertEqual(lease["reuse_guard"]["plan"]["components"],r["reuse_plan"]["components"])
         decision=Path(lease["workspace"])/"REUSE_DECISION.json"
         self.assertTrue(decision.is_file())
         row=self.g.db.execute("SELECT * FROM leases WHERE lease_id=?",(lease["lease_id"],)).fetchone()
-        self.assertEqual(row["backlog_id"],"R24")
+        self.assertEqual(row["backlog_id"],r["id"])
         self.assertEqual(row["reuse_guard_version"],2)
         self.assertTrue(row["reuse_decision_sha"])
 
@@ -161,12 +181,12 @@ class ReuseGuardTests(unittest.TestCase):
 
     def test_backlog_plan_cannot_be_replaced_by_caller(self):
         rows=json.loads((self.root/"governance"/"RESEARCH_BACKLOG.json").read_text(encoding="utf-8"))["candidates"]
-        r=next(x for x in rows if x["id"]=="R24")
+        r=next(x for x in rows if x["id"]==self.fixture_backlog_id)
         with self.assertRaisesRegex(GovernanceError,"differs from Lead-vetted"):
             self.g.join(
                 "reuse_worker_01","research_engineer",r["family"],r["capability"],
                 r["hypothesis"],r["lane"],lineage=r["lineage"],
-                backlog_id="R24",
+                backlog_id=r["id"],
                 reuse_plan=self.plan("xiaoyu_existing_core",mode="custom_policy"))
 
     def test_guarded_submission_requires_reuse_compliance(self):

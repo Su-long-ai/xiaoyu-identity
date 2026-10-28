@@ -278,25 +278,51 @@ class Governance:
                 continue
             if allowed and row.get("plan") not in allowed:
                 continue
-            # A task is consumed/claimed once its exact family+capability has any lease.
+            # Normal tasks are consumed once claimed. An active backlog task
+            # whose newest exact backlog lease was independently NEEDS_WORK is
+            # a formal remediation target, not a permanently consumed task.
             prior=self.db.execute(
-                "SELECT lease_id,state FROM leases WHERE family=? AND capability=? "
-                "ORDER BY claimed_at DESC LIMIT 1",
-                (canonical(row["family"]),row["capability"])).fetchone()
+                "SELECT lease_id,agent_id,state,backlog_id,workspace FROM leases "
+                "WHERE backlog_id=? ORDER BY claimed_at DESC LIMIT 1",
+                (str(row.get("id") or ""),)).fetchone()
+            remediation=False
             if prior:
-                continue
+                sub=self.db.execute(
+                    "SELECT submission_id,decision FROM submissions WHERE lease_id=? "
+                    "ORDER BY at DESC LIMIT 1",(prior["lease_id"],)).fetchone()
+                remediation=bool(
+                    prior["state"]=="SUBMITTED" and sub
+                    and sub["decision"]=="NEEDS_WORK"
+                    and str(prior["backlog_id"] or "")==str(row.get("id") or ""))
+                if not remediation:
+                    continue
+            else:
+                # Legacy rows without backlog_id retain the prior family/capability
+                # consumption rule; they are never auto-classified as remediation.
+                legacy=self.db.execute(
+                    "SELECT lease_id FROM leases WHERE family=? AND capability=? "
+                    "ORDER BY claimed_at DESC LIMIT 1",
+                    (canonical(row["family"]),row["capability"])).fetchone()
+                if legacy:
+                    continue
             # Explicitly adopted self-directed work also consumes the backlog row even
             # when the family differs in legacy rows.
             adopted=row.get("adopted_lease_id")
             if adopted and self.db.execute(
                 "SELECT 1 FROM leases WHERE lease_id=?",(adopted,)).fetchone():
                 continue
-            candidates.append({
+            item={
                 "id":row.get("id"),"plan":row.get("plan"),
                 "priority":row.get("priority",99),
                 "family":canonical(row["family"]),
                 "capability":row["capability"],
-            })
+            }
+            if prior and remediation:
+                item.update(remediation=True,
+                            previous_lease_id=prior["lease_id"],
+                            previous_agent_id=prior["agent_id"],
+                            previous_workspace=prior["workspace"])
+            candidates.append(item)
         result["available_unclaimed"]=candidates
         effective=float(cfg.get("effective_after_epoch",0))
         rows=self.db.execute(
