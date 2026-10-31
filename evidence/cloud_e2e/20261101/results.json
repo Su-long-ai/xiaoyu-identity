@@ -1,0 +1,24 @@
+{
+  "schema": "xiaoyu.cloud_e2e.v1",
+  "evidence_label": "E0_ENGINEERING_SMOKE_NOT_E1_E2_E3",
+  "source_commit_main_at_start": "781394b9d70795f0a289c7c84ca643b141d21416",
+  "source_path": "send_guard.py",
+  "source_git_blob_sha1": "6595e36cfce9d0e7907271164785b062176c5053",
+  "runner": "chatgpt_python",
+  "python": "3.13.5",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "dependencies": "python_stdlib_only",
+  "dataset": "ephemeral_synthetic_sqlite_no_private_data",
+  "experiment": "send_guard freshness, provenance, conflict, dispatch and reply persistence",
+  "passed": 12,
+  "failed": 0,
+  "skipped": 0,
+  "total": 12,
+  "success": true,
+  "limitations": [
+    "synthetic smoke only",
+    "not independent auditor replication",
+    "not paid LLM or model-accuracy evaluation",
+    "not governance lease/submission"
+  ]
+}
