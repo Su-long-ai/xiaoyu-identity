@@ -11,7 +11,7 @@ Can ChatGPT fetch exact source from the private GitHub repository, execute a rea
 - Repository: `Su-long-ai/xiaoyu-identity`.
 - Main commit at start: `781394b9d70795f0a289c7c84ca643b141d21416`.
 - Tested production source: `send_guard.py`, Git blob SHA-1 `6595e36cfce9d0e7907271164785b062176c5053`.
-- Experiment file: `experiments/cloud_e2e_smoke.py`; SHA-256 `7de70e8fa1b95dff6e463411af2e05fc710f8ce69292069874f86fcbddb70706`.
+- Experiment file: `experiments/cloud_e2e_smoke.py`; SHA-256 `ae35db4efdda31e210177255064f34fcf695f353b5c6a5d65c8922d0a86ebd69`.
 - Runner: ChatGPT ephemeral Linux Python 3.13.5; standard library only; no pip install needed.
 - Data: freshly created, ephemeral synthetic SQLite databases; no `identity/` or personal conversation data accessed; zero paid LLM calls.
 - Invocation from repository root: `python -m experiments.cloud_e2e_smoke --json-out results.json`. Directly invoking the nested script without a configured `PYTHONPATH` is not the supported entry point.
