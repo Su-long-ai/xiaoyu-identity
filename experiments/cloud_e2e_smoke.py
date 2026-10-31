@@ -1,6 +1,6 @@
 """Dependency-free E0 smoke of XiaoYu's actual send_guard.py against synthetic SQLite.
 
-Run: python experiments/cloud_e2e_smoke.py --json-out results.json
+Run: python -m experiments.cloud_e2e_smoke --json-out results.json
 No private identity data, model API, network or production writes.
 """
 import argparse
