@@ -1,0 +1,85 @@
+{
+  "schema": "xiaoyu-product-integration-main06-r47v2-v1",
+  "integrated_at": "2026-10-31T16:18+08:00",
+  "status": "INTEGRATED_POSTINSTALL_VALIDATED",
+  "upstream": {
+    "main06": {
+      "submission": "sub-94830a176f2b4d7e",
+      "review": "review-444a2d22fbc143a9",
+      "decision": "ACCEPT_E1"
+    },
+    "r47_authority_v2": {
+      "submission": "sub-c4ba52d68b174fdb",
+      "review": "review-03d3528ea7664459",
+      "decision": "ACCEPT_E1"
+    }
+  },
+  "preflight": "governance/MAIN06_R47V2_PRODUCT_COMPOSITION_PREFLIGHT_20261031.json",
+  "integration_plan": "governance/MAIN06_LIVE_INTEGRATION_PLAN_20261031.json",
+  "backup": "governance/lead_workspaces/main06_live_backup_20261031_1616",
+  "before": {
+    "companion.py": "bce6e399e990b27eb5f2fd57518f33ea0eff8b837015f961c26db7b18b661c77",
+    "identity_core.py": "03d4aff17612be7d964bbd2c0a6b8feb924df72089c40b5ce0fdf5da11c72008",
+    "model_adapter.py": "5203fa979238117e889131c0217f2d36acfb7053d962c7208a84841c4da502ef",
+    "product_memory_bridge.py": "4e0bfbc19e026a0a05ec0f4cafe97f02066131fd57d8a18bcd3cb44243e55239",
+    "product_memory_bridge_base.py": "MISSING",
+    "authority_refresh_bridge_v1.py": "MISSING",
+    "send_guard.py": "MISSING"
+  },
+  "after": {
+    "companion.py": "4ba184f3b6867f2728baf0b54d0c0b2c736877b0cd11c0002bcfbb7981a70e28",
+    "identity_core.py": "41f350739b70cb302dc61a71d1d098914698c6c143ae830f8941eef7703365f5",
+    "model_adapter.py": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+    "product_memory_bridge_base.py": "4e0bfbc19e026a0a05ec0f4cafe97f02066131fd57d8a18bcd3cb44243e55239",
+    "authority_refresh_bridge_v1.py": "736cc0a21c129cfe8f40bd7d60112fa70961b35d9869ebd76948d4b64deff68f",
+    "product_memory_bridge.py": "55755044ce223ef68f9e22a651cc9c14ab23f64ed1d97cad4ee57d59733c7296",
+    "send_guard.py": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+    "r47_open_domain_memory_store_frozen.py": "44d41231dae573dbc360b62a8144ebe4b929808a72dc7197705ee26a704092f9"
+  },
+  "module_layering": [
+    "product_memory_bridge_base.py: current MAIN08 base",
+    "authority_refresh_bridge_v1.py: MAIN06 accepted authority wrapper",
+    "product_memory_bridge.py: c4ba accepted R47-V2 linearization wrapper"
+  ],
+  "postinstall_validation": {
+    "live_root_py_compile": "PASS",
+    "verification_mode": "Installed live bytes were copied back into an isolated verification mirror and hash-compared byte-for-byte before tests, avoiding access to the real identity store.",
+    "verification_workspace": "governance/lead_workspaces/main06_postinstall_live_bytes_20261031_1617",
+    "live_vs_mirror_hashes": "IDENTICAL",
+    "current_product_contract": "44/44 PASS",
+    "assistant_size_boundary": "1/1 PASS",
+    "main06_freshness": "9/9 PASS",
+    "main06_authority": "5/5 PASS",
+    "main06_postdispatch": "3/3 PASS",
+    "main06_real_http": "2/2 PASS",
+    "main06_nonmemory": "PASS",
+    "main06_ui": "3/3 PASS",
+    "composed_r47v2_direct_race": "PASS no stale row; retries=1",
+    "rollback_required": false,
+    "composed_r47v2_latency": {
+      "n": 1500,
+      "reps": 80,
+      "v1_median_s": 0.0023122999991755933,
+      "v2_median_s": 0.0023312000012083445,
+      "median_regression_fraction": 0.008173680767845637,
+      "v1_p95_s": 0.002537200001825113,
+      "v2_p95_s": 0.003086199998506345,
+      "p95_regression_fraction": 0.21638026024212276,
+      "rows_equal": true,
+      "frozen_median_gate_max": 0.25,
+      "pass": true,
+      "evidence": "governance/lead_workspaces/main06_postinstall_live_bytes_20261031_1617/COMPOSED_R47V2_LATENCY.json"
+    },
+    "private_safe_contract": "43/43 PASS",
+    "private_safe_exclusion": "test_identity_v2.test_preexisting_v1_archive_restores_under_v2 excluded because D:/dsh-fish/exports/xiaoyu-initial-20261026.zip exists and would read preexisting identity data",
+    "full_44_contract_note": "44/44 also passed earlier, but because the local V1 archive exists this run is retained only as auxiliary regression evidence and is not used for the private-free product claim."
+  },
+  "product_claim": "Routine product integration of already independently accepted capabilities; no new formal E2/E3 claim.",
+  "boundaries": {
+    "codex_used": false,
+    "paid_calls": 0,
+    "private_identity_data_read": false,
+    "blind_or_formal_data": false,
+    "private_identity_data_read_by_private_safe_evidence": false
+  }
+}

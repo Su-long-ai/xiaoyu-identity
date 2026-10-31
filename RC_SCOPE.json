@@ -1,0 +1,37 @@
+{
+  "schema": "xiaoyu-current-product-rc-scope-v7",
+  "created_at": "2026-10-31T20:22+08:00",
+  "purpose": "Post-ACCEPT_E1 MAIN15 integration candidate: route the live IdentityStore import API through the independently accepted staged pre-activation archive boundary while preserving one authoritative identity store.",
+  "baseline_current_root_freeze": "governance/CURRENT_PRODUCT_RC_V6_FREEZE_20261031.json",
+  "accepted_change": {
+    "submission_id": "sub-b6c3e64d46f248e5",
+    "review_id": "review-9d79caf1b63142b4",
+    "reviewer": "xy-auditor-independent-20261031-02",
+    "decision": "ACCEPT_E1",
+    "accepted_boundary_sha256": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+    "product_adapter_identity_core_sha256": "9fb6390fac32c706f14e58401c860a759b3587c448921333a8f1d2bde78c5a50"
+  },
+  "intentional_membership_delta_from_rc_v6": {
+    "changed": [
+      "identity_core.py",
+      "RC_SCOPE.json"
+    ],
+    "added": [
+      "archive_preactivation_boundary.py",
+      "evidence/PRODUCT_INTEGRATION_MAIN15_20261031.json"
+    ],
+    "removed": []
+  },
+  "claim_boundary": "Current product integration candidate only; no E2/E3/formal claim.",
+  "formal_e2_claim": false,
+  "private_identity_data_included": false,
+  "blind_or_formal_gold_included": false,
+  "provider_calls_required": false,
+  "private_safe_rule": "Run only run_release_candidate.py for frozen bundle closure; MAIN15 R13/legacy trust-boundary evidence is separately bound to the accepted submission/review and live product-entry smoke.",
+  "upstream": {
+    "RC_V6": "governance/CURRENT_PRODUCT_RC_V6_FREEZE_20261031.json",
+    "MAIN15": "sub-b6c3e64d46f248e5 / review-9d79caf1b63142b4 / ACCEPT_E1",
+    "MAIN12": "sub-e4db3675c43547cf / review-59349eb4c8af4b5d / ACCEPT_E1",
+    "WRAPPER_COLLAPSE": "sub-78961584cbbc47f4 / review-19d933d949da47ef / ACCEPT_E1"
+  }
+}

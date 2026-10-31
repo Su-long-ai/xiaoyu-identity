@@ -1,0 +1,47 @@
+{
+  "schema": "xiaoyu-main06-main07-clean-submission-adapter-preflight-v1",
+  "created_at": "2026-10-31T16:08+08:00",
+  "live_root_modified": false,
+  "inputs": {
+    "main06_clean_submission": "sub-94830a176f2b4d7e",
+    "main06_integrity": "PASS",
+    "main06_exact_send_guard_sha256": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+    "main07_clean_submission": "sub-3a033b1c5ada496d",
+    "main07_integrity": "PASS",
+    "main07_exact_companion_sha256": "10fcd85b54ca569400dc72b857b1b9d4682a3d4ff51789037474f2aa543b03ef"
+  },
+  "adapter": {
+    "base": "exact MAIN06 clean immutable candidate",
+    "delta": "exact two-hunk MAIN07 clean product delta only: growth_evidence_batch helper + growth_manager payload/bound-ID alignment",
+    "combined_hashes": {
+      "companion.py": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+      "send_guard.py": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+      "identity_core.py": "41f350739b70cb302dc61a71d1d098914698c6c143ae830f8941eef7703365f5",
+      "model_adapter.py": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+      "product_memory_bridge.py": "736cc0a21c129cfe8f40bd7d60112fa70961b35d9869ebd76948d4b64deff68f",
+      "product_memory_bridge_base.py": "4e0bfbc19e026a0a05ec0f4cafe97f02066131fd57d8a18bcd3cb44243e55239"
+    },
+    "no_raw_overwrite": true
+  },
+  "validation": {
+    "current_product_contract": "44/44 PASS",
+    "main06_size": "1/1 PASS",
+    "main06_freshness": "9/9 PASS",
+    "main06_authority": "5/5 PASS",
+    "main06_postdispatch": "3/3 PASS",
+    "main06_http": "2/2 PASS",
+    "main06_nonmemory": "PASS",
+    "main06_ui": "3/3 PASS",
+    "main07_escape_budget": "3/3 PASS",
+    "main07_semantic_attacks": "4/4 PASS",
+    "main07_binding": "2/2 PASS",
+    "compile": "PASS"
+  },
+  "promotion_boundary": "Supporting Lead preflight only. Each clean submission still requires its own independent ACCEPT_E1. MAIN06 installs first; MAIN07 is then an explicit product adapter onto accepted MAIN06 bytes.",
+  "boundaries": {
+    "paid_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false,
+    "codex_used": false
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "schema": "xy-audit-current-product-rc-v7-1-refreeze-v1",
+  "new_bundle": "D:\\dsh-fish\\governance\\lead_workspaces\\current_product_rc_v7_1_main15_clean_20261031",
+  "old_bundle": {
+    "pre_file_count": 38,
+    "post_file_count": 38,
+    "pre_membership_exact": false,
+    "post_membership_exact": false,
+    "unchanged_during_audit": true
+  },
+  "pre": {
+    "membership_exact": true,
+    "hashes_exact": true,
+    "file_count": 36,
+    "manifest_sha256": "0105023793259c58ad2973e7a4d4cd0d6f14a4218e25b977eef113c262a124eb"
+  },
+  "manifest_bytes_equal_to_original_rc_v7": true,
+  "same_all_declared_member_bytes_as_original_rc_v7": true,
+  "live_root_hashes": {
+    "companion.py": {
+      "expected": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+      "actual": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+      "match": true
+    },
+    "identity_core.py": {
+      "expected": "9fb6390fac32c706f14e58401c860a759b3587c448921333a8f1d2bde78c5a50",
+      "actual": "9fb6390fac32c706f14e58401c860a759b3587c448921333a8f1d2bde78c5a50",
+      "match": true
+    },
+    "archive_preactivation_boundary.py": {
+      "expected": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+      "actual": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+      "match": true
+    },
+    "model_adapter.py": {
+      "expected": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+      "actual": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+      "match": true
+    },
+    "product_memory_bridge.py": {
+      "expected": "8f6d001fc44941c27449e8f71099f12b7fcf24226e4f758681bc779ed2e0b556",
+      "actual": "8f6d001fc44941c27449e8f71099f12b7fcf24226e4f758681bc779ed2e0b556",
+      "match": true
+    },
+    "product_memory_bridge_base.py": {
+      "expected": "e4e9f9be4f5ff4667350d13cd5159d1132953913c2a3fcf23ffc5ed59c69501e",
+      "actual": "e4e9f9be4f5ff4667350d13cd5159d1132953913c2a3fcf23ffc5ed59c69501e",
+      "match": true
+    },
+    "send_guard.py": {
+      "expected": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+      "actual": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+      "match": true
+    }
+  },
+  "live_root_all_exact": true,
+  "accepted_main15_boundary_sha256": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+  "new_bundle_boundary_sha256": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+  "accepted_main15_boundary_exact": true,
+  "release": {
+    "exit_code": 0,
+    "stdout": "MANIFEST_PASS 36\nprivate43 PASS\nsize PASS\nm06_attacks PASS\nm06_authority PASS\nm06_postdispatch PASS\nm06_http PASS\nm06_nonmemory PASS\nm06_ui PASS\nr47v2_race PASS\nm07_escape PASS\nm07_attacks PASS\nm07_binding PASS\ncompile PASS\nRC_V3_ALL_PASS_BUNDLE_UNCHANGED\n",
+    "stderr": "",
+    "pythondontwritebytecode": "1"
+  },
+  "post": {
+    "membership_exact": true,
+    "hashes_exact": true,
+    "file_count": 36,
+    "manifest_sha256": "0105023793259c58ad2973e7a4d4cd0d6f14a4218e25b977eef113c262a124eb"
+  },
+  "new_bundle_unchanged_pre_post": true,
+  "boundaries": {
+    "provider_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false,
+    "codex_used": false
+  },
+  "all_pass": true
+}

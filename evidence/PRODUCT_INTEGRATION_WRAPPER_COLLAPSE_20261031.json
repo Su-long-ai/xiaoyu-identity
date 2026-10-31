@@ -1,0 +1,29 @@
+{
+  "schema": "xiaoyu-product-integration-wrapper-collapse-v1",
+  "created_at": "2026-10-31T18:09+08:00",
+  "status": "STAGED_NOT_LIVE",
+  "source_submission": "sub-78961584cbbc47f4",
+  "source_review": "review-19d933d949da47ef",
+  "source_decision": "ACCEPT_E1",
+  "source_integrity": "PASS_IMMUTABLE_SUBMISSION_SNAPSHOT",
+  "accepted_candidate_bridge_sha256": "8f6d001fc44941c27449e8f71099f12b7fcf24226e4f758681bc779ed2e0b556",
+  "baseline_rc": "governance/lead_workspaces/current_product_rc_v2_20261031_1632",
+  "baseline_rc_manifest_sha256": "ec7a5379bd105aa5125827c576104d90206031400682af2ee9749cfbcbbb9e46",
+  "changes": [
+    {
+      "op": "replace",
+      "path": "product_memory_bridge.py",
+      "sha256": "8f6d001fc44941c27449e8f71099f12b7fcf24226e4f758681bc779ed2e0b556"
+    },
+    {
+      "op": "remove",
+      "path": "authority_refresh_bridge_v1.py",
+      "baseline_sha256": "736cc0a21c129cfe8f40bd7d60112fa70961b35d9869ebd76948d4b64deff68f"
+    }
+  ],
+  "audit_summary": "Independent ACCEPT_E1 equivalence audit reproduced exact accepted V1 method bodies, V2 linearization target-only change, all matched specialty regressions and 800/arm exact-row performance. P2 required a new self-consistent release manifest/runner before integration.",
+  "claim_boundary": "Product integration staging only. No live-root mutation and no E2/E3 claim.",
+  "provider_calls": 0,
+  "private_identity_data": false,
+  "blind_or_formal_data": false
+}

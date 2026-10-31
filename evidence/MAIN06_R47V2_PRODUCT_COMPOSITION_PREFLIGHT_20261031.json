@@ -1,0 +1,56 @@
+{
+  "schema": "xiaoyu-main06-r47v2-product-composition-preflight-v1",
+  "created_at": "2026-10-31T16:14+08:00",
+  "live_root_modified": false,
+  "upstream": {
+    "main06_clean": {
+      "submission": "sub-94830a176f2b4d7e",
+      "review": "review-444a2d22fbc143a9",
+      "decision": "ACCEPT_E1"
+    },
+    "r47_authority_v2": {
+      "submission": "sub-c4ba52d68b174fdb",
+      "review": "review-03d3528ea7664459",
+      "decision": "ACCEPT_E1"
+    }
+  },
+  "composition": {
+    "workspace": "governance/lead_workspaces/main06_clean_plus_r47v2_20261031_1613",
+    "layering": [
+      "product_memory_bridge_base.py = current MAIN08 base",
+      "authority_refresh_bridge_v1.py = MAIN06 accepted V1 authority wrapper bytes",
+      "product_memory_bridge.py = c4ba accepted V2 linearization wrapper bytes"
+    ],
+    "hashes": {
+      "companion.py": "4ba184f3b6867f2728baf0b54d0c0b2c736877b0cd11c0002bcfbb7981a70e28",
+      "identity_core.py": "41f350739b70cb302dc61a71d1d098914698c6c143ae830f8941eef7703365f5",
+      "model_adapter.py": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+      "product_memory_bridge_base.py": "4e0bfbc19e026a0a05ec0f4cafe97f02066131fd57d8a18bcd3cb44243e55239",
+      "authority_refresh_bridge_v1.py": "736cc0a21c129cfe8f40bd7d60112fa70961b35d9869ebd76948d4b64deff68f",
+      "product_memory_bridge.py": "55755044ce223ef68f9e22a651cc9c14ab23f64ed1d97cad4ee57d59733c7296",
+      "send_guard.py": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297",
+      "r47_open_domain_memory_store_frozen.py": "44d41231dae573dbc360b62a8144ebe4b929808a72dc7197705ee26a704092f9"
+    }
+  },
+  "rationale": "MAIN06 review P2 explicitly forbids overwriting the later accepted R47-V2 authority-refresh with MAIN06's bundled pre-V2 wrapper. This explicit adapter preserves both accepted capabilities.",
+  "validation": {
+    "compile": "PASS",
+    "current_product_contract": "44/44 PASS",
+    "main06_size_boundary": "1/1 PASS",
+    "main06_freshness": "9/9 PASS",
+    "main06_authority": "5/5 PASS",
+    "main06_postdispatch": "3/3 PASS",
+    "main06_real_http": "2/2 PASS",
+    "main06_nonmemory": "PASS",
+    "main06_ui": "3/3 PASS",
+    "composed_r47v2_direct_race": "PASS no leak; linearization_retries=1"
+  },
+  "disposition": "ROUTINE_PRODUCT_INTEGRATION_ELIGIBLE",
+  "productization_basis": "Both scientific ingredients independently ACCEPT_E1; explicit adapter only resolves their module layering and has independent shadow regression evidence.",
+  "boundaries": {
+    "codex_used": false,
+    "paid_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false
+  }
+}

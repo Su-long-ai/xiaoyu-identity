@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Replaceable chat-completion adapter. Provider settings stay OUTSIDE identity archives."""
 from __future__ import annotations
+import http.client
 import json
 import os
+import socket
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -13,6 +15,9 @@ PROVIDERS = {
                  "model":"deepseek-flash","key_env":"DEEPSEEK_API_KEY"},
     "openai": {"url":"https://api.openai.com/v1/chat/completions",
                "model":"gpt-4.1-mini","key_env":"OPENAI_API_KEY"},
+    "qwen": {"url":"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+             "model":"qwen3.8-flash","key_env":"DASHSCOPE_API_KEY",
+             "enable_thinking":False},
     "ollama": {"url":"http://127.0.0.1:11434/v1/chat/completions",
                "model":"qwen3:8b","key_env":""},
     "custom": {"url":"https://example.invalid/v1/chat/completions",
@@ -34,6 +39,8 @@ def load_provider(home):
             "url":str(raw.get("url") or base["url"]).strip(),
             "model":str(raw.get("model") or base["model"]).strip(),
             "key_env":str(raw.get("key_env") if "key_env" in raw else base["key_env"]).strip()}
+    if "enable_thinking" in base:
+        config["enable_thinking"]=bool(raw.get("enable_thinking",base["enable_thinking"]))
     return config
 
 def save_provider(home, provider, model="", url="", key_env=""):
@@ -44,6 +51,8 @@ def save_provider(home, provider, model="", url="", key_env=""):
             "model":(model or spec["model"]).strip(),
             "url":(url or spec["url"]).strip(),
             "key_env":key_env.strip() if provider=="custom" else spec["key_env"]}
+    if "enable_thinking" in spec:
+        config["enable_thinking"]=bool(spec["enable_thinking"])
     validate(config)
     home=Path(home)
     path=home/"provider.json"
@@ -67,14 +76,178 @@ def validate(config):
         pass
     else:
         raise ProviderConfigError("Only HTTPS or local HTTP endpoints allowed")
-    if parsed.path.rstrip("/") not in ("/chat/completions","/v1/chat/completions"):
+    if parsed.path.rstrip("/") not in (
+        "/chat/completions",
+        "/v1/chat/completions",
+        "/compatible-mode/v1/chat/completions",
+    ):
         raise ProviderConfigError("Only chat/completions-compatible endpoints supported")
-    if provider in ("deepseek","openai") and url!=PROVIDERS[provider]["url"]:
+    if provider in ("deepseek","openai","qwen") and url!=PROVIDERS[provider]["url"]:
         raise ProviderConfigError("Use custom provider for nonstandard endpoints")
     if len(config.get("key_env",""))>70:
         raise ProviderConfigError("Invalid key env var")
 
-def chat(config, messages, max_tokens=500, timeout=75):
+
+class _DispatchHTTPConnection(http.client.HTTPConnection):
+    """HTTPConnection that reports the local data-release point exactly once."""
+    def __init__(self,*args,on_dispatched=None,**kwargs):
+        self._on_dispatched=on_dispatched
+        super().__init__(*args,**kwargs)
+
+    def request(self,*args,**kwargs):
+        result=super().request(*args,**kwargs)
+        callback=self._on_dispatched
+        self._on_dispatched=None
+        if callback is not None:
+            callback()
+        return result
+
+
+class _DispatchHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection equivalent used by urllib's normal HTTPS handler path."""
+    def __init__(self,*args,on_dispatched=None,**kwargs):
+        self._on_dispatched=on_dispatched
+        super().__init__(*args,**kwargs)
+
+    def request(self,*args,**kwargs):
+        result=super().request(*args,**kwargs)
+        callback=self._on_dispatched
+        self._on_dispatched=None
+        if callback is not None:
+            callback()
+        return result
+
+
+class _DispatchHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self,on_dispatched):
+        super().__init__()
+        self._on_dispatched=on_dispatched
+
+    def http_open(self,req):
+        callback=self._on_dispatched
+        def factory(host,timeout=socket._GLOBAL_DEFAULT_TIMEOUT,**kwargs):
+            return _DispatchHTTPConnection(
+                host,timeout=timeout,on_dispatched=callback,**kwargs
+            )
+        return self.do_open(factory,req)
+
+
+class _DispatchHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self,on_dispatched,debuglevel=0,context=None,check_hostname=None):
+        super().__init__(debuglevel=debuglevel,context=context,check_hostname=check_hostname)
+        self._on_dispatched=on_dispatched
+
+    def https_open(self,req):
+        callback=self._on_dispatched
+        def factory(host,timeout=socket._GLOBAL_DEFAULT_TIMEOUT,**kwargs):
+            return _DispatchHTTPSConnection(
+                host,timeout=timeout,on_dispatched=callback,**kwargs
+            )
+        return self.do_open(
+            factory,req,context=self._context,check_hostname=self._check_hostname
+        )
+
+
+def _urlopen_with_dispatch(req,timeout,on_dispatched):
+    """Use urllib's normal proxy/error/redirect machinery with one send callback."""
+    fired=False
+    def once():
+        nonlocal fired
+        if fired:
+            return
+        fired=True
+        on_dispatched()
+    opener=urllib.request.build_opener(
+        _DispatchHTTPHandler(once),
+        _DispatchHTTPSHandler(once),
+    )
+    return opener.open(req,timeout=timeout)
+
+
+def project_history(store, limit=16, fail_closed_current_event_id=None):
+    """Project recent dialogue for model input without rewriting stored history.
+
+    A recent user utterance can be the canonical source of a long-term memory.
+    If that memory was later corrected, retracted or archived through the product
+    UI, the raw utterance remains valid conversation history but must not silently
+    compete with current-state memory as an unqualified current fact.
+
+    If memory reconciliation itself failed, callers may pass the just-recorded
+    current user event. In that fail-closed mode, older dialogue is withheld from
+    model input because its current-memory validity could not be established.
+    """
+    rows=list(store.latest_dialog(limit))
+    if fail_closed_current_event_id is not None:
+        current_event_id=int(fail_closed_current_event_id)
+        rows=[
+            x for x in rows
+            if x.get("role")=="user"
+            and int(x.get("event_id") or -1)==current_event_id
+        ]
+    user_ids=[int(x["event_id"]) for x in rows if x.get("role")=="user"]
+    states={}
+    active_texts={}
+    deleted_sources=set()
+    if user_ids:
+        marks=",".join("?" for _ in user_ids)
+        query=(
+            "SELECT source_event,status,text FROM memories "
+            f"WHERE source_event IN ({marks}) ORDER BY memory_id"
+        )
+        for row in store.conn.execute(query,user_ids):
+            source_event=int(row["source_event"])
+            status=str(row["status"])
+            states.setdefault(source_event,set()).add(status)
+            if status=="active":
+                active_texts.setdefault(source_event,[]).append(str(row["text"]))
+        # Physical deletion removes the memory row, so lifecycle state alone is
+        # insufficient. ProductMemoryBridge records a plaintext-free source tombstone.
+        for row in store.conn.execute(
+            "SELECT extra FROM events WHERE kind='memory.deleted' ORDER BY event_id"
+        ):
+            try:
+                extra=json.loads(row["extra"] or "{}")
+                source_event=int(extra.get("source_event"))
+            except Exception:
+                continue
+            if source_event in user_ids:
+                deleted_sources.add(source_event)
+
+    labels={
+        "superseded":"【历史用户原话：相关长期事实后来已被用户更正，不能作为当前事实；以系统中的当前已确认长期记忆为准】",
+        "retracted":"【历史用户原话：相关长期事实后来已被用户撤回，不能作为当前事实】",
+        "archived":"【历史用户原话：相关长期事实后来已被用户归档，不应作为当前事实主动使用】",
+        "mixed_changed":"【历史用户原话：这条原话关联的部分长期事实后来已被更正、撤回或归档；整条原话不能直接当作当前状态，当前事实以系统中的已确认长期记忆为准】",
+        "partial_deleted":"【历史用户原话：这条原话关联的部分长期事实已被物理删除；为避免已删除内容重新进入模型，仅投影仍有效的已确认长期记忆】",
+    }
+    out=[]
+    for row in rows:
+        item={"role":row["role"],"content":str(row["content"])[:1500],
+              "event_id":row.get("event_id")}
+        if item["role"]=="user":
+            event_id=int(item["event_id"])
+            if event_id in deleted_sources:
+                survivors=active_texts.get(event_id,[])
+                item["content"]=labels["partial_deleted"]
+                if survivors:
+                    item["content"]+="\\n"+"\\n".join(survivors)[:1200]
+                item["memory_state_annotation"]="partial_deleted"
+                out.append(item)
+                continue
+            status_set=states.get(event_id,set())
+            invalid=[x for x in ("retracted","superseded","archived") if x in status_set]
+            if invalid:
+                # One user turn can support multiple atomic memories. If one remains
+                # active while another was corrected/retracted, leaving the whole raw
+                # turn unqualified would leak the stale fact through recent history.
+                chosen="mixed_changed" if "active" in status_set else invalid[0]
+                item["content"]=labels[chosen]+"\n"+item["content"]
+                item["memory_state_annotation"]=chosen
+        out.append(item)
+    return out
+
+
+def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
     """OpenAI-compatible messages; no key ever persisted to the companion archive."""
     validate(config)
     envvar=config.get("key_env","")
@@ -83,6 +256,8 @@ def chat(config, messages, max_tokens=500, timeout=75):
         raise ProviderConfigError(f"请先在系统环境变量中配置 {envvar}，不要把密钥输入聊天记录。")
     body={"model":config["model"], "messages":messages,
           "max_tokens":max_tokens, "stream":False}
+    if isinstance(config.get("enable_thinking"),bool):
+        body["enable_thinking"]=config["enable_thinking"]
     thinking=str(config.get("thinking") or "").strip().lower()
     if thinking in ("enabled","disabled"):
         body["thinking"]={"type":thinking}
@@ -104,8 +279,12 @@ def chat(config, messages, max_tokens=500, timeout=75):
         headers["Authorization"]="Bearer "+key
     req=urllib.request.Request(config["url"],data=payload,headers=headers,method="POST")
     try:
-        with urllib.request.urlopen(req,timeout=timeout) as resp:
-            result=json.loads(resp.read(2_000_000).decode("utf-8"))
+        if on_dispatched is None:
+            with urllib.request.urlopen(req,timeout=timeout) as resp:
+                result=json.loads(resp.read(2_000_000).decode("utf-8"))
+        else:
+            with _urlopen_with_dispatch(req,timeout,on_dispatched) as resp:
+                result=json.loads(resp.read(2_000_000).decode("utf-8"))
     except urllib.error.HTTPError as e:
         # Never surface provider response body; it might echo sensitive data.
         if e.code==402:

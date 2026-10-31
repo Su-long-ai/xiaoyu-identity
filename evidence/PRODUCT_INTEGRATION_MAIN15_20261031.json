@@ -1,0 +1,29 @@
+{
+  "schema": "xiaoyu-product-integration-main15-evidence-v1",
+  "created_at": "2026-10-31T20:22+08:00",
+  "status": "LIVE_INTEGRATED_SELFTEST_PASS_PENDING_INDEPENDENT_CURRENT_ROOT_AUDIT",
+  "scientific_submission": "sub-b6c3e64d46f248e5",
+  "scientific_review": "review-9d79caf1b63142b4 ACCEPT_E1",
+  "accepted_boundary_sha256": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+  "identity_adapter_sha256": "9fb6390fac32c706f14e58401c860a759b3587c448921333a8f1d2bde78c5a50",
+  "adapter_contract": "IdentityStore.import_to_new_home delegates to exact accepted archive_preactivation_boundary.import_to_new_home and preserves prior Path(home) return API.",
+  "validation": {
+    "isolated_identity_v2": "20/20 PASS; task 20261031-201707-2c3a2e93",
+    "isolated_product_crossmodel_e1": "24/24 PASS; task 20261031-201709-5f1384e0",
+    "isolated_product_entry": "legacy snapshot exact + R13 snapshot exact + invalid missing-growth fail-closed; task 20261031-201835-22ceaa83",
+    "live_identity_v2": "20/20 PASS; task 20261031-201931-1ea3866d",
+    "live_product_crossmodel_e1": "24/24 PASS; task 20261031-201934-4068cabb",
+    "live_product_entry": "legacy snapshot exact + R13 snapshot exact + invalid missing-growth fail-closed; task 20261031-202008-7e5b1eaa"
+  },
+  "auditor_p2": {
+    "finding": "Out-of-domain nonbootstrap change_seq -1/0 not rejected.",
+    "review_adjudication": "P2 nonblocking; no current product-visible loss reproduced; scope claim to cursor rollback monotonicity, not full revision-domain validity.",
+    "lead_record": "governance/MAIN15_G3_LEAD_GENERATION_DOMAIN_BLOCKER_20261031.json"
+  },
+  "boundaries": {
+    "codex_used": false,
+    "provider_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false
+  }
+}

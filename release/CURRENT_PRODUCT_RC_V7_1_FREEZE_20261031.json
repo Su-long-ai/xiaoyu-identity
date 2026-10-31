@@ -1,0 +1,40 @@
+{
+  "schema": "xiaoyu-current-product-rc-v7-1-freeze-v1",
+  "created_at": "2026-10-31T21:06:00+08:00",
+  "status": "FROZEN_PENDING_INDEPENDENT_CURRENT_ROOT_REAUDIT",
+  "source_freeze": "governance/CURRENT_PRODUCT_RC_V7_FREEZE_20261031.json",
+  "source_audit": {
+    "submission_id": "sub-485c7b2bb96442e8",
+    "auditor_id": "xy-auditor-independent-20261031-02",
+    "classification": "RC_V7_RUNTIME_PASS_FREEZE_MEMBERSHIP_BLOCKER",
+    "blocker": "Two untracked pyc files made the original RC-v7 frozen directory non-manifest-exact."
+  },
+  "remediation": "Fresh clean materialization from exactly the original MANIFEST-declared 36 members. No product/runtime/scientific bytes changed; original frozen bundle was not mutated.",
+  "bundle": "governance/lead_workspaces/current_product_rc_v7_1_main15_clean_20261031",
+  "manifest_sha256": "0105023793259c58ad2973e7a4d4cd0d6f14a4218e25b977eef113c262a124eb",
+  "manifest_members": 36,
+  "same_manifest_as_rc_v7": true,
+  "current_root_hashes": {
+    "companion.py": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+    "identity_core.py": "9fb6390fac32c706f14e58401c860a759b3587c448921333a8f1d2bde78c5a50",
+    "archive_preactivation_boundary.py": "4cb455186048d1c220a3c0ba12ffb15091718ef8ce0c67ce3caf809594f626ce",
+    "model_adapter.py": "85c479c2778b6cd7af50ca2aac30c229963bf25c8d943a059ed69ad4b35fc299",
+    "product_memory_bridge.py": "8f6d001fc44941c27449e8f71099f12b7fcf24226e4f758681bc779ed2e0b556",
+    "product_memory_bridge_base.py": "e4e9f9be4f5ff4667350d13cd5159d1132953913c2a3fcf23ffc5ed59c69501e",
+    "send_guard.py": "2c7f1fb71272f958534fc4fd00a6946559cc02c36817704eea5c2a0a743d0297"
+  },
+  "current_root_exact_match": true,
+  "self_validation": {
+    "clean_materialization_task": "20261031-210458-d969cb7c",
+    "result": "MANIFEST_PASS 36; 13/13 jobs PASS; post-run membership remains exactly 36; no pycache written",
+    "python": "3.11",
+    "env": "PYTHONDONTWRITEBYTECODE=1"
+  },
+  "claim_boundary": "Packaging-evidence remediation only. Same RC-v7 runtime bytes and accepted MAIN15 semantics; no new E1/E2/E3 claim.",
+  "boundaries": {
+    "codex_used": false,
+    "provider_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false
+  }
+}

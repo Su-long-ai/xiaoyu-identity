@@ -1,0 +1,46 @@
+{
+  "schema": "xiaoyu-product-integration-main07-v1",
+  "integrated_at": "2026-10-31T16:26+08:00",
+  "status": "INTEGRATED_POSTINSTALL_VALIDATED",
+  "upstream": {
+    "submission": "sub-3a033b1c5ada496d",
+    "review": "review-411665866f6c44ed",
+    "decision": "ACCEPT_E1"
+  },
+  "preflight": "governance/MAIN07_CURRENT_ROOT_ADAPTER_PREFLIGHT_20261031.json",
+  "parent_root": "governance/PRODUCT_INTEGRATION_MAIN06_R47V2_20261031.json",
+  "backup": "governance/lead_workspaces/main07_live_backup_20261031_1624",
+  "install": {
+    "file": "companion.py",
+    "before_sha256": "4ba184f3b6867f2728baf0b54d0c0b2c736877b0cd11c0002bcfbb7981a70e28",
+    "after_sha256": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+    "adapter_scope": "Only the audited MAIN07 two-hunk growth evidence adapter; all MAIN06/R47-V2 files unchanged.",
+    "first_attempt": "Atomic replace blocked by inherited ReadOnly attribute; live hash remained unchanged. Cleared ReadOnly on companion.py only and retried same temp hash successfully."
+  },
+  "postinstall_validation": {
+    "live_root_py_compile": "PASS",
+    "verification_mode": "Copied installed live bytes back into an isolated mirror, verified byte-identical SHA, then ran private-safe and candidate-specific gates.",
+    "workspace": "governance/lead_workspaces/main07_postinstall_live_bytes_20261031_1625",
+    "private_safe_contract": "43/43 PASS",
+    "main06_size": "1/1 PASS",
+    "main06_freshness": "9/9 PASS",
+    "main06_authority": "5/5 PASS",
+    "main06_postdispatch": "3/3 PASS",
+    "main06_http": "2/2 PASS",
+    "main06_nonmemory": "PASS",
+    "main06_ui": "3/3 PASS",
+    "r47v2_direct_race": "PASS no leak; retry=1",
+    "main07_escape_budget": "3/3 PASS",
+    "main07_semantic_attacks": "4/4 PASS",
+    "main07_binding": "2/2 PASS",
+    "rollback_required": false
+  },
+  "advisory_limit": "Under serialized-budget overflow the accepted candidate packs an older prefix of the latest-12 eligible window. This may affect recency utility but does not violate the accepted budget/provenance claim; no post-hoc selection-policy change was introduced.",
+  "product_claim": "Routine integration of an independently ACCEPT_E1 scoped product fix; no new formal E2/E3 claim.",
+  "boundaries": {
+    "codex_used": false,
+    "paid_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false
+  }
+}

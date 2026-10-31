@@ -1,0 +1,53 @@
+{
+  "schema": "xiaoyu-main07-current-root-adapter-preflight-v1",
+  "created_at": "2026-10-31T16:24+08:00",
+  "upstream": {
+    "submission": "sub-3a033b1c5ada496d",
+    "review": "review-411665866f6c44ed",
+    "decision": "ACCEPT_E1"
+  },
+  "current_root": {
+    "main06_r47v2_integration": "governance/PRODUCT_INTEGRATION_MAIN06_R47V2_20261031.json",
+    "companion_before_sha256": "4ba184f3b6867f2728baf0b54d0c0b2c736877b0cd11c0002bcfbb7981a70e28",
+    "product_memory_bridge_sha256": "55755044ce223ef68f9e22a651cc9c14ab23f64ed1d97cad4ee57d59733c7296"
+  },
+  "adapter": {
+    "workspace": "governance/lead_workspaces/main07_on_integrated_main06_r47v2_20261031_1620",
+    "companion_after_sha256": "43e9ecf7b83b081dd404ee6c28a4d29b20da2b3a28b968339d9d2c4c6fff6d5f",
+    "scope": "two accepted hunks only: serialized-size whole-record growth_evidence_batch + exact model-visible-to-bound evidence IDs",
+    "untouched": [
+      "identity_core.py",
+      "model_adapter.py",
+      "product_memory_bridge.py",
+      "product_memory_bridge_base.py",
+      "authority_refresh_bridge_v1.py",
+      "send_guard.py"
+    ]
+  },
+  "validation": {
+    "private_safe_contract": "43/43 PASS",
+    "main06_size": "1/1 PASS",
+    "main06_freshness": "9/9 PASS",
+    "main06_authority": "5/5 PASS",
+    "main06_postdispatch": "3/3 PASS",
+    "main06_http": "2/2 PASS",
+    "main06_nonmemory": "PASS",
+    "main06_ui": "3/3 PASS",
+    "r47v2_direct_race": "PASS no leak; retry=1",
+    "main07_escape_budget": "3/3 PASS",
+    "main07_semantic_attacks": "4/4 PASS",
+    "main07_binding": "2/2 PASS",
+    "compile": "PASS"
+  },
+  "advisory_limits": [
+    "Under budget overflow the audited candidate may keep an older prefix of the latest-12 eligible window; this is a recency/utility advisory, not a provenance/budget failure.",
+    "Private-safe evidence excludes the preexisting V1 archive migration test."
+  ],
+  "disposition": "ROUTINE_PRODUCT_ADAPTER_ELIGIBLE",
+  "boundaries": {
+    "codex_used": false,
+    "paid_calls": 0,
+    "private_identity_data": false,
+    "blind_or_formal_data": false
+  }
+}
