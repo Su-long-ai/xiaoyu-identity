@@ -1,5 +1,8 @@
 # 小鱼科研 Agent 入池指南
 
+> **先读当前方向（2026-11-02）**：`D:\\dsh-fish\\governance\\CAPABILITY_SPRINT_RETRIEVAL_20261102.md`。本阶段不要从旧优先级自由选题；Research Engineer 只消费 `CAPABILITY_RETRIEVAL_SPRINT` 自动派工，集中提高固定 LoCoMo200 的 read-side evidence completeness，尤其 Multi-hop。非关键 P2、人格、治理整理和回答 prompt 优化暂停。
+
+
 **执行起点**：`D:\dsh-fish\governance\CHARTER.md`。本阶段研究池尚未自动开人；**人工开启独立科研聊天后**，综合科研 Agent 才按下面方法领取任务。当前为两名综合 research_engineer 和一名独立 auditor。
 
 ## 给每个 Agent 的任务提示词
