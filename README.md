@@ -1,5 +1,7 @@
 # 小鱼 · 独立可迁移的私人 AI 伴侣原型
 
+> **Research direction — 2026-11-02:** Retrieval-completeness capability sprint is ACTIVE. The frozen LoCoMo200 run scored 44.50% overall; complete evidence reached context on 35% of items, and answer accuracy was 88.57% when evidence was complete. Current P0 work is read-side retrieval completeness, especially Multi-hop (10% complete-evidence recall). See [governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md](governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md).
+
 > **Research status — 2026-10-28:** P1 text-identity integration is frozen **integration-ready** (12/12 required stages ready; 122/122 governance regression at freeze). E2 prospective validation and product readiness are **not** unlocked. See [P1_FREEZE.md](P1_FREEZE.md) and [plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md](plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md).
 
 这是一个**本地持久身份实验原型**，不是 DeepSeek/DSH 的插件。
