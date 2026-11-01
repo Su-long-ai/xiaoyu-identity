@@ -1,5 +1,8 @@
 # 小鱼 · 项目级智能体边界
 
+> **当前研发方向覆盖（2026-11-02）**：科研/工程/审计 Agent 开始工作前必须先读 `governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md`。当前 P0 能力目标是 **read-side retrieval completeness**，尤其 Multi-hop；非关键 P2/治理扩展不得抢占该冲刺。固定 LoCoMo200 不扩题，候选检索输出必须先封存再读 gold 评分。
+
+
 此项目同时有 **实际伴侣运行时** 和 **独立科研治理控制面**。两者必须隔离。
 
 ## 伴侣运行时（companion.py / identity_core.py）
