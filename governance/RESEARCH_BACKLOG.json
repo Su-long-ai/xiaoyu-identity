@@ -1,8 +1,125 @@
 {
   "schema": "xiaoyu-research-backlog-v1",
   "source_plan": "D:\\dsh-fish\\plans\\小鱼_研发计划_2026-10-26.csv",
-  "status": "ACTIVE_CANDIDATES_WITH_REUSE_FREEZE_AND_LIFECYCLE",
+  "status": "ACTIVE_CAPABILITY_RETRIEVAL_SPRINT_20261102",
   "candidates": [
+    {
+      "id": "CR03",
+      "plan": "CAPABILITY_RETRIEVAL_SPRINT",
+      "priority": -98,
+      "status": "active",
+      "phase_gate": "CAPABILITY_SPRINT",
+      "capability": "memory_retrieval",
+      "family": "retrieval.evidence_set.selector_completeness",
+      "lineage": "memory.read_side.retrieval_completeness",
+      "lane": "main_bottleneck",
+      "hypothesis": "When the candidate pool already contains all required gold evidence on the frozen LoCoMo200 questions, an evidence-set selector that optimizes complementary coverage rather than independent top-k similarity reduces selector loss and increases final-context evidence completeness without increasing answer-context budget materially.",
+      "falsifier": "Candidate-complete questions still lose required evidence at the same rate after selection; gains come only from larger context windows; independent top-k performs equivalently; selection uses gold or post-answer feedback; or QA/completeness gains fail to reproduce with frozen candidate pools.",
+      "baseline": "Current complete-gold-evidence presence in final context is 35%; diagnosis shows a large accuracy gap between complete context (88.57%) and incomplete context (20.77%).",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "omnimemeval",
+          "deepseek_semantic_projector",
+          "strict_response_validator",
+          "retrieval_admissibility_reference"
+        ],
+        "gap": "Reuse the frozen candidate/evaluation interfaces and accepted bounded semantic selection/validation components. The remaining gap is set-level complementary evidence selection: retain jointly necessary hops from an already-sufficient pool instead of ranking each memory independently.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Run only after or alongside a frozen candidate-pool snapshot. Do not increase context budget for the primary comparison. Gold may be read only by the post-seal scorer/auditor.",
+      "required_attacks": [
+        "candidate-complete subset analysis",
+        "selector-loss metric",
+        "fixed context budget",
+        "independent top-k baseline",
+        "diversity-only ablation",
+        "set-coverage ablation",
+        "frozen candidate pool replay"
+      ],
+      "note": "Do not interpret this task as permission to tune the answerer. It isolates candidate-to-context loss."
+    },
+    {
+      "id": "CR02",
+      "plan": "CAPABILITY_RETRIEVAL_SPRINT",
+      "priority": -99,
+      "status": "active",
+      "phase_gate": "CAPABILITY_SPRINT",
+      "capability": "memory_retrieval",
+      "family": "retrieval.multiquery.multihop_completeness",
+      "lineage": "memory.read_side.retrieval_completeness",
+      "lane": "main_bottleneck",
+      "hypothesis": "On the same frozen LoCoMo200 set, deterministic or model-assisted decomposition of a question into bounded entity, relation, temporal and event facets, followed by union retrieval with the existing candidate backends, materially raises Multi-hop complete-evidence recall over single-query retrieval without gold access or answer-prompt changes.",
+      "falsifier": "Multi-hop complete-evidence recall fails to improve materially; decomposition mainly duplicates the same evidence; gains disappear under a frozen no-gold run; Temporal or Single-hop regress materially; or the method depends on per-question manual templates, hidden gold fields, item expansion, or unbounded model calls.",
+      "baseline": "Current frozen Multi-hop complete-evidence recall is 10% on 60 Multi-hop questions; Multi-hop final QA is 24/60=40.00%.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "omnimemeval",
+          "sqlite_fts5",
+          "deepseek_semantic_projector",
+          "research_api_gateway",
+          "retrieval_admissibility_reference"
+        ],
+        "gap": "Reuse existing XiaoYu retrieval, FTS5, frozen benchmark harness, accepted bounded semantic projector and governed model gateway. The missing capability is bounded query decomposition and union over multiple independent retrieval intents so separate hops are jointly present; no new memory store or retrieval infrastructure is required.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Keep the fixed 200 questions and frozen answerer/judge. If model-assisted decomposition is tested, use governed proxy calls with a predeclared cap and stable prompt; compare against deterministic decomposition and single-query baseline.",
+      "required_attacks": [
+        "gold unavailable to decomposer",
+        "single-query versus multi-query matched comparison",
+        "duplicate-query ablation",
+        "entity-only facet ablation",
+        "temporal-only facet ablation",
+        "question paraphrase robustness",
+        "bounded query count and token cost"
+      ],
+      "note": "This is the highest-priority Multi-hop track. It may run in parallel with CR01 because it tests a distinct retrieval layer."
+    },
+    {
+      "id": "CR01",
+      "plan": "CAPABILITY_RETRIEVAL_SPRINT",
+      "priority": -100,
+      "status": "active",
+      "phase_gate": "CAPABILITY_SPRINT",
+      "capability": "memory_retrieval",
+      "family": "retrieval.candidate_generation.evidence_completeness",
+      "lineage": "memory.read_side.retrieval_completeness",
+      "lane": "main_bottleneck",
+      "hypothesis": "On the frozen LoCoMo200 item IDs, a reused hybrid candidate generator that unions SQLite FTS5 lexical hits with existing semantic retrieval and deterministic entity/time/facet query variants increases complete-gold-evidence presence in the candidate pool over the frozen XiaoYu baseline without changing write-side state, answerer prompt, judge, or item set.",
+      "falsifier": "Overall candidate-pool complete-evidence recall does not improve materially over the frozen baseline; Multi-hop complete-evidence recall remains near 10%; gains require reading gold before candidate output, per-item hand rules, expanding the 200 items, or unacceptable context/candidate cost; or frozen Single-hop behavior materially regresses.",
+      "baseline": "Frozen LoCoMo200 XiaoYu capability run: final QA 89/200=44.50%, complete gold evidence in final context 35%, Multi-hop complete-evidence recall 10%, complete-evidence answer accuracy 88.57%, Single-hop complete-evidence accuracy 97.06%.",
+      "reuse_plan": {
+        "mode": "extend",
+        "components": [
+          "xiaoyu_existing_core",
+          "sqlite_fts5",
+          "omnimemeval",
+          "fastembed_cognee_080_bge_small_en_v15",
+          "lancedb_cognee_local_0390",
+          "retrieval_admissibility_reference"
+        ],
+        "gap": "Reuse the current XiaoYu core, SQLite FTS5, frozen external benchmark harness, and already-catalogued semantic/vector trial components. The missing capability is not a new store but higher recall candidate generation that finds all necessary multi-hop evidence before selection while preserving admissibility and the frozen answer path.",
+        "no_new_infrastructure": true,
+        "new_dependencies": []
+      },
+      "cost_rule": "Use only the frozen 200 item IDs. Candidate generation must run without current-item gold evidence. Seal retrieval outputs before scorer/auditor reads gold. Prefer local/offline components; no new framework or vector/graph database.",
+      "required_attacks": [
+        "gold unavailable during candidate generation",
+        "same 200 item IDs only",
+        "multi-hop missing-hop taxonomy",
+        "lexical-only ablation",
+        "semantic-only ablation",
+        "union ablation",
+        "candidate-count and token-cost accounting",
+        "frozen answerer/judge hash or config check"
+      ],
+      "note": "Primary metric is candidate-pool complete-evidence recall, not final QA. Final QA remains secondary and must use the frozen answer path."
+    },
     {
       "id": "R38",
       "plan": "P1",
@@ -1024,7 +1141,7 @@
       "id": "R24",
       "plan": "P2",
       "priority": 0,
-      "status": "active",
+      "status": "hold",
       "capability": "privacy_erasure",
       "family": "privacy.erasure.behavioral_closure",
       "lineage": "memory.erasure.behavioral_closure",
@@ -1046,7 +1163,7 @@
       },
       "cost_rule": "Use local synthetic matched identities first; paid model reconstruction probes only on a frozen small set after deterministic closure succeeds.",
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
-      "hold_reason": "Behavioral deletion closure is a P2 extension of the P1 canonical erasure/restore gate; run only after R12 and P1 integration freeze.",
+      "hold_reason": "2026-11-02 retrieval-completeness capability sprint preempts noncritical P2 work; preserve for later resume.",
       "unlock_condition": "P1 erasure/provenance-context stage is READY via R45 ACCEPT_E1 plus the required event-local-history integration bridge.",
       "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
     },
@@ -1104,7 +1221,7 @@
       "id": "R23",
       "plan": "P2",
       "priority": 2,
-      "status": "active",
+      "status": "hold",
       "capability": "temporal_correction",
       "family": "state.derived.dependency_propagation",
       "lineage": "memory.pipeline.derived_state",
@@ -1125,7 +1242,7 @@
       },
       "cost_rule": "Deterministic symbolic cases first. Public benchmark import/evaluation only after P1 direct-state interface is frozen.",
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
-      "hold_reason": "P2 derived-state work must not consume research slots before the direct-state P1 interface is frozen.",
+      "hold_reason": "2026-11-02 retrieval-completeness capability sprint preempts noncritical P2 work; preserve for later resume.",
       "unlock_condition": "P1 typed-state interface is accepted/integrated and the full P1 contract is frozen; derived-state dependency work may proceed without changing the P1 direct-state contract.",
       "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
     },
@@ -1133,7 +1250,7 @@
       "id": "R25",
       "plan": "P2",
       "priority": 1,
-      "status": "active",
+      "status": "hold",
       "capability": "identity_continuity",
       "family": "identity.snapshot.rollback_integrity",
       "lineage": "identity.portability.integrity",
@@ -1154,7 +1271,7 @@
       },
       "cost_rule": "Deterministic local mutations only; no paid model calls.",
       "phase_gate": "P2_ACTIVE_AFTER_P1_READY",
-      "hold_reason": "Whole-store rollback/control-state freshness is P2 hardening of the already-accepted portable snapshot, not a blocker for the current text-memory P1 assembly.",
+      "hold_reason": "2026-11-02 retrieval-completeness capability sprint preempts noncritical P2 work; preserve for later resume.",
       "unlock_condition": "P1 integration contract is frozen and 12/12 required stages are READY; deterministic at-rest rollback/control-state hardening may proceed.",
       "unlock_satisfied_by": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md"
     },
@@ -1758,23 +1875,25 @@
     "done": "completed externally or by a historically matching claim; continuation must skip"
   },
   "phase_policy": {
-    "current_phase": "P2",
+    "current_phase": "CAPABILITY_RETRIEVAL_SPRINT",
     "auto_assign_plans": [
-      "P2"
+      "CAPABILITY_RETRIEVAL_SPRINT"
     ],
     "require_hold_outside_auto_assign": true,
     "P1": "Only active P1 blockers may auto-assign before P1 integration freeze.",
-    "P2": "Only Lead-unlocked P2 candidates R24/R25/R23 auto-assign. New P2 directions still require Build-vs-Reuse/prior-work review.",
+    "P2": "R24/R25/R23 are preserved on HOLD during the retrieval-completeness sprint; resume only after Lead changes phase policy.",
     "P3": "P3 remains HOLD until product scope explicitly expands.",
     "legacy": "Older Txx/alternative candidates remain preserved but held until P1 freeze or explicit falsifier.",
-    "note": "continuation.py enforces auto_assign_plans in addition to lifecycle status, so an accidentally active later-phase row cannot steal a P1 slot.",
+    "note": "continuation.py auto-assigns only CAPABILITY_RETRIEVAL_SPRINT while this phase is active. Do not expand the fixed LoCoMo200 set.",
     "closeout_mode": false,
     "closeout_required_backlog": [],
-    "closeout_reason": "P1 is frozen integration-ready. P2 is explicitly opened only for the three pre-frozen hardening questions R24/R25/R23.",
+    "closeout_reason": "LoCoMo200 external diagnosis identified read-side retrieval completeness, especially multi-hop, as the dominant product capability bottleneck. P2 hardening is parked unless a material P0/P1 incident requires preemption.",
     "closeout_unlock": "Disable only after Lead re-runs the integration doctor and the direct blocker set changes or P1 freeze completes.",
     "p1_research_closeout_complete": true,
     "p1_freeze_checkpoint": "plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md",
-    "p2_opened_at": "2026-10-28T13:44+08:00"
+    "p2_opened_at": "2026-10-28T13:44+08:00",
+    "capability_sprint_directive": "governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md",
+    "capability_sprint_started_at": "2026-11-02T00:58+08:00"
   },
   "semantic_extractor_resolution_policy": {
     "preferred": "R37 whole-message singleton fresh replication",
