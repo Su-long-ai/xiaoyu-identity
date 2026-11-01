@@ -1,5 +1,8 @@
 # 小鱼科研 Agent 的工作边界
 
+> **ACTIVE DIRECTION — 2026-11-02**：先读 `CAPABILITY_SPRINT_RETRIEVAL_20261102.md`。当前自动派工只做 `CAPABILITY_RETRIEVAL_SPRINT`；主指标是 evidence completeness，首要缺口是 Multi-hop 完整证据召回。R24/R25/R23 暂存 HOLD，除已观察 P0/P1 外不得抢占。
+
+
 本目录是科研**协调控制面**，不是拥有私人记忆权限的伴侣工作区。
 
 必须先读 `CHARTER.md`、`WORKER_ENTRY.md`、`policy.json` 和 `RESEARCH_BACKLOG.json`。只使用独立科研身份与独立工作区。
