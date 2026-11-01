@@ -1,5 +1,8 @@
 # 小鱼 · 科研治理宪章（V1）
 
+> **当前阶段覆盖令（2026-11-02）**：`CAPABILITY_SPRINT_RETRIEVAL_20261102.md` 定义当前研发优先级。在不改变本宪章安全边界的前提下，能力研发暂时从广泛架构/治理收敛切换到 read-side retrieval completeness 冲刺；重点是 Multi-hop evidence completeness。旧 P2 课题保留但不自动派工。
+
+
 创建：2026-10-26。项目根目录：`D:\dsh-fish`。
 依据（只读借鉴）：Mania `MANIA_RISK_TIERED_GOVERNANCE_V2.md`、`MANIA_RESULT_DRIVEN_GOVERNANCE_V3.md`；
 AutoQuant `GOVERNANCE_SLIMMING_POLICY_V1.json`、`RESEARCH_AGENT_ENTRY.md`、`LEAD_RESEARCH_CONSUMPTION_PROTOCOL.md`。
