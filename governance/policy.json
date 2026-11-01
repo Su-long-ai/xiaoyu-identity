@@ -35,8 +35,8 @@
       "thinking": "disabled",
       "reasoning_effort": "none",
       "comparison_note": "Controlled self-hosted track uses non-thinking DeepSeek Flash unless a separately frozen experiment changes this for all compared backends.",
-      "temperature": 0.0,
-      "top_p": 1.0,
+      "temperature": 0,
+      "top_p": 1,
       "budget_note": "Owner authorized 100M raw tokens. Smoke remains 5M and benchmark 95M locked. Runtime cost guard limits each normalized scope to 300k raw / 100k cache-miss / 75k output / 150 calls per 15 minutes; benchmark weekday peak is blocked by default for cost control.",
       "runtime_guard": {
         "enabled": true,
@@ -72,12 +72,12 @@
           "peak": 0.04
         },
         "cache_miss": {
-          "off_peak": 1.0,
-          "peak": 2.0
+          "off_peak": 1,
+          "peak": 2
         },
         "output": {
-          "off_peak": 4.0,
-          "peak": 8.0
+          "off_peak": 4,
+          "peak": 8
         },
         "source": "DeepSeek official Models & Pricing, verified 2026-10-27",
         "note": "Weekday Beijing peak 09:00-12:00 and 14:00-18:00 excluding Chinese public holidays; off-peak is half price."
@@ -102,11 +102,11 @@
     "cost_reliability"
   ],
   "research_lane_weights_advisory": {
-    "main_bottleneck": 40,
-    "alternative_architecture": 20,
-    "evaluation_data": 15,
-    "persona_relationship": 10,
-    "safety_privacy": 10,
+    "main_bottleneck": 80,
+    "alternative_architecture": 5,
+    "evaluation_data": 10,
+    "persona_relationship": 0,
+    "safety_privacy": 0,
     "performance_cost": 5
   },
   "stop_loss": {
@@ -142,7 +142,10 @@
     "canonical_current_projection_must_not_replace_immutable_source_history",
     "no_p1_claim_of_lossless_structured_intra_message_transient_history",
     "model_visible_canonical_memory_must_not_embed_raw_evidence_quote",
-    "partially_erased_multifact_raw_source_must_not_be_directly_model_visible"
+    "partially_erased_multifact_raw_source_must_not_be_directly_model_visible",
+    "active_retrieval_completeness_sprint_precedes_noncritical_p2_and_governance_expansion",
+    "fixed_locomo200_item_set_must_not_expand_during_retrieval_sprint",
+    "retrieval_candidate_output_must_be_sealed_before_gold_evidence_scoring"
   ],
   "evidence_labels": [
     "EXPLORATORY",
@@ -287,5 +290,39 @@
       "CANONICAL_CURRENT"
     ],
     "decision_ref": "governance/decisions/ADR-010-structured-current-vs-source-history.md"
+  },
+  "current_capability_sprint": {
+    "id": "retrieval_completeness_20261102",
+    "status": "ACTIVE",
+    "directive": "governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md",
+    "primary_capability": "memory_retrieval",
+    "primary_metric": "gold_evidence_completeness",
+    "critical_slice": "multi_hop",
+    "frozen_eval": "LoCoMo200",
+    "frozen_item_count": 200,
+    "baseline": {
+      "final_qa_accuracy": 0.445,
+      "overall_evidence_completeness": 0.35,
+      "multi_hop_evidence_completeness": 0.1,
+      "complete_context_answer_accuracy": 0.8857,
+      "incomplete_context_answer_accuracy": 0.2077,
+      "single_hop_complete_context_answer_accuracy": 0.9706
+    },
+    "frozen_modules": [
+      "B1/B3 deterministic memory core",
+      "write-side correction/retraction",
+      "answerer prompt",
+      "answerer/judge configuration",
+      "fixed LoCoMo200 item IDs"
+    ],
+    "priority_order": [
+      "candidate_generation",
+      "semantic_facet_retrieval",
+      "multi_query_decomposition",
+      "evidence_set_union_dedup",
+      "evidence_complete_selection",
+      "reasoning_reassessment"
+    ],
+    "preemption": "Only observed material P0/P1 product-safety or scientific-validity incidents may preempt this sprint."
   }
 }
