@@ -204,11 +204,14 @@ class Handler(BaseHTTPRequestHandler):
             case_id=None
             prefix_sha=None
             e2_cfg=budget.policy.get("e2_transition") or {}
-            if cfg.get("active_phase")=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+            e2_stage=str(e2_cfg.get("current_stage") or "")
+            if cfg.get("active_phase")=="benchmark" and e2_stage in (
+                "E2_PILOT","E2_CONFIRMATORY_PREFREEZE","E2_CONFIRMATORY"
+            ):
                 case_id=str(self.headers.get("X-XiaoYu-Case-ID") or "").strip()
                 if not _CASE_RE.fullmatch(case_id):
                     raise ResearchBudgetError(
-                        "Frozen E2 pilot requires X-XiaoYu-Case-ID (1-128 safe characters)")
+                        "Frozen E2 benchmark requires X-XiaoYu-Case-ID (1-128 safe characters)")
                 prefix_sha=invariant_prefix_sha256(messages)
 
             if cfg.get("active_phase") == "smoke":

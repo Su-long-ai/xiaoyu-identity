@@ -30,6 +30,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import model_adapter
+import e2_confirmatory_execution as confirmatory_gate
 
 
 class ResearchBudgetError(RuntimeError):
@@ -140,6 +141,21 @@ class ResearchApiBudget:
         cfg = self.policy.get("budget", {}).get("paid_research")
         if not isinstance(cfg, dict) or cfg.get("enabled") is not True:
             raise ResearchBudgetError("Paid research gateway is disabled by governance policy")
+        authority_path = self.gov / "OWNER_API_BUDGET.json"
+        if authority_path.is_file():
+            authority = _read_json(authority_path)
+            if authority.get("schema") != "xiaoyu-owner-api-budget-v1" or authority.get("status") != "ACTIVE":
+                raise ResearchBudgetError("Owner API budget authority record is invalid")
+            owner_total = float(authority.get("owner_total_budget_cny") or 0)
+            policy_total = float(cfg.get("owner_total_budget_cny") or 0)
+            if owner_total <= 0 or policy_total != owner_total:
+                raise ResearchBudgetError(
+                    f"Owner API budget authority mismatch: policy={policy_total:g} CNY authority={owner_total:g} CNY"
+                )
+            authority_scope = str(authority.get("exclusive_deepseek_scope") or "").strip()
+            policy_scope = str(cfg.get("exclusive_paid_scope") or "").strip()
+            if authority_scope and policy_scope != authority_scope:
+                raise ResearchBudgetError("Owner API budget exclusive scope mismatch")
         return cfg
 
     def _guard_cfg(self) -> dict:
@@ -212,6 +228,209 @@ class ResearchApiBudget:
             raise ResearchBudgetError("E2 protocol hash drift against execution manifest")
         if not split.is_file() or __import__("hashlib").sha256(split.read_bytes()).hexdigest()!=data.get("split_manifest_sha256"):
             raise ResearchBudgetError("E2 split hash drift against execution manifest")
+        return data
+
+    def _e2_supplemental_manifests(self) -> list[dict]:
+        """Load explicitly policy-bound E2 supplemental execution manifests.
+
+        Supplemental manifests may authorize a new bounded pilot scope without
+        mutating the original execution manifest that already has durable paid
+        receipts. Registration is fail-closed: path, SHA, protocol/split and
+        original-manifest ancestry must all match.
+        """
+        cfg=self.policy.get("e2_transition") or {}
+        rows=cfg.get("supplemental_execution_manifests") or []
+        if not isinstance(rows,list):
+            raise ResearchBudgetError("E2 supplemental execution manifest registry must be a list")
+        primary_sha=str(cfg.get("pilot_execution_manifest_sha256") or "")
+        protocol=self.gov/"E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json"
+        split=self.gov/"E2_SPLIT_MANIFEST.json"
+        protocol_sha=__import__("hashlib").sha256(protocol.read_bytes()).hexdigest() if protocol.is_file() else ""
+        split_sha=__import__("hashlib").sha256(split.read_bytes()).hexdigest() if split.is_file() else ""
+        out=[]
+        for entry in rows:
+            if not isinstance(entry,dict):
+                raise ResearchBudgetError("Malformed E2 supplemental execution manifest registry entry")
+            rel=str(entry.get("path") or "")
+            expected=str(entry.get("sha256") or "")
+            if not rel or not expected:
+                raise ResearchBudgetError("E2 supplemental execution manifest registry entry is incomplete")
+            path=self.root/rel
+            if not path.is_file():
+                raise ResearchBudgetError("E2 supplemental execution manifest is missing")
+            raw=path.read_bytes()
+            actual=__import__("hashlib").sha256(raw).hexdigest()
+            if actual!=expected:
+                raise ResearchBudgetError("E2 supplemental execution manifest hash mismatch")
+            data=json.loads(raw.decode("utf-8"))
+            if data.get("schema")!="xiaoyu-e2-supplemental-execution-manifest-v1":
+                raise ResearchBudgetError("Unsupported E2 supplemental execution manifest schema")
+            if data.get("status")!="FROZEN_BEFORE_EXECUTION" or data.get("paid_execution_authorized") is not True:
+                raise ResearchBudgetError("E2 supplemental execution manifest is not authorized/frozen")
+            if data.get("protocol_sha256")!=protocol_sha or data.get("split_manifest_sha256")!=split_sha:
+                raise ResearchBudgetError("E2 supplemental protocol/split hash drift")
+            if data.get("original_execution_manifest_sha256")!=primary_sha:
+                raise ResearchBudgetError("E2 supplemental manifest ancestry mismatch")
+            if int(data.get("benchmark_pilot_hard_cap_tokens") or 0)<=0:
+                raise ResearchBudgetError("E2 supplemental manifest missing pilot hard cap")
+            out.append(data)
+        return out
+
+    def _find_e2_track(self, scope: str):
+        primary=self._e2_execution_manifest()
+        manifests=[primary] if primary is not None else []
+        manifests.extend(self._e2_supplemental_manifests())
+        for manifest in manifests:
+            for _name,track in (manifest.get("tracks") or {}).items():
+                if isinstance(track,dict) and track.get("scope")==scope:
+                    return manifest,track
+        return primary,None
+
+    def _validate_auto_paid_source_live(self, data: dict) -> bool:
+        """Fail closed on stale auto-paid source authority at reservation time.
+
+        Returns False for non-auto manifests. Auto v1/v2 registrations are only
+        usable while their source research lease is ACTIVE; a bound source
+        backlog must also still be ACTIVE. This makes the next reservation the
+        revocation linearization point after a Lead hold/release.
+        """
+        auto=data.get("auto_registration")
+        if not isinstance(auto,dict):
+            return False
+        schema=str(auto.get("schema") or "")
+        if schema not in (
+            "xiaoyu-auto-paid-scope-registration-v1",
+            "xiaoyu-auto-paid-scope-registration-v2",
+        ):
+            raise ResearchBudgetError("Unsupported auto-paid registration schema")
+        lease_id=str(auto.get("lease_id") or "")
+        agent_id=str(auto.get("agent_id") or "")
+        if not lease_id or not agent_id:
+            raise ResearchBudgetError("Auto-paid source lease binding is incomplete")
+        db=self.gov/"registry.sqlite3"
+        if not db.is_file():
+            raise ResearchBudgetError("Auto-paid source registry is missing")
+        con=sqlite3.connect(db)
+        con.row_factory=sqlite3.Row
+        try:
+            row=con.execute("select * from leases where lease_id=?",(lease_id,)).fetchone()
+        finally:
+            con.close()
+        if row is None:
+            raise ResearchBudgetError("Auto-paid source lease is missing")
+        lease=dict(row)
+        if lease.get("state")!="ACTIVE" or lease.get("role")!="research_engineer":
+            raise ResearchBudgetError("Auto-paid source lease is not ACTIVE research")
+        if str(lease.get("agent_id") or "")!=agent_id:
+            raise ResearchBudgetError("Auto-paid source agent binding drift")
+        expected_worker=str(auto.get("worker_instance_id") or "")
+        if expected_worker and str(lease.get("worker_instance_id") or "")!=expected_worker:
+            raise ResearchBudgetError("Auto-paid source worker_instance drift")
+
+        current_backlog=str(lease.get("backlog_id") or "")
+        if schema=="xiaoyu-auto-paid-scope-registration-v2":
+            expected_backlog=str(auto.get("bound_backlog_id") or "")
+            if current_backlog!=expected_backlog:
+                raise ResearchBudgetError("Auto-paid source backlog binding drift")
+        else:
+            expected_backlog=current_backlog
+        if expected_backlog:
+            bp=self.gov/"RESEARCH_BACKLOG.json"
+            if not bp.is_file():
+                raise ResearchBudgetError("Auto-paid source backlog is missing")
+            backlog=_read_json(bp)
+            matches=[x for x in (backlog.get("candidates") or [])
+                     if isinstance(x,dict) and str(x.get("id") or "")==expected_backlog]
+            if len(matches)!=1 or str(matches[0].get("status") or "")!="active":
+                raise ResearchBudgetError("Auto-paid source backlog is not ACTIVE")
+
+        req_rel=str(auto.get("source_request") or "")
+        req_sha=str(auto.get("source_request_sha256") or "")
+        if req_rel and req_sha:
+            req=self.root/req_rel
+            if not req.is_file():
+                raise ResearchBudgetError("Auto-paid source request is missing")
+            got=__import__("hashlib").sha256(req.read_bytes()).hexdigest()
+            if got!=req_sha:
+                raise ResearchBudgetError("Auto-paid source request hash drift")
+            workspace=Path(str(lease.get("workspace") or "")).resolve()
+            try:
+                inside=req.resolve().is_relative_to(workspace)
+            except Exception:
+                inside=False
+            if not inside:
+                raise ResearchBudgetError("Auto-paid source request left source workspace")
+        return True
+
+    def _prefrozen_mainline_manifest_for_scope(self, scope: str) -> dict | None:
+        """Load one exact policy-bound non-formal mainline paid manifest.
+
+        This is deliberately separate from formal E2 confirmatory authorization.
+        Only the requested exact scope is loaded, so a drifted mainline record
+        cannot weaken or globally block unrelated formal E2 scopes.
+        """
+        cfg=self._cfg()
+        rows=cfg.get("prefrozen_mainline_execution_manifests") or []
+        if not isinstance(rows,list):
+            raise ResearchBudgetError("Prefrozen mainline execution manifest registry must be a list")
+        matches=[x for x in rows if isinstance(x,dict) and str(x.get("scope") or "")==scope]
+        if not matches:
+            return None
+        if len(matches)!=1:
+            raise ResearchBudgetError("Prefrozen mainline scope is registered more than once")
+        entry=matches[0]
+        rel=str(entry.get("path") or "")
+        expected=str(entry.get("sha256") or "")
+        if not rel or not expected:
+            raise ResearchBudgetError("Prefrozen mainline manifest registry entry is incomplete")
+        path=self.root/rel
+        if not path.is_file():
+            raise ResearchBudgetError("Prefrozen mainline execution manifest is missing")
+        raw=path.read_bytes()
+        actual=__import__("hashlib").sha256(raw).hexdigest()
+        if actual!=expected:
+            raise ResearchBudgetError("Prefrozen mainline execution manifest hash mismatch")
+        data=json.loads(raw.decode("utf-8"))
+        if data.get("schema")!="xiaoyu-prefrozen-mainline-paid-execution-manifest-v1":
+            raise ResearchBudgetError("Unsupported prefrozen mainline execution manifest schema")
+        if data.get("status")!="FROZEN_BEFORE_EXECUTION" or data.get("paid_execution_authorized") is not True:
+            raise ResearchBudgetError("Prefrozen mainline execution manifest is not authorized/frozen")
+        if data.get("formal") is not False or data.get("phase")!="benchmark" or data.get("scope")!=scope:
+            raise ResearchBudgetError("Prefrozen mainline manifest boundary mismatch")
+
+        for key,label in (("authorization","authorization"),("freeze","freeze")):
+            row=data.get(key) or {}
+            rpath=str(row.get("path") or "")
+            rsha=str(row.get("sha256") or "")
+            bound=self.root/rpath
+            if not rpath or not rsha or not bound.is_file():
+                raise ResearchBudgetError(f"Prefrozen mainline {label} binding is incomplete")
+            got=__import__("hashlib").sha256(bound.read_bytes()).hexdigest()
+            if got!=rsha:
+                raise ResearchBudgetError(f"Prefrozen mainline {label} hash drift")
+
+        if self._validate_auto_paid_source_live(data):
+            return data
+
+        backlog_id=str(data.get("backlog_id") or "")
+        backlog_path=self.gov/"RESEARCH_BACKLOG.json"
+        if not backlog_id or not backlog_path.is_file():
+            raise ResearchBudgetError("Prefrozen mainline backlog binding is missing")
+        backlog=_read_json(backlog_path)
+        candidates=backlog.get("candidates") or []
+        row=next((x for x in candidates if isinstance(x,dict) and x.get("id")==backlog_id),None)
+        if row is None or row.get("paid_execution_authorized") is not True:
+            raise ResearchBudgetError("Prefrozen mainline backlog is not paid-authorized")
+        auth_path=str((data.get("authorization") or {}).get("path") or "")
+        if str(row.get("paid_authorization_record") or "")!=auth_path:
+            raise ResearchBudgetError("Prefrozen mainline backlog authorization record drift")
+        req=row.get("paid_evidence_requirement") or {}
+        if (str(req.get("budget_scope") or "")!=scope or str(req.get("phase") or "")!="benchmark"):
+            raise ResearchBudgetError("Prefrozen mainline backlog paid scope/phase drift")
+        if int(req.get("max_raw_tokens") or 0)!=int(data.get("max_raw_tokens") or 0):
+            raise ResearchBudgetError("Prefrozen mainline raw-token cap drift")
+        if int(req.get("max_calls") or 0)<int(data.get("max_case_calls") or 0):
+            raise ResearchBudgetError("Prefrozen mainline call cap exceeds backlog authorization")
         return data
 
     @staticmethod
@@ -316,9 +535,18 @@ class ResearchApiBudget:
         if e2_cfg.get("current_stage")=="E2_PILOT":
             try:
                 em=self._e2_execution_manifest()
+                supplements=self._e2_supplemental_manifests()
                 pilot_cap=int(em.get("benchmark_pilot_hard_cap_tokens") or 0)
-                allowed_scopes=[t.get("scope") for t in (em.get("tracks") or {}).values()]
-                case_count=sum(int(t.get("case_count") or 0) for t in (em.get("tracks") or {}).values())
+                all_manifests=[em]+supplements
+                allowed_scopes=[
+                    t.get("scope") for m in all_manifests
+                    for t in (m.get("tracks") or {}).values() if isinstance(t,dict)
+                ]
+                case_count=sum(
+                    int(t.get("case_count") or len(t.get("case_ids") or []))
+                    for m in all_manifests
+                    for t in (m.get("tracks") or {}).values() if isinstance(t,dict)
+                )
                 case_rows=self.conn.execute("""SELECT
                     COUNT(*) AS calls,
                     COUNT(DISTINCT case_id) AS unique_cases,
@@ -503,19 +731,41 @@ class ResearchApiBudget:
 
         now = float(self.clock())
         guard = self._guard_cfg()
+
+        purpose = str(purpose or "").strip()
+        scope = str(budget_scope or normalize_budget_scope(purpose))[:120]
         if (
             phase == "benchmark"
             and guard.get("block_benchmark_weekday_peak", False)
             and _weekday_peak_beijing(now)
         ):
-            raise ResearchBudgetError(
-                "Benchmark paid phase is blocked during weekday Beijing peak hours by cost policy"
+            threshold = float(guard.get("benchmark_peak_block_cost_threshold_cny") or 0.0)
+            raw_cap = self._scope_guard_value(
+                guard, scope, "epoch_raw_token_cap", "scope_epoch_raw_token_cap"
             )
+            out_cap = self._scope_guard_value(
+                guard, scope, "epoch_output_token_cap", "scope_epoch_output_token_cap"
+            )
+            pricing = self._pricing()
+            try:
+                peak_input = float(pricing["cache_miss"]["peak"])
+                peak_output = float(pricing["output"]["peak"])
+                peak_bound_cny = (max(0, raw_cap) * peak_input + max(0, out_cap) * peak_output) / 1_000_000.0
+            except Exception:
+                peak_bound_cny = float("inf")
+            if threshold <= 0.0 or peak_bound_cny > threshold:
+                raise ResearchBudgetError(
+                    "Benchmark paid scope is blocked during weekday Beijing peak hours by cost policy: "
+                    f"scope_peak_bound_cny={peak_bound_cny:.6f} threshold_cny={threshold:.6f}"
+                )
 
-        purpose = str(purpose or "").strip()
-        scope = str(budget_scope or normalize_budget_scope(purpose))[:120]
         if not scope:
             raise ResearchBudgetError("budget_scope must be non-empty")
+        exclusive_scope=str(cfg.get("exclusive_paid_scope") or "").strip()
+        if exclusive_scope and scope != exclusive_scope:
+            raise ResearchBudgetError(
+                f"Staged paid research permits only budget_scope '{exclusive_scope}'; got '{scope}'"
+            )
         guard_active=(bool(guard.get("enabled",False))
                       and now >= float(guard.get("effective_after_epoch") or 0.0)
                       and bool(guard.get("require_proxy_tag",False)))
@@ -531,21 +781,23 @@ class ResearchApiBudget:
                     "use an allowlisted local-budget-proxy tag")
         gateway_origin="http_proxy" if proxy_authenticated else "direct"
 
-        # E2 pilot execution envelope: benchmark access is restricted to the
-        # frozen pilot manifest, with exact case membership, byte-stable
-        # invariant prompt prefix and durable duplicate-paid-work prevention.
+        # E2 benchmark envelope. PREFREEZE is a hard paid-call lock. Pilot
+        # keeps exact case membership; final confirmatory execution additionally
+        # requires an independently reviewed freeze record and frozen user-stream
+        # membership before any reservation/provider access.
         e2_cfg=self.policy.get("e2_transition") or {}
         e2_manifest=None
         e2_track=None
-        if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
-            e2_manifest=self._e2_execution_manifest()
+        e2_case_meta=None
+        prefrozen_mainline=None
+        e2_stage=str(e2_cfg.get("current_stage") or "")
+        if phase=="benchmark" and e2_stage=="E2_CONFIRMATORY_PREFREEZE":
+            raise ResearchBudgetError(
+                "E2 confirmatory PREFREEZE forbids all paid benchmark calls")
+        if phase=="benchmark" and e2_stage=="E2_PILOT":
+            e2_manifest,e2_track=self._find_e2_track(scope)
             if e2_manifest is None:
                 raise ResearchBudgetError("E2 pilot execution manifest is required")
-            tracks=e2_manifest.get("tracks") or {}
-            for _name,_track in tracks.items():
-                if isinstance(_track,dict) and _track.get("scope")==scope:
-                    e2_track=_track
-                    break
             if e2_track is None:
                 raise ResearchBudgetError(
                     f"Benchmark scope '{scope}' is not authorized by frozen E2 pilot manifest")
@@ -570,10 +822,59 @@ class ResearchApiBudget:
             required_fmt=e2_track.get("response_format")
             if required_fmt is not None and response_format!=required_fmt:
                 raise ResearchBudgetError("E2 benchmark response_format differs from frozen track")
+        elif phase=="benchmark" and e2_stage=="E2_CONFIRMATORY":
+            prefrozen_mainline=self._prefrozen_mainline_manifest_for_scope(scope)
+            if prefrozen_mainline is not None:
+                case_id=str(case_id or "").strip()
+                allowed=set(str(x) for x in prefrozen_mainline.get("case_ids",[]))
+                if not case_id or case_id not in allowed:
+                    raise ResearchBudgetError("Prefrozen mainline case_id is outside frozen allowlist")
+                prefixes=prefrozen_mainline.get("case_prefix_sha256") or {}
+                expected_prefix=""
+                for prefix,sha in prefixes.items():
+                    if case_id.startswith(str(prefix)):
+                        expected_prefix=str(sha or "")
+                        break
+                if not expected_prefix or str(prompt_prefix_sha256 or "")!=expected_prefix:
+                    raise ResearchBudgetError("Prefrozen mainline invariant prompt prefix hash mismatch")
+                cap=int(prefrozen_mainline.get("max_completion_tokens") or 0)
+                if cap<=0 or max_tokens>cap:
+                    raise ResearchBudgetError(
+                        f"Prefrozen mainline max_tokens {max_tokens} exceeds frozen cap {cap}")
+                required_fmt=prefrozen_mainline.get("response_format")
+                if required_fmt is not None and response_format!=required_fmt:
+                    raise ResearchBudgetError("Prefrozen mainline response_format differs from frozen manifest")
+                if str(prefrozen_mainline.get("provider") or "")!=str(cfg.get("provider") or ""):
+                    raise ResearchBudgetError("Prefrozen mainline provider drift")
+                if str(prefrozen_mainline.get("thinking") or "")!=str(cfg.get("thinking") or ""):
+                    raise ResearchBudgetError("Prefrozen mainline thinking mode drift")
+            else:
+                try:
+                    _policy,e2_manifest=confirmatory_gate.load_manifest(
+                        self.root,require_authorized=True)
+                    e2_case_meta=confirmatory_gate.validate_confirmatory_case(
+                        e2_manifest,scope,str(case_id or ""))
+                except Exception as exc:
+                    raise ResearchBudgetError(
+                        "E2 confirmatory authorization failed: "+str(exc)) from exc
+                e2_track=e2_case_meta["track"]
+                expected_prefix=str(e2_track.get("invariant_prefix_sha256") or "")
+                if not expected_prefix or str(prompt_prefix_sha256 or "")!=expected_prefix:
+                    raise ResearchBudgetError(
+                        "E2 confirmatory invariant prompt prefix hash mismatch")
+                cap=int(e2_track.get("max_completion_tokens") or 0)
+                if cap<=0 or max_tokens>cap:
+                    raise ResearchBudgetError(
+                        f"E2 confirmatory max_tokens {max_tokens} exceeds frozen track cap {cap}")
+                required_fmt=e2_track.get("response_format")
+                if required_fmt is not None and response_format!=required_fmt:
+                    raise ResearchBudgetError(
+                        "E2 confirmatory response_format differs from frozen track")
+        if phase=="benchmark" and e2_stage in ("E2_PILOT","E2_CONFIRMATORY"):
             prior=self.conn.execute(
                 """SELECT call_id,status FROM calls
                    WHERE phase='benchmark' AND case_id=? AND status IN ('RESERVED','COMMITTED','UNKNOWN')
-                   ORDER BY created_at DESC LIMIT 1""",(case_id,)).fetchone()
+                   ORDER BY created_at DESC LIMIT 1""",(str(case_id or ""),)).fetchone()
             if prior is not None:
                 raise ResearchBudgetError(
                     f"E2 duplicate paid case blocked: {case_id} already {prior['status']}")
@@ -591,6 +892,8 @@ class ResearchApiBudget:
         provider_cfg = model_adapter.load_provider(self.root)
         if provider_cfg["provider"] != cfg["provider"]:
             raise ResearchBudgetError("Provider config does not match paid research policy")
+        if prefrozen_mainline is not None and str(provider_cfg.get("model") or "")!=str(prefrozen_mainline.get("model") or ""):
+            raise ResearchBudgetError("Prefrozen mainline model drift")
         provider_cfg["thinking"] = str(cfg.get("thinking") or "disabled")
         provider_cfg["reasoning_effort"] = str(cfg.get("reasoning_effort") or "none")
         provider_cfg["temperature"] = float(cfg.get("temperature", 0.0))
@@ -604,27 +907,75 @@ class ResearchApiBudget:
             # Authoritative duplicate check under the SQLite write lock. The
             # earlier check is only a fast failure path; this closes two-process
             # check-then-insert races.
-            if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
+            if phase=="benchmark" and e2_stage in ("E2_PILOT","E2_CONFIRMATORY"):
                 prior=self.conn.execute(
                     """SELECT call_id,status FROM calls
                        WHERE phase='benchmark' AND case_id=?
                          AND status IN ('RESERVED','COMMITTED','UNKNOWN')
-                       ORDER BY created_at DESC LIMIT 1""",(case_id,)).fetchone()
+                       ORDER BY created_at DESC LIMIT 1""",(str(case_id or ""),)).fetchone()
                 if prior is not None:
                     raise ResearchBudgetError(
                         f"E2 duplicate paid case blocked atomically: {case_id} already {prior['status']}")
-                warmup_n=int((e2_manifest or {}).get("warmup",{}).get(
-                    "serial_real_cases_per_scope") or 0)
-                if warmup_n>0:
-                    committed_scope=int(self.conn.execute(
-                        "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='COMMITTED'",
+                if prefrozen_mainline is not None:
+                    max_cases=int(prefrozen_mainline.get("max_case_calls") or 0)
+                    if max_cases<=0:
+                        raise ResearchBudgetError("Prefrozen mainline max_case_calls missing")
+                    used_cases=int(self.conn.execute(
+                        """SELECT count(*) FROM calls WHERE phase='benchmark'
+                           AND budget_scope=? AND status IN ('RESERVED','COMMITTED','UNKNOWN')""",
                         (scope,)).fetchone()[0])
-                    reserved_scope=int(self.conn.execute(
-                        "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='RESERVED'",
-                        (scope,)).fetchone()[0])
-                    if committed_scope < warmup_n and reserved_scope>0:
+                    if used_cases>=max_cases:
                         raise ResearchBudgetError(
-                            f"E2 cache warmup requires serial execution for first {warmup_n} committed cases in scope '{scope}'")
+                            f"Prefrozen mainline case cap reached ({used_cases} >= {max_cases})")
+                    hard_raw=int(prefrozen_mainline.get("max_raw_tokens") or 0)
+                    if hard_raw<=0:
+                        raise ResearchBudgetError("Prefrozen mainline raw-token cap missing")
+                    used_raw=int(self.conn.execute(
+                        """SELECT COALESCE(SUM(CASE WHEN status='COMMITTED'
+                                   THEN COALESCE(actual_tokens,0)
+                                   ELSE COALESCE(reserved_tokens,0) END),0)
+                           FROM calls WHERE phase='benchmark' AND budget_scope=?
+                             AND status IN ('RESERVED','COMMITTED','UNKNOWN')""",
+                        (scope,)).fetchone()[0])
+                    if used_raw + reserve > hard_raw:
+                        raise ResearchBudgetError(
+                            f"Prefrozen mainline raw-token cap would be exceeded ({used_raw} + {reserve} > {hard_raw})")
+                elif e2_stage=="E2_PILOT":
+                    warmup_n=int((e2_manifest or {}).get("warmup",{}).get(
+                        "serial_real_cases_per_scope") or 0)
+                    if warmup_n>0:
+                        committed_scope=int(self.conn.execute(
+                            "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='COMMITTED'",
+                            (scope,)).fetchone()[0])
+                        reserved_scope=int(self.conn.execute(
+                            "SELECT count(*) FROM calls WHERE phase='benchmark' AND budget_scope=? AND status='RESERVED'",
+                            (scope,)).fetchone()[0])
+                        if committed_scope < warmup_n and reserved_scope>0:
+                            raise ResearchBudgetError(
+                                f"E2 cache warmup requires serial execution for first {warmup_n} committed cases in scope '{scope}'")
+                else:
+                    max_cases=int((e2_track or {}).get("max_case_calls") or 0)
+                    if max_cases<=0:
+                        raise ResearchBudgetError("confirmatory max_case_calls missing")
+                    used_cases=int(self.conn.execute(
+                        """SELECT count(*) FROM calls WHERE phase='benchmark'
+                           AND budget_scope=? AND status IN ('RESERVED','COMMITTED','UNKNOWN')""",
+                        (scope,)).fetchone()[0])
+                    if used_cases>=max_cases:
+                        raise ResearchBudgetError(
+                            f"confirmatory semantic case cap reached ({used_cases} >= {max_cases})")
+                    max_stream=int((e2_track or {}).get("max_calls_per_stream") or 0)
+                    if max_stream<=0 or e2_case_meta is None:
+                        raise ResearchBudgetError("confirmatory stream cap metadata missing")
+                    prefix=f"hm-c-{e2_case_meta['variant']}-{e2_case_meta['uuid_hash_prefix']}-"
+                    used_stream=int(self.conn.execute(
+                        """SELECT count(*) FROM calls WHERE phase='benchmark'
+                           AND budget_scope=? AND case_id LIKE ?
+                           AND status IN ('RESERVED','COMMITTED','UNKNOWN')""",
+                        (scope,prefix+"%")).fetchone()[0])
+                    if used_stream>=max_stream:
+                        raise ResearchBudgetError(
+                            f"confirmatory stream case cap reached ({used_stream} >= {max_stream})")
             parallel_cap=int(self.policy.get("budget",{}).get("max_parallel_experiments") or 0)
             if parallel_cap>0:
                 reserved_now=int(self.conn.execute(
@@ -654,7 +1005,8 @@ class ResearchApiBudget:
             if phase_used + reserve > phase_cap:
                 raise ResearchBudgetError(f"{phase} token budget would be exceeded")
             if phase=="benchmark" and e2_cfg.get("current_stage")=="E2_PILOT":
-                pilot_cap=int((e2_manifest or {}).get("benchmark_pilot_hard_cap_tokens") or
+                primary_manifest=self._e2_execution_manifest()
+                pilot_cap=int((primary_manifest or {}).get("benchmark_pilot_hard_cap_tokens") or
                               e2_cfg.get("pilot_hard_cap_tokens") or 0)
                 if pilot_cap<=0:
                     raise ResearchBudgetError("E2 pilot hard token cap is missing")

@@ -59,3 +59,32 @@ ChatGPT 可能直接触发单回合执行边界，不保证有收尾工具调用
 `next` 自动领取 backlog 时会绑定 Lead-vetted reuse plan。只有 `next_step=SELF_DIRECTED_NEW_HYPOTHESIS` 才需要 Worker 自己提出 plan；此时必须先 `reuse-check` PASS，再 `join`。不能为了继续同一回合而跳过复用检查，也不能通过换 family/lineage 名字规避。
 
 pre-guard 旧租约发生 STALE/TTL_EXPIRED 时，只允许 family + lineage + capability + hypothesis 完全相同的恢复；恢复不能携带新 subsystem。已知 duplicate-wheel 规则仍然生效。
+
+## Portfolio research mode (2026-10-31)
+
+Current steady-state: 3 divergent explorers + 2 applied mainline researchers + 1 independent auditor; Lead is outside worker leases and 3 user-capacity slots remain for bursts.
+
+- Explorers: one exact hypothesis gets one bounded pass. After submission, immediately rotate to a materially different mechanism/paradigm or new cross-family question. Do not repeatedly optimize the same exposed cases. Exploratory evidence is E0 only and cannot directly become LEAD_READY.
+- Mainline: work only on accepted bytes/product-facing mechanisms with matched baselines, no oracle fields, and measurable integration or simplification value.
+- Auditor: audit promotion candidates/material claims and portfolio-locality/duplicate-work risk; do not gate every exploratory E0.
+- If a task is falsified, saturated or scientifically blocked, that is a routing event, not a reason to keep the same hypothesis alive.
+- As long as useful work exists and the execution turn remains open, submit -> next -> continue. "Running full" means continuously switching to valuable tasks, not spending time on a dead hypothesis.
+
+## Per-chat workspace isolation (2026-10-31)
+
+Every ChatGPT worker chat must generate one unique worker_instance_id (for example chat-7f3a91c2d4e8) and reuse it for every next, join, heartbeat, submit, and release call in that chat.
+
+agent_id is the stable scientific role identity. worker_instance_id is the parallel chat instance identity. A post-fix ACTIVE lease is bound to exactly one worker instance. A different instance receives WORKER_INSTANCE_CONFLICT and no workspace path.
+
+After submit, WORKSPACE_SEALED.json marks the old workspace historical/read-only. Evidence verification uses an immutable submission snapshot outside the worker workspace, so later accidental writes cannot alter the committed evidence chain.
+
+## Background-liveness truthfulness（2026-11-01）
+
+submit -> next -> continue 只保证当前 ChatGPT 执行回合仍然存活时继续。治理 registry、phase-priority、condition 文件本身不会在后台调用模型，也不会在审计 verdict 到来时自动唤醒一个已经结束的 ChatGPT turn。
+
+因此：
+- 没有真实 Automation task ID、常驻 worker/daemon PID 或其他已验证执行器时，禁止汇报“持续监控 / 已建立后台监控 / 会自动继续”。
+- 外部 Auditor / Lead verdict 尚未出现时，应写 WAIT_EXTERNAL_AUDIT 或等价表述，并明确“下一次用户/Automation 唤醒时刷新 live registry 后继续”。
+- 如果确有 Automation，只能描述其真实 cadence；ChatGPT Automations 的周期任务不是连续常驻 worker。
+- 若新的 global_preempt_self_directed=true backlog 在已有 self-directed lease 期间出现，下一次 control.py next 会返回 HIGH_PRIORITY_BACKLOG_PREEMPT_REQUIRED。先 checkpoint/submit 或 release 当前 bounded work，再重新 next 领取 blocker；不得继续把低优先任务当主线。
+

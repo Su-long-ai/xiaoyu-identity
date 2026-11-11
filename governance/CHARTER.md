@@ -1,3 +1,11 @@
+## ACTIVE DIRECTION OVERRIDE — 2026-11-02
+
+当前项目已切换为 **Retrieval Completeness Capability Sprint**。开始或续做科研前，先读 governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md 与 governance/CAPABILITY_GAP_DIRECTION_SWITCH_20261102.json。
+
+除已观察 material P0/P1 外，不再自提或自动继续旧的广泛 core-memory portfolio、persona、historical rescue、治理扩展、微性能或 answerer-prompt 方向。当前所有研究必须服务于 read-side evidence completeness，优先 Multi-hop：frozen hybrid product-shadow integration -> facet/multi-query -> evidence-set selection -> missing-hop falsification。固定 LoCoMo200，不扩题；retrieval 输出先封存再由 scorer/auditor 读 gold；context cap 保持 20；write-side/answerer 默认冻结。
+
+已在运行的无关 lease 可完成当前 bounded pass，但提交或释放后必须回到 retrieval sprint。RC8B1R1 是当前明确保留的 material P1 例外。
+
 # 小鱼 · 科研治理宪章（V1）
 
 创建：2026-10-26。项目根目录：`D:\dsh-fish`。
@@ -101,3 +109,28 @@ AutoQuant `GOVERNANCE_SLIMMING_POLICY_V1.json`、`RESEARCH_AGENT_ENTRY.md`、`LE
 ## 9. 审计反吹毛求疵（2026-10-26 生效）
 
 审计实行 **并行研究、异步审阅、局部阻塞**。详见治理目录 AUDIT_POLICY.md。P0/P1 必须写明实际影响、复现、证据与最小修复；P2/P3 不阻塞 E1 候选。一个不通过结果不应使不相关科研停顿。控制面已支持审计积压、平均审核等待时间和建议/实质问题分计；审计陈述是否属实仍须独立核实。
+
+## 10. 产品化双轨与治理瘦身（2026-10-29）
+
+当核心能力已取得独立 `ACCEPT_E1` 后，项目默认进入“科研成果产品化”，而不是继续制造同类研究任务。
+
+**日常工程/产品集成轨**：允许 Lead 将 exact ACCEPT_E1 字节或显式薄适配层接入产品 shadow/experimental runtime；要求本地回归和可回退。除非改变了 authority / deletion / confirmation 等实质信任语义，普通集成不再重复完整 E2 freeze/re-audit 流程，也不因此产生 E2/E3 科学或产品声明。
+
+**正式 E2 科学声明轨**：只有需要形成正式、可对外依赖的科学结论时，才要求 untouched confirmatory、exact freeze、最终独立 re-audit、执行封存和正式评分。严格性保留，但不得向普通工程热路径扩散。
+
+新增治理抽象默认冻结。只有已有控制面无法表达或阻止一个**已观察到的 P0/P1**时，才允许增加新的 guard/manifest/doctor；优先修改已有契约。治理维护目标继续受 10% 人力上限约束。
+
+每个实质 `ACCEPT_E1` 能力之后必须三选一：**集成到产品、写明产品原因后延期、或退役**。单纯累积 ACCEPT_E1 数量不视为项目进展。当前优先级固定为：完成既有 E2 confirmatory 收口 → 产品纵向集成 → 跨模型身份体验 → 新科研。
+
+
+
+## 11. 产品闭环与停止条件（2026-10-29，强制）
+
+读取并执行 `plans/PRODUCT_CLOSURE_POLICY_20261029.md`。该文件不增加新的治理层，而是限制研究与治理继续膨胀。
+
+从现在起：
+- 产品指标优先于研究资产数量；
+- 当前主线为 E2 confirmatory 收口 -> 最小产品纵向集成 -> longitudinal shadow -> V1 freeze；
+- 合成/公开 benchmark 是筛选和证据，不替代长期产品体验；
+- 没有产品失败、longitudinal 失败或正式声明需求时，停止新增研究；
+- 新治理抽象必须对应已观察 P0/P1，并写明退出/删除条件。

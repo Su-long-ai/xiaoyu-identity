@@ -1,0 +1,30 @@
+{
+  "schema": "xiaoyu-v1-product-retrieval-runtime-binding-v1",
+  "component_id": "novel_identity_path_v18_possessive",
+  "component_sha256": "70b5a1af7d5fe664f563bd3fc05099394b1852a962ee8916ce7f9cad4ab033be",
+  "required_backend": "torch_cuda",
+  "required_implementation_id": "bge-small-en-v1.5:5c38ec7c405ec4b44b94cc5a9bb96e735b38267a:torch-cuda-autocast-fp16-v1",
+  "model_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "fail_closed_on_backend_mismatch": true,
+  "fail_closed_on_component_or_helper_hash_mismatch": true,
+  "no_cpu_or_onnx_silent_fallback": true,
+  "protected_test_audit": {
+    "status": "PASS_V1G_RETRIEVAL_FROZEN_AUDIT",
+    "audit_submission": "sub-9981fb467f634f2e",
+    "audit_artifact_sha256": "25cba3488efbb756c38fa5c88747d9e72e96e7d1767db13489444b8e8b187b20",
+    "longmemeval_run_sha256": "1d1478c99fa29ff8571ae228e6998cbe1bc44d9a26eab7a9f7c9716eea43d1f4",
+    "caveat": "any_evidence -0.002 (1/500), independently judged non-material P2; no tuning/rerun"
+  },
+  "product_parent": {
+    "interpreter": "system Python 3.11 with Tk",
+    "retrieval_execution": "persistent CUDA subprocess",
+    "requirement": "parent may be CPU; frozen retrieval must never execute on parent CPU"
+  },
+  "retrieval_worker": {
+    "default_python": "D:\\cpod\\venv_new\\Scripts\\python.exe",
+    "override_env": "XIAOYU_V1_RETRIEVAL_PYTHON",
+    "required_torch": "2.13.0+cu126",
+    "required_cuda_available": true,
+    "required_cuda_runtime": "12.6"
+  }
+}

@@ -1,0 +1,4176 @@
+{
+  "schema": "xiaoyu-retrieval-fastlane-local-e2e-v2",
+  "created_at": "2026-11-02T14:00:00+08:00",
+  "role": "LOCAL_SYNTHETIC_PRODUCT_SHAPED_E2E_GATE",
+  "shared_store": true,
+  "context_cap": 20,
+  "case_count": 120,
+  "family_counts": {
+    "boundary": 10,
+    "entity_collision": 10,
+    "multi_hop_2": 30,
+    "multi_hop_3": 30,
+    "semantic_mismatch": 16,
+    "temporal": 24
+  },
+  "notes": "Fixed local fast gate. One shared long-history store. Not external benchmark. External200 remains untouched until positive E0 passes light audit.",
+  "distractors": [
+    {
+      "id": "D001",
+      "text": "Ulric Shaw attended a weekend market in Lisbon.",
+      "time": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "D002",
+      "text": "Vera Lake listened to a accordion recital after dinner.",
+      "time": "2024-02-02T10:00:00Z"
+    },
+    {
+      "id": "D003",
+      "text": "Wesley West bought groceries before taking an evening walk.",
+      "time": "2024-03-03T10:00:00Z"
+    },
+    {
+      "id": "D004",
+      "text": "Xenia Bloom keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-04T10:00:00Z"
+    },
+    {
+      "id": "D005",
+      "text": "Yara Snow attended a weekend market in Kyoto.",
+      "time": "2024-05-05T10:00:00Z"
+    },
+    {
+      "id": "D006",
+      "text": "Zane Field listened to a cello recital after dinner.",
+      "time": "2024-06-06T10:00:00Z"
+    },
+    {
+      "id": "D007",
+      "text": "Amara Vale bought groceries before taking an evening walk.",
+      "time": "2024-07-07T10:00:00Z"
+    },
+    {
+      "id": "D008",
+      "text": "Bennett Rowan keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-08T10:00:00Z"
+    },
+    {
+      "id": "D009",
+      "text": "Celine Hale attended a weekend market in Lyon.",
+      "time": "2024-09-09T10:00:00Z"
+    },
+    {
+      "id": "D010",
+      "text": "Dorian Quill listened to a guitar recital after dinner.",
+      "time": "2024-10-10T10:00:00Z"
+    },
+    {
+      "id": "D011",
+      "text": "Elise Morrow bought groceries before taking an evening walk.",
+      "time": "2024-11-11T10:00:00Z"
+    },
+    {
+      "id": "D012",
+      "text": "Fabian Sage keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-12T10:00:00Z"
+    },
+    {
+      "id": "D013",
+      "text": "Gia Frost attended a weekend market in Malmo.",
+      "time": "2024-01-13T10:00:00Z"
+    },
+    {
+      "id": "D014",
+      "text": "Hector Lane listened to a organ recital after dinner.",
+      "time": "2024-02-14T10:00:00Z"
+    },
+    {
+      "id": "D015",
+      "text": "Ines Reed bought groceries before taking an evening walk.",
+      "time": "2024-03-15T10:00:00Z"
+    },
+    {
+      "id": "D016",
+      "text": "Jonas Stone keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-16T10:00:00Z"
+    },
+    {
+      "id": "D017",
+      "text": "Kaia Blake attended a weekend market in Busan.",
+      "time": "2024-05-17T10:00:00Z"
+    },
+    {
+      "id": "D018",
+      "text": "Lucian North listened to a piano recital after dinner.",
+      "time": "2024-06-18T10:00:00Z"
+    },
+    {
+      "id": "D019",
+      "text": "Mina Marsh bought groceries before taking an evening walk.",
+      "time": "2024-07-19T10:00:00Z"
+    },
+    {
+      "id": "D020",
+      "text": "Nolan Pike keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-20T10:00:00Z"
+    },
+    {
+      "id": "D021",
+      "text": "Opal Wren attended a weekend market in Porto.",
+      "time": "2024-09-21T10:00:00Z"
+    },
+    {
+      "id": "D022",
+      "text": "Piers Cross listened to a recorder recital after dinner.",
+      "time": "2024-10-22T10:00:00Z"
+    },
+    {
+      "id": "D023",
+      "text": "Rina Hart bought groceries before taking an evening walk.",
+      "time": "2024-11-23T10:00:00Z"
+    },
+    {
+      "id": "D024",
+      "text": "Soren Dale keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-24T10:00:00Z"
+    },
+    {
+      "id": "D025",
+      "text": "Tessa Fox attended a weekend market in Ghent.",
+      "time": "2024-01-25T10:00:00Z"
+    },
+    {
+      "id": "D026",
+      "text": "Uri Grey listened to a saxophone recital after dinner.",
+      "time": "2024-02-26T10:00:00Z"
+    },
+    {
+      "id": "D027",
+      "text": "Viola Shaw bought groceries before taking an evening walk.",
+      "time": "2024-03-27T10:00:00Z"
+    },
+    {
+      "id": "D028",
+      "text": "Wyatt Lake keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-01T10:00:00Z"
+    },
+    {
+      "id": "D029",
+      "text": "Ximena West attended a weekend market in Naples.",
+      "time": "2024-05-02T10:00:00Z"
+    },
+    {
+      "id": "D030",
+      "text": "Yvette Bloom listened to a sitar recital after dinner.",
+      "time": "2024-06-03T10:00:00Z"
+    },
+    {
+      "id": "D031",
+      "text": "Zora Snow bought groceries before taking an evening walk.",
+      "time": "2024-07-04T10:00:00Z"
+    },
+    {
+      "id": "D032",
+      "text": "Arden Field keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-05T10:00:00Z"
+    },
+    {
+      "id": "D033",
+      "text": "Blaire Vale attended a weekend market in Sofia.",
+      "time": "2024-09-06T10:00:00Z"
+    },
+    {
+      "id": "D034",
+      "text": "Corin Rowan listened to a mandolin recital after dinner.",
+      "time": "2024-10-07T10:00:00Z"
+    },
+    {
+      "id": "D035",
+      "text": "Daphne Hale bought groceries before taking an evening walk.",
+      "time": "2024-11-08T10:00:00Z"
+    },
+    {
+      "id": "D036",
+      "text": "Elias Quill keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-09T10:00:00Z"
+    },
+    {
+      "id": "D037",
+      "text": "Fiona Morrow attended a weekend market in Quito.",
+      "time": "2024-01-10T10:00:00Z"
+    },
+    {
+      "id": "D038",
+      "text": "Gideon Sage listened to a french horn recital after dinner.",
+      "time": "2024-02-11T10:00:00Z"
+    },
+    {
+      "id": "D039",
+      "text": "Hazel Frost bought groceries before taking an evening walk.",
+      "time": "2024-03-12T10:00:00Z"
+    },
+    {
+      "id": "D040",
+      "text": "Ivo Lane keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-13T10:00:00Z"
+    },
+    {
+      "id": "D041",
+      "text": "Jessa Reed attended a weekend market in Madrid.",
+      "time": "2024-05-14T10:00:00Z"
+    },
+    {
+      "id": "D042",
+      "text": "Keira Stone listened to a flute recital after dinner.",
+      "time": "2024-06-15T10:00:00Z"
+    },
+    {
+      "id": "D043",
+      "text": "Lars Blake bought groceries before taking an evening walk.",
+      "time": "2024-07-16T10:00:00Z"
+    },
+    {
+      "id": "D044",
+      "text": "Mira North keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-17T10:00:00Z"
+    },
+    {
+      "id": "D045",
+      "text": "Noel Marsh attended a weekend market in Warsaw.",
+      "time": "2024-09-18T10:00:00Z"
+    },
+    {
+      "id": "D046",
+      "text": "Oona Pike listened to a marimba recital after dinner.",
+      "time": "2024-10-19T10:00:00Z"
+    },
+    {
+      "id": "D047",
+      "text": "Pavel Wren bought groceries before taking an evening walk.",
+      "time": "2024-11-20T10:00:00Z"
+    },
+    {
+      "id": "D048",
+      "text": "Reese Cross keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-21T10:00:00Z"
+    },
+    {
+      "id": "D049",
+      "text": "Sasha Hart attended a weekend market in Dublin.",
+      "time": "2024-01-22T10:00:00Z"
+    },
+    {
+      "id": "D050",
+      "text": "Tobin Dale listened to a trumpet recital after dinner.",
+      "time": "2024-02-23T10:00:00Z"
+    },
+    {
+      "id": "D051",
+      "text": "Una Fox bought groceries before taking an evening walk.",
+      "time": "2024-03-24T10:00:00Z"
+    },
+    {
+      "id": "D052",
+      "text": "Vince Grey keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-25T10:00:00Z"
+    },
+    {
+      "id": "D053",
+      "text": "Willa Shaw attended a weekend market in Seoul.",
+      "time": "2024-05-26T10:00:00Z"
+    },
+    {
+      "id": "D054",
+      "text": "Xavier Lake listened to a cornet recital after dinner.",
+      "time": "2024-06-27T10:00:00Z"
+    },
+    {
+      "id": "D055",
+      "text": "Yvonne West bought groceries before taking an evening walk.",
+      "time": "2024-07-01T10:00:00Z"
+    },
+    {
+      "id": "D056",
+      "text": "Zelda Bloom keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-02T10:00:00Z"
+    },
+    {
+      "id": "D057",
+      "text": "Alden Vale attended a weekend market in Vienna.",
+      "time": "2024-09-03T10:00:00Z"
+    },
+    {
+      "id": "D058",
+      "text": "Bianca Rowan listened to a viola recital after dinner.",
+      "time": "2024-10-04T10:00:00Z"
+    },
+    {
+      "id": "D059",
+      "text": "Cedric Hale bought groceries before taking an evening walk.",
+      "time": "2024-11-05T10:00:00Z"
+    },
+    {
+      "id": "D060",
+      "text": "Delia Quill keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-06T10:00:00Z"
+    },
+    {
+      "id": "D061",
+      "text": "Emmett Morrow attended a weekend market in Lisbon.",
+      "time": "2024-01-07T10:00:00Z"
+    },
+    {
+      "id": "D062",
+      "text": "Freya Sage listened to a accordion recital after dinner.",
+      "time": "2024-02-08T10:00:00Z"
+    },
+    {
+      "id": "D063",
+      "text": "Gavin Frost bought groceries before taking an evening walk.",
+      "time": "2024-03-09T10:00:00Z"
+    },
+    {
+      "id": "D064",
+      "text": "Helena Lane keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-10T10:00:00Z"
+    },
+    {
+      "id": "D065",
+      "text": "Isaac Reed attended a weekend market in Kyoto.",
+      "time": "2024-05-11T10:00:00Z"
+    },
+    {
+      "id": "D066",
+      "text": "Juniper Stone listened to a cello recital after dinner.",
+      "time": "2024-06-12T10:00:00Z"
+    },
+    {
+      "id": "D067",
+      "text": "Kellan Blake bought groceries before taking an evening walk.",
+      "time": "2024-07-13T10:00:00Z"
+    },
+    {
+      "id": "D068",
+      "text": "Leona North keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-14T10:00:00Z"
+    },
+    {
+      "id": "D069",
+      "text": "Marek Marsh attended a weekend market in Lyon.",
+      "time": "2024-09-15T10:00:00Z"
+    },
+    {
+      "id": "D070",
+      "text": "Nina Pike listened to a guitar recital after dinner.",
+      "time": "2024-10-16T10:00:00Z"
+    },
+    {
+      "id": "D071",
+      "text": "Orson Wren bought groceries before taking an evening walk.",
+      "time": "2024-11-17T10:00:00Z"
+    },
+    {
+      "id": "D072",
+      "text": "Petra Cross keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-18T10:00:00Z"
+    },
+    {
+      "id": "D073",
+      "text": "Quentin Hart attended a weekend market in Malmo.",
+      "time": "2024-01-19T10:00:00Z"
+    },
+    {
+      "id": "D074",
+      "text": "Rhea Dale listened to a organ recital after dinner.",
+      "time": "2024-02-20T10:00:00Z"
+    },
+    {
+      "id": "D075",
+      "text": "Silas Fox bought groceries before taking an evening walk.",
+      "time": "2024-03-21T10:00:00Z"
+    },
+    {
+      "id": "D076",
+      "text": "Talia Grey keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-22T10:00:00Z"
+    },
+    {
+      "id": "D077",
+      "text": "Ulric Shaw attended a weekend market in Busan.",
+      "time": "2024-05-23T10:00:00Z"
+    },
+    {
+      "id": "D078",
+      "text": "Vera Lake listened to a piano recital after dinner.",
+      "time": "2024-06-24T10:00:00Z"
+    },
+    {
+      "id": "D079",
+      "text": "Wesley West bought groceries before taking an evening walk.",
+      "time": "2024-07-25T10:00:00Z"
+    },
+    {
+      "id": "D080",
+      "text": "Xenia Bloom keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-26T10:00:00Z"
+    },
+    {
+      "id": "D081",
+      "text": "Yara Snow attended a weekend market in Porto.",
+      "time": "2024-09-27T10:00:00Z"
+    },
+    {
+      "id": "D082",
+      "text": "Zane Field listened to a recorder recital after dinner.",
+      "time": "2024-10-01T10:00:00Z"
+    },
+    {
+      "id": "D083",
+      "text": "Amara Vale bought groceries before taking an evening walk.",
+      "time": "2024-11-02T10:00:00Z"
+    },
+    {
+      "id": "D084",
+      "text": "Bennett Rowan keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-03T10:00:00Z"
+    },
+    {
+      "id": "D085",
+      "text": "Celine Hale attended a weekend market in Ghent.",
+      "time": "2024-01-04T10:00:00Z"
+    },
+    {
+      "id": "D086",
+      "text": "Dorian Quill listened to a saxophone recital after dinner.",
+      "time": "2024-02-05T10:00:00Z"
+    },
+    {
+      "id": "D087",
+      "text": "Elise Morrow bought groceries before taking an evening walk.",
+      "time": "2024-03-06T10:00:00Z"
+    },
+    {
+      "id": "D088",
+      "text": "Fabian Sage keeps spare batteries in a kitchen drawer.",
+      "time": "2024-04-07T10:00:00Z"
+    },
+    {
+      "id": "D089",
+      "text": "Gia Frost attended a weekend market in Naples.",
+      "time": "2024-05-08T10:00:00Z"
+    },
+    {
+      "id": "D090",
+      "text": "Hector Lane listened to a sitar recital after dinner.",
+      "time": "2024-06-09T10:00:00Z"
+    },
+    {
+      "id": "D091",
+      "text": "Ines Reed bought groceries before taking an evening walk.",
+      "time": "2024-07-10T10:00:00Z"
+    },
+    {
+      "id": "D092",
+      "text": "Jonas Stone keeps spare batteries in a kitchen drawer.",
+      "time": "2024-08-11T10:00:00Z"
+    },
+    {
+      "id": "D093",
+      "text": "Kaia Blake attended a weekend market in Sofia.",
+      "time": "2024-09-12T10:00:00Z"
+    },
+    {
+      "id": "D094",
+      "text": "Lucian North listened to a mandolin recital after dinner.",
+      "time": "2024-10-13T10:00:00Z"
+    },
+    {
+      "id": "D095",
+      "text": "Mina Marsh bought groceries before taking an evening walk.",
+      "time": "2024-11-14T10:00:00Z"
+    },
+    {
+      "id": "D096",
+      "text": "Nolan Pike keeps spare batteries in a kitchen drawer.",
+      "time": "2024-12-15T10:00:00Z"
+    }
+  ],
+  "cases": [
+    {
+      "id": "M2-001",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Nora the blue mug live in?",
+      "expected": [
+        "oslo"
+      ],
+      "required_ids": [
+        "M2_001_A",
+        "M2_001_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_001_A",
+          "text": "Alden Vale gave Nora a blue mug as a gift.",
+          "time": "2025-01-01T09:00:00Z"
+        },
+        {
+          "id": "M2_001_B",
+          "text": "Alden Vale lives in Oslo and works remotely.",
+          "time": "2025-02-01T09:00:00Z"
+        },
+        {
+          "id": "M2_001_X",
+          "text": "Fabian Sage also owns a blue mug, but has never met Nora.",
+          "time": "2025-02-01T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-002",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Eva with the red notebook live?",
+      "expected": [
+        "kyoto"
+      ],
+      "required_ids": [
+        "M2_002_A",
+        "M2_002_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_002_A",
+          "text": "Bianca Rowan gave Eva a red notebook as a gift.",
+          "time": "2025-01-02T09:00:00Z"
+        },
+        {
+          "id": "M2_002_B",
+          "text": "Bianca Rowan lives in Kyoto and works remotely.",
+          "time": "2025-02-02T09:00:00Z"
+        },
+        {
+          "id": "M2_002_X",
+          "text": "Gia Frost also owns a red notebook, but has never met Eva.",
+          "time": "2025-02-02T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-003",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Milo a silver keychain?",
+      "expected": [
+        "denver"
+      ],
+      "required_ids": [
+        "M2_003_A",
+        "M2_003_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_003_A",
+          "text": "Cedric Hale gave Milo a silver keychain as a gift.",
+          "time": "2025-01-03T09:00:00Z"
+        },
+        {
+          "id": "M2_003_B",
+          "text": "Cedric Hale lives in Denver and works remotely.",
+          "time": "2025-02-03T09:00:00Z"
+        },
+        {
+          "id": "M2_003_X",
+          "text": "Hector Lane also owns a silver keychain, but has never met Milo.",
+          "time": "2025-02-03T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-004",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Zoe the green scarf live in?",
+      "expected": [
+        "lisbon"
+      ],
+      "required_ids": [
+        "M2_004_A",
+        "M2_004_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_004_A",
+          "text": "Delia Quill gave Zoe a green scarf as a gift.",
+          "time": "2025-01-04T09:00:00Z"
+        },
+        {
+          "id": "M2_004_B",
+          "text": "Delia Quill lives in Lisbon and works remotely.",
+          "time": "2025-02-04T09:00:00Z"
+        },
+        {
+          "id": "M2_004_X",
+          "text": "Ines Reed also owns a green scarf, but has never met Zoe.",
+          "time": "2025-02-04T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-005",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Leo with the orange thermos live?",
+      "expected": [
+        "tallinn"
+      ],
+      "required_ids": [
+        "M2_005_A",
+        "M2_005_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_005_A",
+          "text": "Emmett Morrow gave Leo a orange thermos as a gift.",
+          "time": "2025-01-05T09:00:00Z"
+        },
+        {
+          "id": "M2_005_B",
+          "text": "Emmett Morrow lives in Tallinn and works remotely.",
+          "time": "2025-02-05T09:00:00Z"
+        },
+        {
+          "id": "M2_005_X",
+          "text": "Jonas Stone also owns a orange thermos, but has never met Leo.",
+          "time": "2025-02-05T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-006",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Maya a black umbrella?",
+      "expected": [
+        "vienna"
+      ],
+      "required_ids": [
+        "M2_006_A",
+        "M2_006_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_006_A",
+          "text": "Freya Sage gave Maya a black umbrella as a gift.",
+          "time": "2025-01-06T09:00:00Z"
+        },
+        {
+          "id": "M2_006_B",
+          "text": "Freya Sage lives in Vienna and works remotely.",
+          "time": "2025-02-06T09:00:00Z"
+        },
+        {
+          "id": "M2_006_X",
+          "text": "Kaia Blake also owns a black umbrella, but has never met Maya.",
+          "time": "2025-02-06T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-007",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Chen the yellow backpack live in?",
+      "expected": [
+        "prague"
+      ],
+      "required_ids": [
+        "M2_007_A",
+        "M2_007_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_007_A",
+          "text": "Gavin Frost gave Chen a yellow backpack as a gift.",
+          "time": "2025-01-07T09:00:00Z"
+        },
+        {
+          "id": "M2_007_B",
+          "text": "Gavin Frost lives in Prague and works remotely.",
+          "time": "2025-02-07T09:00:00Z"
+        },
+        {
+          "id": "M2_007_X",
+          "text": "Lucian North also owns a yellow backpack, but has never met Chen.",
+          "time": "2025-02-07T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-008",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Rina with the white camera live?",
+      "expected": [
+        "seoul"
+      ],
+      "required_ids": [
+        "M2_008_A",
+        "M2_008_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_008_A",
+          "text": "Helena Lane gave Rina a white camera as a gift.",
+          "time": "2025-01-08T09:00:00Z"
+        },
+        {
+          "id": "M2_008_B",
+          "text": "Helena Lane lives in Seoul and works remotely.",
+          "time": "2025-02-08T09:00:00Z"
+        },
+        {
+          "id": "M2_008_X",
+          "text": "Mina Marsh also owns a white camera, but has never met Rina.",
+          "time": "2025-02-08T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-009",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Omar a purple journal?",
+      "expected": [
+        "helsinki"
+      ],
+      "required_ids": [
+        "M2_009_A",
+        "M2_009_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_009_A",
+          "text": "Isaac Reed gave Omar a purple journal as a gift.",
+          "time": "2025-01-09T09:00:00Z"
+        },
+        {
+          "id": "M2_009_B",
+          "text": "Isaac Reed lives in Helsinki and works remotely.",
+          "time": "2025-02-09T09:00:00Z"
+        },
+        {
+          "id": "M2_009_X",
+          "text": "Nolan Pike also owns a purple journal, but has never met Omar.",
+          "time": "2025-02-09T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-010",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Tessa the brown satchel live in?",
+      "expected": [
+        "dublin"
+      ],
+      "required_ids": [
+        "M2_010_A",
+        "M2_010_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_010_A",
+          "text": "Juniper Stone gave Tessa a brown satchel as a gift.",
+          "time": "2025-01-10T09:00:00Z"
+        },
+        {
+          "id": "M2_010_B",
+          "text": "Juniper Stone lives in Dublin and works remotely.",
+          "time": "2025-02-10T09:00:00Z"
+        },
+        {
+          "id": "M2_010_X",
+          "text": "Opal Wren also owns a brown satchel, but has never met Tessa.",
+          "time": "2025-02-10T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-011",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Malik with the teal bottle live?",
+      "expected": [
+        "zurich"
+      ],
+      "required_ids": [
+        "M2_011_A",
+        "M2_011_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_011_A",
+          "text": "Kellan Blake gave Malik a teal bottle as a gift.",
+          "time": "2025-01-11T09:00:00Z"
+        },
+        {
+          "id": "M2_011_B",
+          "text": "Kellan Blake lives in Zurich and works remotely.",
+          "time": "2025-02-11T09:00:00Z"
+        },
+        {
+          "id": "M2_011_X",
+          "text": "Piers Cross also owns a teal bottle, but has never met Malik.",
+          "time": "2025-02-11T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-012",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Priya a navy cap?",
+      "expected": [
+        "warsaw"
+      ],
+      "required_ids": [
+        "M2_012_A",
+        "M2_012_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_012_A",
+          "text": "Leona North gave Priya a navy cap as a gift.",
+          "time": "2025-01-12T09:00:00Z"
+        },
+        {
+          "id": "M2_012_B",
+          "text": "Leona North lives in Warsaw and works remotely.",
+          "time": "2025-02-12T09:00:00Z"
+        },
+        {
+          "id": "M2_012_X",
+          "text": "Rina Hart also owns a navy cap, but has never met Priya.",
+          "time": "2025-02-12T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-013",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Ken the gold pen live in?",
+      "expected": [
+        "athens"
+      ],
+      "required_ids": [
+        "M2_013_A",
+        "M2_013_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_013_A",
+          "text": "Marek Marsh gave Ken a gold pen as a gift.",
+          "time": "2025-01-13T09:00:00Z"
+        },
+        {
+          "id": "M2_013_B",
+          "text": "Marek Marsh lives in Athens and works remotely.",
+          "time": "2025-02-13T09:00:00Z"
+        },
+        {
+          "id": "M2_013_X",
+          "text": "Soren Dale also owns a gold pen, but has never met Ken.",
+          "time": "2025-02-13T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-014",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Ari with the gray blanket live?",
+      "expected": [
+        "madrid"
+      ],
+      "required_ids": [
+        "M2_014_A",
+        "M2_014_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_014_A",
+          "text": "Nina Pike gave Ari a gray blanket as a gift.",
+          "time": "2025-01-14T09:00:00Z"
+        },
+        {
+          "id": "M2_014_B",
+          "text": "Nina Pike lives in Madrid and works remotely.",
+          "time": "2025-02-14T09:00:00Z"
+        },
+        {
+          "id": "M2_014_X",
+          "text": "Tessa Fox also owns a gray blanket, but has never met Ari.",
+          "time": "2025-02-14T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-015",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Lina a pink lantern?",
+      "expected": [
+        "lima"
+      ],
+      "required_ids": [
+        "M2_015_A",
+        "M2_015_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_015_A",
+          "text": "Orson Wren gave Lina a pink lantern as a gift.",
+          "time": "2025-01-15T09:00:00Z"
+        },
+        {
+          "id": "M2_015_B",
+          "text": "Orson Wren lives in Lima and works remotely.",
+          "time": "2025-02-15T09:00:00Z"
+        },
+        {
+          "id": "M2_015_X",
+          "text": "Uri Grey also owns a pink lantern, but has never met Lina.",
+          "time": "2025-02-15T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-016",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Sam the copper bell live in?",
+      "expected": [
+        "quito"
+      ],
+      "required_ids": [
+        "M2_016_A",
+        "M2_016_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_016_A",
+          "text": "Petra Cross gave Sam a copper bell as a gift.",
+          "time": "2025-01-16T09:00:00Z"
+        },
+        {
+          "id": "M2_016_B",
+          "text": "Petra Cross lives in Quito and works remotely.",
+          "time": "2025-02-16T09:00:00Z"
+        },
+        {
+          "id": "M2_016_X",
+          "text": "Viola Shaw also owns a copper bell, but has never met Sam.",
+          "time": "2025-02-16T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-017",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Iris with the ivory vase live?",
+      "expected": [
+        "riga"
+      ],
+      "required_ids": [
+        "M2_017_A",
+        "M2_017_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_017_A",
+          "text": "Quentin Hart gave Iris a ivory vase as a gift.",
+          "time": "2025-01-17T09:00:00Z"
+        },
+        {
+          "id": "M2_017_B",
+          "text": "Quentin Hart lives in Riga and works remotely.",
+          "time": "2025-02-17T09:00:00Z"
+        },
+        {
+          "id": "M2_017_X",
+          "text": "Wyatt Lake also owns a ivory vase, but has never met Iris.",
+          "time": "2025-02-17T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-018",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Theo a crimson wallet?",
+      "expected": [
+        "sofia"
+      ],
+      "required_ids": [
+        "M2_018_A",
+        "M2_018_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_018_A",
+          "text": "Rhea Dale gave Theo a crimson wallet as a gift.",
+          "time": "2025-01-18T09:00:00Z"
+        },
+        {
+          "id": "M2_018_B",
+          "text": "Rhea Dale lives in Sofia and works remotely.",
+          "time": "2025-02-18T09:00:00Z"
+        },
+        {
+          "id": "M2_018_X",
+          "text": "Ximena West also owns a crimson wallet, but has never met Theo.",
+          "time": "2025-02-18T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-019",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Uma the jade box live in?",
+      "expected": [
+        "bergen"
+      ],
+      "required_ids": [
+        "M2_019_A",
+        "M2_019_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_019_A",
+          "text": "Silas Fox gave Uma a jade box as a gift.",
+          "time": "2025-01-19T09:00:00Z"
+        },
+        {
+          "id": "M2_019_B",
+          "text": "Silas Fox lives in Bergen and works remotely.",
+          "time": "2025-02-19T09:00:00Z"
+        },
+        {
+          "id": "M2_019_X",
+          "text": "Yvette Bloom also owns a jade box, but has never met Uma.",
+          "time": "2025-02-19T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-020",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Vik with the amber clock live?",
+      "expected": [
+        "naples"
+      ],
+      "required_ids": [
+        "M2_020_A",
+        "M2_020_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_020_A",
+          "text": "Talia Grey gave Vik a amber clock as a gift.",
+          "time": "2025-01-20T09:00:00Z"
+        },
+        {
+          "id": "M2_020_B",
+          "text": "Talia Grey lives in Naples and works remotely.",
+          "time": "2025-02-20T09:00:00Z"
+        },
+        {
+          "id": "M2_020_X",
+          "text": "Zora Snow also owns a amber clock, but has never met Vik.",
+          "time": "2025-02-20T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-021",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Wren a indigo pouch?",
+      "expected": [
+        "turin"
+      ],
+      "required_ids": [
+        "M2_021_A",
+        "M2_021_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_021_A",
+          "text": "Ulric Shaw gave Wren a indigo pouch as a gift.",
+          "time": "2025-01-21T09:00:00Z"
+        },
+        {
+          "id": "M2_021_B",
+          "text": "Ulric Shaw lives in Turin and works remotely.",
+          "time": "2025-02-21T09:00:00Z"
+        },
+        {
+          "id": "M2_021_X",
+          "text": "Arden Field also owns a indigo pouch, but has never met Wren.",
+          "time": "2025-02-21T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-022",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Yuri the scarlet folder live in?",
+      "expected": [
+        "ghent"
+      ],
+      "required_ids": [
+        "M2_022_A",
+        "M2_022_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_022_A",
+          "text": "Vera Lake gave Yuri a scarlet folder as a gift.",
+          "time": "2025-01-22T09:00:00Z"
+        },
+        {
+          "id": "M2_022_B",
+          "text": "Vera Lake lives in Ghent and works remotely.",
+          "time": "2025-02-22T09:00:00Z"
+        },
+        {
+          "id": "M2_022_X",
+          "text": "Blaire Vale also owns a scarlet folder, but has never met Yuri.",
+          "time": "2025-02-22T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-023",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Zara with the beige basket live?",
+      "expected": [
+        "brno"
+      ],
+      "required_ids": [
+        "M2_023_A",
+        "M2_023_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_023_A",
+          "text": "Wesley West gave Zara a beige basket as a gift.",
+          "time": "2025-01-23T09:00:00Z"
+        },
+        {
+          "id": "M2_023_B",
+          "text": "Wesley West lives in Brno and works remotely.",
+          "time": "2025-02-23T09:00:00Z"
+        },
+        {
+          "id": "M2_023_X",
+          "text": "Corin Rowan also owns a beige basket, but has never met Zara.",
+          "time": "2025-02-23T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-024",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Boris a violet cup?",
+      "expected": [
+        "porto"
+      ],
+      "required_ids": [
+        "M2_024_A",
+        "M2_024_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_024_A",
+          "text": "Xenia Bloom gave Boris a violet cup as a gift.",
+          "time": "2025-01-24T09:00:00Z"
+        },
+        {
+          "id": "M2_024_B",
+          "text": "Xenia Bloom lives in Porto and works remotely.",
+          "time": "2025-02-24T09:00:00Z"
+        },
+        {
+          "id": "M2_024_X",
+          "text": "Daphne Hale also owns a violet cup, but has never met Boris.",
+          "time": "2025-02-24T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-025",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Clara the cyan case live in?",
+      "expected": [
+        "perth"
+      ],
+      "required_ids": [
+        "M2_025_A",
+        "M2_025_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_025_A",
+          "text": "Yara Snow gave Clara a cyan case as a gift.",
+          "time": "2025-01-25T09:00:00Z"
+        },
+        {
+          "id": "M2_025_B",
+          "text": "Yara Snow lives in Perth and works remotely.",
+          "time": "2025-02-25T09:00:00Z"
+        },
+        {
+          "id": "M2_025_X",
+          "text": "Elias Quill also owns a cyan case, but has never met Clara.",
+          "time": "2025-02-25T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-026",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Derek with the bronze tray live?",
+      "expected": [
+        "busan"
+      ],
+      "required_ids": [
+        "M2_026_A",
+        "M2_026_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_026_A",
+          "text": "Zane Field gave Derek a bronze tray as a gift.",
+          "time": "2025-01-26T09:00:00Z"
+        },
+        {
+          "id": "M2_026_B",
+          "text": "Zane Field lives in Busan and works remotely.",
+          "time": "2025-02-26T09:00:00Z"
+        },
+        {
+          "id": "M2_026_X",
+          "text": "Fiona Morrow also owns a bronze tray, but has never met Derek.",
+          "time": "2025-02-26T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-027",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Elena a lime tote?",
+      "expected": [
+        "sendai"
+      ],
+      "required_ids": [
+        "M2_027_A",
+        "M2_027_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_027_A",
+          "text": "Amara Vale gave Elena a lime tote as a gift.",
+          "time": "2025-01-27T09:00:00Z"
+        },
+        {
+          "id": "M2_027_B",
+          "text": "Amara Vale lives in Sendai and works remotely.",
+          "time": "2025-02-27T09:00:00Z"
+        },
+        {
+          "id": "M2_027_X",
+          "text": "Gideon Sage also owns a lime tote, but has never met Elena.",
+          "time": "2025-02-27T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-028",
+      "family": "multi_hop_2",
+      "question": "What city does the person who gave Farah the maroon book live in?",
+      "expected": [
+        "malmo"
+      ],
+      "required_ids": [
+        "M2_028_A",
+        "M2_028_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_028_A",
+          "text": "Bennett Rowan gave Farah a maroon book as a gift.",
+          "time": "2025-01-01T09:00:00Z"
+        },
+        {
+          "id": "M2_028_B",
+          "text": "Bennett Rowan lives in Malmo and works remotely.",
+          "time": "2025-02-01T09:00:00Z"
+        },
+        {
+          "id": "M2_028_X",
+          "text": "Hazel Frost also owns a maroon book, but has never met Farah.",
+          "time": "2025-02-01T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-029",
+      "family": "multi_hop_2",
+      "question": "Where does the person who presented Greta with the pearl badge live?",
+      "expected": [
+        "utrecht"
+      ],
+      "required_ids": [
+        "M2_029_A",
+        "M2_029_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_029_A",
+          "text": "Celine Hale gave Greta a pearl badge as a gift.",
+          "time": "2025-01-02T09:00:00Z"
+        },
+        {
+          "id": "M2_029_B",
+          "text": "Celine Hale lives in Utrecht and works remotely.",
+          "time": "2025-02-02T09:00:00Z"
+        },
+        {
+          "id": "M2_029_X",
+          "text": "Ivo Lane also owns a pearl badge, but has never met Greta.",
+          "time": "2025-02-02T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M2-030",
+      "family": "multi_hop_2",
+      "question": "Which city is home to the person who gave Hugo a coral lamp?",
+      "expected": [
+        "lyon"
+      ],
+      "required_ids": [
+        "M2_030_A",
+        "M2_030_B"
+      ],
+      "memories": [
+        {
+          "id": "M2_030_A",
+          "text": "Dorian Quill gave Hugo a coral lamp as a gift.",
+          "time": "2025-01-03T09:00:00Z"
+        },
+        {
+          "id": "M2_030_B",
+          "text": "Dorian Quill lives in Lyon and works remotely.",
+          "time": "2025-02-03T09:00:00Z"
+        },
+        {
+          "id": "M2_030_X",
+          "text": "Jessa Reed also owns a coral lamp, but has never met Hugo.",
+          "time": "2025-02-03T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-001",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Rina play?",
+      "expected": [
+        "cello"
+      ],
+      "required_ids": [
+        "M3_001_A",
+        "M3_001_B",
+        "M3_001_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_001_A",
+          "text": "Elise Morrow mentors Rina in a community program.",
+          "time": "2025-03-01T08:00:00Z"
+        },
+        {
+          "id": "M3_001_B",
+          "text": "Elise Morrow works closely with Jessa Reed at Orchid Lab 01.",
+          "time": "2025-03-01T10:00:00Z"
+        },
+        {
+          "id": "M3_001_C",
+          "text": "Jessa Reed plays the cello in a local ensemble.",
+          "time": "2025-04-01T08:00:00Z"
+        },
+        {
+          "id": "M3_001_X1",
+          "text": "Petra Cross also mentors someone named Rina at a different club.",
+          "time": "2025-03-01T11:00:00Z"
+        },
+        {
+          "id": "M3_001_X2",
+          "text": "Another member of Orchid Lab 01 enjoys listening to the banjo.",
+          "time": "2025-04-01T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-002",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Omar's mentor?",
+      "expected": [
+        "oboe"
+      ],
+      "required_ids": [
+        "M3_002_A",
+        "M3_002_B",
+        "M3_002_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_002_A",
+          "text": "Fabian Sage mentors Omar in a community program.",
+          "time": "2025-03-02T08:00:00Z"
+        },
+        {
+          "id": "M3_002_B",
+          "text": "Fabian Sage works closely with Keira Stone at Orchid Lab 02.",
+          "time": "2025-03-02T10:00:00Z"
+        },
+        {
+          "id": "M3_002_C",
+          "text": "Keira Stone plays the oboe in a local ensemble.",
+          "time": "2025-04-02T08:00:00Z"
+        },
+        {
+          "id": "M3_002_X1",
+          "text": "Quentin Hart also mentors someone named Omar at a different club.",
+          "time": "2025-03-02T11:00:00Z"
+        },
+        {
+          "id": "M3_002_X2",
+          "text": "Another member of Orchid Lab 02 enjoys listening to the saxophone.",
+          "time": "2025-04-02T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-003",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Tessa play?",
+      "expected": [
+        "viola"
+      ],
+      "required_ids": [
+        "M3_003_A",
+        "M3_003_B",
+        "M3_003_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_003_A",
+          "text": "Gia Frost mentors Tessa in a community program.",
+          "time": "2025-03-03T08:00:00Z"
+        },
+        {
+          "id": "M3_003_B",
+          "text": "Gia Frost works closely with Lars Blake at Orchid Lab 03.",
+          "time": "2025-03-03T10:00:00Z"
+        },
+        {
+          "id": "M3_003_C",
+          "text": "Lars Blake plays the viola in a local ensemble.",
+          "time": "2025-04-03T08:00:00Z"
+        },
+        {
+          "id": "M3_003_X1",
+          "text": "Rhea Dale also mentors someone named Tessa at a different club.",
+          "time": "2025-03-03T11:00:00Z"
+        },
+        {
+          "id": "M3_003_X2",
+          "text": "Another member of Orchid Lab 03 enjoys listening to the trombone.",
+          "time": "2025-04-03T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-004",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Malik play?",
+      "expected": [
+        "clarinet"
+      ],
+      "required_ids": [
+        "M3_004_A",
+        "M3_004_B",
+        "M3_004_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_004_A",
+          "text": "Hector Lane mentors Malik in a community program.",
+          "time": "2025-03-04T08:00:00Z"
+        },
+        {
+          "id": "M3_004_B",
+          "text": "Hector Lane works closely with Mira North at Orchid Lab 04.",
+          "time": "2025-03-04T10:00:00Z"
+        },
+        {
+          "id": "M3_004_C",
+          "text": "Mira North plays the clarinet in a local ensemble.",
+          "time": "2025-04-04T08:00:00Z"
+        },
+        {
+          "id": "M3_004_X1",
+          "text": "Silas Fox also mentors someone named Malik at a different club.",
+          "time": "2025-03-04T11:00:00Z"
+        },
+        {
+          "id": "M3_004_X2",
+          "text": "Another member of Orchid Lab 04 enjoys listening to the piano.",
+          "time": "2025-04-04T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-005",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Priya's mentor?",
+      "expected": [
+        "trumpet"
+      ],
+      "required_ids": [
+        "M3_005_A",
+        "M3_005_B",
+        "M3_005_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_005_A",
+          "text": "Ines Reed mentors Priya in a community program.",
+          "time": "2025-03-05T08:00:00Z"
+        },
+        {
+          "id": "M3_005_B",
+          "text": "Ines Reed works closely with Noel Marsh at Orchid Lab 05.",
+          "time": "2025-03-05T10:00:00Z"
+        },
+        {
+          "id": "M3_005_C",
+          "text": "Noel Marsh plays the trumpet in a local ensemble.",
+          "time": "2025-04-05T08:00:00Z"
+        },
+        {
+          "id": "M3_005_X1",
+          "text": "Talia Grey also mentors someone named Priya at a different club.",
+          "time": "2025-03-05T11:00:00Z"
+        },
+        {
+          "id": "M3_005_X2",
+          "text": "Another member of Orchid Lab 05 enjoys listening to the violin.",
+          "time": "2025-04-05T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-006",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Ken play?",
+      "expected": [
+        "harp"
+      ],
+      "required_ids": [
+        "M3_006_A",
+        "M3_006_B",
+        "M3_006_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_006_A",
+          "text": "Jonas Stone mentors Ken in a community program.",
+          "time": "2025-03-06T08:00:00Z"
+        },
+        {
+          "id": "M3_006_B",
+          "text": "Jonas Stone works closely with Oona Pike at Orchid Lab 06.",
+          "time": "2025-03-06T10:00:00Z"
+        },
+        {
+          "id": "M3_006_C",
+          "text": "Oona Pike plays the harp in a local ensemble.",
+          "time": "2025-04-06T08:00:00Z"
+        },
+        {
+          "id": "M3_006_X1",
+          "text": "Ulric Shaw also mentors someone named Ken at a different club.",
+          "time": "2025-03-06T11:00:00Z"
+        },
+        {
+          "id": "M3_006_X2",
+          "text": "Another member of Orchid Lab 06 enjoys listening to the guitar.",
+          "time": "2025-04-06T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-007",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Ari play?",
+      "expected": [
+        "flute"
+      ],
+      "required_ids": [
+        "M3_007_A",
+        "M3_007_B",
+        "M3_007_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_007_A",
+          "text": "Kaia Blake mentors Ari in a community program.",
+          "time": "2025-03-07T08:00:00Z"
+        },
+        {
+          "id": "M3_007_B",
+          "text": "Kaia Blake works closely with Pavel Wren at Orchid Lab 07.",
+          "time": "2025-03-07T10:00:00Z"
+        },
+        {
+          "id": "M3_007_C",
+          "text": "Pavel Wren plays the flute in a local ensemble.",
+          "time": "2025-04-07T08:00:00Z"
+        },
+        {
+          "id": "M3_007_X1",
+          "text": "Vera Lake also mentors someone named Ari at a different club.",
+          "time": "2025-03-07T11:00:00Z"
+        },
+        {
+          "id": "M3_007_X2",
+          "text": "Another member of Orchid Lab 07 enjoys listening to the ukulele.",
+          "time": "2025-04-07T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-008",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Lina's mentor?",
+      "expected": [
+        "bassoon"
+      ],
+      "required_ids": [
+        "M3_008_A",
+        "M3_008_B",
+        "M3_008_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_008_A",
+          "text": "Lucian North mentors Lina in a community program.",
+          "time": "2025-03-08T08:00:00Z"
+        },
+        {
+          "id": "M3_008_B",
+          "text": "Lucian North works closely with Reese Cross at Orchid Lab 08.",
+          "time": "2025-03-08T10:00:00Z"
+        },
+        {
+          "id": "M3_008_C",
+          "text": "Reese Cross plays the bassoon in a local ensemble.",
+          "time": "2025-04-08T08:00:00Z"
+        },
+        {
+          "id": "M3_008_X1",
+          "text": "Wesley West also mentors someone named Lina at a different club.",
+          "time": "2025-03-08T11:00:00Z"
+        },
+        {
+          "id": "M3_008_X2",
+          "text": "Another member of Orchid Lab 08 enjoys listening to the accordion.",
+          "time": "2025-04-08T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-009",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Sam play?",
+      "expected": [
+        "mandolin"
+      ],
+      "required_ids": [
+        "M3_009_A",
+        "M3_009_B",
+        "M3_009_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_009_A",
+          "text": "Mina Marsh mentors Sam in a community program.",
+          "time": "2025-03-09T08:00:00Z"
+        },
+        {
+          "id": "M3_009_B",
+          "text": "Mina Marsh works closely with Sasha Hart at Orchid Lab 09.",
+          "time": "2025-03-09T10:00:00Z"
+        },
+        {
+          "id": "M3_009_C",
+          "text": "Sasha Hart plays the mandolin in a local ensemble.",
+          "time": "2025-04-09T08:00:00Z"
+        },
+        {
+          "id": "M3_009_X1",
+          "text": "Xenia Bloom also mentors someone named Sam at a different club.",
+          "time": "2025-03-09T11:00:00Z"
+        },
+        {
+          "id": "M3_009_X2",
+          "text": "Another member of Orchid Lab 09 enjoys listening to the drums.",
+          "time": "2025-04-09T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-010",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Iris play?",
+      "expected": [
+        "banjo"
+      ],
+      "required_ids": [
+        "M3_010_A",
+        "M3_010_B",
+        "M3_010_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_010_A",
+          "text": "Nolan Pike mentors Iris in a community program.",
+          "time": "2025-03-10T08:00:00Z"
+        },
+        {
+          "id": "M3_010_B",
+          "text": "Nolan Pike works closely with Tobin Dale at Orchid Lab 10.",
+          "time": "2025-03-10T10:00:00Z"
+        },
+        {
+          "id": "M3_010_C",
+          "text": "Tobin Dale plays the banjo in a local ensemble.",
+          "time": "2025-04-10T08:00:00Z"
+        },
+        {
+          "id": "M3_010_X1",
+          "text": "Yara Snow also mentors someone named Iris at a different club.",
+          "time": "2025-03-10T11:00:00Z"
+        },
+        {
+          "id": "M3_010_X2",
+          "text": "Another member of Orchid Lab 10 enjoys listening to the cornet.",
+          "time": "2025-04-10T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-011",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Theo's mentor?",
+      "expected": [
+        "saxophone"
+      ],
+      "required_ids": [
+        "M3_011_A",
+        "M3_011_B",
+        "M3_011_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_011_A",
+          "text": "Opal Wren mentors Theo in a community program.",
+          "time": "2025-03-11T08:00:00Z"
+        },
+        {
+          "id": "M3_011_B",
+          "text": "Opal Wren works closely with Una Fox at Orchid Lab 11.",
+          "time": "2025-03-11T10:00:00Z"
+        },
+        {
+          "id": "M3_011_C",
+          "text": "Una Fox plays the saxophone in a local ensemble.",
+          "time": "2025-04-11T08:00:00Z"
+        },
+        {
+          "id": "M3_011_X1",
+          "text": "Zane Field also mentors someone named Theo at a different club.",
+          "time": "2025-03-11T11:00:00Z"
+        },
+        {
+          "id": "M3_011_X2",
+          "text": "Another member of Orchid Lab 11 enjoys listening to the lute.",
+          "time": "2025-04-11T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-012",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Uma play?",
+      "expected": [
+        "trombone"
+      ],
+      "required_ids": [
+        "M3_012_A",
+        "M3_012_B",
+        "M3_012_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_012_A",
+          "text": "Piers Cross mentors Uma in a community program.",
+          "time": "2025-03-12T08:00:00Z"
+        },
+        {
+          "id": "M3_012_B",
+          "text": "Piers Cross works closely with Vince Grey at Orchid Lab 12.",
+          "time": "2025-03-12T10:00:00Z"
+        },
+        {
+          "id": "M3_012_C",
+          "text": "Vince Grey plays the trombone in a local ensemble.",
+          "time": "2025-04-12T08:00:00Z"
+        },
+        {
+          "id": "M3_012_X1",
+          "text": "Amara Vale also mentors someone named Uma at a different club.",
+          "time": "2025-03-12T11:00:00Z"
+        },
+        {
+          "id": "M3_012_X2",
+          "text": "Another member of Orchid Lab 12 enjoys listening to the marimba.",
+          "time": "2025-04-12T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-013",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Vik play?",
+      "expected": [
+        "piano"
+      ],
+      "required_ids": [
+        "M3_013_A",
+        "M3_013_B",
+        "M3_013_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_013_A",
+          "text": "Rina Hart mentors Vik in a community program.",
+          "time": "2025-03-13T08:00:00Z"
+        },
+        {
+          "id": "M3_013_B",
+          "text": "Rina Hart works closely with Willa Shaw at Orchid Lab 13.",
+          "time": "2025-03-13T10:00:00Z"
+        },
+        {
+          "id": "M3_013_C",
+          "text": "Willa Shaw plays the piano in a local ensemble.",
+          "time": "2025-04-13T08:00:00Z"
+        },
+        {
+          "id": "M3_013_X1",
+          "text": "Bennett Rowan also mentors someone named Vik at a different club.",
+          "time": "2025-03-13T11:00:00Z"
+        },
+        {
+          "id": "M3_013_X2",
+          "text": "Another member of Orchid Lab 13 enjoys listening to the xylophone.",
+          "time": "2025-04-13T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-014",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Wren's mentor?",
+      "expected": [
+        "violin"
+      ],
+      "required_ids": [
+        "M3_014_A",
+        "M3_014_B",
+        "M3_014_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_014_A",
+          "text": "Soren Dale mentors Wren in a community program.",
+          "time": "2025-03-14T08:00:00Z"
+        },
+        {
+          "id": "M3_014_B",
+          "text": "Soren Dale works closely with Xavier Lake at Orchid Lab 14.",
+          "time": "2025-03-14T10:00:00Z"
+        },
+        {
+          "id": "M3_014_C",
+          "text": "Xavier Lake plays the violin in a local ensemble.",
+          "time": "2025-04-14T08:00:00Z"
+        },
+        {
+          "id": "M3_014_X1",
+          "text": "Celine Hale also mentors someone named Wren at a different club.",
+          "time": "2025-03-14T11:00:00Z"
+        },
+        {
+          "id": "M3_014_X2",
+          "text": "Another member of Orchid Lab 14 enjoys listening to the french horn.",
+          "time": "2025-04-14T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-015",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Yuri play?",
+      "expected": [
+        "guitar"
+      ],
+      "required_ids": [
+        "M3_015_A",
+        "M3_015_B",
+        "M3_015_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_015_A",
+          "text": "Tessa Fox mentors Yuri in a community program.",
+          "time": "2025-03-15T08:00:00Z"
+        },
+        {
+          "id": "M3_015_B",
+          "text": "Tessa Fox works closely with Yvonne West at Orchid Lab 15.",
+          "time": "2025-03-15T10:00:00Z"
+        },
+        {
+          "id": "M3_015_C",
+          "text": "Yvonne West plays the guitar in a local ensemble.",
+          "time": "2025-04-15T08:00:00Z"
+        },
+        {
+          "id": "M3_015_X1",
+          "text": "Dorian Quill also mentors someone named Yuri at a different club.",
+          "time": "2025-03-15T11:00:00Z"
+        },
+        {
+          "id": "M3_015_X2",
+          "text": "Another member of Orchid Lab 15 enjoys listening to the double bass.",
+          "time": "2025-04-15T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-016",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Zara play?",
+      "expected": [
+        "ukulele"
+      ],
+      "required_ids": [
+        "M3_016_A",
+        "M3_016_B",
+        "M3_016_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_016_A",
+          "text": "Uri Grey mentors Zara in a community program.",
+          "time": "2025-03-16T08:00:00Z"
+        },
+        {
+          "id": "M3_016_B",
+          "text": "Uri Grey works closely with Zelda Bloom at Orchid Lab 16.",
+          "time": "2025-03-16T10:00:00Z"
+        },
+        {
+          "id": "M3_016_C",
+          "text": "Zelda Bloom plays the ukulele in a local ensemble.",
+          "time": "2025-04-16T08:00:00Z"
+        },
+        {
+          "id": "M3_016_X1",
+          "text": "Elise Morrow also mentors someone named Zara at a different club.",
+          "time": "2025-03-16T11:00:00Z"
+        },
+        {
+          "id": "M3_016_X2",
+          "text": "Another member of Orchid Lab 16 enjoys listening to the sitar.",
+          "time": "2025-04-16T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-017",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Boris's mentor?",
+      "expected": [
+        "accordion"
+      ],
+      "required_ids": [
+        "M3_017_A",
+        "M3_017_B",
+        "M3_017_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_017_A",
+          "text": "Viola Shaw mentors Boris in a community program.",
+          "time": "2025-03-17T08:00:00Z"
+        },
+        {
+          "id": "M3_017_B",
+          "text": "Viola Shaw works closely with Alden Vale at Orchid Lab 17.",
+          "time": "2025-03-17T10:00:00Z"
+        },
+        {
+          "id": "M3_017_C",
+          "text": "Alden Vale plays the accordion in a local ensemble.",
+          "time": "2025-04-17T08:00:00Z"
+        },
+        {
+          "id": "M3_017_X1",
+          "text": "Fabian Sage also mentors someone named Boris at a different club.",
+          "time": "2025-03-17T11:00:00Z"
+        },
+        {
+          "id": "M3_017_X2",
+          "text": "Another member of Orchid Lab 17 enjoys listening to the tabla.",
+          "time": "2025-04-17T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-018",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Clara play?",
+      "expected": [
+        "drums"
+      ],
+      "required_ids": [
+        "M3_018_A",
+        "M3_018_B",
+        "M3_018_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_018_A",
+          "text": "Wyatt Lake mentors Clara in a community program.",
+          "time": "2025-03-18T08:00:00Z"
+        },
+        {
+          "id": "M3_018_B",
+          "text": "Wyatt Lake works closely with Bianca Rowan at Orchid Lab 18.",
+          "time": "2025-03-18T10:00:00Z"
+        },
+        {
+          "id": "M3_018_C",
+          "text": "Bianca Rowan plays the drums in a local ensemble.",
+          "time": "2025-04-18T08:00:00Z"
+        },
+        {
+          "id": "M3_018_X1",
+          "text": "Gia Frost also mentors someone named Clara at a different club.",
+          "time": "2025-03-18T11:00:00Z"
+        },
+        {
+          "id": "M3_018_X2",
+          "text": "Another member of Orchid Lab 18 enjoys listening to the recorder.",
+          "time": "2025-04-18T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-019",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Derek play?",
+      "expected": [
+        "cornet"
+      ],
+      "required_ids": [
+        "M3_019_A",
+        "M3_019_B",
+        "M3_019_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_019_A",
+          "text": "Ximena West mentors Derek in a community program.",
+          "time": "2025-03-19T08:00:00Z"
+        },
+        {
+          "id": "M3_019_B",
+          "text": "Ximena West works closely with Cedric Hale at Orchid Lab 19.",
+          "time": "2025-03-19T10:00:00Z"
+        },
+        {
+          "id": "M3_019_C",
+          "text": "Cedric Hale plays the cornet in a local ensemble.",
+          "time": "2025-04-19T08:00:00Z"
+        },
+        {
+          "id": "M3_019_X1",
+          "text": "Hector Lane also mentors someone named Derek at a different club.",
+          "time": "2025-03-19T11:00:00Z"
+        },
+        {
+          "id": "M3_019_X2",
+          "text": "Another member of Orchid Lab 19 enjoys listening to the harmonica.",
+          "time": "2025-04-19T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-020",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Elena's mentor?",
+      "expected": [
+        "lute"
+      ],
+      "required_ids": [
+        "M3_020_A",
+        "M3_020_B",
+        "M3_020_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_020_A",
+          "text": "Yvette Bloom mentors Elena in a community program.",
+          "time": "2025-03-20T08:00:00Z"
+        },
+        {
+          "id": "M3_020_B",
+          "text": "Yvette Bloom works closely with Delia Quill at Orchid Lab 20.",
+          "time": "2025-03-20T10:00:00Z"
+        },
+        {
+          "id": "M3_020_C",
+          "text": "Delia Quill plays the lute in a local ensemble.",
+          "time": "2025-04-20T08:00:00Z"
+        },
+        {
+          "id": "M3_020_X1",
+          "text": "Ines Reed also mentors someone named Elena at a different club.",
+          "time": "2025-03-20T11:00:00Z"
+        },
+        {
+          "id": "M3_020_X2",
+          "text": "Another member of Orchid Lab 20 enjoys listening to the organ.",
+          "time": "2025-04-20T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-021",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Farah play?",
+      "expected": [
+        "marimba"
+      ],
+      "required_ids": [
+        "M3_021_A",
+        "M3_021_B",
+        "M3_021_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_021_A",
+          "text": "Zora Snow mentors Farah in a community program.",
+          "time": "2025-03-21T08:00:00Z"
+        },
+        {
+          "id": "M3_021_B",
+          "text": "Zora Snow works closely with Emmett Morrow at Orchid Lab 21.",
+          "time": "2025-03-21T10:00:00Z"
+        },
+        {
+          "id": "M3_021_C",
+          "text": "Emmett Morrow plays the marimba in a local ensemble.",
+          "time": "2025-04-21T08:00:00Z"
+        },
+        {
+          "id": "M3_021_X1",
+          "text": "Jonas Stone also mentors someone named Farah at a different club.",
+          "time": "2025-03-21T11:00:00Z"
+        },
+        {
+          "id": "M3_021_X2",
+          "text": "Another member of Orchid Lab 21 enjoys listening to the piccolo.",
+          "time": "2025-04-21T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-022",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Greta play?",
+      "expected": [
+        "xylophone"
+      ],
+      "required_ids": [
+        "M3_022_A",
+        "M3_022_B",
+        "M3_022_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_022_A",
+          "text": "Arden Field mentors Greta in a community program.",
+          "time": "2025-03-22T08:00:00Z"
+        },
+        {
+          "id": "M3_022_B",
+          "text": "Arden Field works closely with Freya Sage at Orchid Lab 22.",
+          "time": "2025-03-22T10:00:00Z"
+        },
+        {
+          "id": "M3_022_C",
+          "text": "Freya Sage plays the xylophone in a local ensemble.",
+          "time": "2025-04-22T08:00:00Z"
+        },
+        {
+          "id": "M3_022_X1",
+          "text": "Kaia Blake also mentors someone named Greta at a different club.",
+          "time": "2025-03-22T11:00:00Z"
+        },
+        {
+          "id": "M3_022_X2",
+          "text": "Another member of Orchid Lab 22 enjoys listening to the cello.",
+          "time": "2025-04-22T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-023",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Hugo's mentor?",
+      "expected": [
+        "french horn"
+      ],
+      "required_ids": [
+        "M3_023_A",
+        "M3_023_B",
+        "M3_023_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_023_A",
+          "text": "Blaire Vale mentors Hugo in a community program.",
+          "time": "2025-03-23T08:00:00Z"
+        },
+        {
+          "id": "M3_023_B",
+          "text": "Blaire Vale works closely with Gavin Frost at Orchid Lab 23.",
+          "time": "2025-03-23T10:00:00Z"
+        },
+        {
+          "id": "M3_023_C",
+          "text": "Gavin Frost plays the french horn in a local ensemble.",
+          "time": "2025-04-23T08:00:00Z"
+        },
+        {
+          "id": "M3_023_X1",
+          "text": "Lucian North also mentors someone named Hugo at a different club.",
+          "time": "2025-03-23T11:00:00Z"
+        },
+        {
+          "id": "M3_023_X2",
+          "text": "Another member of Orchid Lab 23 enjoys listening to the oboe.",
+          "time": "2025-04-23T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-024",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Nora play?",
+      "expected": [
+        "double bass"
+      ],
+      "required_ids": [
+        "M3_024_A",
+        "M3_024_B",
+        "M3_024_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_024_A",
+          "text": "Corin Rowan mentors Nora in a community program.",
+          "time": "2025-03-24T08:00:00Z"
+        },
+        {
+          "id": "M3_024_B",
+          "text": "Corin Rowan works closely with Helena Lane at Orchid Lab 24.",
+          "time": "2025-03-24T10:00:00Z"
+        },
+        {
+          "id": "M3_024_C",
+          "text": "Helena Lane plays the double bass in a local ensemble.",
+          "time": "2025-04-24T08:00:00Z"
+        },
+        {
+          "id": "M3_024_X1",
+          "text": "Mina Marsh also mentors someone named Nora at a different club.",
+          "time": "2025-03-24T11:00:00Z"
+        },
+        {
+          "id": "M3_024_X2",
+          "text": "Another member of Orchid Lab 24 enjoys listening to the viola.",
+          "time": "2025-04-24T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-025",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Eva play?",
+      "expected": [
+        "sitar"
+      ],
+      "required_ids": [
+        "M3_025_A",
+        "M3_025_B",
+        "M3_025_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_025_A",
+          "text": "Daphne Hale mentors Eva in a community program.",
+          "time": "2025-03-25T08:00:00Z"
+        },
+        {
+          "id": "M3_025_B",
+          "text": "Daphne Hale works closely with Isaac Reed at Orchid Lab 25.",
+          "time": "2025-03-25T10:00:00Z"
+        },
+        {
+          "id": "M3_025_C",
+          "text": "Isaac Reed plays the sitar in a local ensemble.",
+          "time": "2025-04-25T08:00:00Z"
+        },
+        {
+          "id": "M3_025_X1",
+          "text": "Nolan Pike also mentors someone named Eva at a different club.",
+          "time": "2025-03-25T11:00:00Z"
+        },
+        {
+          "id": "M3_025_X2",
+          "text": "Another member of Orchid Lab 25 enjoys listening to the clarinet.",
+          "time": "2025-04-25T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-026",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Milo's mentor?",
+      "expected": [
+        "tabla"
+      ],
+      "required_ids": [
+        "M3_026_A",
+        "M3_026_B",
+        "M3_026_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_026_A",
+          "text": "Elias Quill mentors Milo in a community program.",
+          "time": "2025-03-26T08:00:00Z"
+        },
+        {
+          "id": "M3_026_B",
+          "text": "Elias Quill works closely with Juniper Stone at Orchid Lab 26.",
+          "time": "2025-03-26T10:00:00Z"
+        },
+        {
+          "id": "M3_026_C",
+          "text": "Juniper Stone plays the tabla in a local ensemble.",
+          "time": "2025-04-26T08:00:00Z"
+        },
+        {
+          "id": "M3_026_X1",
+          "text": "Opal Wren also mentors someone named Milo at a different club.",
+          "time": "2025-03-26T11:00:00Z"
+        },
+        {
+          "id": "M3_026_X2",
+          "text": "Another member of Orchid Lab 26 enjoys listening to the trumpet.",
+          "time": "2025-04-26T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-027",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Zoe play?",
+      "expected": [
+        "recorder"
+      ],
+      "required_ids": [
+        "M3_027_A",
+        "M3_027_B",
+        "M3_027_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_027_A",
+          "text": "Fiona Morrow mentors Zoe in a community program.",
+          "time": "2025-03-27T08:00:00Z"
+        },
+        {
+          "id": "M3_027_B",
+          "text": "Fiona Morrow works closely with Kellan Blake at Orchid Lab 27.",
+          "time": "2025-03-27T10:00:00Z"
+        },
+        {
+          "id": "M3_027_C",
+          "text": "Kellan Blake plays the recorder in a local ensemble.",
+          "time": "2025-04-27T08:00:00Z"
+        },
+        {
+          "id": "M3_027_X1",
+          "text": "Piers Cross also mentors someone named Zoe at a different club.",
+          "time": "2025-03-27T11:00:00Z"
+        },
+        {
+          "id": "M3_027_X2",
+          "text": "Another member of Orchid Lab 27 enjoys listening to the harp.",
+          "time": "2025-04-27T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-028",
+      "family": "multi_hop_3",
+      "question": "What instrument does the colleague of the person who mentors Leo play?",
+      "expected": [
+        "harmonica"
+      ],
+      "required_ids": [
+        "M3_028_A",
+        "M3_028_B",
+        "M3_028_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_028_A",
+          "text": "Gideon Sage mentors Leo in a community program.",
+          "time": "2025-03-01T08:00:00Z"
+        },
+        {
+          "id": "M3_028_B",
+          "text": "Gideon Sage works closely with Leona North at Orchid Lab 28.",
+          "time": "2025-03-01T10:00:00Z"
+        },
+        {
+          "id": "M3_028_C",
+          "text": "Leona North plays the harmonica in a local ensemble.",
+          "time": "2025-04-01T08:00:00Z"
+        },
+        {
+          "id": "M3_028_X1",
+          "text": "Rina Hart also mentors someone named Leo at a different club.",
+          "time": "2025-03-01T11:00:00Z"
+        },
+        {
+          "id": "M3_028_X2",
+          "text": "Another member of Orchid Lab 28 enjoys listening to the flute.",
+          "time": "2025-04-01T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-029",
+      "family": "multi_hop_3",
+      "question": "Which instrument is played by the coworker of Maya's mentor?",
+      "expected": [
+        "organ"
+      ],
+      "required_ids": [
+        "M3_029_A",
+        "M3_029_B",
+        "M3_029_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_029_A",
+          "text": "Hazel Frost mentors Maya in a community program.",
+          "time": "2025-03-02T08:00:00Z"
+        },
+        {
+          "id": "M3_029_B",
+          "text": "Hazel Frost works closely with Marek Marsh at Orchid Lab 29.",
+          "time": "2025-03-02T10:00:00Z"
+        },
+        {
+          "id": "M3_029_C",
+          "text": "Marek Marsh plays the organ in a local ensemble.",
+          "time": "2025-04-02T08:00:00Z"
+        },
+        {
+          "id": "M3_029_X1",
+          "text": "Soren Dale also mentors someone named Maya at a different club.",
+          "time": "2025-03-02T11:00:00Z"
+        },
+        {
+          "id": "M3_029_X2",
+          "text": "Another member of Orchid Lab 29 enjoys listening to the bassoon.",
+          "time": "2025-04-02T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "M3-030",
+      "family": "multi_hop_3",
+      "question": "What does the work partner of the person mentoring Chen play?",
+      "expected": [
+        "piccolo"
+      ],
+      "required_ids": [
+        "M3_030_A",
+        "M3_030_B",
+        "M3_030_C"
+      ],
+      "memories": [
+        {
+          "id": "M3_030_A",
+          "text": "Ivo Lane mentors Chen in a community program.",
+          "time": "2025-03-03T08:00:00Z"
+        },
+        {
+          "id": "M3_030_B",
+          "text": "Ivo Lane works closely with Nina Pike at Orchid Lab 30.",
+          "time": "2025-03-03T10:00:00Z"
+        },
+        {
+          "id": "M3_030_C",
+          "text": "Nina Pike plays the piccolo in a local ensemble.",
+          "time": "2025-04-03T08:00:00Z"
+        },
+        {
+          "id": "M3_030_X1",
+          "text": "Tessa Fox also mentors someone named Chen at a different club.",
+          "time": "2025-03-03T11:00:00Z"
+        },
+        {
+          "id": "M3_030_X2",
+          "text": "Another member of Orchid Lab 30 enjoys listening to the mandolin.",
+          "time": "2025-04-03T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-001",
+      "family": "temporal",
+      "question": "What drink does Freya Sage currently prefer?",
+      "expected": [
+        "matcha"
+      ],
+      "required_ids": [
+        "T_001_C"
+      ],
+      "memories": [
+        {
+          "id": "T_001_A",
+          "text": "Freya Sage used to prefer coffee.",
+          "time": "2023-01-05T09:00:00Z"
+        },
+        {
+          "id": "T_001_B",
+          "text": "Last year Freya Sage was alternating between coffee and water.",
+          "time": "2024-01-05T09:00:00Z"
+        },
+        {
+          "id": "T_001_C",
+          "text": "Freya Sage now prefers matcha and usually orders it.",
+          "time": "2025-01-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "family": "temporal",
+      "question": "What is Gavin Frost's current preferred drink?",
+      "expected": [
+        "oolong tea"
+      ],
+      "required_ids": [
+        "T_002_C"
+      ],
+      "memories": [
+        {
+          "id": "T_002_A",
+          "text": "Gavin Frost used to prefer tea.",
+          "time": "2023-02-05T09:00:00Z"
+        },
+        {
+          "id": "T_002_B",
+          "text": "Last year Gavin Frost was alternating between tea and water.",
+          "time": "2024-02-05T09:00:00Z"
+        },
+        {
+          "id": "T_002_C",
+          "text": "Gavin Frost now prefers oolong tea and usually orders it.",
+          "time": "2025-02-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "family": "temporal",
+      "question": "What does Helena Lane prefer to drink now?",
+      "expected": [
+        "cranberry juice"
+      ],
+      "required_ids": [
+        "T_003_C"
+      ],
+      "memories": [
+        {
+          "id": "T_003_A",
+          "text": "Helena Lane used to prefer orange juice.",
+          "time": "2023-03-05T09:00:00Z"
+        },
+        {
+          "id": "T_003_B",
+          "text": "Last year Helena Lane was alternating between orange juice and water.",
+          "time": "2024-03-05T09:00:00Z"
+        },
+        {
+          "id": "T_003_C",
+          "text": "Helena Lane now prefers cranberry juice and usually orders it.",
+          "time": "2025-03-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-004",
+      "family": "temporal",
+      "question": "What drink does Isaac Reed currently prefer?",
+      "expected": [
+        "still water"
+      ],
+      "required_ids": [
+        "T_004_C"
+      ],
+      "memories": [
+        {
+          "id": "T_004_A",
+          "text": "Isaac Reed used to prefer sparkling water.",
+          "time": "2023-04-05T09:00:00Z"
+        },
+        {
+          "id": "T_004_B",
+          "text": "Last year Isaac Reed was alternating between sparkling water and water.",
+          "time": "2024-04-05T09:00:00Z"
+        },
+        {
+          "id": "T_004_C",
+          "text": "Isaac Reed now prefers still water and usually orders it.",
+          "time": "2025-04-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "family": "temporal",
+      "question": "What is Juniper Stone's current preferred drink?",
+      "expected": [
+        "mocha"
+      ],
+      "required_ids": [
+        "T_005_C"
+      ],
+      "memories": [
+        {
+          "id": "T_005_A",
+          "text": "Juniper Stone used to prefer cocoa.",
+          "time": "2023-05-05T09:00:00Z"
+        },
+        {
+          "id": "T_005_B",
+          "text": "Last year Juniper Stone was alternating between cocoa and water.",
+          "time": "2024-05-05T09:00:00Z"
+        },
+        {
+          "id": "T_005_C",
+          "text": "Juniper Stone now prefers mocha and usually orders it.",
+          "time": "2025-05-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-006",
+      "family": "temporal",
+      "question": "What does Kellan Blake prefer to drink now?",
+      "expected": [
+        "lime water"
+      ],
+      "required_ids": [
+        "T_006_C"
+      ],
+      "memories": [
+        {
+          "id": "T_006_A",
+          "text": "Kellan Blake used to prefer lemonade.",
+          "time": "2023-06-05T09:00:00Z"
+        },
+        {
+          "id": "T_006_B",
+          "text": "Last year Kellan Blake was alternating between lemonade and water.",
+          "time": "2024-06-05T09:00:00Z"
+        },
+        {
+          "id": "T_006_C",
+          "text": "Kellan Blake now prefers lime water and usually orders it.",
+          "time": "2025-06-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-007",
+      "family": "temporal",
+      "question": "What drink does Leona North currently prefer?",
+      "expected": [
+        "white tea"
+      ],
+      "required_ids": [
+        "T_007_C"
+      ],
+      "memories": [
+        {
+          "id": "T_007_A",
+          "text": "Leona North used to prefer green tea.",
+          "time": "2023-07-05T09:00:00Z"
+        },
+        {
+          "id": "T_007_B",
+          "text": "Last year Leona North was alternating between green tea and water.",
+          "time": "2024-07-05T09:00:00Z"
+        },
+        {
+          "id": "T_007_C",
+          "text": "Leona North now prefers white tea and usually orders it.",
+          "time": "2025-07-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-008",
+      "family": "temporal",
+      "question": "What is Marek Marsh's current preferred drink?",
+      "expected": [
+        "flat white"
+      ],
+      "required_ids": [
+        "T_008_C"
+      ],
+      "memories": [
+        {
+          "id": "T_008_A",
+          "text": "Marek Marsh used to prefer espresso.",
+          "time": "2023-08-05T09:00:00Z"
+        },
+        {
+          "id": "T_008_B",
+          "text": "Last year Marek Marsh was alternating between espresso and water.",
+          "time": "2024-08-05T09:00:00Z"
+        },
+        {
+          "id": "T_008_C",
+          "text": "Marek Marsh now prefers flat white and usually orders it.",
+          "time": "2025-08-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-009",
+      "family": "temporal",
+      "question": "What does Nina Pike prefer to drink now?",
+      "expected": [
+        "pear juice"
+      ],
+      "required_ids": [
+        "T_009_C"
+      ],
+      "memories": [
+        {
+          "id": "T_009_A",
+          "text": "Nina Pike used to prefer apple juice.",
+          "time": "2023-09-05T09:00:00Z"
+        },
+        {
+          "id": "T_009_B",
+          "text": "Last year Nina Pike was alternating between apple juice and water.",
+          "time": "2024-09-05T09:00:00Z"
+        },
+        {
+          "id": "T_009_C",
+          "text": "Nina Pike now prefers pear juice and usually orders it.",
+          "time": "2025-09-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-010",
+      "family": "temporal",
+      "question": "What drink does Orson Wren currently prefer?",
+      "expected": [
+        "tonic water"
+      ],
+      "required_ids": [
+        "T_010_C"
+      ],
+      "memories": [
+        {
+          "id": "T_010_A",
+          "text": "Orson Wren used to prefer mineral water.",
+          "time": "2023-10-05T09:00:00Z"
+        },
+        {
+          "id": "T_010_B",
+          "text": "Last year Orson Wren was alternating between mineral water and water.",
+          "time": "2024-10-05T09:00:00Z"
+        },
+        {
+          "id": "T_010_C",
+          "text": "Orson Wren now prefers tonic water and usually orders it.",
+          "time": "2025-10-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-011",
+      "family": "temporal",
+      "question": "What is Petra Cross's current preferred drink?",
+      "expected": [
+        "rooibos"
+      ],
+      "required_ids": [
+        "T_011_C"
+      ],
+      "memories": [
+        {
+          "id": "T_011_A",
+          "text": "Petra Cross used to prefer chai.",
+          "time": "2023-11-05T09:00:00Z"
+        },
+        {
+          "id": "T_011_B",
+          "text": "Last year Petra Cross was alternating between chai and water.",
+          "time": "2024-11-05T09:00:00Z"
+        },
+        {
+          "id": "T_011_C",
+          "text": "Petra Cross now prefers rooibos and usually orders it.",
+          "time": "2025-11-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-012",
+      "family": "temporal",
+      "question": "What does Quentin Hart prefer to drink now?",
+      "expected": [
+        "protein shakes"
+      ],
+      "required_ids": [
+        "T_012_C"
+      ],
+      "memories": [
+        {
+          "id": "T_012_A",
+          "text": "Quentin Hart used to prefer smoothies.",
+          "time": "2023-12-05T09:00:00Z"
+        },
+        {
+          "id": "T_012_B",
+          "text": "Last year Quentin Hart was alternating between smoothies and water.",
+          "time": "2024-12-05T09:00:00Z"
+        },
+        {
+          "id": "T_012_C",
+          "text": "Quentin Hart now prefers protein shakes and usually orders it.",
+          "time": "2025-12-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-013",
+      "family": "temporal",
+      "question": "What drink does Rhea Dale currently prefer?",
+      "expected": [
+        "earl grey"
+      ],
+      "required_ids": [
+        "T_013_C"
+      ],
+      "memories": [
+        {
+          "id": "T_013_A",
+          "text": "Rhea Dale used to prefer black tea.",
+          "time": "2023-01-05T09:00:00Z"
+        },
+        {
+          "id": "T_013_B",
+          "text": "Last year Rhea Dale was alternating between black tea and water.",
+          "time": "2024-01-05T09:00:00Z"
+        },
+        {
+          "id": "T_013_C",
+          "text": "Rhea Dale now prefers earl grey and usually orders it.",
+          "time": "2025-01-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-014",
+      "family": "temporal",
+      "question": "What is Silas Fox's current preferred drink?",
+      "expected": [
+        "peppermint tea"
+      ],
+      "required_ids": [
+        "T_014_C"
+      ],
+      "memories": [
+        {
+          "id": "T_014_A",
+          "text": "Silas Fox used to prefer herbal tea.",
+          "time": "2023-02-05T09:00:00Z"
+        },
+        {
+          "id": "T_014_B",
+          "text": "Last year Silas Fox was alternating between herbal tea and water.",
+          "time": "2024-02-05T09:00:00Z"
+        },
+        {
+          "id": "T_014_C",
+          "text": "Silas Fox now prefers peppermint tea and usually orders it.",
+          "time": "2025-02-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-015",
+      "family": "temporal",
+      "question": "What does Talia Grey prefer to drink now?",
+      "expected": [
+        "ginger ale"
+      ],
+      "required_ids": [
+        "T_015_C"
+      ],
+      "memories": [
+        {
+          "id": "T_015_A",
+          "text": "Talia Grey used to prefer cola.",
+          "time": "2023-03-05T09:00:00Z"
+        },
+        {
+          "id": "T_015_B",
+          "text": "Last year Talia Grey was alternating between cola and water.",
+          "time": "2024-03-05T09:00:00Z"
+        },
+        {
+          "id": "T_015_C",
+          "text": "Talia Grey now prefers ginger ale and usually orders it.",
+          "time": "2025-03-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-016",
+      "family": "temporal",
+      "question": "What drink does Ulric Shaw currently prefer?",
+      "expected": [
+        "oat milk"
+      ],
+      "required_ids": [
+        "T_016_C"
+      ],
+      "memories": [
+        {
+          "id": "T_016_A",
+          "text": "Ulric Shaw used to prefer milk.",
+          "time": "2023-04-05T09:00:00Z"
+        },
+        {
+          "id": "T_016_B",
+          "text": "Last year Ulric Shaw was alternating between milk and water.",
+          "time": "2024-04-05T09:00:00Z"
+        },
+        {
+          "id": "T_016_C",
+          "text": "Ulric Shaw now prefers oat milk and usually orders it.",
+          "time": "2025-04-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-017",
+      "family": "temporal",
+      "question": "What is Vera Lake's current preferred drink?",
+      "expected": [
+        "cappuccino"
+      ],
+      "required_ids": [
+        "T_017_C"
+      ],
+      "memories": [
+        {
+          "id": "T_017_A",
+          "text": "Vera Lake used to prefer latte.",
+          "time": "2023-05-05T09:00:00Z"
+        },
+        {
+          "id": "T_017_B",
+          "text": "Last year Vera Lake was alternating between latte and water.",
+          "time": "2024-05-05T09:00:00Z"
+        },
+        {
+          "id": "T_017_C",
+          "text": "Vera Lake now prefers cappuccino and usually orders it.",
+          "time": "2025-05-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-018",
+      "family": "temporal",
+      "question": "What does Wesley West prefer to drink now?",
+      "expected": [
+        "coconut water"
+      ],
+      "required_ids": [
+        "T_018_C"
+      ],
+      "memories": [
+        {
+          "id": "T_018_A",
+          "text": "Wesley West used to prefer water.",
+          "time": "2023-06-05T09:00:00Z"
+        },
+        {
+          "id": "T_018_B",
+          "text": "Last year Wesley West was alternating between water and water.",
+          "time": "2024-06-05T09:00:00Z"
+        },
+        {
+          "id": "T_018_C",
+          "text": "Wesley West now prefers coconut water and usually orders it.",
+          "time": "2025-06-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-019",
+      "family": "temporal",
+      "question": "What drink does Xenia Bloom currently prefer?",
+      "expected": [
+        "jasmine tea"
+      ],
+      "required_ids": [
+        "T_019_C"
+      ],
+      "memories": [
+        {
+          "id": "T_019_A",
+          "text": "Xenia Bloom used to prefer ginger tea.",
+          "time": "2023-07-05T09:00:00Z"
+        },
+        {
+          "id": "T_019_B",
+          "text": "Last year Xenia Bloom was alternating between ginger tea and water.",
+          "time": "2024-07-05T09:00:00Z"
+        },
+        {
+          "id": "T_019_C",
+          "text": "Xenia Bloom now prefers jasmine tea and usually orders it.",
+          "time": "2025-07-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-020",
+      "family": "temporal",
+      "question": "What is Yara Snow's current preferred drink?",
+      "expected": [
+        "pineapple juice"
+      ],
+      "required_ids": [
+        "T_020_C"
+      ],
+      "memories": [
+        {
+          "id": "T_020_A",
+          "text": "Yara Snow used to prefer grape juice.",
+          "time": "2023-08-05T09:00:00Z"
+        },
+        {
+          "id": "T_020_B",
+          "text": "Last year Yara Snow was alternating between grape juice and water.",
+          "time": "2024-08-05T09:00:00Z"
+        },
+        {
+          "id": "T_020_C",
+          "text": "Yara Snow now prefers pineapple juice and usually orders it.",
+          "time": "2025-08-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-021",
+      "family": "temporal",
+      "question": "What does Zane Field prefer to drink now?",
+      "expected": [
+        "kombucha"
+      ],
+      "required_ids": [
+        "T_021_C"
+      ],
+      "memories": [
+        {
+          "id": "T_021_A",
+          "text": "Zane Field used to prefer soda.",
+          "time": "2023-09-05T09:00:00Z"
+        },
+        {
+          "id": "T_021_B",
+          "text": "Last year Zane Field was alternating between soda and water.",
+          "time": "2024-09-05T09:00:00Z"
+        },
+        {
+          "id": "T_021_C",
+          "text": "Zane Field now prefers kombucha and usually orders it.",
+          "time": "2025-09-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-022",
+      "family": "temporal",
+      "question": "What drink does Amara Vale currently prefer?",
+      "expected": [
+        "cocoa"
+      ],
+      "required_ids": [
+        "T_022_C"
+      ],
+      "memories": [
+        {
+          "id": "T_022_A",
+          "text": "Amara Vale used to prefer hot chocolate.",
+          "time": "2023-10-05T09:00:00Z"
+        },
+        {
+          "id": "T_022_B",
+          "text": "Last year Amara Vale was alternating between hot chocolate and water.",
+          "time": "2024-10-05T09:00:00Z"
+        },
+        {
+          "id": "T_022_C",
+          "text": "Amara Vale now prefers cocoa and usually orders it.",
+          "time": "2025-10-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-023",
+      "family": "temporal",
+      "question": "What is Bennett Rowan's current preferred drink?",
+      "expected": [
+        "cold brew"
+      ],
+      "required_ids": [
+        "T_023_C"
+      ],
+      "memories": [
+        {
+          "id": "T_023_A",
+          "text": "Bennett Rowan used to prefer iced tea.",
+          "time": "2023-11-05T09:00:00Z"
+        },
+        {
+          "id": "T_023_B",
+          "text": "Last year Bennett Rowan was alternating between iced tea and water.",
+          "time": "2024-11-05T09:00:00Z"
+        },
+        {
+          "id": "T_023_C",
+          "text": "Bennett Rowan now prefers cold brew and usually orders it.",
+          "time": "2025-11-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "T-024",
+      "family": "temporal",
+      "question": "What does Celine Hale prefer to drink now?",
+      "expected": [
+        "sencha"
+      ],
+      "required_ids": [
+        "T_024_C"
+      ],
+      "memories": [
+        {
+          "id": "T_024_A",
+          "text": "Celine Hale used to prefer matcha.",
+          "time": "2023-12-05T09:00:00Z"
+        },
+        {
+          "id": "T_024_B",
+          "text": "Last year Celine Hale was alternating between matcha and water.",
+          "time": "2024-12-05T09:00:00Z"
+        },
+        {
+          "id": "T_024_C",
+          "text": "Celine Hale now prefers sencha and usually orders it.",
+          "time": "2025-12-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-001",
+      "family": "semantic_mismatch",
+      "question": "What occupation does Ximena West have?",
+      "expected": [
+        "pediatrician",
+        "doctor"
+      ],
+      "required_ids": [
+        "S_001_A"
+      ],
+      "memories": [
+        {
+          "id": "S_001_A",
+          "text": "Ximena West works as a pediatrician at a neighborhood organization.",
+          "time": "2025-05-01T09:00:00Z"
+        },
+        {
+          "id": "S_001_X",
+          "text": "Kellan Blake recently mentioned pediatrician in an unrelated conversation.",
+          "time": "2025-05-01T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-002",
+      "family": "semantic_mismatch",
+      "question": "What kind of work does Yvette Bloom do?",
+      "expected": [
+        "carpenter",
+        "carpentry"
+      ],
+      "required_ids": [
+        "S_002_A"
+      ],
+      "memories": [
+        {
+          "id": "S_002_A",
+          "text": "Yvette Bloom earns a living as a carpenter.",
+          "time": "2025-05-02T09:00:00Z"
+        },
+        {
+          "id": "S_002_X",
+          "text": "Leona North recently mentioned carpenter in an unrelated conversation.",
+          "time": "2025-05-02T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-003",
+      "family": "semantic_mismatch",
+      "question": "What is Zora Snow's profession?",
+      "expected": [
+        "paramedic"
+      ],
+      "required_ids": [
+        "S_003_A"
+      ],
+      "memories": [
+        {
+          "id": "S_003_A",
+          "text": "Zora Snow's day job is as a paramedic.",
+          "time": "2025-05-03T09:00:00Z"
+        },
+        {
+          "id": "S_003_X",
+          "text": "Marek Marsh recently mentioned paramedic in an unrelated conversation.",
+          "time": "2025-05-03T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-004",
+      "family": "semantic_mismatch",
+      "question": "What occupation does Arden Field have?",
+      "expected": [
+        "architect"
+      ],
+      "required_ids": [
+        "S_004_A"
+      ],
+      "memories": [
+        {
+          "id": "S_004_A",
+          "text": "Arden Field works as a architect at a neighborhood organization.",
+          "time": "2025-05-04T09:00:00Z"
+        },
+        {
+          "id": "S_004_X",
+          "text": "Nina Pike recently mentioned architect in an unrelated conversation.",
+          "time": "2025-05-04T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-005",
+      "family": "semantic_mismatch",
+      "question": "What kind of work does Blaire Vale do?",
+      "expected": [
+        "librarian"
+      ],
+      "required_ids": [
+        "S_005_A"
+      ],
+      "memories": [
+        {
+          "id": "S_005_A",
+          "text": "Blaire Vale earns a living as a librarian.",
+          "time": "2025-05-05T09:00:00Z"
+        },
+        {
+          "id": "S_005_X",
+          "text": "Orson Wren recently mentioned librarian in an unrelated conversation.",
+          "time": "2025-05-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-006",
+      "family": "semantic_mismatch",
+      "question": "What is Corin Rowan's profession?",
+      "expected": [
+        "mechanic"
+      ],
+      "required_ids": [
+        "S_006_A"
+      ],
+      "memories": [
+        {
+          "id": "S_006_A",
+          "text": "Corin Rowan's day job is as a mechanic.",
+          "time": "2025-05-06T09:00:00Z"
+        },
+        {
+          "id": "S_006_X",
+          "text": "Petra Cross recently mentioned mechanic in an unrelated conversation.",
+          "time": "2025-05-06T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-007",
+      "family": "semantic_mismatch",
+      "question": "What occupation does Daphne Hale have?",
+      "expected": [
+        "chemist"
+      ],
+      "required_ids": [
+        "S_007_A"
+      ],
+      "memories": [
+        {
+          "id": "S_007_A",
+          "text": "Daphne Hale works as a chemist at a neighborhood organization.",
+          "time": "2025-05-07T09:00:00Z"
+        },
+        {
+          "id": "S_007_X",
+          "text": "Quentin Hart recently mentioned chemist in an unrelated conversation.",
+          "time": "2025-05-07T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-008",
+      "family": "semantic_mismatch",
+      "question": "What kind of work does Elias Quill do?",
+      "expected": [
+        "journalist"
+      ],
+      "required_ids": [
+        "S_008_A"
+      ],
+      "memories": [
+        {
+          "id": "S_008_A",
+          "text": "Elias Quill earns a living as a journalist.",
+          "time": "2025-05-08T09:00:00Z"
+        },
+        {
+          "id": "S_008_X",
+          "text": "Rhea Dale recently mentioned journalist in an unrelated conversation.",
+          "time": "2025-05-08T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-009",
+      "family": "semantic_mismatch",
+      "question": "How does Fiona Morrow usually get to the office?",
+      "expected": [
+        "bicycle",
+        "bike"
+      ],
+      "required_ids": [
+        "S_009_A"
+      ],
+      "memories": [
+        {
+          "id": "S_009_A",
+          "text": "For commuting, Fiona Morrow usually takes the bicycle.",
+          "time": "2025-05-09T09:00:00Z"
+        },
+        {
+          "id": "S_009_X",
+          "text": "Silas Fox recently mentioned bicycle in an unrelated conversation.",
+          "time": "2025-05-09T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-010",
+      "family": "semantic_mismatch",
+      "question": "How does Gideon Sage usually commute?",
+      "expected": [
+        "subway",
+        "metro"
+      ],
+      "required_ids": [
+        "S_010_A"
+      ],
+      "memories": [
+        {
+          "id": "S_010_A",
+          "text": "Gideon Sage uses the subway for the daily trip to work.",
+          "time": "2025-05-10T09:00:00Z"
+        },
+        {
+          "id": "S_010_X",
+          "text": "Talia Grey recently mentioned subway in an unrelated conversation.",
+          "time": "2025-05-10T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-011",
+      "family": "semantic_mismatch",
+      "question": "What transport does Hazel Frost normally use for work?",
+      "expected": [
+        "tram"
+      ],
+      "required_ids": [
+        "S_011_A"
+      ],
+      "memories": [
+        {
+          "id": "S_011_A",
+          "text": "Hazel Frost normally travels to the office by tram.",
+          "time": "2025-05-11T09:00:00Z"
+        },
+        {
+          "id": "S_011_X",
+          "text": "Ulric Shaw recently mentioned tram in an unrelated conversation.",
+          "time": "2025-05-11T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-012",
+      "family": "semantic_mismatch",
+      "question": "How does Ivo Lane usually get to the office?",
+      "expected": [
+        "ferry"
+      ],
+      "required_ids": [
+        "S_012_A"
+      ],
+      "memories": [
+        {
+          "id": "S_012_A",
+          "text": "For commuting, Ivo Lane usually takes the ferry.",
+          "time": "2025-05-12T09:00:00Z"
+        },
+        {
+          "id": "S_012_X",
+          "text": "Vera Lake recently mentioned ferry in an unrelated conversation.",
+          "time": "2025-05-12T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-013",
+      "family": "semantic_mismatch",
+      "question": "How does Jessa Reed usually commute?",
+      "expected": [
+        "scooter"
+      ],
+      "required_ids": [
+        "S_013_A"
+      ],
+      "memories": [
+        {
+          "id": "S_013_A",
+          "text": "Jessa Reed uses the scooter for the daily trip to work.",
+          "time": "2025-05-13T09:00:00Z"
+        },
+        {
+          "id": "S_013_X",
+          "text": "Wesley West recently mentioned scooter in an unrelated conversation.",
+          "time": "2025-05-13T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-014",
+      "family": "semantic_mismatch",
+      "question": "What transport does Keira Stone normally use for work?",
+      "expected": [
+        "train"
+      ],
+      "required_ids": [
+        "S_014_A"
+      ],
+      "memories": [
+        {
+          "id": "S_014_A",
+          "text": "Keira Stone normally travels to the office by train.",
+          "time": "2025-05-14T09:00:00Z"
+        },
+        {
+          "id": "S_014_X",
+          "text": "Xenia Bloom recently mentioned train in an unrelated conversation.",
+          "time": "2025-05-14T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-015",
+      "family": "semantic_mismatch",
+      "question": "How does Lars Blake usually get to the office?",
+      "expected": [
+        "bus"
+      ],
+      "required_ids": [
+        "S_015_A"
+      ],
+      "memories": [
+        {
+          "id": "S_015_A",
+          "text": "For commuting, Lars Blake usually takes the bus.",
+          "time": "2025-05-15T09:00:00Z"
+        },
+        {
+          "id": "S_015_X",
+          "text": "Yara Snow recently mentioned bus in an unrelated conversation.",
+          "time": "2025-05-15T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "S-016",
+      "family": "semantic_mismatch",
+      "question": "How does Mira North usually commute?",
+      "expected": [
+        "motorcycle",
+        "motorbike"
+      ],
+      "required_ids": [
+        "S_016_A"
+      ],
+      "memories": [
+        {
+          "id": "S_016_A",
+          "text": "Mira North uses the motorcycle for the daily trip to work.",
+          "time": "2025-05-16T09:00:00Z"
+        },
+        {
+          "id": "S_016_X",
+          "text": "Zane Field recently mentioned motorcycle in an unrelated conversation.",
+          "time": "2025-05-16T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-001",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Cedar live in?",
+      "expected": [
+        "warsaw"
+      ],
+      "required_ids": [
+        "C_001_A",
+        "C_001_B"
+      ],
+      "memories": [
+        {
+          "id": "C_001_A",
+          "text": "Marek Marsh manages Team Cedar.",
+          "time": "2025-06-01T09:00:00Z"
+        },
+        {
+          "id": "C_001_B",
+          "text": "Marek Marsh lives in Warsaw.",
+          "time": "2025-06-01T10:00:00Z"
+        },
+        {
+          "id": "C_001_X1",
+          "text": "Rina Hart manages Team Maple.",
+          "time": "2025-06-01T09:30:00Z"
+        },
+        {
+          "id": "C_001_X2",
+          "text": "Rina Hart recently traveled through Warsaw.",
+          "time": "2025-06-01T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-002",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Maple live in?",
+      "expected": [
+        "athens"
+      ],
+      "required_ids": [
+        "C_002_A",
+        "C_002_B"
+      ],
+      "memories": [
+        {
+          "id": "C_002_A",
+          "text": "Nina Pike manages Team Maple.",
+          "time": "2025-06-02T09:00:00Z"
+        },
+        {
+          "id": "C_002_B",
+          "text": "Nina Pike lives in Athens.",
+          "time": "2025-06-02T10:00:00Z"
+        },
+        {
+          "id": "C_002_X1",
+          "text": "Soren Dale manages Team Quartz.",
+          "time": "2025-06-02T09:30:00Z"
+        },
+        {
+          "id": "C_002_X2",
+          "text": "Soren Dale recently traveled through Athens.",
+          "time": "2025-06-02T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-003",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Quartz live in?",
+      "expected": [
+        "madrid"
+      ],
+      "required_ids": [
+        "C_003_A",
+        "C_003_B"
+      ],
+      "memories": [
+        {
+          "id": "C_003_A",
+          "text": "Orson Wren manages Team Quartz.",
+          "time": "2025-06-03T09:00:00Z"
+        },
+        {
+          "id": "C_003_B",
+          "text": "Orson Wren lives in Madrid.",
+          "time": "2025-06-03T10:00:00Z"
+        },
+        {
+          "id": "C_003_X1",
+          "text": "Tessa Fox manages Team Harbor.",
+          "time": "2025-06-03T09:30:00Z"
+        },
+        {
+          "id": "C_003_X2",
+          "text": "Tessa Fox recently traveled through Madrid.",
+          "time": "2025-06-03T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-004",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Harbor live in?",
+      "expected": [
+        "lima"
+      ],
+      "required_ids": [
+        "C_004_A",
+        "C_004_B"
+      ],
+      "memories": [
+        {
+          "id": "C_004_A",
+          "text": "Petra Cross manages Team Harbor.",
+          "time": "2025-06-04T09:00:00Z"
+        },
+        {
+          "id": "C_004_B",
+          "text": "Petra Cross lives in Lima.",
+          "time": "2025-06-04T10:00:00Z"
+        },
+        {
+          "id": "C_004_X1",
+          "text": "Uri Grey manages Team Nimbus.",
+          "time": "2025-06-04T09:30:00Z"
+        },
+        {
+          "id": "C_004_X2",
+          "text": "Uri Grey recently traveled through Lima.",
+          "time": "2025-06-04T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-005",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Nimbus live in?",
+      "expected": [
+        "quito"
+      ],
+      "required_ids": [
+        "C_005_A",
+        "C_005_B"
+      ],
+      "memories": [
+        {
+          "id": "C_005_A",
+          "text": "Quentin Hart manages Team Nimbus.",
+          "time": "2025-06-05T09:00:00Z"
+        },
+        {
+          "id": "C_005_B",
+          "text": "Quentin Hart lives in Quito.",
+          "time": "2025-06-05T10:00:00Z"
+        },
+        {
+          "id": "C_005_X1",
+          "text": "Viola Shaw manages Team Pine.",
+          "time": "2025-06-05T09:30:00Z"
+        },
+        {
+          "id": "C_005_X2",
+          "text": "Viola Shaw recently traveled through Quito.",
+          "time": "2025-06-05T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-006",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Pine live in?",
+      "expected": [
+        "riga"
+      ],
+      "required_ids": [
+        "C_006_A",
+        "C_006_B"
+      ],
+      "memories": [
+        {
+          "id": "C_006_A",
+          "text": "Rhea Dale manages Team Pine.",
+          "time": "2025-06-06T09:00:00Z"
+        },
+        {
+          "id": "C_006_B",
+          "text": "Rhea Dale lives in Riga.",
+          "time": "2025-06-06T10:00:00Z"
+        },
+        {
+          "id": "C_006_X1",
+          "text": "Wyatt Lake manages Team Delta.",
+          "time": "2025-06-06T09:30:00Z"
+        },
+        {
+          "id": "C_006_X2",
+          "text": "Wyatt Lake recently traveled through Riga.",
+          "time": "2025-06-06T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-007",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Delta live in?",
+      "expected": [
+        "sofia"
+      ],
+      "required_ids": [
+        "C_007_A",
+        "C_007_B"
+      ],
+      "memories": [
+        {
+          "id": "C_007_A",
+          "text": "Silas Fox manages Team Delta.",
+          "time": "2025-06-07T09:00:00Z"
+        },
+        {
+          "id": "C_007_B",
+          "text": "Silas Fox lives in Sofia.",
+          "time": "2025-06-07T10:00:00Z"
+        },
+        {
+          "id": "C_007_X1",
+          "text": "Ximena West manages Team Amber.",
+          "time": "2025-06-07T09:30:00Z"
+        },
+        {
+          "id": "C_007_X2",
+          "text": "Ximena West recently traveled through Sofia.",
+          "time": "2025-06-07T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-008",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Amber live in?",
+      "expected": [
+        "bergen"
+      ],
+      "required_ids": [
+        "C_008_A",
+        "C_008_B"
+      ],
+      "memories": [
+        {
+          "id": "C_008_A",
+          "text": "Talia Grey manages Team Amber.",
+          "time": "2025-06-08T09:00:00Z"
+        },
+        {
+          "id": "C_008_B",
+          "text": "Talia Grey lives in Bergen.",
+          "time": "2025-06-08T10:00:00Z"
+        },
+        {
+          "id": "C_008_X1",
+          "text": "Yvette Bloom manages Team Cobalt.",
+          "time": "2025-06-08T09:30:00Z"
+        },
+        {
+          "id": "C_008_X2",
+          "text": "Yvette Bloom recently traveled through Bergen.",
+          "time": "2025-06-08T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-009",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Cobalt live in?",
+      "expected": [
+        "naples"
+      ],
+      "required_ids": [
+        "C_009_A",
+        "C_009_B"
+      ],
+      "memories": [
+        {
+          "id": "C_009_A",
+          "text": "Ulric Shaw manages Team Cobalt.",
+          "time": "2025-06-09T09:00:00Z"
+        },
+        {
+          "id": "C_009_B",
+          "text": "Ulric Shaw lives in Naples.",
+          "time": "2025-06-09T10:00:00Z"
+        },
+        {
+          "id": "C_009_X1",
+          "text": "Zora Snow manages Team Willow.",
+          "time": "2025-06-09T09:30:00Z"
+        },
+        {
+          "id": "C_009_X2",
+          "text": "Zora Snow recently traveled through Naples.",
+          "time": "2025-06-09T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "C-010",
+      "family": "entity_collision",
+      "question": "What city does the manager of Team Willow live in?",
+      "expected": [
+        "turin"
+      ],
+      "required_ids": [
+        "C_010_A",
+        "C_010_B"
+      ],
+      "memories": [
+        {
+          "id": "C_010_A",
+          "text": "Vera Lake manages Team Willow.",
+          "time": "2025-06-10T09:00:00Z"
+        },
+        {
+          "id": "C_010_B",
+          "text": "Vera Lake lives in Turin.",
+          "time": "2025-06-10T10:00:00Z"
+        },
+        {
+          "id": "C_010_X1",
+          "text": "Arden Field manages Team Cedar.",
+          "time": "2025-06-10T09:30:00Z"
+        },
+        {
+          "id": "C_010_X2",
+          "text": "Arden Field recently traveled through Turin.",
+          "time": "2025-06-10T10:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-001",
+      "family": "boundary",
+      "question": "What is Pavel Wren's favorite movie?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_001_A",
+          "text": "Pavel Wren enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-01T09:00:00Z"
+        },
+        {
+          "id": "B_001_X",
+          "text": "Pavel Wren mentioned a rainy afternoon at the library.",
+          "time": "2025-07-01T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-002",
+      "family": "boundary",
+      "question": "What city was Reese Cross born in?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_002_A",
+          "text": "Reese Cross enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-02T09:00:00Z"
+        },
+        {
+          "id": "B_002_X",
+          "text": "Reese Cross mentioned a rainy afternoon at the library.",
+          "time": "2025-07-02T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-003",
+      "family": "boundary",
+      "question": "What is Sasha Hart's favorite dessert?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_003_A",
+          "text": "Sasha Hart enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-03T09:00:00Z"
+        },
+        {
+          "id": "B_003_X",
+          "text": "Sasha Hart mentioned a rainy afternoon at the library.",
+          "time": "2025-07-03T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-004",
+      "family": "boundary",
+      "question": "What is Tobin Dale's shoe size?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_004_A",
+          "text": "Tobin Dale enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-04T09:00:00Z"
+        },
+        {
+          "id": "B_004_X",
+          "text": "Tobin Dale mentioned a rainy afternoon at the library.",
+          "time": "2025-07-04T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-005",
+      "family": "boundary",
+      "question": "What is Una Fox's first teacher?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_005_A",
+          "text": "Una Fox enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-05T09:00:00Z"
+        },
+        {
+          "id": "B_005_X",
+          "text": "Una Fox mentioned a rainy afternoon at the library.",
+          "time": "2025-07-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-006",
+      "family": "boundary",
+      "question": "What is Vince Grey's passport number?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_006_A",
+          "text": "Vince Grey enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-06T09:00:00Z"
+        },
+        {
+          "id": "B_006_X",
+          "text": "Vince Grey mentioned a rainy afternoon at the library.",
+          "time": "2025-07-06T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-007",
+      "family": "boundary",
+      "question": "What is Willa Shaw's favorite poem?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_007_A",
+          "text": "Willa Shaw enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-07T09:00:00Z"
+        },
+        {
+          "id": "B_007_X",
+          "text": "Willa Shaw mentioned a rainy afternoon at the library.",
+          "time": "2025-07-07T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-008",
+      "family": "boundary",
+      "question": "What is Xavier Lake's childhood nickname?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_008_A",
+          "text": "Xavier Lake enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-08T09:00:00Z"
+        },
+        {
+          "id": "B_008_X",
+          "text": "Xavier Lake mentioned a rainy afternoon at the library.",
+          "time": "2025-07-08T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-009",
+      "family": "boundary",
+      "question": "What is Yvonne West's blood type?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_009_A",
+          "text": "Yvonne West enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-09T09:00:00Z"
+        },
+        {
+          "id": "B_009_X",
+          "text": "Yvonne West mentioned a rainy afternoon at the library.",
+          "time": "2025-07-09T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "B-010",
+      "family": "boundary",
+      "question": "What is Zelda Bloom's favorite painting?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "B_010_A",
+          "text": "Zelda Bloom enjoys weekend walks and recently bought a desk lamp.",
+          "time": "2025-07-10T09:00:00Z"
+        },
+        {
+          "id": "B_010_X",
+          "text": "Zelda Bloom mentioned a rainy afternoon at the library.",
+          "time": "2025-07-10T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

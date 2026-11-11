@@ -1,0 +1,161 @@
+# E2 Confirmatory Pre-freeze Status — 2026-10-29
+
+Status: **HEALTHY HOLD / CONFIRMATORY EXECUTION FORBIDDEN**
+
+## Live scientific state
+
+The full nonpromotional pilot phase has produced and closed its direct research tracks R47/R48/R49/R50 under independent E1 review. LongMemEval has 46/46 committed paid pilot cases. The HaluMem semantic-transition canary has 16/16 committed paid pilot cases.
+
+A separate confirmatory protocol is **not yet frozen** and no confirmatory call is authorized.
+
+## Anti-peeking state
+
+Independent Auditor pre-freeze audit and the Lead pre-freeze doctor agree:
+
+- LongMemEval confirmatory membership: 454 cases
+- HaluMem confirmatory membership: 18 users across Medium and Long
+- governed paid LongMemEval confirmatory hits: **0**
+- governed paid HaluMem confirmatory UUID/prefix hits: **0**
+- benchmark RESERVED: **0**
+- benchmark UNKNOWN: **0**
+
+The independent audit decision is **HOLD_CONFIRMATORY**, because untouched membership alone is not execution authorization.
+
+Tracked audit evidence:
+- `governance/confirmatory_frozen/PREFREEZE_AUDIT_V1_HOLD.json`
+- `governance/confirmatory_frozen/PREFREEZE_AUDIT_V1_RECEIPT.json`
+
+A final independent re-audit of the exact v2 freeze is still mandatory after all remaining blockers close.
+
+## Exact accepted implementation bytes promoted to tracked freeze candidates
+
+`governance/confirmatory_frozen/` now contains exact accepted bytes:
+
+- R47 open-domain store: `44d41231dae573dbc360b62a8144ebe4b929808a72dc7197705ee26a704092f9`
+- R48 FTS5 retrieval v4: `d1c0589e43a4f06fc8ac6c70cc53ab31e478fb313e4d3435251bcc515987b57c`
+- R49 atomic confirmed transition: `43c10d8a90bc463b3101c7116027ed9cfcef7c8e4c3dbe8d081ab4d4942aadc7`
+- R50 typed consumer v2: `2c525df8f06ebff99cad5dbcbd7892226e093cdcd28dfdf7830ab18650b89222`
+- R50 typed contract v2: `090ab7e2cec9af37cc80b503a7de2bcdb9918d206e56f5c747961bc9ba8bb191`
+
+All four implementation tracks have independent ACCEPT_E1 reviews by the established independent Auditor.
+
+Machine-readable binding:
+`governance/E2_CONFIRMATORY_IMPLEMENTATION_BINDINGS.json`
+
+## Newly discovered integration blocker — R51
+
+R48 and R50 are individually accepted but are **not an executable composition by themselves**.
+
+R50 explicitly expects caller-owned typed inputs such as:
+- operation;
+- state_key;
+- required_bindings;
+- timezone-aware effective_at;
+- typed admitted events.
+
+R50 also explicitly forbids performing retrieval or semantic inference itself.
+
+No previously tracked P1/P2 component supplied the raw-question + admitted-evidence -> R50 typed-contract bridge without using evaluator metadata.
+
+Therefore Lead opened exactly one new backlog item:
+
+**R51 — reasoning.longmemeval.semantic_binding**
+
+Hard exclusions:
+- no `question_type`;
+- no gold / answer / answer_session_ids;
+- no confirmatory case read;
+- no new LongMemEval paid call;
+- no modification of exact R48/R50 bytes.
+
+Research A retains its original identity:
+`fish_re_a_20261026_t04_9b72`
+
+Current R51 lease:
+`fish-791f94464c6b4a30`
+
+A separate independent Auditor has also opened a narrow trusted-time-interface audit because R48's retrieval representation may not carry the timezone-aware `effective_at` required by R50. This is treated as a real integration question, not bypassed by benchmark metadata.
+
+Research B remains inactive.
+
+## Confirmatory protocol candidate v2
+
+New non-executable candidate:
+`governance/E2_CONFIRMATORY_PROTOCOL_CANDIDATE_V2.json`
+
+Status:
+**BLOCKED_PREFREEZE**
+
+LongMemEval candidate composition:
+
+`R48 retrieval -> R51 semantic binder -> R50 deterministic consumer when typed operation is supported; otherwise frozen strict context-answer path`
+
+Routing by benchmark `question_type` or gold-derived evaluator metadata is forbidden.
+
+### LongMemEval quantitative thresholds
+
+The immutable original paid pilot achieved 12/46 normalized exact = 0.26087.
+
+Primary confirmatory threshold:
+
+- normalized exact >= **0.38**
+
+Basis:
+- one-sided 90% Wilson upper bound of the original 12/46 pilot = 0.37849;
+- threshold is rounded upward to 0.38;
+- thus confirmatory must clear the original pilot's upper uncertainty bound rather than merely exceed its point estimate.
+
+Non-regression diagnostics:
+- mean token-F1 >= original pilot 0.34981;
+- answer-session-hit@7 >= original pilot 0.69565.
+
+Structural authority/admissibility failures remain zero-tolerance.
+
+### HaluMem
+
+Official HaluMem evaluation code and public baseline table are pinned to the public repository revision:
+`d653749586bfc7d13f5b68e8851f52155b5b1650`
+
+Tracked reference:
+`governance/HALUMEM_EXTERNAL_BASELINE_SNAPSHOT.json`
+
+The official evaluation is LLM-judge based. The repository documents a reference evaluation config using GPT-4o with temperature 0.0, but the final confirmatory judge/comparability contract is not yet frozen. Therefore external median scores are retained as **reference lines only**, not yet promotion thresholds.
+
+This avoids comparing scores generated by non-equivalent judges.
+
+## R49 destructive boundary
+
+The accepted R49 atomic confirmation wrapper remains the destructive transition entrypoint.
+
+Independent post-accept recheck:
+- strong public destructive cases: 16
+- componentized/authorized: 14
+- still unbound: 2
+- lexical controls: 16/16
+- ambiguous controls: 16/16 fail closed
+
+The two unbound cases are not converted into mutations. A confirmatory runner must treat missing/ambiguous binding as non-confirmable, preserving the accepted confirmation boundary.
+
+## Current blockers
+
+1. R51 semantic binding must reach independent ACCEPT_E1.
+2. Exact integrated LME confirmatory runner must be tracked and hash-frozen.
+3. HaluMem final judge/scorer/comparability rule must be frozen.
+4. Exact HaluMem confirmatory runner must be bound to R47/R49 and scorer semantics.
+5. After 1–4 close, an independent Auditor must re-audit the **exact v2 bytes** and return READY.
+6. Only then may a separate confirmatory execution freeze record be created.
+
+No item above may be inferred from an earlier ACCEPT_E1 alone.
+
+## Machine check
+
+`py -3.11 governance/e2_confirmatory_prefreeze_doctor.py`
+
+Current expected result:
+- errors: 0
+- healthy: true
+- freeze_allowed: false
+- confirmatory_execution_allowed: false
+- e2_claim_allowed: false
+
+This is the intended state while R51 and final execution/scorer bindings remain open.

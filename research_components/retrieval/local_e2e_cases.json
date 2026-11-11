@@ -1,0 +1,526 @@
+{
+  "schema": "xiaoyu-retrieval-fastlane-local-e2e-v1",
+  "created_at": "2026-11-02T13:25:00+08:00",
+  "role": "LOCAL_SYNTHETIC_PRODUCT_SHAPED_E2E_ONLY",
+  "context_cap": 20,
+  "notes": "Fixed local gate. Not external benchmark. Research candidates may inspect this fixture, but external-200 remains untouched until E0 audit PASS.",
+  "distractors": [
+    {
+      "id": "d01",
+      "text": "Daria started growing tomatoes on her balcony.",
+      "time": "2025-01-02T10:00:00Z"
+    },
+    {
+      "id": "d02",
+      "text": "Felix prefers black tea in the afternoon.",
+      "time": "2025-01-03T10:00:00Z"
+    },
+    {
+      "id": "d03",
+      "text": "Greta repaired an old wooden chair.",
+      "time": "2025-01-04T10:00:00Z"
+    },
+    {
+      "id": "d04",
+      "text": "Hugo visited a museum about ancient ships.",
+      "time": "2025-01-05T10:00:00Z"
+    },
+    {
+      "id": "d05",
+      "text": "Iris bought a small desk lamp for her office.",
+      "time": "2025-01-06T10:00:00Z"
+    },
+    {
+      "id": "d06",
+      "text": "Jules has been reading a history of astronomy.",
+      "time": "2025-01-07T10:00:00Z"
+    },
+    {
+      "id": "d07",
+      "text": "Kara learned to make sourdough bread.",
+      "time": "2025-01-08T10:00:00Z"
+    },
+    {
+      "id": "d08",
+      "text": "Milo the neighbor enjoys early morning walks.",
+      "time": "2025-01-09T10:00:00Z"
+    },
+    {
+      "id": "d09",
+      "text": "Nadia replaced the tires on her car.",
+      "time": "2025-01-10T10:00:00Z"
+    },
+    {
+      "id": "d10",
+      "text": "Pavel keeps a notebook of bird sightings.",
+      "time": "2025-01-11T10:00:00Z"
+    },
+    {
+      "id": "d11",
+      "text": "Quinn attended a local photography class.",
+      "time": "2025-01-12T10:00:00Z"
+    },
+    {
+      "id": "d12",
+      "text": "Rosa planted lavender near the kitchen window.",
+      "time": "2025-01-13T10:00:00Z"
+    },
+    {
+      "id": "d13",
+      "text": "Theo uses a standing desk during work.",
+      "time": "2025-01-14T10:00:00Z"
+    },
+    {
+      "id": "d14",
+      "text": "Uma donated several novels to the library.",
+      "time": "2025-01-15T10:00:00Z"
+    },
+    {
+      "id": "d15",
+      "text": "Vik ordered a new pair of hiking boots.",
+      "time": "2025-01-16T10:00:00Z"
+    },
+    {
+      "id": "d16",
+      "text": "Wren watched a documentary about coral reefs.",
+      "time": "2025-01-17T10:00:00Z"
+    },
+    {
+      "id": "d17",
+      "text": "Xena changed the strings on her guitar.",
+      "time": "2025-01-18T10:00:00Z"
+    },
+    {
+      "id": "d18",
+      "text": "Yuri signed up for a weekend cooking class.",
+      "time": "2025-01-19T10:00:00Z"
+    },
+    {
+      "id": "d19",
+      "text": "Zara bought a blue umbrella before the storm.",
+      "time": "2025-01-20T10:00:00Z"
+    },
+    {
+      "id": "d20",
+      "text": "Boris moved his houseplants into larger pots.",
+      "time": "2025-01-21T10:00:00Z"
+    },
+    {
+      "id": "d21",
+      "text": "Clara takes the train to her evening class.",
+      "time": "2025-01-22T10:00:00Z"
+    },
+    {
+      "id": "d22",
+      "text": "Derek listens to jazz while cooking dinner.",
+      "time": "2025-01-23T10:00:00Z"
+    },
+    {
+      "id": "d23",
+      "text": "Elena mailed a birthday card to her cousin.",
+      "time": "2025-01-24T10:00:00Z"
+    },
+    {
+      "id": "d24",
+      "text": "Farah keeps spare batteries in the hallway drawer.",
+      "time": "2025-01-25T10:00:00Z"
+    }
+  ],
+  "cases": [
+    {
+      "id": "L01",
+      "family": "multi_hop",
+      "question": "What city does the person who gave Nora the blue mug live in?",
+      "expected": [
+        "oslo"
+      ],
+      "required_ids": [
+        "a1",
+        "a2"
+      ],
+      "memories": [
+        {
+          "id": "a1",
+          "text": "Liam gave Nora a blue mug for her birthday.",
+          "time": "2025-02-01T09:00:00Z"
+        },
+        {
+          "id": "a2",
+          "text": "Liam lives in Oslo and works from home.",
+          "time": "2025-02-02T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L02",
+      "family": "multi_hop",
+      "question": "What instrument does the person who mentors Eva play?",
+      "expected": [
+        "cello"
+      ],
+      "required_ids": [
+        "b1",
+        "b2"
+      ],
+      "memories": [
+        {
+          "id": "b1",
+          "text": "Maya is Eva's mentor in the robotics club.",
+          "time": "2025-02-03T09:00:00Z"
+        },
+        {
+          "id": "b2",
+          "text": "Maya plays the cello in a community orchestra.",
+          "time": "2025-02-04T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L03",
+      "family": "multi_hop",
+      "question": "What pet belongs to the person who works at Acme?",
+      "expected": [
+        "beagle",
+        "dog"
+      ],
+      "required_ids": [
+        "c1",
+        "c2"
+      ],
+      "memories": [
+        {
+          "id": "c1",
+          "text": "Jon works at Acme as a data analyst.",
+          "time": "2025-02-05T09:00:00Z"
+        },
+        {
+          "id": "c2",
+          "text": "Jon owns a beagle named Pepper.",
+          "time": "2025-02-06T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L04",
+      "family": "multi_hop",
+      "question": "Where did the person who bought the red tent go camping?",
+      "expected": [
+        "yosemite"
+      ],
+      "required_ids": [
+        "e1",
+        "e2"
+      ],
+      "memories": [
+        {
+          "id": "e1",
+          "text": "Priya bought a red tent before her vacation.",
+          "time": "2025-02-07T09:00:00Z"
+        },
+        {
+          "id": "e2",
+          "text": "Priya went camping in Yosemite National Park.",
+          "time": "2025-02-08T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L05",
+      "family": "multi_hop",
+      "question": "What book did the person who moved to Kyoto recommend?",
+      "expected": [
+        "dune"
+      ],
+      "required_ids": [
+        "f1",
+        "f2"
+      ],
+      "memories": [
+        {
+          "id": "f1",
+          "text": "Ken moved to Kyoto last spring.",
+          "time": "2025-02-09T09:00:00Z"
+        },
+        {
+          "id": "f2",
+          "text": "Ken recommended the novel Dune to his friends.",
+          "time": "2025-02-10T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L06",
+      "family": "multi_hop",
+      "question": "What color bicycle does the person who studies marine biology own?",
+      "expected": [
+        "green"
+      ],
+      "required_ids": [
+        "g1",
+        "g2"
+      ],
+      "memories": [
+        {
+          "id": "g1",
+          "text": "Ari studies marine biology at the university.",
+          "time": "2025-02-11T09:00:00Z"
+        },
+        {
+          "id": "g2",
+          "text": "Ari owns a green bicycle with a front basket.",
+          "time": "2025-02-12T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L07",
+      "family": "multi_hop",
+      "question": "What dessert did the person who visited Rome learn to bake?",
+      "expected": [
+        "tiramisu"
+      ],
+      "required_ids": [
+        "h1",
+        "h2"
+      ],
+      "memories": [
+        {
+          "id": "h1",
+          "text": "Lina visited Rome during her summer holiday.",
+          "time": "2025-02-13T09:00:00Z"
+        },
+        {
+          "id": "h2",
+          "text": "Lina learned to bake tiramisu after returning home.",
+          "time": "2025-02-14T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L08",
+      "family": "multi_hop",
+      "question": "Which language is being learned by the person who adopted the cat named Milo?",
+      "expected": [
+        "japanese"
+      ],
+      "required_ids": [
+        "i1",
+        "i2"
+      ],
+      "memories": [
+        {
+          "id": "i1",
+          "text": "Sam adopted a cat named Milo from the shelter.",
+          "time": "2025-02-15T09:00:00Z"
+        },
+        {
+          "id": "i2",
+          "text": "Sam is learning Japanese with a mobile app.",
+          "time": "2025-02-16T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L09",
+      "family": "temporal",
+      "question": "What is Nora's current preferred drink?",
+      "expected": [
+        "matcha"
+      ],
+      "required_ids": [
+        "j2"
+      ],
+      "memories": [
+        {
+          "id": "j1",
+          "text": "Nora's preferred drink used to be coffee.",
+          "time": "2024-01-01T09:00:00Z"
+        },
+        {
+          "id": "j2",
+          "text": "Nora now prefers matcha and rarely orders coffee.",
+          "time": "2025-03-01T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L10",
+      "family": "temporal",
+      "question": "Where does Leo live now?",
+      "expected": [
+        "denver"
+      ],
+      "required_ids": [
+        "k2"
+      ],
+      "memories": [
+        {
+          "id": "k1",
+          "text": "Leo lived in Boston before changing jobs.",
+          "time": "2024-02-01T09:00:00Z"
+        },
+        {
+          "id": "k2",
+          "text": "Leo now lives in Denver near his new office.",
+          "time": "2025-03-02T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L11",
+      "family": "temporal",
+      "question": "What instrument does Maya currently practice?",
+      "expected": [
+        "piano"
+      ],
+      "required_ids": [
+        "l2"
+      ],
+      "memories": [
+        {
+          "id": "l1",
+          "text": "Maya practiced violin every evening last year.",
+          "time": "2024-03-01T09:00:00Z"
+        },
+        {
+          "id": "l2",
+          "text": "Maya switched to piano this year and practices it daily.",
+          "time": "2025-03-03T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L12",
+      "family": "temporal",
+      "question": "What is Chen's current project?",
+      "expected": [
+        "orion"
+      ],
+      "required_ids": [
+        "m2"
+      ],
+      "memories": [
+        {
+          "id": "m1",
+          "text": "Chen previously worked on Project Atlas.",
+          "time": "2024-04-01T09:00:00Z"
+        },
+        {
+          "id": "m2",
+          "text": "Chen is currently leading Project Orion.",
+          "time": "2025-03-04T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L13",
+      "family": "semantic_mismatch",
+      "question": "What vehicle does Rina use to commute to work?",
+      "expected": [
+        "bicycle",
+        "bike"
+      ],
+      "required_ids": [
+        "n1"
+      ],
+      "memories": [
+        {
+          "id": "n1",
+          "text": "Rina rides her bicycle to the office every morning.",
+          "time": "2025-03-05T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L14",
+      "family": "semantic_mismatch",
+      "question": "What occupation does Omar have?",
+      "expected": [
+        "pediatrician",
+        "doctor"
+      ],
+      "required_ids": [
+        "o1"
+      ],
+      "memories": [
+        {
+          "id": "o1",
+          "text": "Omar works as a pediatrician at a children's clinic.",
+          "time": "2025-03-06T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L15",
+      "family": "semantic_mismatch",
+      "question": "How does Tessa usually get around the city?",
+      "expected": [
+        "subway",
+        "metro"
+      ],
+      "required_ids": [
+        "p1"
+      ],
+      "memories": [
+        {
+          "id": "p1",
+          "text": "Tessa takes the subway for nearly all of her trips downtown.",
+          "time": "2025-03-07T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L16",
+      "family": "semantic_mismatch",
+      "question": "What kind of work does Malik do?",
+      "expected": [
+        "carpenter",
+        "carpentry"
+      ],
+      "required_ids": [
+        "q1"
+      ],
+      "memories": [
+        {
+          "id": "q1",
+          "text": "Malik builds custom cabinets as a carpenter.",
+          "time": "2025-03-08T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L17",
+      "family": "boundary",
+      "question": "What is Zoe's favorite movie?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "r1",
+          "text": "Zoe enjoys weekend walks by the river.",
+          "time": "2025-03-09T09:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "L18",
+      "family": "boundary",
+      "question": "What city was Ben born in?",
+      "expected": [
+        "i don't know",
+        "unknown"
+      ],
+      "required_ids": [],
+      "memories": [
+        {
+          "id": "s1",
+          "text": "Ben started a new job at a bookstore this month.",
+          "time": "2025-03-10T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}

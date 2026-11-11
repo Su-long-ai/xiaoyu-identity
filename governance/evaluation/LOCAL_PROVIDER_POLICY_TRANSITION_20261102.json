@@ -1,0 +1,135 @@
+{
+  "schema": "xiaoyu-local-provider-policy-transition-v2",
+  "status": "ACTIVE",
+  "effective_at": "2026-11-02T15:23:00+08:00",
+  "local_provider_policy": "NONE_ONLY",
+  "external_provider_policy": "MODEL_CALLS_ALLOWED_ONLY_EXTERNAL100_200",
+  "historical_audited_legacy_count": 3,
+  "historical_audited_legacy": [
+    {
+      "e0_id": "E0-FASTRET-1fa32e2712ac",
+      "component": "reserved_hop_expansion_v2",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-1fa32e2712ac.json",
+      "action": "HISTORICAL_ACCEPTED_NO_LOCAL_RERUN_REQUIRED"
+    },
+    {
+      "e0_id": "E0-FASTRET-b24a89e36fd6",
+      "component": "multifacet_bge_rrf_v1",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-b24a89e36fd6.json",
+      "action": "HISTORICAL_ACCEPTED_NO_LOCAL_RERUN_REQUIRED"
+    },
+    {
+      "e0_id": "E0-FASTRET-ce525450e349",
+      "component": "hybrid_bge_bm25_rrf_v1",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-ce525450e349.json",
+      "action": "HISTORICAL_ACCEPTED_NO_LOCAL_RERUN_REQUIRED"
+    }
+  ],
+  "legacy_requalification_count": 17,
+  "legacy_requalification": [
+    {
+      "e0_id": "E0-FASTRET-10fa3cdedb27",
+      "component": "entity_bridge_multihop_v3",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-10fa3cdedb27.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-12905611c4b2",
+      "component": "g003_temporal_identity_terminal_rescue_v10",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-12905611c4b2.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-2eae980a7f1a",
+      "component": "g003_confident_path_pack_v11",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-2eae980a7f1a.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-41a141af1a0a",
+      "component": "lexicographic_temporal_path_v7",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-41a141af1a0a.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-4815c007c839",
+      "component": "closed_entity_path_v9",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-4815c007c839.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-4c24095314d0",
+      "component": "g003_query_anchor_terminal_rescue_v9",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-4c24095314d0.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-52c2e5d64c0f",
+      "component": "closed_entity_path_v12",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-52c2e5d64c0f.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-5d44c720c5ba",
+      "component": "bounded_entity_chain_pack_v4",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-5d44c720c5ba.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-676b3ffe7d9f",
+      "component": "entity_bridge_multihop_v4",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-676b3ffe7d9f.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-6b75f07220f8",
+      "component": "entity_anchor_bge_v2",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-6b75f07220f8.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-80beb218bc92",
+      "component": "novel_entity_chain_closure_v3",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-80beb218bc92.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-8f116537e949",
+      "component": "closed_entity_path_v11",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-8f116537e949.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-96d07e7b6a05",
+      "component": "closed_chain_temporal_v7",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-96d07e7b6a05.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-a3e87a55887c",
+      "component": "temporal_coherent_path_v5",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-a3e87a55887c.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-be95e6a5cd1b",
+      "component": "relation_path_compact_v4",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-be95e6a5cd1b.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-ce391bf01f08",
+      "component": "relation_path_expansion_v3",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-ce391bf01f08.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    },
+    {
+      "e0_id": "E0-FASTRET-f253f48eb0ec",
+      "component": "g003_root_resolve_chain_v11",
+      "path": "governance/fastlane/e0_candidates/E0-FASTRET-f253f48eb0ec.json",
+      "action": "REQUALIFY_OFFLINE_BEFORE_NEW_EXTERNAL_PATH"
+    }
+  ],
+  "new_offline_e0": "E0-FASTRET-020663230cc7",
+  "new_offline_audit": "AUDIT-E0-FASTRET-020663230cc7"
+}

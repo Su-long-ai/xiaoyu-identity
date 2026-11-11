@@ -37,7 +37,30 @@ class ReuseGuardTests(unittest.TestCase):
             fixture_row.pop("completion_level",None)
             fixture_row.pop("completion_note",None)
         else:
-            fixture_row=None
+            # Real project closeout phases intentionally have no auto-assign
+            # work.  These unit tests still need one isolated Lead-vetted
+            # backlog row, so construct it only inside the temp fixture rather
+            # than depending on production backlog lifecycle.
+            import copy
+            source=next(
+                r for r in backlog.get("candidates",[])
+                if isinstance(r.get("reuse_plan"),dict)
+                and r.get("family") and r.get("capability")
+                and r.get("hypothesis") and r.get("lineage")
+            )
+            fixture_row=copy.deepcopy(source)
+            fixture_row["id"]="RTEST_REUSE_FIXTURE"
+            fixture_row["plan"]="SYNTHETIC_TEST"
+            fixture_row["status"]="active"
+            fixture_row["priority"]=0
+            for key in ("completion_submission","completion_level","completion_note","completion_review"):
+                fixture_row.pop(key,None)
+            backlog["candidates"].append(fixture_row)
+            phase["current_phase"]="SYNTHETIC_TEST"
+            phase["auto_assign_plans"]=["SYNTHETIC_TEST"]
+            phase["closeout_mode"]=False
+            phase["closeout_required_backlog"]=[]
+            backlog["phase_policy"]=phase
         if fixture_row is not None:
             # The temp registry intentionally has no production lease history, so
             # sanitize only the fixture copy's prior-work references.
@@ -429,18 +452,27 @@ class ReuseGuardTests(unittest.TestCase):
                             and x["backlog_id"]=="R31"
                             for x in report["issues"]))
 
-    def test_phase_closeout_blocks_new_self_directed_research_but_not_auditor(self):
+    def test_v1_phase_closeout_blocks_self_directed_research_and_allows_auditor(self):
         path=self.root/"governance"/"RESEARCH_BACKLOG.json"
         data=json.loads(path.read_text(encoding="utf-8"))
         phase=data.setdefault("phase_policy",{})
+        phase["current_phase"]="V1_PRODUCT_CLOSEOUT"
+        phase["auto_assign_plans"]=["SYNTHETIC_CLOSEOUT_NONE"]
         phase["closeout_mode"]=True
         phase["closeout_required_backlog"]=[]
-        phase["closeout_reason"]="synthetic phase closeout"
+        phase["closeout_reason"]="synthetic v1 phase closeout"
         path.write_text(json.dumps(data),encoding="utf-8")
+        cr=self.g.policy["phase_priority_guard"]["continuous_research_exception"]
+        cr["enabled"]=False
+        cr["allowed_phases"]=["V1_PRODUCT_CLOSEOUT"]
+        cr["max_active_self_directed"]=0
         self.now[0]=max(
             self.now[0],
             float(self.g.policy.get("phase_priority_guard",{}).get("effective_after_epoch",0))+10)
-        with self.assertRaisesRegex(GovernanceError,"phase closeout mode"):
+
+        with self.assertRaisesRegex(
+            GovernanceError,"phase closeout mode is active"
+        ):
             self.join(agent_id="closeout_researcher")
 
         out=self.g.join(

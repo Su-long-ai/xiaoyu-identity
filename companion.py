@@ -10,13 +10,42 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, scrolledtext, ttk
 from identity_core import IdentityStore
-from model_adapter import PROVIDERS, load_provider, save_provider, chat
+from model_adapter import PROVIDERS, load_provider, save_provider, chat, project_history
+from product_memory_bridge import ProductMemoryBridge, safe_product_recall
+from send_guard import dual_guarded_chat, capture_expectations, persist_assistant_if_fresh, FreshnessChanged
 
 HOME=Path(__file__).resolve().parent
 FISH=IdentityStore(HOME)
 STATE=FISH.state()
 
 def clamp(n): return max(0,min(100,int(n)))
+
+def growth_evidence_batch(events, limit=12, budget=7500):
+    """Pack complete interaction records under the exact model-visible JSON character budget."""
+    real=[e for e in events if str(e.get("kind","")).startswith(("conversation.","pet."))]
+    chosen=real[-max(2,min(12,int(limit))):]
+    records=[]
+    for e in chosen:
+        row={"id":int(e["event_id"]),"kind":str(e["kind"]),"content":str(e["content"])[:220]}
+        trial=records+[row]
+        if len(json.dumps(trial,ensure_ascii=False))>int(budget):
+            break
+        records.append(row)
+    return records,[x["id"] for x in records]
+
+def capture_fresh_product_context(store, bridge, message, limit=7, max_attempts=3):
+    """Bind product recall rows to the same memory generation captured with identity context."""
+    last=None
+    for attempt in range(1,max(1,int(max_attempts))+1):
+        before=store.memory_generation()
+        rows,recall_error=safe_product_recall(bridge,message,limit=limit)
+        expectations=capture_expectations(bridge,rows)
+        sysmsg,token=store.capture_identity_context(message,memories_override=rows)
+        captured=int(token[0] if isinstance(token,(list,tuple)) else token)
+        if captured==before:
+            return sysmsg,token,rows,expectations,recall_error,attempt
+        last=(int(before),int(captured))
+    raise FreshnessChanged(f"context_capture_memory_generation_unstable:{last}")
 
 def tick_state():
     import time
@@ -41,6 +70,13 @@ class PetApp:
         self.queue=queue.Queue()
         self.pending=False
         self.reflection=None
+        self.memory_bridge=None
+        self.memory_bridge_error=None
+        try:
+            self.memory_bridge=ProductMemoryBridge(HOME,FISH)
+        except Exception as err:
+            # Chat remains available, but long-term memory injection fails closed.
+            self.memory_bridge_error=type(err).__name__+": "+str(err)
         tick_state()
         top=tk.Frame(root,bg="#ebf7ff")
         top.pack(fill="x",padx=18,pady=(10,0))
@@ -103,10 +139,41 @@ class PetApp:
             f"精力 {STATE.get('energy',90)}/100   亲密度 {STATE.get('bond',0)}/100   "
             f"消息 {FISH.actual_progress()['user_messages']} · 回复 {FISH.actual_progress()['assistant_replies']} · 互动 {FISH.actual_progress()['pet_actions']} · 真实记忆 {FISH.actual_progress()['confirmed_memories']} · 待确认 {FISH.actual_progress()['pending_candidates']} 条")
         c=load_provider(HOME)
-        self.model_text.set(c["provider"]+" · "+c["model"])
+        if self.memory_bridge is None:
+            bridge_label=" | ⚠记忆桥不可用"
+        elif self.memory_bridge_error:
+            bridge_label=" | ⚠记忆桥异常"
+        else:
+            bridge_status=self.memory_bridge.status()
+            runtime_core=str(bridge_status.get("runtime_memory_core") or "")
+            if runtime_core=="r47_confirmed_product_adapter":
+                bridge_label=" | R47记忆桥"
+            elif bridge_status.get("r52_runtime_loaded") is True:
+                bridge_label=" | R52记忆桥"
+            else:
+                bridge_label=" | 记忆桥"
+        self.model_text.set(c["provider"]+" | "+c["model"]+bridge_label)
         FISH.set_state(STATE)
 
+    def _sync_memory_bridge(self):
+        if self.memory_bridge is None:
+            return
+        try:
+            result=self.memory_bridge.sync()
+            status=self.memory_bridge.status()
+            quarantined=int(status.get("quarantined_rows") or 0)
+            if quarantined:
+                self.memory_bridge_error=f"quarantined_memories:{quarantined}"
+            elif result.get("warnings"):
+                self.memory_bridge_error="; ".join(result["warnings"][:3])
+            else:
+                self.memory_bridge_error=None
+        except Exception as err:
+            self.memory_bridge_error=type(err).__name__+": "+str(err)
+
     def activity(self,kind):
+        if self.pending:
+            return
         if kind=="feed":
             STATE["hunger"]=clamp(STATE.get("hunger",20)-35)
             STATE["mood"]=clamp(STATE.get("mood",80)+3)
@@ -138,31 +205,77 @@ class PetApp:
         proposed_id=FISH.propose_from_user_event(event_id,message)
         if proposed_id:
             self.logline("系统：发现一条可保留的原话，已放入「长期记忆 → 待确认」，并未直接写入记忆。")
-        sysmsg=FISH.identity_context(message)
-        history=[{"role":m["role"],"content":m["content"][:1500]} for m in FISH.latest_dialog(16)]
+        identity_db_path=str(FISH.db_path)
+        try:
+            sysmsg,memory_generation,memory_rows,memory_expectations,recall_error,_capture_attempts=(
+                capture_fresh_product_context(FISH,self.memory_bridge,message,limit=7,max_attempts=3)
+            )
+        except FreshnessChanged:
+            # The user turn is already durable. Only remove the transient
+            # "thinking" placeholder and fail closed before worker/provider entry.
+            self.log.delete("end-2l","end-1l")
+            self.logline("系统：记忆刚刚发生变化，本次请求未发送。请重试。")
+            return
+        r47_db_path=(str(self.memory_bridge.db_path)
+                     if self.memory_bridge is not None else "")
+        if recall_error == "memory_bridge_unavailable":
+            # Preserve the more useful initialization error when available.
+            if not self.memory_bridge_error:
+                self.memory_bridge_error=recall_error
+        else:
+            self.memory_bridge_error=recall_error
+        hard_memory_failure=bool(
+            recall_error
+            and not str(recall_error).startswith("quarantined_memories:")
+        )
+        history=[
+            {"role":m["role"],"content":m["content"]}
+            for m in project_history(
+                FISH,16,
+                fail_closed_current_event_id=event_id if hard_memory_failure else None,
+            )
+        ]
         config=load_provider(HOME)
         self.pending=True
         self.sendbtn.configure(state="disabled")
         def worker():
             try:
-                text,usage=chat(config,[{"role":"system","content":sysmsg}]+history)
-                self.queue.put(("reply",text,usage))
+                text,usage=dual_guarded_chat(
+                    chat,config,[{"role":"system","content":sysmsg}]+history,
+                    identity_db_path,r47_db_path,memory_generation,memory_expectations,
+                )
+                self.queue.put((
+                    "reply",text,usage,
+                    {"generation":memory_generation,
+                     "expectations":memory_expectations},
+                ))
             except Exception as err:
-                self.queue.put(("error",str(err),{}))
+                self.queue.put(("error",str(err),{},None))
         threading.Thread(target=worker,daemon=True).start()
 
     def pump(self):
         try:
             while True:
-                kind,result,usage=self.queue.get_nowait()
+                item=self.queue.get_nowait()
+                kind,result,usage=item[:3]
+                freshness=item[3] if len(item)>3 else None
                 self.pending=False
                 self.sendbtn.configure(state="normal")
                 # Remove placeholder line without mutating persistent conversation.
                 self.log.delete("end-2l","end-1l")
                 if kind=="reply":
-                    self.logline("小鱼："+result)
-                    FISH.record("conversation.assistant","assistant",result)
-                    STATE["bond"]=clamp(STATE.get("bond",0)+1)
+                    try:
+                        persist_assistant_if_fresh(
+                            FISH,self.memory_bridge,
+                            freshness["generation"],freshness["expectations"],result,
+                        )
+                    except FreshnessChanged:
+                        self.logline(
+                            "系统：上下文在回复生成期间发生了变化，旧回复已丢弃；请重新发送。"
+                        )
+                    else:
+                        self.logline("小鱼："+result)
+                        STATE["bond"]=clamp(STATE.get("bond",0)+1)
                     STATE["total_calls"]=int(STATE.get("total_calls",0))+1
                     totals=STATE.setdefault("usage",{})
                     for k in ("prompt_tokens","completion_tokens","prompt_cache_hit_tokens"):
@@ -176,8 +289,9 @@ class PetApp:
         self.root.after(180,self.pump)
 
     def clock(self):
-        tick_state()
-        self.refresh_stats()
+        if not self.pending:
+            tick_state()
+            self.refresh_stats()
         self.root.after(60000,self.clock)
 
     def draw(self):
@@ -206,7 +320,7 @@ class PetApp:
     def memory_manager(self):
         win=tk.Toplevel(self.root)
         win.title("小鱼 · 记忆来源与审阅")
-        win.geometry("760x530")
+        win.geometry("900x560")
         tk.Label(win,text=(
             "真实记忆：经用户确认并能追溯来源。待确认：原话候选，不会自动使用。"
             " 初始设定：开发时写入，不属于共同经历。"),
@@ -243,7 +357,8 @@ class PetApp:
                 mem_lb.insert("end",f"#{item['memory_id']} [{item['category']}] {item['text']}")
             for item in FISH.list_proposals():
                 proposal_items.append(item)
-                prop_lb.insert("end",f"#{item['proposal_id']} {item['text'][:220]}")
+                freshness=" [需重新确认当前仍成立]" if item.get("requires_reconfirmation") else ""
+                prop_lb.insert("end",f"#{item['proposal_id']}{freshness} {item['text'][:220]}")
             for item in FISH.list_bootstrap():
                 boot_lb.insert("end",f"初始设定 #{item['memory_id']}: {item['text']}")
             p=FISH.actual_progress()
@@ -257,14 +372,21 @@ class PetApp:
                 provenance.set("选择待确认项可查看原始证据。")
                 return
             v=proposal_items[picks[0]]
+            freshness_note=""
+            if v.get("requires_reconfirmation"):
+                freshness_note=(
+                    "\n状态：这条候选早于后来确认/失效证据，不能直接沿用旧来源。"
+                    "若仍然成立，批准时会记录一次新的当前用户确认。"
+                )
             provenance.set(f"来源事件 #{v['source_event']} · {v['evidence_at']}\n"
-                           f"原话：{v['evidence_text'][:400]}")
+                           f"原话：{v['evidence_text'][:400]}{freshness_note}")
         prop_lb.bind("<<ListboxSelect>>",show_evidence)
         def manually_add():
             phrase=simpledialog.askstring("手动保存","要长期保存的内容（将记为你主动提供）:",parent=win)
             if phrase:
                 try:
                     FISH.add_memory(phrase)
+                    self._sync_memory_bridge()
                     redraw()
                     self.refresh_stats()
                 except ValueError as err:
@@ -276,20 +398,64 @@ class PetApp:
                                    "归档后不再参与检索；原始事件及此前备份仍保留。继续？",
                                    parent=win):
                 FISH.archive_memory(mem_ids[picks[0]])
+                self._sync_memory_bridge()
                 redraw()
                 self.refresh_stats()
+        def correct():
+            picks=mem_lb.curselection()
+            if not picks or picks[0]>=len(mem_ids):return
+            memory_id=mem_ids[picks[0]]
+            current=mem_lb.get(picks[0])
+            replacement=simpledialog.askstring(
+                "更正长期记忆",
+                "输入更正后的内容。旧记忆会保留在历史中，但不再参与当前召回：",
+                parent=win)
+            if not replacement:return
+            try:
+                new_id=FISH.correct_memory(memory_id,replacement)
+                self._sync_memory_bridge()
+                redraw()
+                self.refresh_stats()
+                provenance.set(f"记忆 #{memory_id} 已更正为新记忆 #{new_id}。")
+            except ValueError as err:
+                messagebox.showerror("更正失败",str(err),parent=win)
+        def retract():
+            picks=mem_lb.curselection()
+            if not picks or picks[0]>=len(mem_ids):return
+            memory_id=mem_ids[picks[0]]
+            if not messagebox.askyesno(
+                "撤回长期记忆",
+                "撤回后该记忆退出当前召回，但历史证据仍保留。继续？",
+                parent=win):
+                return
+            if FISH.retract_memory(memory_id):
+                self._sync_memory_bridge()
+                redraw()
+                self.refresh_stats()
+                provenance.set(f"记忆 #{memory_id} 已撤回。")
         def review(approve):
             picks=prop_lb.curselection()
             if not picks or picks[0]>=len(proposal_items):return
             item=proposal_items[picks[0]]
-            action="确认记住" if approve else "忽略"
+            stale=bool(item.get("requires_reconfirmation"))
+            if approve and stale:
+                action=(
+                    "重新确认这条内容现在仍然成立，并以“当前重新确认”的新来源写入长期记忆。"
+                    "旧消息本身不会被重新当作当前事实。"
+                )
+            else:
+                action="确认记住" if approve else "忽略"
             if not messagebox.askyesno("核实记忆来源",
                 f"来源：你亲自发送的第 {item['source_event']} 号消息。\n"
                 f"原话：{item['evidence_text'][:450]}\n\n"
-                f"将执行：{action}。是否继续？",parent=win):
+                f"将执行：{action}\n是否继续？",parent=win):
                 return
             try:
-                FISH.review_proposal(item["proposal_id"],approve)
+                FISH.review_proposal(
+                    item["proposal_id"],approve,
+                    reconfirm_stale=bool(approve and stale),
+                )
+                self._sync_memory_bridge()
                 redraw()
                 self.refresh_stats()
                 provenance.set(f"候选 #{item['proposal_id']} 已{('批准' if approve else '忽略')}。")
@@ -298,7 +464,7 @@ class PetApp:
         buttons=tk.Frame(win)
         buttons.pack(pady=(2,12))
         for title,callback in [
-            ("手动保存",manually_add),("归档选中记忆",archive),
+            ("手动保存",manually_add),("更正",correct),("撤回",retract),("归档",archive),
             ("确认候选",lambda:review(True)),("忽略候选",lambda:review(False)),
             ("关闭",win.destroy)]:
             tk.Button(buttons,text=title,command=callback,padx=8,pady=5).pack(side="left",padx=5)
@@ -323,7 +489,7 @@ class PetApp:
                 messagebox.showinfo("经历不足","再聊一段时间、有几次真实互动后才能生成有依据的反思。",parent=win)
                 return
             config=load_provider(HOME)
-            evidence=[{"id":e["event_id"],"kind":e["kind"],"content":e["content"][:220]} for e in real]
+            evidence,evidence_ids=growth_evidence_batch(real,12)
             edit.delete("1.0","end")
             edit.insert("end","正在生成仅供你审阅的反思建议……")
             def work():
@@ -331,10 +497,11 @@ class PetApp:
                         "用具体事件编号支持；不要凭空捏造经历，不要擅自改变核心价值观。"
                         "只写候选文本，不给指令。")
                 try:
+                    payload=json.dumps(evidence,ensure_ascii=False)
                     response,_=chat(config,[{"role":"system","content":system},
-                      {"role":"user","content":json.dumps(evidence,ensure_ascii=False)[:7500]}],
+                      {"role":"user","content":payload}],
                       max_tokens=350)
-                    self.queue_reflect.put(("ok",response,[e["event_id"] for e in real[-12:]]))
+                    self.queue_reflect.put(("ok",response,list(evidence_ids)))
                 except Exception as err:
                     self.queue_reflect.put(("error",str(err),[]))
             self.queue_reflect=queue.Queue()
@@ -354,6 +521,13 @@ class PetApp:
                     win.after(200,check)
             win.after(200,check)
         def approve():
+            if self.pending:
+                messagebox.showinfo(
+                    "请求进行中",
+                    "当前回复仍在生成。为避免人格上下文在请求期间漂移，请在本次回复结束后再确认人格成长。",
+                    parent=win,
+                )
+                return
             text=edit.get("1.0","end").strip()
             if not text or "可以手动写下" in text or "正在生成" in text:return
             if not self.reflection:
@@ -432,6 +606,9 @@ class PetApp:
             "模型请求尚未完成，关闭会丢失该次尚未返回的回答。仍要退出吗？",parent=self.root):
             return
         FISH.set_state(STATE)
+        if self.memory_bridge is not None:
+            try:self.memory_bridge.close()
+            except Exception:pass
         FISH.close()
         self.root.destroy()
 

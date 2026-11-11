@@ -1,0 +1,76 @@
+{
+  "schema": "xiaoyu-external-stage1-pass-rule-freeze-v1",
+  "created_at": "2026-11-02T15:35:00+08:00",
+  "status": "FROZEN_BEFORE_FIRST_EXTERNAL100_RUN",
+  "stage1_input": {
+    "path": "governance/evaluation/locomo_stage1_100_input_v1.json",
+    "sha256": "6215dd3c2a0f8d249d2cbce3e69cee3aa8963347e00eb7ad4547151187bc7592",
+    "questions": 100
+  },
+  "stage1_membership": {
+    "path": "governance/evaluation/locomo_stage1_100_membership_v1.json",
+    "sha256": "fd067ab521f5907a2255bee4f62aa3a0d15fdc31b8499ce908fafd996e809a97",
+    "selection": "category-stratified fixed hash; no answer/evidence/model outcome used",
+    "reselection_allowed": false
+  },
+  "current_baseline": {
+    "baseline_id": "baseline-g003-reserved_hop_expansion_v2",
+    "component_sha256": "760d21aea816a240914c88f84dfd4bf3fee8486a814c1929b67f9d8b68e769e5",
+    "stage2_source": "governance/fastlane/runs/ext200_20261102_144008_reserved_hop_expansion_v2/result.json",
+    "sealed_external200_artifacts": {
+      "retrieval": {
+        "path": "governance/fastlane/runs/ext200_20261102_144008_reserved_hop_expansion_v2/retrieval.json",
+        "sha256": "8d5c8a9afd4cef0b879d4d32b1e3d79c220ae5133eb1e81f9d7afb182d9622c9"
+      },
+      "retrieval_seal": {
+        "path": "governance/fastlane/runs/ext200_20261102_144008_reserved_hop_expansion_v2/RETRIEVAL_SEAL.json",
+        "sha256": "6df460503e8afbeeb33eaf098495ca9886445d7f7f55f9e665a2928e387942b8"
+      },
+      "predictions": {
+        "path": "governance/fastlane/runs/ext200_20261102_144008_reserved_hop_expansion_v2/predictions.json",
+        "sha256": "673e3d260d7632f94bb6c9d0f35d40c9aad68c30da9a8764fa47be8d3a4aad5a"
+      },
+      "prediction_seal": {
+        "path": "governance/fastlane/runs/ext200_20261102_144008_reserved_hop_expansion_v2/PREDICTION_SEAL.json",
+        "sha256": "20de41d7aa5f04e5d6091ec8e3fa6d208bdc64d71253cf50347c3d67e5f62e95"
+      }
+    },
+    "stage1_usage": "Reuse exactly the frozen 100-member subset of the already-sealed baseline retrieval/predictions; do not regenerate baseline answers. Rejudge baseline and candidate on the same Stage1 gold with the same fixed judge."
+  },
+  "runner": {
+    "path": "research_components/retrieval/run_external100.py",
+    "sha256": "926dc9443f24f0b6c6d224ae22a0038f50a85332cb24087e3512090d7c038beb",
+    "provider_policy": "MODEL_CALLS_ALLOWED_ONLY_EXTERNAL100_200"
+  },
+  "pass_rule": {
+    "type": "MATCHED_CURRENT_BASELINE_NONREGRESSION_SCREEN",
+    "min_candidate_vs_baseline_accuracy_delta": 0.0,
+    "min_candidate_vs_baseline_full_evidence_delta": 0.0,
+    "material_authority_regressions_max": 0,
+    "judge": "deepseek-flash",
+    "judge_thinking": false,
+    "temperature": 0,
+    "context_cap": 20,
+    "candidate_answer_max_tokens": 96,
+    "judge_max_tokens": 64,
+    "interpretation": "Low-cost generalization screen only. PASS unlocks Stage2 full 200; FAIL does not alter the current baseline.",
+    "baseline_promotion_allowed": false
+  },
+  "execution_order": [
+    "verify independent light-audit Stage1 authorization and exact component SHA",
+    "verify frozen Stage1 input/membership and baseline sealed artifacts",
+    "run candidate retrieval and seal it",
+    "run candidate answers and seal predictions before loading gold",
+    "load gold/evidence only after candidate seals",
+    "rejudge baseline and candidate using the same fixed judge",
+    "apply the frozen relative rule",
+    "only PASS may emit an external200_authorized Stage2 gate"
+  ],
+  "boundaries": {
+    "no_component_tuning_after_stage1": true,
+    "no_membership_reselection_after_stage1": true,
+    "stage1_baseline_promotion": false,
+    "stage2_full_200_required_for_breakthrough": true,
+    "codex_used": false
+  }
+}

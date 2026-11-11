@@ -1,3 +1,43 @@
+## OWNER CLOUD-ONLY QWEN OVERRIDE — 2026-11-03
+
+Authoritative owner instruction: **DO NOT start, pull, load, or benchmark local Ollama/Qwen chat models** in XiaoYu. The project-specific qwen3:4b and qwen3:8b weights have been deleted. V1 cross-model uses **cloud API `qwen3.8-flash` (DASHSCOPE_API_KEY)** compared against cloud DeepSeek Flash. No local-model fallback. Read `governance/V1_CLOUD_QWEN_OWNER_DIRECTIVE_20261103.json` and the revised `governance/V1_RELEASE_CRITERIA_20261102.json` before further cross-model work. V0/V2/V3 local results remain negative historical evidence only; use fresh prospective cases, allowlisted support IDs, deterministic rendering, and unchanged PASS thresholds. Paid API calls must have prefrozen scope and cost bound (<10 CNY) and must not send private identity data. Do not use Codex for Lead work.
+
+## V1_PRODUCT_CLOSEOUT_OVERRIDE_20261102
+
+This section is authoritative over all older retrieval-sprint / continuous-research / broad-portfolio instructions below.
+
+Before new work, read:
+- governance/V1_CLOSEOUT_AGENT_TOPOLOGY_20261102.json
+- governance/V1_RELEASE_CRITERIA_20261102.json
+- governance/V1_CLOSEOUT_RESEARCH_POLICY_20261102.md
+- governance/RESEARCH_BACKLOG.json
+
+Current phase is V1_PRODUCT_CLOSEOUT.
+Only work that advances exactly one v1 release gate is eligible for new execution.
+Open-ended self-directed research is disabled.
+Every closeout research task must have a prefrozen falsifier and terminate within 48 hours as PASS, FAIL, or INCONCLUSIVE.
+Existing pre-closeout ACTIVE leases may finish only their current bounded pass, then submit/release; they do not create a refill right.
+Pure governance/docs/naming/micro-performance work is nonblocking unless it is a demonstrated release blocker.
+Prefer merging/deleting mechanisms over adding parallel architecture.
+
+## Worker routing during v1 closeout
+
+Run python governance/control.py phase-priority before claiming new work.
+Only V1_PRODUCT_CLOSEOUT backlog work or a material CAPABILITY_SAFETY_EXCEPTION may start.
+If your old ACTIVE lease predates closeout, complete the current bounded pass and release rather than extending it into a new direction.
+
+## FAST RESEARCH LOOP — 2026-11-02
+
+当前 Research exploration 槽使用 `governance/fastlane/FAST_RESEARCH_LOOP_20261102.md`。Retrieval 微候选不再逐项走治理：同一 ACTIVE umbrella lease 内连续换组件→local E2E；失败直接继续；positive 才 E0→轻审计→固定 external200→突破则新 baseline。Mainline 保留给其它真实产品/能力问题。
+
+## ACTIVE DIRECTION OVERRIDE — 2026-11-02
+
+当前项目已切换为 **Retrieval Completeness Capability Sprint**。开始或续做科研前，先读 governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md 与 governance/CAPABILITY_GAP_DIRECTION_SWITCH_20261102.json。
+
+除已观察 material P0/P1 外，不再自提或自动继续旧的广泛 core-memory portfolio、persona、historical rescue、治理扩展、微性能或 answerer-prompt 方向。当前所有研究必须服务于 read-side evidence completeness，优先 Multi-hop：frozen hybrid product-shadow integration -> facet/multi-query -> evidence-set selection -> missing-hop falsification。固定 LoCoMo200，不扩题；retrieval 输出先封存再由 scorer/auditor 读 gold；context cap 保持 20；write-side/answerer 默认冻结。
+
+已在运行的无关 lease 可完成当前 bounded pass，但提交或释放后必须回到 retrieval sprint。RC8B1R1 是当前明确保留的 material P1 例外。
+
 # 小鱼科研 Agent 入池指南
 
 **执行起点**：`D:\dsh-fish\governance\CHARTER.md`。本阶段研究池尚未自动开人；**人工开启独立科研聊天后**，综合科研 Agent 才按下面方法领取任务。当前为两名综合 research_engineer 和一名独立 auditor。
@@ -136,3 +176,87 @@ py -3.11 governance\control.py review --submission-id sub-... --reviewer-id fish
 A scope string named `proxy:...` is not sufficient evidence of proxy traversal. Do not call `ResearchApiBudget` directly with a proxy-shaped `budget_scope`; the gateway now rejects this under proxy-only policy.
 
 For a uniquely attributable internal XiaoYu run, call the OpenAI-compatible loopback proxy with `Authorization: Bearer local-budget-proxy:xiaoyu` and optional `X-XiaoYu-Research-Run: <safe-run-id>`. The resulting ledger scope is `proxy:xiaoyu:<safe-run-id>` and `gateway_origin=http_proxy`. Save returned `api-...` response IDs in `paid_evidence.call_ids`.
+
+## Parallel chat identity
+
+For every new ChatGPT worker chat, create one unique per-chat worker_instance_id and pass it to all lease-mutating governance commands. Do not reuse another chat's instance ID. Stable agent_id and per-chat worker_instance_id are separate identities.
+
+Post-submit workspaces containing WORKSPACE_SEALED.json are historical/read-only. Continue only in the newly assigned lease workspace.
+
+## Low-cost frozen paid scope auto-registration
+
+When a research experiment genuinely needs a paid/model-quality call, do not stop merely because the current E2 stage routes unknown benchmark scopes to the formal confirmatory gate.
+
+For a non-formal, non-blind, public/synthetic experiment whose conservative peak hard cap is strictly below the owner's automatic authorization threshold:
+
+1. Prospectively freeze cases, prompts, scorer, runner, thresholds, case IDs and invariant prompt-prefix hashes before any provider access.
+2. Write AUTO_PAID_SCOPE_REQUEST.json inside the current ACTIVE lease workspace with schema xiaoyu-auto-paid-scope-request-v1, status FROZEN_REQUEST, the exact lease/agent/scope/provider/model/caps/case bindings, a SHA-bound workspace freeze, and boundaries private_identity_data=false, blind_or_formal_data=false, product_mutation=false.
+3. Dry-run the control-plane registrar:
+   python governance/register_auto_paid_scope.py --request <project-relative-request-path>
+4. If dry-run passes, apply exactly once:
+   python governance/register_auto_paid_scope.py --request <project-relative-request-path> --apply
+5. Only then execute through the authenticated local research_api proxy. Never call the provider directly.
+
+The registrar recomputes the conservative peak cost from policy pricing, requires an ACTIVE research lease, verifies the freeze hash and owner authorization, refuses formal/E2/blind scopes, refuses late registration after any reserved/committed/unknown call, creates only an administrative backlog binding, and registers one exact prefrozen scope in the existing research_api admission path.
+
+Administrative registration failure is NOT a scientific NONPASS. Do not self-edit policy.json or RESEARCH_BACKLOG.json to bypass registration, and do not modify frozen scientific artifacts after registration.
+
+## Safety Boundary Stratification（2026-11-01）
+
+所有 Research / Mainline / Auditor / Lead 在涉及 semantic ingress、target binding、learned proposal 或产品安全时必须读取：
+
+governance\SAFETY_BOUNDARY_STRATIFICATION_20261101.json
+
+统一口径：
+- L0 非权威 proposal 可以犯错，必须量化；
+- L1 deterministic authority gate 必须拦截危险错误；
+- L2 durable authoritative state/exposure 继续 fail-closed；
+- prediction_error != unsafe_authoritative_effect；
+- 历史 frozen scientific outcome 不回写；
+- exact hypothesis 失败不自动杀死 broader mechanism family；只有 materially different、fresh prospective successor 才能继续。
+
+## Historical Rescue（2026-11-01）
+
+所有新科研 NONPASS 必须按 governance\HISTORICAL_RESCUE_POLICY_20261101.json 记录：
+- falsification_scope
+- preserved_signal
+
+控制面会对本规则生效后的新 lease 强制校验。历史结果保持只读，不回写；救援只能通过新的 materially different、fresh prospective successor。救援队列位于 governance\HISTORICAL_RESCUE_QUEUE_20261101.json，默认目标 RC-v8.1/v9，不抢 RC-v8 blocker。
+
+## Multidimensional Gate Stratification（2026-11-01 强制）
+
+读取 governance\GOVERNANCE_OVERSTRICT_REPAIR_20261101.json。
+
+从本规则生效后的新 lease 开始，LEAD_READY / NONPASS manifest 必须包含 gate_stratification，至少分别记录：
+- primary_blocker_class
+- implementation_outcome
+- safety_outcome
+- release_outcome
+- administrative_outcome
+- environment_outcome
+
+不得再把不同维度压成一个 NEGATIVE：
+- 科学能力被证伪：SCIENTIFIC，scientific_outcome=NEGATIVE。
+- 能力有效但实现 bug / composition 失败：IMPLEMENTATION_CORRECTNESS；科学结论可以保持 POSITIVE/INCONCLUSIVE/NOT_TESTED。
+- 能力有效但性能不达产品门：IMPLEMENTATION_PERFORMANCE；科学结论可以保持 POSITIVE，scientific_falsifier_observed=false。
+- L1/L2 权威边界真实穿透：SAFETY_BOUNDARY。
+- 只在 release/composition 失败：RELEASE_INTEGRATION。
+- scope/authorization/registration 或依赖/权重/环境缺失：不得仅因此提交 NONPASS；使用 EVIDENCE_ONLY / NOT_TESTED 并记录 administrative/environment blocker。
+
+性能门默认是 implementation/promotion gate，不是 scientific gate。只有在执行前明确冻结 SCIENTIFIC_COST_HYPOTHESIS 时，性能本身才可证伪科学假设。禁止 rerun-until-pass；优先使用 order-balanced repeated timing 与 robust aggregate，而不是单个噪声 block 外推整个 capability。
+
+已知依赖、模型权重、环境变量或命令在正式 execution freeze 前使用 governance\runtime_preflight.py 做本地预检；缺失依赖 = NOT_TESTED，不是科学失败。
+
+
+### Control-plane resilience
+
+- invalid backlog contract 会显示在 phase-priority.invalid_backlog，但不再形成 global blocker。
+- heartbeat 现在会滑动续租 ttl_end；持续工作仍应在 stale_seconds 之前心跳，无心跳任务照常回收。
+- 新 LEAD_READY 必须填写 productization_intent。
+- Historical Rescue / 一般探索不得抢占 RC-v8 release blocker。
+
+## Liveness truthfulness / blocker preemption（2026-11-01）
+
+治理文件不会自己唤醒 ChatGPT。没有真实 Automation / daemon 时，不得声称“后台持续监控”。等待 Auditor/Lead 是外部依赖边界，不是后台任务。
+
+HIGH_PRIORITY_BACKLOG_PREEMPT_REQUIRED 表示当前 ACTIVE self-directed lease 在领取后出现了更高优先 product blocker。必须先安全 checkpoint/submit 或 release 当前工作，再 next 领取 blocker；控制面不会偷偷丢弃当前 workspace。

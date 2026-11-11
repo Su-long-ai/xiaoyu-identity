@@ -318,6 +318,24 @@ class P1IntegrationDoctorTests(unittest.TestCase):
         self.assertTrue(out["contract_healthy"])
         self.assertTrue(out["closeout_sync"]["ok"])
 
+    def test_later_phase_closeout_backlog_does_not_reopen_p1(self):
+        data=json.loads((self.gov/"RESEARCH_BACKLOG.json").read_text(encoding="utf-8"))
+        data["phase_policy"]={
+            "closeout_mode":True,
+            "current_phase":"E2_PILOT",
+            "closeout_required_backlog":["R48","R49"],
+        }
+        (self.gov/"RESEARCH_BACKLOG.json").write_text(json.dumps(data),encoding="utf-8")
+        out=self.run_doctor()
+        self.assertTrue(out["contract_healthy"])
+        self.assertTrue(out["closeout_sync"]["ok"])
+        self.assertFalse(out["closeout_sync"]["checked"])
+        self.assertTrue(out["closeout_sync"]["ignored_later_phase_backlog"])
+        self.assertEqual(out["closeout_sync"]["scope"],"LATER_PHASE_BACKLOG_IGNORED_FOR_P1")
+        self.assertEqual(out["closeout_sync"]["actual"],["R48","R49"])
+        self.assertFalse(any(x.get("type")=="closeout_backlog_drift"
+                             for x in out["contract_errors"]))
+
     def test_dependency_cycle_breaks_contract_health(self):
         self.base_contract["stages"]=[
             {"id":"a","required":True,"status":"ready_e1","depends_on_stage":"b"},

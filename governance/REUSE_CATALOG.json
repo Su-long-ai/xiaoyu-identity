@@ -926,7 +926,7 @@
     },
     {
       "id": "provenance_must_reuse_generic_mechanics",
-      "family_regex": "(?i)provenance",
+      "family_regex": "(?i)(?:^|\\.)provenance(?:\\.|$)",
       "required_any_components": [
         "cognee_provenance",
         "graphiti_temporal"
@@ -990,6 +990,8 @@
       "custom_policy",
       "legacy_compat",
       "falsification",
+      "integration",
+      "replication",
       "grandfathered_recovery"
     ]
   },

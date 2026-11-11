@@ -1,54 +1,102 @@
 # 小鱼 · 独立可迁移的私人 AI 伴侣原型
 
-> **Research status — 2026-10-28:** P1 text-identity integration is frozen **integration-ready** (12/12 required stages ready; 122/122 governance regression at freeze). E2 prospective validation and product readiness are **not** unlocked. See [P1_FREEZE.md](P1_FREEZE.md) and [plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md](plans/P1_INTEGRATION_READY_CHECKPOINT_20261028.md).
 
-这是一个**本地持久身份实验原型**，不是 DeepSeek/DSH 的插件。
-对话需要 API（可更换服务商）；喂食、休息、玩耍、保存记忆、身份导出等不花 Token。
+> **Research direction — 2026-11-02:** Retrieval-completeness capability sprint is active locally. LoCoMo200 found 35% complete-evidence context recall and 10% Multi-hop; the frozen zero-call BGE+BM25+RRF exposed-dev candidate reaches 59.3% all-recall and 26.7% Multi-hop. Current P0 is product-shaped read-side integration and further Multi-hop completeness. See governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md.
+
+> **Current status · 2026-10-31:** the product runtime now uses the independently accepted minimal composition: an exact accepted R47 confirmed-memory core plus a four-field SQLite FTS5 derived retrieval index. Product/identity regression is 38/38 PASS. Truthful R47 runtime telemetry is integrated as a routine product remediation and its E1 review is still pending; this is not an E2/E3 promotion. Formal HaluMem/LongMemEval boundaries remain governed separately, and E2/E3 claims are still forbidden.
+
+这是一个**本地持久身份实验原型**，不是 DeepSeek/DSH 插件。身份、记忆、成长与模型服务商解耦；除用户主动聊天/成长反思外不会自动调用模型。
 
 ## 打开
 
-双击 `启动小鱼.cmd`，或在目录运行 `py -3.11 companion.py`。需要 Python 3.11（含 Tkinter），无需第三方 Python 包。不会自启和自动调用模型。
+双击 `启动小鱼.cmd`，或运行：
 
-## 核心设计
+`py -3.11 companion.py`
 
-- **独立身份**：`identity/identity.sqlite3` 是主数据，身份 ID 与模型无关。
-- **事件账本**：每条消息、互动、记忆存档和成长笔记均留有时间和可追溯记录。
-- **长期记忆**：`长期记忆`里添加、检索和归档；只有明确说“记住：...”或你手动确认的内容会进入长期记忆。
-- **人格连续性**：`成长反思`能根据真实经历提出候选，**必须经过你确认**才写入带版本的人格档案；不允许模型悄悄重写身份。
-- **模型解耦**：`切换模型`支持 DeepSeek、OpenAI、Ollama、本地或其他兼容 Chat Completions 的服务。修改 `provider.json` 绝不改变身份数据库。
-- **完整迁移**：点击 `导出身份`得到 `.zip`；其中有通用 `identity.json`、`identity.sqlite3` 和校验信息，无 API Key。提供 `IdentityStore.import_to_new_home`，只允许导入新目录，避免覆盖。
-- **原始经历**：保留对话和活动事件以追溯、检查、修订；避免把模型生成的猜测当作事实。
-- **本地控制**：除你主动请求的模型调用外无网络请求。不开网页，不装插件、不连 QQ/B 站。
+需要 Python 3.11（含 Tkinter），产品核心无需第三方 Python 包。
+
+## 当前产品架构
+
+产品运行时现在只从 product_components/memory_engine_v1/ 加载已经晋级且 SHA 固定的记忆组件；governance/ 不再是产品运行时依赖。旧 fish.py 已改为兼容启动器，默认转到 companion.py；原始旧实现仅保存在 legacy/ 供显式恢复使用。
+
+
+- **独立身份**：`identity/identity.sqlite3` 是身份与原始事件的权威数据源，identity ID 不随模型变化。
+- **事件与来源**：消息、互动、记忆审批、更正、撤回和成长记录都有本地事件来源；bootstrap 设定不会冒充共同经历。
+- **长期记忆产品桥**：`product_memory_bridge.py` 的已确认产品记忆路径在运行时只依赖 exact accepted R47；R49/R52 仍保留为冻结科研/历史工件，但不是当前产品运行时依赖。
+- **检索**：派生加速层使用 **SQLite FTS5**，元数据只保留 `memory_id / priority / status / source_event`；中文 bigram 只是 query token 适配。FTS5 只负责候选检索，R47 的 current/conflict/lifecycle 语义决定哪些记忆仍可作为当前模型可见状态。
+- **更正与撤回**：用户可在「长期记忆」里更正、撤回、归档；旧状态保留为历史证据，但退出当前召回。
+- **来源非放大**：写入和 bridge 两个边界都校验 canonical `source_event`；assistant/system/unknown 来源不能升级为 `user_state`，恢复的异常旧行会被 quarantine。
+- **单调变更版本**：schema V3 使用 `change_seq` 跟踪记忆 mutation，避免同一时间戳下撤回/更正留下 ghost memory。
+- **Fail-closed 降级**：如果 exact memory bridge 缺失、漂移或运行异常，聊天仍可使用，但长期记忆注入显式变为空；不会静默回退到较弱的 legacy recall。
+- **人格连续性**：成长反思必须由用户批准并绑定真实互动证据，写入版本化人格历史。
+- **模型解耦**：可切换 DeepSeek、Qwen、OpenAI-compatible、Ollama 或自定义兼容服务；模型配置不会改身份数据库。Qwen 已是一等 provider，默认 `qwen3.8-flash` + `DASHSCOPE_API_KEY`，thinking 关闭。
+- **完整迁移**：导出包含 `identity.sqlite3`、`identity.json` 与校验清单，不包含 API Key；导入只允许新目录。当前恢复逻辑兼容 V1/V2/V3 身份包。
 
 ## 模型切换
 
-在 UI 点击 `切换模型`。默认 `deepseek` / `deepseek-flash`，密钥由环境变量 `DEEPSEEK_API_KEY` 提供；选择 OpenAI 时使用 `OPENAI_API_KEY`。
-Ollama 连接回环地址端口 11434，模型名称需要按你的本机安装情况调整。
-自定义兼容 API 可填写 HTTPS 接口或本地 HTTP，密钥变量名填环境变量**名称**，不要把密钥写到配置文件。
-迁移以后，不同模型的行为仍有差别，**不可能保证表现完全相同**。
+在 UI 点击「切换模型」。默认配置是 DeepSeek；密钥只从对应环境变量读取。切换 provider 不改变 identity ID 或本地记忆状态。
 
-## 安全和边界
+当前已有离线回归验证：同一身份/记忆快照在 provider 配置切换前后，注入给模型的身份上下文字节保持一致。**这证明基础设施连续性，不等于不同模型的行为必然完全相同。**
 
-- 导出文件包含**私人聊天和关系历史**，应私密保管。当前导出未加密，不要公开发布。
-- `归档记忆`表示不再检索，**不会抹掉原始历史和旧备份**；彻底遗忘需要另行设计隐私删除工具。
-- 当前检索是无需联网的中文词语匹配与重要性打分，不是全量语义理解或长期自主记忆更新。
-- 成长反思只在用户主动点击时调用模型；如果 API 返回 HTTP 402，仍可离线互动和管理档案。
-- 首次升级会尝试从旧 `fish_data.json` 和 `MEMORY.md` 导入内容，保留原数据和备份。
-- 现在仍是**早期可用原型**，并非完善的生命模拟，也不能证明 AI 有意识。
+## 记忆边界
 
-## 测试
+只有用户确认过的记忆进入 current user state。待确认候选、bootstrap、assistant 历史、被撤回/归档/替代的旧状态不会被当作当前用户事实。
 
-`py -3.11 test_identity.py` — 离线测试迁移、去重、记忆检索、人格版本、模型切换、打包恢复和密钥不泄漏。
+如果 memory bridge 不可用，UI 会显示警告；此时不会用 legacy recall 补记忆，避免组件故障反而扩大错误记忆暴露。
 
-## V2 · 记忆来源、审核与成长证据
+## 安全与隐私
 
-- 初始设定与真实记忆严格隔离。旧版 4 条初始化文本保留为 `bootstrap`，**不参与长期记忆检索**。
-- 本机身份与真实互动计数分别统计，不将系统迁移、预设或技术事件算作共同经历。
-- 在聊天中说“记住：...”或自然表达明确偏好时，会生成**待确认候选**；只有在「长期记忆 → 待确认」选择“确认候选”，才成为长期记忆。
-- 长期记忆可追溯到完整原话对应的事件编号；拒绝的候选不会被当成回忆。
-- 人格成长必须经过你的批准，并关联至少 2 条真实的对话或养成互动事件。
-- 历史中的未使用初始设定仍随导出备份保存，但永远不冒充共同记忆。
-- V2 导出格式可用 `py -3.11 restore_identity.py "导出的身份.zip" "全新的空路径"` 恢复；也能恢复旧 V1 身份备份并迁移来源分类。
-- 旧版数据与程序已独立放在 `backups\pre-provenance-v2-*`，升级脚本保存在 `maintenance\`，未删除原资料。
+- 导出文件包含私人聊天和关系历史，应私密保存；当前导出不加密。
+- 归档/撤回会停止当前召回，但历史证据仍可保留；“物理删除所有历史备份”是更强的独立隐私目标。
+- 产品 memory bridge 全部在本地运行，不把私人身份数据发送到研究 API。
+- 科研/benchmark 默认只用公开、合成或明确脱敏数据；真实 `identity/` 不进入科研评测。
+- 小鱼仍是 AI 软件原型，不声称有意识或真实生物感受。
 
-验证：`py -3.11 -m unittest -v test_identity test_identity_v2`，全部离线运行，不调用 API。
+## 当前验证
+
+完整产品回归：
+
+`py -3.11 -m unittest -v test_identity test_identity_v2 test_product_memory_bridge`
+
+当前结果：**38/38 PASS**。
+
+Longitudinal smoke v2（含 canonical-source provenance 隔离）：
+
+`py -3.11 tools\xiaoyu_longitudinal_product_smoke.py --count 5000 --repeat 10 --max-median-recall-ms 120`
+
+5000-memory 性能参考（2026-10-29，来自当前 memory-core 之前的精确修订；后续 final-send/proposal hardening 未改变该参考的用途，但本段不声称是最新 root-byte 重跑）：
+- 5000 条记忆首次派生索引构建：约 **32.23 s**；
+- recall median：**48.96 ms**；
+- recall p95：**49.25 ms**；
+- restart bridge：**49.93 ms**；
+- correction / retraction / restart continuity：全部通过；
+- restart 不触发 full reconcile。
+
+首次 5000-memory 冷构建仍是明确性能债，但不会在每轮聊天重复支付。
+
+## 跨模型行为 shadow
+
+使用一次性合成身份做真实 API shadow：同一份当前身份上下文分别交给 DeepSeek Flash 与 Qwen3.8-Flash，各重复 3 次。检查助手身份名、更正后的当前城市、鞋偏好、已撤回事实不被猜回。当前结果：DeepSeek **3/3 PASS**、Qwen **3/3 PASS**，六次语义结果一致；不读取真实私人 identity，不属于 E2 正式结论。
+
+## 科研与正式结论边界
+
+R52 的 E1 接受说明其测试范围内的 open-domain composition 通过了独立复核；它**不是** E2/E3 产品完成声明。
+
+当前 HaluMem confirmatory judge 已在 final freeze 前重新绑定为 Alibaba Model Studio `qwen3.8-flash`（thinking disabled）。需要 `DASHSCOPE_API_KEY`，且必须先做全新的 12/12 Flash calibration；GPT-4o/旧 Max judge 结果不复用。
+
+正式 E2 当前边界：
+1. 原 final-v2 独立 re-audit 与 final execution freeze 已完成；
+2. 首次 HaluMem prediction 的 68 COMMITTED + 1 durable UNKNOWN 已被 Recovery V2 以“COMMITTED 精确复用 + UNKNOWN=TRANSPORT_ABSTAIN_NO_RETRY”方式合法接管；
+3. Recovery V2 已独立审计并单独 final-freeze，当前仅 HaluMem 获准继续 prediction；
+4. prediction seal 完成后才允许执行全新的 qwen3.8-flash **12/12 calibration**；只有 calibration 通过后才允许 HaluMem gold scoring；
+5. LongMemEval 原 holdout 因 pre-seal gold-boundary materialization 已失去 untouched 资格，当前保持禁用，不允许静默替换或继续出分；
+6. 最终结果仍需独立正式审查后才能考虑 E2 promotion。
+
+The physical-delete/tombstone final-send prior P1 is independently closed on the current bound bytes: 16/16 fault cases, 16/16 retry-closure cases and the full 38/38 product regression pass. The non-exposed physical-delete cold-start/legacy-migration path remains P2 advisory. e2_claim_allowed=false.
+
+
+## 2026-10-30 current override
+
+- Product final-send fail-closed remediation is now **independently rechecked and closed on the bound bytes** (fish-eba8bfe5b6864d51); the remaining physical-delete cold-start/legacy-migration issue is P2 advisory.
+- The Owner increased the hard total-project API ceiling to **RMB 100**, but spending remains staged rather than blanket-authorized. Formal HaluMem Recovery V2 confirmatory is **checkpoint-paused**, not invalidated or restarted; Stage A is restricted to the existing bounded dev gate.
+- Current paid priority is a bounded non-confirmatory budget-worthiness gate on the already-exposed 647-turn / 51-QA HaluMem pilot. Formal confirmatory and LongMemEval remain disabled while that gate is evaluated.

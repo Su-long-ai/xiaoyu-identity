@@ -4,14 +4,27 @@
   "root": "D:\\dsh-fish",
   "purpose": "Research governance for a persistent, model-independent AI companion. Paid DeepSeek research is authorized only through the capped research gateway; no autonomous paid loop or private-data upload.",
   "startup": {
-    "research_engineers": 2,
+    "research_engineers": 4,
     "auditors": 1,
-    "max_total": 3,
-    "max_total_future_without_policy_review": 7
+    "max_total": 5,
+    "max_total_future_without_policy_review": 5,
+    "dynamic_capacity": {
+      "enabled": true,
+      "base_research_engineers": 4,
+      "research_join_headroom": 1,
+      "hard_max_research_engineers": 4,
+      "base_auditors": 1,
+      "pending_e1_per_auditor": 1,
+      "hard_max_auditors": 1,
+      "hard_max_total": 5,
+      "note": "V1 closeout: 4 research lanes + 1 milestone auditor. Existing excess ACTIVE leases may finish a bounded pass, but new joins are denied until occupancy contracts."
+    }
   },
   "leases": {
     "stale_seconds": 5400,
-    "ttl_seconds": 14400
+    "ttl_seconds": 14400,
+    "sliding_ttl_on_heartbeat": true,
+    "ttl_renew_seconds": 14400
   },
   "budget": {
     "max_paid_api_calls_per_day": 20000,
@@ -22,7 +35,7 @@
     "paid_research": {
       "enabled": true,
       "provider": "deepseek",
-      "authorization": "owner_approved_100m_2026-10-27",
+      "authorization": "owner_auto_authorize_scope_strict_lt_10cny",
       "max_total_tokens": 100000000,
       "smoke_max_tokens": 5000000,
       "benchmark_max_tokens": 95000000,
@@ -35,9 +48,9 @@
       "thinking": "disabled",
       "reasoning_effort": "none",
       "comparison_note": "Controlled self-hosted track uses non-thinking DeepSeek Flash unless a separately frozen experiment changes this for all compared backends.",
-      "temperature": 0.0,
-      "top_p": 1.0,
-      "budget_note": "Owner authorized 100M raw tokens. Smoke exited at 4,561,306/5M; benchmark phase is now explicitly unlocked only for the frozen E2 non-promotional pilot. Runtime scope guards remain unchanged and weekday Beijing peak benchmark calls remain blocked.",
+      "temperature": 0,
+      "top_p": 1,
+      "budget_note": "Owner rule 2026-11-01: any prospectively frozen paid research scope with conservative peak hard cap <10 CNY is cost-authorized by default; >=10 CNY requires explicit owner approval. Scientific/data gates and the 100 CNY project ceiling remain fail-closed.",
       "runtime_guard": {
         "enabled": true,
         "effective_after_epoch": 1793088025.885803,
@@ -93,8 +106,282 @@
             "epoch_cache_miss_cap": 400000,
             "epoch_output_token_cap": 200000,
             "epoch_call_cap": 80
+          },
+          "proxy:xiaoyu:e2_halumem_semantic_transition_pilot_v1": {
+            "rolling_raw_token_cap": 50000,
+            "rolling_cache_miss_cap": 50000,
+            "rolling_output_token_cap": 15000,
+            "rolling_call_cap": 16,
+            "epoch_raw_token_cap": 50000,
+            "epoch_cache_miss_cap": 50000,
+            "epoch_output_token_cap": 15000,
+            "epoch_call_cap": 16
+          },
+          "proxy:xiaoyu:e2_halumem_confirmatory_semantic_v1": {
+            "rolling_raw_token_cap": 900000,
+            "rolling_cache_miss_cap": 650000,
+            "rolling_output_token_cap": 300000,
+            "rolling_call_cap": 1000,
+            "epoch_raw_token_cap": 90000000,
+            "epoch_cache_miss_cap": 45000000,
+            "epoch_output_token_cap": 8000000,
+            "epoch_call_cap": 75691
+          },
+          "proxy:xiaoyu:e2_lme_confirmatory_v1": {
+            "rolling_raw_token_cap": 500000,
+            "rolling_cache_miss_cap": 350000,
+            "rolling_output_token_cap": 100000,
+            "rolling_call_cap": 120,
+            "epoch_raw_token_cap": 2000000,
+            "epoch_cache_miss_cap": 1500000,
+            "epoch_output_token_cap": 500000,
+            "epoch_call_cap": 454
+          },
+          "proxy:xiaoyu:budget50_halumem_dev_v1": {
+            "rolling_raw_token_cap": 2500000,
+            "rolling_cache_miss_cap": 650000,
+            "rolling_output_token_cap": 150000,
+            "rolling_call_cap": 647,
+            "epoch_raw_token_cap": 2500000,
+            "epoch_cache_miss_cap": 650000,
+            "epoch_output_token_cap": 150000,
+            "epoch_call_cap": 647
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_v1": {
+            "rolling_raw_token_cap": 100000,
+            "rolling_cache_miss_cap": 80000,
+            "rolling_output_token_cap": 2000,
+            "rolling_call_cap": 16,
+            "epoch_raw_token_cap": 100000,
+            "epoch_cache_miss_cap": 80000,
+            "epoch_output_token_cap": 2000,
+            "epoch_call_cap": 16
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_v4": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_v5": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_v5_full": {
+            "rolling_raw_token_cap": 400000,
+            "rolling_cache_miss_cap": 300000,
+            "rolling_output_token_cap": 10000,
+            "rolling_call_cap": 51,
+            "epoch_raw_token_cap": 400000,
+            "epoch_cache_miss_cap": 300000,
+            "epoch_output_token_cap": 10000,
+            "epoch_call_cap": 51
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_v6": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_v7": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_s1": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:stagea_grounded_answerer_dev_s2": {
+            "rolling_raw_token_cap": 80000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 1500,
+            "rolling_call_cap": 10,
+            "epoch_raw_token_cap": 80000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 1500,
+            "epoch_call_cap": 10
+          },
+          "proxy:xiaoyu:main19b-stageb-v1": {
+            "rolling_raw_token_cap": 500000,
+            "rolling_cache_miss_cap": 500000,
+            "rolling_output_token_cap": 500000,
+            "rolling_call_cap": 100,
+            "epoch_raw_token_cap": 500000,
+            "epoch_cache_miss_cap": 500000,
+            "epoch_output_token_cap": 500000,
+            "epoch_call_cap": 100
+          },
+          "proxy:xiaoyu:factorized-ingress-v2-e0": {
+            "rolling_raw_token_cap": 300000,
+            "rolling_cache_miss_cap": 300000,
+            "rolling_output_token_cap": 25920,
+            "rolling_call_cap": 144,
+            "epoch_raw_token_cap": 300000,
+            "epoch_cache_miss_cap": 300000,
+            "epoch_output_token_cap": 25920,
+            "epoch_call_cap": 144
+          },
+          "proxy:xiaoyu:exp09_stage_b_v1": {
+            "rolling_raw_token_cap": 214213,
+            "rolling_cache_miss_cap": 214213,
+            "rolling_output_token_cap": 102400,
+            "rolling_call_cap": 50,
+            "epoch_raw_token_cap": 214213,
+            "epoch_cache_miss_cap": 214213,
+            "epoch_output_token_cap": 102400,
+            "epoch_call_cap": 50
+          },
+          "proxy:xiaoyu:factorized-struct-auth-e0-v1": {
+            "rolling_raw_token_cap": 180000,
+            "rolling_cache_miss_cap": 180000,
+            "rolling_output_token_cap": 12960,
+            "rolling_call_cap": 72,
+            "epoch_raw_token_cap": 180000,
+            "epoch_cache_miss_cap": 180000,
+            "epoch_output_token_cap": 12960,
+            "epoch_call_cap": 72
+          },
+          "proxy:xiaoyu:capceil-e2e-v1": {
+            "rolling_raw_token_cap": 60000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 3640,
+            "rolling_call_cap": 13,
+            "epoch_raw_token_cap": 60000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 3640,
+            "epoch_call_cap": 13
+          },
+          "proxy:xiaoyu:capability-locomo200-v1": {
+            "rolling_raw_token_cap": 500000,
+            "rolling_cache_miss_cap": 500000,
+            "rolling_output_token_cap": 19200,
+            "rolling_call_cap": 200,
+            "epoch_raw_token_cap": 500000,
+            "epoch_cache_miss_cap": 500000,
+            "epoch_output_token_cap": 19200,
+            "epoch_call_cap": 200
+          },
+          "proxy:xiaoyu:capability-locomo200-judge-v1": {
+            "rolling_raw_token_cap": 150000,
+            "rolling_cache_miss_cap": 150000,
+            "rolling_output_token_cap": 12800,
+            "rolling_call_cap": 200,
+            "epoch_raw_token_cap": 150000,
+            "epoch_cache_miss_cap": 150000,
+            "epoch_output_token_cap": 12800,
+            "epoch_call_cap": 200
+          },
+          "proxy:xiaoyu:rc8m2-setwise-l0-fresh-v1": {
+            "rolling_raw_token_cap": 200000,
+            "rolling_cache_miss_cap": 200000,
+            "rolling_output_token_cap": 5520,
+            "rolling_call_cap": 46,
+            "epoch_raw_token_cap": 200000,
+            "epoch_cache_miss_cap": 200000,
+            "epoch_output_token_cap": 5520,
+            "epoch_call_cap": 46
+          },
+          "proxy:xiaoyu:v1-crossmodel-state-v1": {
+            "rolling_raw_token_cap": 60000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 6144,
+            "rolling_call_cap": 24,
+            "epoch_raw_token_cap": 60000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 6144,
+            "epoch_call_cap": 24
+          },
+          "proxy:xiaoyu:v1-crossmodel-state-v2": {
+            "rolling_raw_token_cap": 60000,
+            "rolling_cache_miss_cap": 60000,
+            "rolling_output_token_cap": 3840,
+            "rolling_call_cap": 24,
+            "epoch_raw_token_cap": 60000,
+            "epoch_cache_miss_cap": 60000,
+            "epoch_output_token_cap": 3840,
+            "epoch_call_cap": 24
+          },
+          "proxy:xiaoyu:v1-crossmodel-final-cloud-fresh": {
+            "rolling_raw_token_cap": 150000,
+            "rolling_cache_miss_cap": 150000,
+            "rolling_output_token_cap": 3840,
+            "rolling_call_cap": 40,
+            "epoch_raw_token_cap": 150000,
+            "epoch_cache_miss_cap": 150000,
+            "epoch_output_token_cap": 3840,
+            "epoch_call_cap": 40
+          },
+          "proxy:xiaoyu:v1-final-locomo200-answer": {
+            "rolling_raw_token_cap": 500000,
+            "rolling_cache_miss_cap": 500000,
+            "rolling_output_token_cap": 19200,
+            "rolling_call_cap": 200,
+            "epoch_raw_token_cap": 500000,
+            "epoch_cache_miss_cap": 500000,
+            "epoch_output_token_cap": 19200,
+            "epoch_call_cap": 200
+          },
+          "proxy:xiaoyu:v1-final-locomo200-judge": {
+            "rolling_raw_token_cap": 150000,
+            "rolling_cache_miss_cap": 150000,
+            "rolling_output_token_cap": 12800,
+            "rolling_call_cap": 200,
+            "epoch_raw_token_cap": 150000,
+            "epoch_cache_miss_cap": 150000,
+            "epoch_output_token_cap": 12800,
+            "epoch_call_cap": 200
+          },
+          "proxy:xiaoyu:v11-fourarm-dev-answer": {
+            "rolling_raw_token_cap": 400000,
+            "rolling_cache_miss_cap": 400000,
+            "rolling_output_token_cap": 15360,
+            "rolling_call_cap": 160,
+            "epoch_raw_token_cap": 400000,
+            "epoch_cache_miss_cap": 400000,
+            "epoch_output_token_cap": 15360,
+            "epoch_call_cap": 160
+          },
+          "proxy:xiaoyu:v11-hybrid-40-dev-answer": {
+            "rolling_raw_token_cap": 90000,
+            "rolling_cache_miss_cap": 90000,
+            "rolling_output_token_cap": 3840,
+            "rolling_call_cap": 40,
+            "epoch_raw_token_cap": 90000,
+            "epoch_cache_miss_cap": 90000,
+            "epoch_output_token_cap": 3840,
+            "epoch_call_cap": 40
           }
-        }
+        },
+        "benchmark_peak_block_cost_threshold_cny": 10,
+        "benchmark_peak_policy_note": "Owner rule 2026-10-30: weekday Beijing peak hours block only scopes whose conservative epoch hard-cap cost exceeds 10 CNY. Small bounded scopes <=10 CNY may execute in peak hours; formal/large scopes remain blocked.",
+        "owner_auto_scope_threshold_cny": 10,
+        "owner_auto_scope_strict_less_than": true
       },
       "pricing_cny_per_million": {
         "model": "deepseek-flash",
@@ -104,12 +391,12 @@
           "peak": 0.04
         },
         "cache_miss": {
-          "off_peak": 1.0,
-          "peak": 2.0
+          "off_peak": 1,
+          "peak": 2
         },
         "output": {
-          "off_peak": 4.0,
-          "peak": 8.0
+          "off_peak": 4,
+          "peak": 8
         },
         "source": "DeepSeek official Models & Pricing, verified 2026-10-27",
         "note": "Weekday Beijing peak 09:00-12:00 and 14:00-18:00 excluding Chinese public holidays; off-peak is half price."
@@ -126,6 +413,123 @@
         "reserved_calls": 0,
         "e2_claim_allowed": false,
         "note": "This unlock authorizes only paid execution under the frozen prospective protocol; it is not an E2/E3 scientific or product claim."
+      },
+      "owner_total_budget_cny": 100,
+      "budget_mode": "BUDGET100_AUTO_SCOPE_LT10_CNY",
+      "estimated_deepseek_spend_snapshot_cny": 10.98339892000007,
+      "estimated_remaining_project_budget_cny": 89.01660107999993,
+      "budget_snapshot_note": "DeepSeek spend snapshot remains pre-V7; V7 adds at most 0.172 CNY conservative peak bound. Formal confirmatory remains false.",
+      "allocation_guard": {
+        "stage_a_dev_gate_peak_cap_cny": 2.5,
+        "judge_and_calibration_reserve_cny": 15,
+        "contingency_reserve_cny": 10,
+        "formal_confirmatory_reserve_cny": 45,
+        "unallocated_reserve_cny": 18.79968556,
+        "rule": "100 CNY is a hard ceiling, not a target. Stage expansion requires completed prior gate and fresh cost projection."
+      },
+      "exclusive_paid_scope": "",
+      "budget_program": "BUDGET100_STAGED",
+      "budget_stage": "STAGE_A_STRUCTURAL_TYPED_DIRECT_ANSWER_S3_OFFLINE",
+      "budget_mode_compat_note": "Authoritative owner policy is BUDGET100_AUTO_SCOPE_LT10_CNY; older frozen scopes may retain historical budget-mode strings only inside their immutable evidence.",
+      "owner_budget_authority_record": "governance/OWNER_API_BUDGET.json",
+      "owner_budget_revision": "2026-11-01T14:15:12+08:00",
+      "prefrozen_mainline_execution_manifests": [
+        {
+          "scope": "proxy:xiaoyu:main19b-stageb-v1",
+          "path": "governance/workspaces/fish-4273c5824a17469b/PREFROZEN_PAID_EXECUTION_MANIFEST.json",
+          "sha256": "3facf5770ac24f0f9abca6e72b5971659e79542a5c58b2a2081c9b75322e159a"
+        },
+        {
+          "scope": "proxy:xiaoyu:factorized-ingress-v2-e0",
+          "path": "governance/auto_paid_scopes/factorized-ingress-v2-e0_fish-7bc742ef66b1464e.json",
+          "sha256": "70b0368439add38f7a9342e519a206b23ed7ae84f252c5e4fb7f72c0bfb11e24"
+        },
+        {
+          "scope": "proxy:xiaoyu:exp09_stage_b_v1",
+          "path": "governance/auto_paid_scopes/exp09_stage_b_v1_fish-f871cad36ace4bce.json",
+          "sha256": "8f77cfe61d783d52b3352b02328f3157fdeee321f5294f2fb1875dfe9a4f6ed6"
+        },
+        {
+          "scope": "proxy:xiaoyu:factorized-struct-auth-e0-v1",
+          "path": "governance/auto_paid_scopes/factorized-struct-auth-e0-v1_fish-d7f690e99b8e4511.json",
+          "sha256": "b58482c5ec1ba508ac55b6d46b7d016fc435fe6107d97db555c7f7ee48491485"
+        },
+        {
+          "scope": "proxy:xiaoyu:capceil-e2e-v1",
+          "path": "governance/auto_paid_scopes/capceil-e2e-v1_fish-1d796d17173d4384.json",
+          "sha256": "1f688b4213f41372f8e154a3187c2157ecd270466ceb2159b8526b578a8476cf"
+        },
+        {
+          "scope": "proxy:xiaoyu:capability-locomo200-v1",
+          "path": "governance/auto_paid_scopes/capability-locomo200-v1_fish-2c13552ab6324dbd.json",
+          "sha256": "32e4ff87a3d10164c785e25bb5c50b45b1c6b3561c7e72bdf5dfc10deb2907c6"
+        },
+        {
+          "scope": "proxy:xiaoyu:capability-locomo200-judge-v1",
+          "path": "governance/auto_paid_scopes/capability-locomo200-judge-v1_fish-5e91afcff84e4ef6.json",
+          "sha256": "0736ec4009f8834ccc2b7a8deedd62d24f46fd8fdbca146afb642a372acdf206"
+        },
+        {
+          "scope": "proxy:xiaoyu:rc8m2-setwise-l0-fresh-v1",
+          "path": "governance/auto_paid_scopes/rc8m2-setwise-l0-fresh-v1_fish-117f1b865c864a31.json",
+          "sha256": "ac92cec6dcf6f611a512bcdb394152102c86a5a00ef2bf47fe517e88fea49a3f"
+        },
+        {
+          "scope": "proxy:xiaoyu:v1-crossmodel-state-v1",
+          "path": "governance/auto_paid_scopes/v1-crossmodel-state-v1_fish-e246ace46d3d48e5.json",
+          "sha256": "4a7a4c8fac405513327b3596bcc1cdfed3c28cb7203386e0193237015247ffea"
+        },
+        {
+          "scope": "proxy:xiaoyu:v1-crossmodel-state-v2",
+          "path": "governance/auto_paid_scopes/v1-crossmodel-state-v2_fish-e246ace46d3d48e5.json",
+          "sha256": "5935d884884df34279ffd592a6589e6510042a6c523d0b7b986ee66833298007"
+        },
+        {
+          "scope": "proxy:xiaoyu:v1-crossmodel-final-cloud-fresh",
+          "path": "governance/auto_paid_scopes/v1-crossmodel-final-cloud-fresh_fish-535d3a5f168b4e3b.json",
+          "sha256": "f94770d3d6e7d782be685e496062d723d3c0bb0a3f122f45c84f5a3e75fc65ca"
+        },
+        {
+          "scope": "proxy:xiaoyu:v1-final-locomo200-answer",
+          "path": "governance/auto_paid_scopes/v1-final-locomo200-answer_fish-c55213b8b56742d4.json",
+          "sha256": "30ab49a46e66ee5db8dc27ba345f4d3ab9ea5a17400285791aec2de3cb488210"
+        },
+        {
+          "scope": "proxy:xiaoyu:v1-final-locomo200-judge",
+          "path": "governance/auto_paid_scopes/v1-final-locomo200-judge_fish-c55213b8b56742d4.json",
+          "sha256": "f226923e1e1adbdcc53c369c3d47ed419d7f62adfc63cb597980e06435ab7cc2"
+        },
+        {
+          "scope": "proxy:xiaoyu:v11-fourarm-dev-answer",
+          "path": "governance/auto_paid_scopes/v11-fourarm-dev-answer_fish-45075aaab1014665.json",
+          "sha256": "1050aeb9d62f15335d0f6524ffbca69ae37639fbb74e7788f3323a08ff768b33"
+        },
+        {
+          "scope": "proxy:xiaoyu:v11-hybrid-40-dev-answer",
+          "path": "governance/auto_paid_scopes/v11-hybrid-40-dev-answer_fish-b76e4d8c48324b41.json",
+          "sha256": "73af27723df4e9b3ad29515f25351d0f9211c345b08965777346a2d278efed11"
+        }
+      ],
+      "auto_scope_authorization": {
+        "enabled": true,
+        "record": "governance/OWNER_PAID_SCOPE_AUTO_AUTH_LT10CNY_20261101.json",
+        "threshold_cny": 10,
+        "strict_less_than": true,
+        "cost_basis": "conservative_peak_hard_cap",
+        "requires_prefrozen_protocol": true,
+        "requires_total_project_budget_remaining": true,
+        "at_or_above_threshold_requires_explicit_owner": true,
+        "scientific_and_data_gates_are_not_waived": true,
+        "registrar": "governance/register_auto_paid_scope.py",
+        "registration_policy_record": "governance/AUTO_PAID_SCOPE_REGISTRATION_POLICY_20261101.json",
+        "registration_mode": "CONTROL_PLANE_EXACT_PREFROZEN",
+        "requires_active_research_lease": true,
+        "formal_blind_e2_scopes_excluded": true,
+        "late_registration_after_paid_reservation_forbidden": true,
+        "reenabled_at": "2026-11-02T17:35:00+08:00",
+        "reenabled_basis": "Independent control audit PASS: sub-387fbc5c14834464 / PASS_AUTO_PAID_TOCTOU_V2_INDEPENDENT_CONTROL_AUDIT",
+        "independent_audit_submission": "sub-387fbc5c14834464",
+        "independent_audit_classification": "PASS_AUTO_PAID_TOCTOU_V2_INDEPENDENT_CONTROL_AUDIT"
       }
     }
   },
@@ -147,12 +551,12 @@
     "cost_reliability"
   ],
   "research_lane_weights_advisory": {
-    "main_bottleneck": 40,
-    "alternative_architecture": 20,
-    "evaluation_data": 15,
-    "persona_relationship": 10,
-    "safety_privacy": 10,
-    "performance_cost": 5
+    "main_bottleneck": 100,
+    "alternative_architecture": 0,
+    "evaluation_data": 0,
+    "persona_relationship": 0,
+    "safety_privacy": 0,
+    "performance_cost": 0
   },
   "stop_loss": {
     "deprioritize_after_nonimproving": 2,
@@ -187,7 +591,16 @@
     "canonical_current_projection_must_not_replace_immutable_source_history",
     "no_p1_claim_of_lossless_structured_intra_message_transient_history",
     "model_visible_canonical_memory_must_not_embed_raw_evidence_quote",
-    "partially_erased_multifact_raw_source_must_not_be_directly_model_visible"
+    "partially_erased_multifact_raw_source_must_not_be_directly_model_visible",
+    "active_retrieval_completeness_sprint_precedes_noncritical_portfolio_work",
+    "fixed_locomo200_item_set_must_not_expand_during_retrieval_sprint",
+    "retrieval_candidate_output_must_be_sealed_before_gold_evidence_scoring",
+    "answerer_prompt_and_write_side_core_frozen_during_retrieval_sprint_unless_material_p0_p1",
+    "v1_closeout_precedes_open_ended_exploration",
+    "new_research_must_map_to_exactly_one_v1_release_gate",
+    "v1_closeout_research_task_must_terminate_pass_fail_or_inconclusive_within_48h",
+    "fast_retrieval_has_at_most_one_refillable_closeout_slot",
+    "divergent_research_disabled_by_default_during_v1_closeout"
   ],
   "evidence_labels": [
     "EXPLORATORY",
@@ -243,7 +656,19 @@
     "prior_work_similarity_threshold": 0.58,
     "prior_work_exact_block": true,
     "doctor_enabled": true,
-    "policy_revision": "reuse-v2-20261027-external-saturation"
+    "policy_revision": "reuse-v2-20261027-external-saturation",
+    "lead_vetted_infrastructure_exception": true,
+    "infrastructure_exception_required_fields": [
+      "approved",
+      "reason"
+    ],
+    "external_dependency_required_fields": [
+      "id",
+      "source",
+      "version",
+      "license",
+      "reason"
+    ]
   },
   "trust_layer": {
     "authority": {
@@ -312,14 +737,56 @@
     ],
     "scope_must_be_allowlisted_proxy": true,
     "review_rechecks_usage_ledger": true,
-    "note": "E0 evidence may remain observational. LEAD_READY paid-model claims after proxy-only epoch must bind exact api-* IDs to committed proxy usage."
+    "note": "E0 evidence may remain observational. LEAD_READY paid-model claims after proxy-only epoch must bind exact api-* IDs to committed proxy usage.",
+    "authenticated_transport_attestation_required": true,
+    "authenticated_transport_attestation_status": "BLOCKED_UNAVAILABLE",
+    "source_finding": "sub-f2d5369e2d624608",
+    "impact_inventory": "sub-31842d4f5a424fb0",
+    "current_accept_e1_blast_radius": "0/55 current ACCEPT_E1 rely on paid_evidence",
+    "containment_note": "Future paid LEAD_READY fails closed until the verifier binds a trust-boundary-generated provider/proxy attestation unavailable to research workers. This does not block ordinary paid E0/EVIDENCE_ONLY execution and does not invalidate current ACCEPT_E1."
   },
   "phase_priority_guard": {
     "enabled": true,
     "effective_after_epoch": 1793118648.4738383,
     "block_self_directed_when_auto_assign_available": true,
     "required_role": "research_engineer",
-    "note": "Fail closed on new self-directed research while an unclaimed active backlog task in the current auto-assign phase exists. Backlog-bound claims, exact recovery and auditors are exempt."
+    "note": "Fail closed on new self-directed research while an unclaimed active backlog task in the current auto-assign phase exists. Backlog-bound claims, exact recovery and auditors are exempt.",
+    "continuous_research_exception": {
+      "enabled": false,
+      "allowed_phases": [
+        "V1_PRODUCT_CLOSEOUT"
+      ],
+      "max_active_self_directed": 0,
+      "allowed_lanes": [
+        "main_bottleneck",
+        "alternative_architecture",
+        "evaluation_data",
+        "persona_relationship"
+      ],
+      "requires_no_closeout_backlog": true,
+      "product_share_target": 1.0,
+      "research_share_target": 0.0,
+      "research_mix": {
+        "product_driven": 1.0,
+        "free_exploration": 0.0
+      },
+      "soft_budget_only": true,
+      "product_mainline_never_blocked_by_research_quota": true,
+      "note": "V1 closeout disables open-ended self-directed research. All new research is backlog-bound to a release gate; one emergency divergent slot requires explicit Lead routing.",
+      "capacity_note": "This is only a safety allowance. Authoritative admission capacity is startup.dynamic_capacity and contracts/expands dynamically.",
+      "capability_ceiling_priority": true,
+      "capability_ceiling_themes": [
+        "semantic_ingress",
+        "query_conditioned_state_reconstruction",
+        "selective_reinterpretation",
+        "compositional_typed_state",
+        "persona_relationship_continuity"
+      ],
+      "default_excluded_self_directed_lanes": [
+        "safety_privacy",
+        "performance_cost"
+      ]
+    }
   },
   "representation_boundary": {
     "source_history": "immutable raw trusted source/message evidence",
@@ -334,7 +801,7 @@
     "decision_ref": "governance/decisions/ADR-010-structured-current-vs-source-history.md"
   },
   "e2_transition": {
-    "current_stage": "E2_PILOT",
+    "current_stage": "E2_CONFIRMATORY",
     "protocol": "governance/E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json",
     "protocol_sha256": "0d5805e8a8a773544955724c4490440c237aa1fcdd8876a0d342acad6f2caf14",
     "freeze_record": "governance/E2_PROTOCOL_FREEZE_RECORD.json",
@@ -376,6 +843,322 @@
       "completion_tokens_per_committed_case",
       "offpeak_cost_cny_per_committed_case"
     ],
-    "cache_target_revision_reason": "Post-first-real-batch evidence shows LongMemEval's 158-token common prefix is structurally below a reusable V4.1 128-token block after SWA backoff; do not mutate the frozen pilot prompt to chase cache hit rate."
+    "cache_target_revision_reason": "Post-first-real-batch evidence shows LongMemEval's 158-token common prefix is structurally below a reusable V4.1 128-token block after SWA backoff; do not mutate the frozen pilot prompt to chase cache hit rate.",
+    "supplemental_execution_manifests": [
+      {
+        "path": "governance/E2_R49_CANARY_MANIFEST.json",
+        "sha256": "299d3748f03b390bf6703d879774bee268fdec3d0286341cf82549ba48c4e60a"
+      }
+    ],
+    "execution_amendments": [
+      {
+        "path": "governance/E2_EXECUTION_AMENDMENT_R49_CANARY.json",
+        "sha256": "e606cb1569a51ae05864ede39ee8f29ed5c83418bfcfd0d8f3e7f007dd305ca2"
+      },
+      {
+        "path": "governance/E2_EXECUTION_AMENDMENT_R49_CANARY_RUNTIME_V2.json",
+        "sha256": "93e4ef5ec15a173b1b0e66dc68b3c7ae16e6624421ffa9d4bfe876d25b144a70"
+      },
+      {
+        "path": "governance/E2_CONFIRMATORY_HALUMEM_STREAM_CAP_AMENDMENT_V1.json",
+        "sha256": "f1a5dbbf40c7391017cfe5781f7504978d0277899a20b313dd08c798a0217b84"
+      }
+    ],
+    "product_bridge_status": "R47_MINIMAL_COMPOSITION_ACCEPT_E1_PRODUCT_ACTIVE_TELEMETRY_E1_PENDING",
+    "confirmatory_execution_manifest": "governance/E2_CONFIRMATORY_EXECUTION_MANIFEST_CANDIDATE.json",
+    "confirmatory_execution_manifest_sha256": "beb12ce721648291b0c1441b2533cc4c05ebf0758ff9c938afc3813cb416f782",
+    "confirmatory_freeze_record": "governance/E2_CONFIRMATORY_FINAL_FREEZE_RECORD.json",
+    "confirmatory_freeze_record_sha256": "988d082d0c5bbc70a48b72032d38f8e3d1fa4e53bd6de4cddc68692466d71737",
+    "confirmatory_dynamic_case_membership_required": true,
+    "confirmatory_paid_gateway": "governance/e2_confirmatory_execution.py",
+    "confirmatory_paid_gateway_rule": "PREFREEZE hard-deny; after READY_FOR_CONFIRMATORY_FREEZE, exact runner/manifest/gateway hashes + frozen UUID stream membership + exact v5 prefix + durable duplicate ledger are required.",
+    "confirmatory_execution_manifest_status": "FROZEN_SPEC_AUTHORIZED_BY_FINAL_FREEZE",
+    "confirmatory_final_reaudit_required": true,
+    "final_v2_reaudit_status": "READY_FOR_CONFIRMATORY_FREEZE",
+    "halumem_judge": "alibaba_model_studio:qwen3.8-flash",
+    "halumem_external_gpt4o_medians_formal_gate_allowed": false,
+    "halumem_stream_cap_amendment_freeze": "governance/E2_CONFIRMATORY_HALUMEM_STREAM_CAP_AMENDMENT_FREEZE_V1.json",
+    "halumem_stream_cap_amendment_freeze_sha256": "8c6b4da0e2151e86af80b6dcb0cc8e2c782385706e7dbc92acd640560f1b382f",
+    "confirmatory_pause_reason": "STAGEA_STRUCTURAL_REORDER_S1_TUNING_ONLY",
+    "confirmatory_pause_epoch": 1793294266.857293,
+    "budget50_dev_gate_manifest": "governance/BUDGET50_HALUMEM_DEV_GATE_V1.json",
+    "budget50_dev_gate_manifest_sha256": "2cb751899cc0209143acf54f1f1b8b3ade6d9c284a1d78203de1d01832fbabb0",
+    "budget50_dev_gate_started_epoch": 1793293177.5716043
+  },
+  "productization_policy": {
+    "status": "ACTIVE_2026-10-29",
+    "priority_order": [
+      "finish_existing_E2_confirmatory_closeout",
+      "integrate_ACCEPT_E1_capabilities_into_product_runtime",
+      "cross_model_identity_vertical_slice",
+      "new_research_only_for_observed_product_or_confirmatory_blocker"
+    ],
+    "routine_integration": {
+      "formal_E2_freeze_required": false,
+      "exact_ACCEPT_E1_bytes_or_explicit_product_adapter_required": true,
+      "regression_tests_required": true,
+      "independent_audit_required_only_for_new_scientific_claim_or_material_trust_semantics": true
+    },
+    "formal_E2": {
+      "exact_freeze_required": true,
+      "untouched_confirmatory_required": true,
+      "final_independent_reaudit_required": true
+    },
+    "governance_slimming": {
+      "new_governance_abstractions_frozen": true,
+      "exception": "Only when an observed P0/P1 cannot be expressed or prevented by the existing control plane.",
+      "target_effort_share_ceiling": 0.1,
+      "prefer_edit_existing_contract_over_new_guard": true
+    },
+    "research_to_product_rule": "Each material ACCEPT_E1 capability must be integrated, explicitly deferred with a product reason, or retired; ACCEPT_E1 accumulation alone is not progress."
+  },
+  "dual_track_operating_model": {
+    "enabled": true,
+    "mode": "PRODUCT_PLUS_CONTINUOUS_RESEARCH",
+    "product_share_target": 0.75,
+    "research_share_target": 0.25,
+    "research_mix": {
+      "product_driven": 0.75,
+      "free_exploration": 0.25
+    },
+    "research_never_declared_complete": true,
+    "promotion_rule": "Research stays advisory until accepted by existing product/audit gates; product failures, longitudinal drift, cross-model drift, provenance failures, scale/performance regressions and new falsifiers reopen research.",
+    "quota_semantics": "SOFT_TARGET_NOT_BLOCKING_KPI"
+  },
+  "formal_claim_enabled": false,
+  "worker_instance_guard": {
+    "enabled": true,
+    "effective_after_epoch": 1793414837.4326704,
+    "id_format": "8-96 letters/digits/_/-; generate once per ChatGPT worker chat",
+    "rule": "Every lease claimed after effective_after_epoch is bound to one per-chat worker_instance_id. Parallel chats reusing the same agent_id cannot resume each other's ACTIVE workspace.",
+    "legacy_active_compatibility": true
+  },
+  "scientific_evidence_separation": {
+    "enabled": true,
+    "effective_after_epoch": 1793415055.8455417,
+    "effective_at": "2026-10-31T10:45+08:00",
+    "required_for_evidence_labels": [
+      "LEAD_READY",
+      "NONPASS"
+    ],
+    "scientific_outcomes": [
+      "POSITIVE",
+      "NEGATIVE",
+      "INCONCLUSIVE",
+      "NOT_TESTED"
+    ],
+    "promotion_evidence_statuses": [
+      "VALID",
+      "INVALID_ADMINISTRATIVE",
+      "INCOMPLETE",
+      "NOT_APPLICABLE"
+    ],
+    "rules": [
+      "budget_or_scope_or_token_cap_violation_changes_promotion_evidence_status_not_scientific_outcome",
+      "NONPASS_requires_observed_scientific_falsifier_not_admin_invalidity_alone",
+      "LEAD_READY_requires_positive_scientific_outcome_and_valid_promotion_evidence",
+      "positive_result_with_invalid_administrative_evidence_must_be_preserved_as_evidence_only_or_retested",
+      "measured_cost_can_falsify_an_engineering_hypothesis_only_when_cost_is_a_prefrozen_metric_not_merely_an_administrative_cap"
+    ]
+  },
+  "safety_boundary_stratification": {
+    "enabled": true,
+    "record": "governance/SAFETY_BOUNDARY_STRATIFICATION_20261101.json",
+    "upstream_prediction_error_zero_required": false,
+    "durable_authority_boundary_zero_unsafe_effect_required": true,
+    "model_may_own": [
+      "semantic_proposal",
+      "relation_proposal",
+      "bounded_candidate_proposal"
+    ],
+    "model_may_not_own": [
+      "principal_authority",
+      "durable_target_identity",
+      "lifecycle_authorization",
+      "durable_mutation"
+    ],
+    "historical_frozen_results_immutable": true,
+    "exact_hypothesis_negative_does_not_imply_family_killed": true,
+    "successor_requires_material_difference_and_prospective_freeze": true
+  },
+  "historical_rescue": {
+    "enabled": true,
+    "record": "governance/HISTORICAL_RESCUE_POLICY_20261101.json",
+    "queue": "governance/HISTORICAL_RESCUE_QUEUE_20261101.json",
+    "historical_results_immutable": true,
+    "exact_failure_does_not_imply_family_failure": true,
+    "requires_materially_different_successor": true,
+    "requires_fresh_prospective_freeze": true,
+    "max_active_rescue_exploration": 1,
+    "default_destination": "RC-v8.1_or_RC-v9",
+    "rc_v8_release_preemption": false,
+    "effective_after_epoch": 1793534809.3299289,
+    "nonpass_scope_required": true,
+    "allowed_falsification_scopes": [
+      "EXACT_HYPOTHESIS_ONLY",
+      "IMPLEMENTATION_ONLY",
+      "COST_OR_LATENCY_ONLY",
+      "DUPLICATE_NO_INCREMENTAL_NOVELTY",
+      "FAMILY_LEVEL",
+      "OTHER_EXPLICIT_SCOPE"
+    ],
+    "preserved_signal_required": true
+  },
+  "multidimensional_gate_stratification": {
+    "enabled": true,
+    "record": "governance/GOVERNANCE_OVERSTRICT_REPAIR_20261101.json",
+    "effective_after_epoch": 1793535547.362724,
+    "required_for_evidence_labels": [
+      "LEAD_READY",
+      "NONPASS"
+    ],
+    "primary_blocker_classes": [
+      "NO_BLOCKER",
+      "SCIENTIFIC",
+      "IMPLEMENTATION_CORRECTNESS",
+      "IMPLEMENTATION_PERFORMANCE",
+      "SAFETY_BOUNDARY",
+      "RELEASE_INTEGRATION",
+      "ADMINISTRATIVE",
+      "ENVIRONMENT_DEPENDENCY"
+    ],
+    "implementation_outcomes": [
+      "PASS",
+      "FAIL",
+      "NOT_TESTED",
+      "NOT_APPLICABLE"
+    ],
+    "safety_outcomes": [
+      "PASS",
+      "FAIL",
+      "NOT_TESTED",
+      "NOT_APPLICABLE"
+    ],
+    "release_outcomes": [
+      "PASS",
+      "FAIL",
+      "NOT_TESTED",
+      "NOT_APPLICABLE"
+    ],
+    "administrative_outcomes": [
+      "VALID",
+      "BLOCKED",
+      "NOT_APPLICABLE"
+    ],
+    "environment_outcomes": [
+      "READY",
+      "BLOCKED",
+      "NOT_APPLICABLE"
+    ],
+    "nonpass_allowed_nonscientific_blockers": [
+      "IMPLEMENTATION_CORRECTNESS",
+      "IMPLEMENTATION_PERFORMANCE",
+      "SAFETY_BOUNDARY",
+      "RELEASE_INTEGRATION"
+    ],
+    "nonpass_forbidden_blockers": [
+      "NO_BLOCKER",
+      "ADMINISTRATIVE",
+      "ENVIRONMENT_DEPENDENCY"
+    ],
+    "performance_gate_roles": [
+      "IMPLEMENTATION_PROMOTION_GATE",
+      "RELEASE_HOT_PATH_GATE",
+      "SCIENTIFIC_COST_HYPOTHESIS"
+    ],
+    "productization_intent_actions": [
+      "INTEGRATE_CURRENT_RC",
+      "DEFER_NEXT_MINOR",
+      "DEFER_NEXT_MAJOR",
+      "RESEARCH_ONLY",
+      "SIMPLIFICATION_ONLY"
+    ]
+  },
+  "performance_gate_stratification": {
+    "enabled": true,
+    "record": "governance/GOVERNANCE_OVERSTRICT_REPAIR_20261101.json",
+    "implementation_failure_preserves_science": true,
+    "single_block_hard_kill_requires_declared_sla": true,
+    "no_rerun_until_pass": true
+  },
+  "control_plane_resilience": {
+    "enabled": true,
+    "record": "governance/GOVERNANCE_OVERSTRICT_REPAIR_20261101.json",
+    "invalid_backlog_nonblocking": true,
+    "backlog_preflight_required": true,
+    "heartbeat_sliding_ttl": true,
+    "runtime_preflight": "governance/runtime_preflight.py"
+  },
+  "productization_debt": {
+    "enabled": true,
+    "record": "governance/PRODUCTIZATION_DEBT_20261101.json",
+    "scanner": "governance/productization_debt_scan.py",
+    "future_lead_ready_requires_intent": true,
+    "does_not_block_research": true
+  },
+  "current_capability_sprint": {
+    "id": "retrieval_completeness_20261102",
+    "status": "ACTIVE_LOCAL_CONTROL_PLANE_ENFORCED",
+    "directive": "governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md",
+    "primary_capability": "memory_retrieval",
+    "primary_metric": "gold_evidence_completeness",
+    "critical_slice": "multi_hop",
+    "frozen_eval": "LoCoMo200",
+    "frozen_item_count": 200,
+    "context_cap": 20,
+    "baseline": {
+      "final_qa_accuracy": 0.445,
+      "overall_final_context_evidence_completeness": 0.35,
+      "multi_hop_final_context_evidence_completeness": 0.1,
+      "complete_context_answer_accuracy": 0.8857142857142857,
+      "incomplete_context_answer_accuracy": 0.2076923076923077,
+      "single_hop_complete_context_answer_accuracy": 0.9705882352941176
+    },
+    "existing_exposed_candidate": {
+      "name": "frozen_hybrid_bge_bm25_rrf",
+      "overall_all_recall": 0.592964824120603,
+      "multi_hop_all_recall": 0.26666666666666666,
+      "provider_calls": 0,
+      "product_authorized": false
+    },
+    "priority_order": [
+      "product_shadow_hybrid_integration",
+      "multi_hop_facet_union",
+      "bounded_query_decomposition",
+      "evidence_set_selection",
+      "missing_hop_falsification",
+      "reasoning_reassessment"
+    ],
+    "preemption": "Only observed material P0/P1 product-safety, authority-integrity or scientific-validity incidents may preempt."
+  },
+  "fast_research_loop": {
+    "status": "ACTIVE",
+    "directive": "governance/fastlane/FAST_RESEARCH_LOOP_20261102.md",
+    "local_e2e_first": true,
+    "failed_micro_trials_require_submission": false,
+    "failed_micro_trials_require_audit": false,
+    "positive_local_e2e_to_e0": true,
+    "e0_audit": "LIGHT_REPRODUCE_ADVANTAGE_ONLY",
+    "external200_after_audit_pass": true,
+    "baseline": "governance/fastlane/BASELINE.json",
+    "mainline_reserved_for_other_product_capabilities": true,
+    "material_p0_p1_can_preempt": true
+  },
+  "v1_closeout": {
+    "status": "ACTIVE",
+    "topology": "governance/V1_CLOSEOUT_AGENT_TOPOLOGY_20261102.json",
+    "release_criteria": "governance/V1_RELEASE_CRITERIA_20261102.json",
+    "research_policy": "governance/V1_CLOSEOUT_RESEARCH_POLICY_20261102.md",
+    "phase": "V1_PRODUCT_CLOSEOUT",
+    "task_deadline_hours": 48,
+    "research_slots": [
+      "fast_retrieval",
+      "state_identity",
+      "consolidation",
+      "product_integration"
+    ],
+    "auditor_slots": 1,
+    "emergency_divergent_default_enabled": false,
+    "codex_for_lead_forbidden": true
   }
 }

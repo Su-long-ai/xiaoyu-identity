@@ -52,11 +52,36 @@ def evaluate(root=ROOT):
     freeze_path=root/str(freeze_rel) if freeze_rel else None
     freeze_record=load(freeze_path) if freeze_path and freeze_path.is_file() else None
     freeze_sha=sha(freeze_path) if freeze_path and freeze_path.is_file() else None
+    amendment_records=[]
+    amendment_current_hashes={}
+    for entry in e.get("execution_amendments") or []:
+        if not isinstance(entry,dict):
+            errors.append({"type":"execution_amendment_registry_entry_malformed"})
+            continue
+        rel=str(entry.get("path") or "");expected=str(entry.get("sha256") or "")
+        ap=root/rel if rel else None
+        if ap is None or not ap.is_file():
+            errors.append({"type":"execution_amendment_missing","path":rel});continue
+        actual=sha(ap)
+        if actual!=expected:
+            errors.append({"type":"execution_amendment_hash_drift","path":rel,"recorded":expected,"actual":actual});continue
+        ar=load(ap)
+        amendment_records.append((rel,actual,ar))
+        if ar.get("schema")!="xiaoyu-e2-execution-amendment-v1":
+            errors.append({"type":"execution_amendment_schema","path":rel});continue
+        if ar.get("status")!="FROZEN_POST_ENTRY_AMENDMENT":
+            errors.append({"type":"execution_amendment_status","path":rel,"actual":ar.get("status")})
+        if ar.get("parent_execution_freeze_record_sha256")!=freeze_sha:
+            errors.append({"type":"execution_amendment_parent_drift","path":rel})
+        for name,digest in (ar.get("current_implementation_hashes") or {}).items():
+            amendment_current_hashes[str(name)]=str(digest)
 
     def check(ok,typ,**extra):
         if not ok: errors.append({"type":typ,**extra})
 
-    check(e.get("current_stage")=="E2_PILOT","stage_not_e2_pilot",actual=e.get("current_stage"))
+    stage=str(e.get("current_stage") or "")
+    check(stage in ("E2_PILOT","E2_CONFIRMATORY_PREFREEZE"),
+          "unsupported_e2_stage",actual=stage)
     check(paid.get("active_phase")=="benchmark","paid_phase_not_benchmark",actual=paid.get("active_phase"))
     check(bool(paid.get("benchmark_unlocked")),"benchmark_not_unlocked")
     check(manifest.get("status")=="FROZEN_BEFORE_FIRST_E2_PAID_CALL",
@@ -88,13 +113,59 @@ def evaluate(root=ROOT):
               "freeze_record_execution_manifest_hash_drift")
         for name,path in impl_paths.items():
             actual=sha(path) if path.is_file() else None
-            check(hashes.get(name)==actual,
-                  "freeze_record_implementation_hash_drift",
-                  component=name,recorded=hashes.get(name),actual=actual)
+            frozen=hashes.get(name)
+            if frozen!=actual:
+                amended=amendment_current_hashes.get(name)==actual
+                if stage=="E2_PILOT":
+                    check(amended,
+                          "freeze_record_implementation_hash_drift",
+                          component=name,recorded=frozen,actual=actual,
+                          amendment_recorded=amendment_current_hashes.get(name))
+                elif not amended:
+                    warnings.append({
+                      "type":"historical_pilot_implementation_changed_after_closeout",
+                      "component":name,"pilot_recorded":frozen,"current":actual,
+                      "note":"Historical pilot receipts remain bound to frozen bytes; current confirmatory gateway is validated separately."
+                    })
         check(int(freeze_record.get("paid_case_count") or -1)==int(manifest.get("paid_case_count") or -2),
               "freeze_record_paid_case_count_drift")
         check(bool(freeze_record.get("e2_claim_allowed")) is False,
               "freeze_record_e2_claim_must_remain_false")
+    # After pilot closeout, current confirmatory gateway bytes are governed by
+    # their own non-executable manifest. Do not require the live gateway to remain
+    # byte-identical to historical pilot code, but do require the new prefreeze
+    # hard lock and exact manifest binding.
+    if stage=="E2_CONFIRMATORY_PREFREEZE":
+        check(e.get("confirmatory_calls_allowed") is False,
+              "confirmatory_calls_not_prefreeze_locked")
+        check(not e.get("confirmatory_freeze_record")
+              and not e.get("confirmatory_freeze_record_sha256"),
+              "confirmatory_final_freeze_must_be_absent_in_prefreeze")
+        cm_rel=str(e.get("confirmatory_execution_manifest") or "")
+        cm_path=root/cm_rel if cm_rel else None
+        check(cm_path is not None and cm_path.is_file(),
+              "confirmatory_execution_manifest_missing",path=cm_rel)
+        if cm_path is not None and cm_path.is_file():
+            cm_sha=sha(cm_path)
+            check(cm_sha==e.get("confirmatory_execution_manifest_sha256"),
+                  "confirmatory_execution_manifest_hash_drift",
+                  recorded=e.get("confirmatory_execution_manifest_sha256"),actual=cm_sha)
+            cm=load(cm_path)
+            check(cm.get("schema")=="xiaoyu-e2-confirmatory-execution-manifest-v1"
+                  and cm.get("status")=="FROZEN_SPEC_AWAITING_FINAL_FREEZE"
+                  and cm.get("confirmatory_execution_allowed") is False,
+                  "confirmatory_execution_manifest_not_locked")
+            gw=cm.get("gateway") or {}
+            for key,path in (
+              ("gate_sha256",gov/"e2_confirmatory_execution.py"),
+              ("research_api_sha256",gov/"research_api.py"),
+              ("research_api_proxy_sha256",gov/"research_api_proxy.py"),
+            ):
+                check(path.is_file() and sha(path)==gw.get(key),
+                      "confirmatory_gateway_hash_drift",
+                      component=key,recorded=gw.get(key),
+                      actual=sha(path) if path.is_file() else None)
+
     pilot_cap=int(manifest.get("benchmark_pilot_hard_cap_tokens") or 0)
     check(pilot_cap==int(e.get("pilot_hard_cap_tokens") or 0) and pilot_cap>0,
           "pilot_cap_mismatch",manifest=pilot_cap,policy=e.get("pilot_hard_cap_tokens"))
@@ -125,6 +196,51 @@ def evaluate(root=ROOT):
     check(len(scopes)==len(set(scopes)),"duplicate_track_scope")
     check(len(all_ids)==len(set(all_ids)),"duplicate_manifest_case_id")
     check(not prefix_errors,"prefix_hash_drift",tracks=prefix_errors)
+
+    supplemental_manifests=[]
+    supplemental_tracks={}
+    supplemental_registry=e.get("supplemental_execution_manifests") or []
+    check(isinstance(supplemental_registry,list),"supplemental_registry_not_list")
+    if isinstance(supplemental_registry,list):
+        for entry in supplemental_registry:
+            if not isinstance(entry,dict):
+                errors.append({"type":"supplemental_registry_entry_malformed"});continue
+            rel=str(entry.get("path") or "");expected=str(entry.get("sha256") or "")
+            sp=root/rel if rel else None
+            if sp is None or not sp.is_file():
+                errors.append({"type":"supplemental_manifest_missing","path":rel});continue
+            actual=sha(sp)
+            if actual!=expected:
+                errors.append({"type":"supplemental_manifest_hash_drift","path":rel,"recorded":expected,"actual":actual});continue
+            sm=load(sp)
+            supplemental_manifests.append({"path":rel,"sha256":actual,"manifest":sm})
+            check(sm.get("schema")=="xiaoyu-e2-supplemental-execution-manifest-v1",
+                  "supplemental_manifest_schema",path=rel)
+            check(sm.get("status")=="FROZEN_BEFORE_EXECUTION" and sm.get("paid_execution_authorized") is True,
+                  "supplemental_manifest_not_frozen_authorized",path=rel)
+            check(sm.get("protocol_sha256")==protocol_sha and sm.get("split_manifest_sha256")==split_sha,
+                  "supplemental_protocol_split_drift",path=rel)
+            check(sm.get("original_execution_manifest_sha256")==manifest_sha,
+                  "supplemental_primary_ancestry_drift",path=rel)
+            check(int(sm.get("benchmark_pilot_hard_cap_tokens") or 0)==pilot_cap,
+                  "supplemental_pilot_cap_drift",path=rel)
+            for name,t in (sm.get("tracks") or {}).items():
+                key=f"supplemental:{name}"
+                scope=t.get("scope")
+                check(scope not in scopes and scope not in [x.get("scope") for x in supplemental_tracks.values()],
+                      "supplemental_duplicate_scope",track=key,scope=scope)
+                check(str(t.get("execution_status") or "")=="READY",
+                      "supplemental_track_not_ready",track=key,status=t.get("execution_status"))
+                ids=[str(x) for x in t.get("case_ids") or []]
+                check(int(t.get("case_count") or -1)==len(ids),
+                      "supplemental_track_case_count_mismatch",track=key)
+                check(int(t.get("max_completion_tokens") or 0)>0,
+                      "supplemental_track_completion_cap_missing",track=key)
+                check(t.get("response_format")=={"type":"json_object"},
+                      "supplemental_track_response_format",track=key)
+                check(hobj(t.get("invariant_prefix_messages"))==t.get("invariant_prefix_sha256"),
+                      "supplemental_prefix_hash_drift",track=key)
+                supplemental_tracks[key]=t
 
     lme_track=tracks.get("longmemeval_answer") or {}
     cb=lme_track.get("context_builder") or {}
@@ -178,8 +294,10 @@ def evaluate(root=ROOT):
         else:
             rows=con.execute("select * from calls where phase='benchmark' order by created_at").fetchall()
             runtime["benchmark_calls"]=len(rows)
-            by_scope={t["scope"]:(name,t) for name,t in tracks.items()}
-            allowed_case={t["scope"]:set(t["case_ids"]) for t in tracks.values()}
+            runtime_tracks=dict(tracks)
+            runtime_tracks.update(supplemental_tracks)
+            by_scope={t["scope"]:(name,t) for name,t in runtime_tracks.items()}
+            allowed_case={t["scope"]:set(t["case_ids"]) for t in runtime_tracks.values()}
             for r in rows:
                 rd=dict(r);scope=rd.get("budget_scope")
                 if rd["status"]=="COMMITTED": used=int(rd.get("actual_tokens") or 0)
@@ -249,20 +367,29 @@ def evaluate(root=ROOT):
       "prompt_freeze_sha256":prompt_sha,
       "execution_manifest_sha256":manifest_sha,
       "execution_freeze_record_sha256":freeze_sha,
+      "execution_amendments":[{"path":rel,"sha256":digest} for rel,digest,_ar in amendment_records],
       "pilot_hard_cap_tokens":pilot_cap,
       "manifest_paid_case_count":len(all_ids),
+      "supplemental_paid_case_count":sum(len(t.get("case_ids") or []) for t in supplemental_tracks.values()),
+      "supplemental_manifests":[{"path":x["path"],"sha256":x["sha256"]} for x in supplemental_manifests],
+      "supplemental_track_case_counts":{k:len(v.get("case_ids") or []) for k,v in supplemental_tracks.items()},
       "track_case_counts":{k:v.get("case_count") for k,v in tracks.items()},
       "track_execution_status":track_statuses,
       "ready_tracks":[k for k,v in track_statuses.items() if v=="READY"],
       "held_tracks":[k for k,v in track_statuses.items() if v.startswith("HOLD_")],
       "prefix_byte_stability_enforced":not prefix_errors,
-      "stable_prefix_cache_target":contract.get("targets",{}).get("stable_prefix_cache_hit_rate"),
-      "stable_prefix_cache_target_note":"Provider telemetry exposes prompt hit/miss totals, not prefix-token denominator; exact byte-prefix hash is enforced, provider hit rate remains observational.",
+      "stable_prefix_cache_target":e.get("stable_prefix_cache_hit_target","OBSERVE_NOT_HARD_GATE"),
+      "legacy_contract_stable_prefix_cache_target":contract.get("targets",{}).get("stable_prefix_cache_hit_rate"),
+      "stable_prefix_cache_target_note":"Current E2 policy treats cache hit as observational, not a promotion gate. The frozen historical token-efficiency contract retains the original 0.95 stable-prefix target for provenance only; LongMemEval runtime decisions use cache-miss/raw/output/cost per case.",
       "runtime":runtime,
       "errors":errors,"warnings":warnings,
       "healthy":not errors,
-      "pilot_execution_ready":not errors and bool([1 for v in track_statuses.values() if v=="READY"])
+      "historical_pilot_integrity_healthy":not errors,
+      "pilot_execution_ready":stage=="E2_PILOT" and not errors
+                              and bool([1 for v in track_statuses.values() if v=="READY"])
                               and not runtime["reserved_calls"] and not runtime["unknown_calls"],
+      "confirmatory_prefreeze_ready":stage=="E2_CONFIRMATORY_PREFREEZE" and not errors
+                                     and not runtime["reserved_calls"] and not runtime["unknown_calls"],
       "e2_claim_allowed":False,
     }
 

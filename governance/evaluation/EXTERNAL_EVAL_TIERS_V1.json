@@ -1,0 +1,69 @@
+{
+  "schema": "xiaoyu-external-eval-tiers-v1",
+  "status": "STAGE1_RULE_V2_FROZEN",
+  "created_at": "2026-11-02T14:30:00+08:00",
+  "policy": {
+    "sequence": [
+      "stage1_100",
+      "stage2_200"
+    ],
+    "stage2_is_full_200_not_additional_200": true,
+    "no_reselection_after_results": true,
+    "no_test_run_performed_by_this_change": true
+  },
+  "stage1_100": {
+    "input": "governance/evaluation/locomo_stage1_100_input_v1.json",
+    "input_sha256": "6215dd3c2a0f8d249d2cbce3e69cee3aa8963347e00eb7ad4547151187bc7592",
+    "membership": "governance/evaluation/locomo_stage1_100_membership_v1.json",
+    "membership_sha256": "fd067ab521f5907a2255bee4f62aa3a0d15fdc31b8499ce908fafd996e809a97",
+    "questions": 100,
+    "category_counts": {
+      "2": 30,
+      "3": 10,
+      "1": 30,
+      "4": 30
+    },
+    "sample_counts": {
+      "conv-26": 11,
+      "conv-30": 7,
+      "conv-41": 8,
+      "conv-42": 14,
+      "conv-43": 9,
+      "conv-44": 10,
+      "conv-47": 8,
+      "conv-48": 12,
+      "conv-49": 10,
+      "conv-50": 11
+    },
+    "pass_rule": {
+      "status": "FROZEN_BEFORE_NEXT_RUN",
+      "freeze": "governance/evaluation/EXTERNAL_STAGE1_PASS_RULE_FREEZE_V2.json",
+      "freeze_sha256": "be52af5218c46c14c99143087c449421ce907eb7473af0d572747ef8b1a5c57c",
+      "baseline_id": "baseline-g003-reserved_hop_expansion_v2",
+      "min_candidate_vs_baseline_accuracy_delta": 0.01,
+      "min_candidate_vs_baseline_full_evidence_delta": 0.0,
+      "material_authority_regressions_max": 0,
+      "baseline_promotion_allowed": false,
+      "external200_unlock": "PASS_ONLY",
+      "min_retrieval_changed_questions": 1,
+      "identical_retrieval_policy": "REUSE_BASELINE_ANSWER_AND_JUDGEMENT"
+    },
+    "runner": {
+      "path": "research_components/retrieval/run_external100.py",
+      "sha256": "57648805c56492a3a1e07ec37d55d7e14c177ad2e6a34d69979a2e58391fb68f",
+      "behavior": "Identical candidate/baseline retrieval reuses sealed baseline answer and judgement; provider calls occur only for changed retrieval rows plus one baseline judge pass."
+    }
+  },
+  "stage2_200": {
+    "input": "governance/locomo_blind_200_input_v2.json",
+    "input_sha256": "57cbfc53ce0818933831e6b87b8a2c038922a423e533aae2ab2610525c69398c",
+    "questions": 200,
+    "category_counts": {
+      "1": 60,
+      "2": 60,
+      "3": 20,
+      "4": 60
+    },
+    "unchanged_existing_frozen_suite": true
+  }
+}

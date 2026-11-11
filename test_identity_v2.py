@@ -118,5 +118,110 @@ class ProvenanceTests(unittest.TestCase):
             self.assertEqual(restored._get("schema_version"),SCHEMA_VERSION)
         finally:restored.close()
 
+
+    def test_explicitly_invalidated_proposal_requires_current_reconfirmation(self):
+        old="我喜欢绿茶"
+        e1=self.s.record("conversation.user","user",old)
+        p1=self.s.propose_from_user_event(e1,old)
+        self.s.record(
+            "conversation.user","user","我不喜欢绿茶了",
+            {"invalidates_source_event":e1,"memory_action":"RETRACT"},
+        )
+        fresh=self.s.proposal_freshness(p1)
+        self.assertTrue(fresh["requires_reconfirmation"])
+        self.assertEqual(fresh["reason"],"explicit_source_invalidation")
+        with self.assertRaisesRegex(ValueError,"explicit current reconfirmation"):
+            self.s.review_proposal(p1,True)
+        self.assertEqual(self.s.list_proposals()[0]["proposal_id"],p1)
+        self.s.review_proposal(p1,True,reconfirm_stale=True)
+        memory=self.s.conn.execute(
+            "SELECT text,source_event FROM memories WHERE text=? AND status='active'",
+            (old,),
+        ).fetchone()
+        self.assertIsNotNone(memory)
+        self.assertNotEqual(int(memory["source_event"]),e1)
+        source=self.s.conn.execute(
+            "SELECT kind,actor,content,extra FROM events WHERE event_id=?",
+            (int(memory["source_event"]),),
+        ).fetchone()
+        self.assertEqual(source["kind"],"memory.saved")
+        self.assertEqual(source["actor"],"user")
+        self.assertEqual(source["content"],old)
+        extra=json.loads(source["extra"])
+        self.assertEqual(extra["original_source_event"],e1)
+        self.assertEqual(extra["reconfirmed_from_proposal_id"],p1)
+
+    def test_newer_confirmed_preference_blocks_old_one_click_promotion(self):
+        old="我喜欢绿茶"
+        new="我更喜欢乌龙茶"
+        e1=self.s.record("conversation.user","user",old)
+        p1=self.s.propose_from_user_event(e1,old)
+        e2=self.s.record("conversation.user","user",new)
+        p2=self.s.propose_from_user_event(e2,new)
+        self.s.review_proposal(p2,True)
+        fresh=self.s.proposal_freshness(p1)
+        self.assertTrue(fresh["requires_reconfirmation"])
+        self.assertEqual(fresh["reason"],"newer_confirmed_preference_exists")
+        self.assertEqual(fresh["newer_proposal_id"],p2)
+        with self.assertRaisesRegex(ValueError,"explicit current reconfirmation"):
+            self.s.review_proposal(p1,True)
+        active=[x["text"] for x in self.s.list_memories()]
+        self.assertEqual(active,[new])
+        self.s.review_proposal(p1,True,reconfirm_stale=True)
+        active={x["text"] for x in self.s.list_memories()}
+        self.assertEqual(active,{old,new})
+        row=self.s.conn.execute(
+            "SELECT source_event FROM memories WHERE text=? AND status='active'",(old,)
+        ).fetchone()
+        self.assertGreater(int(row["source_event"]),e2)
+        kind=self.s.conn.execute(
+            "SELECT kind FROM events WHERE event_id=?",(int(row["source_event"]),)
+        ).fetchone()["kind"]
+        self.assertEqual(kind,"memory.saved")
+
+    def test_unrelated_and_explicit_reaffirmation_preserve_pending_freshness(self):
+        old="我喜欢绿茶"
+        e1=self.s.record("conversation.user","user",old)
+        p1=self.s.propose_from_user_event(e1,old)
+        self.s.record("conversation.user","user","我喜欢散步",{"topic":"unrelated"})
+        self.assertFalse(self.s.proposal_freshness(p1)["requires_reconfirmation"])
+        self.s.record(
+            "conversation.user","user",old,
+            {"reaffirms_source_event":e1},
+        )
+        fresh=self.s.proposal_freshness(p1)
+        self.assertFalse(fresh["requires_reconfirmation"])
+        self.assertEqual(fresh["reason"],"explicit_source_reaffirmation")
+        self.s.review_proposal(p1,True)
+        row=self.s.conn.execute(
+            "SELECT source_event FROM memories WHERE text=? AND status='active'",(old,)
+        ).fetchone()
+        self.assertEqual(int(row["source_event"]),e1)
+
+    def test_pending_staleness_survives_export_restore(self):
+        old="我喜欢绿茶"
+        new="我更喜欢乌龙茶"
+        e1=self.s.record("conversation.user","user",old)
+        p1=self.s.propose_from_user_event(e1,old)
+        e2=self.s.record("conversation.user","user",new)
+        p2=self.s.propose_from_user_event(e2,new)
+        self.s.review_proposal(p2,True)
+        archive=self.s.export(self.home/"exports"/"proposal-freshness.zip")
+        target=Path(self.temp.name)/"proposal-freshness-restored"
+        IdentityStore.import_to_new_home(archive,target)
+        restored=IdentityStore(target)
+        try:
+            fresh=restored.proposal_freshness(p1)
+            self.assertTrue(fresh["requires_reconfirmation"])
+            self.assertEqual(fresh["reason"],"newer_confirmed_preference_exists")
+            with self.assertRaisesRegex(ValueError,"explicit current reconfirmation"):
+                restored.review_proposal(p1,True)
+            self.assertEqual(
+                {x["text"] for x in restored.list_memories()},
+                {new},
+            )
+        finally:
+            restored.close()
+
 if __name__=="__main__":
     unittest.main(verbosity=2)

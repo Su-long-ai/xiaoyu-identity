@@ -102,6 +102,14 @@ class PaidEvidenceGateTests(unittest.TestCase):
             data["paid_evidence"]=paid_evidence
         (w/"result.json").write_text(json.dumps(data),encoding="utf-8")
 
+    def allow_legacy_paid_verifier_subgate(self):
+        # Unit tests below that exercise scope/ledger/review mechanics may
+        # explicitly bypass the production containment. Production policy
+        # defaults to fail-closed until authenticated transport attestation exists.
+        self.g.policy.setdefault("paid_evidence_promotion",{})[
+            "authenticated_transport_attestation_required"
+        ]=False
+
     def valid_paid(self,cid):
         return {
             "call_ids":[cid],
@@ -134,7 +142,16 @@ class PaidEvidenceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(GovernanceError,"lacks authenticated HTTP proxy provenance"):
             self.g.submit(lease["lease_id"],"paid_worker_01","result.json")
 
+    def test_current_policy_blocks_paid_lead_ready_without_authenticated_transport_attestation(self):
+        lease,row=self.claim()
+        cid="api-"+"9"*32
+        self.add_call(lease,cid)
+        self.write_manifest(lease,row,self.valid_paid(cid))
+        with self.assertRaisesRegex(GovernanceError,"authenticated transport attestation unavailable"):
+            self.g.submit(lease["lease_id"],"paid_worker_01","result.json")
+
     def test_allowlisted_base_tag_accepts_unique_run_suffix_without_prefrozen_scope(self):
+        self.allow_legacy_paid_verifier_subgate()
         hypothesis="A self-directed governed DeepSeek smoke can use an allowlisted proxy run suffix when no formal backlog contract pre-freezes an exact scope."
         plan={
             "mode":"falsification",
@@ -173,6 +190,7 @@ class PaidEvidenceGateTests(unittest.TestCase):
             self.g.submit(lease["lease_id"],"paid_worker_01","result.json")
 
     def test_valid_proxy_call_is_bound_into_receipt(self):
+        self.allow_legacy_paid_verifier_subgate()
         lease,row=self.claim()
         cid="api-"+"c"*32
         self.add_call(lease,cid)
@@ -215,6 +233,7 @@ class PaidEvidenceGateTests(unittest.TestCase):
             self.g.submit(lease["lease_id"],"paid_r35_cap","result.json")
 
     def test_prefrozen_backlog_paid_contract_passes_when_exact(self):
+        self.allow_legacy_paid_verifier_subgate()
         lease,row=self.claim(agent="paid_r35_exact",rid="R35")
         cid="api-"+"3"*32
         scope="proxy:xiaoyu:r35_final_projection_v1"
@@ -233,6 +252,7 @@ class PaidEvidenceGateTests(unittest.TestCase):
         self.assertEqual(self.g.verify_receipt(out["submission_id"])["integrity"],"PASS")
 
     def test_auditor_rechecks_ledger_before_accept_e1(self):
+        self.allow_legacy_paid_verifier_subgate()
         lease,row=self.claim()
         cid="api-"+"d"*32
         self.add_call(lease,cid)

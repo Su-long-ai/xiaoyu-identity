@@ -1,3 +1,11 @@
+## ACTIVE DIRECTION OVERRIDE — 2026-11-02
+
+当前项目已切换为 **Retrieval Completeness Capability Sprint**。开始或续做科研前，先读 governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md 与 governance/CAPABILITY_GAP_DIRECTION_SWITCH_20261102.json。
+
+除已观察 material P0/P1 外，不再自提或自动继续旧的广泛 core-memory portfolio、persona、historical rescue、治理扩展、微性能或 answerer-prompt 方向。当前所有研究必须服务于 read-side evidence completeness，优先 Multi-hop：frozen hybrid product-shadow integration -> facet/multi-query -> evidence-set selection -> missing-hop falsification。固定 LoCoMo200，不扩题；retrieval 输出先封存再由 scorer/auditor 读 gold；context cap 保持 20；write-side/answerer 默认冻结。
+
+已在运行的无关 lease 可完成当前 bounded pass，但提交或释放后必须回到 retrieval sprint。RC8B1R1 是当前明确保留的 material P1 例外。
+
 # 小鱼科研 Agent 的工作边界
 
 本目录是科研**协调控制面**，不是拥有私人记忆权限的伴侣工作区。

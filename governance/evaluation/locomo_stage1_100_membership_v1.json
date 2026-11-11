@@ -1,0 +1,626 @@
+{
+  "schema": "xiaoyu-locomo-stage1-100-membership-v1",
+  "status": "FROZEN_SELECTION_METADATA",
+  "selection_seed": "xiaoyu-external-stage1-100-v1-20261102",
+  "selection_rule": "category + stable hash only",
+  "category_counts": {
+    "2": 30,
+    "3": 10,
+    "1": 30,
+    "4": 30
+  },
+  "sample_counts": {
+    "conv-26": 11,
+    "conv-30": 7,
+    "conv-41": 8,
+    "conv-42": 14,
+    "conv-43": 9,
+    "conv-44": 10,
+    "conv-47": 8,
+    "conv-48": 12,
+    "conv-49": 10,
+    "conv-50": 11
+  },
+  "members": [
+    {
+      "blind_id": "locomo-b200v2-ba671a42d9b52898f610",
+      "sample_id": "conv-26",
+      "category": "2",
+      "selection_key_sha256": "6609ccf8756486a60f1d28e4c784cf4aa50ca862ce1b34c6124e87a3330ae4db"
+    },
+    {
+      "blind_id": "locomo-b200v2-3c08838da808a08171c4",
+      "sample_id": "conv-26",
+      "category": "3",
+      "selection_key_sha256": "097130b46941963b52e7e3fb45d5a6141ea3efae203319c8ecaeaebac78e8a38"
+    },
+    {
+      "blind_id": "locomo-b200v2-beb2f13fd081df72236b",
+      "sample_id": "conv-26",
+      "category": "2",
+      "selection_key_sha256": "62c0b868839d224789b7684c0cc5fec2b624bcf0a088867a18ef16d45161c812"
+    },
+    {
+      "blind_id": "locomo-b200v2-daae5bb9d5aa32b16bf2",
+      "sample_id": "conv-26",
+      "category": "1",
+      "selection_key_sha256": "5687a350c761238735e88e16f64b18535c4db0b3bea61afae481561044fc2c51"
+    },
+    {
+      "blind_id": "locomo-b200v2-6c82dbd35945daa8d254",
+      "sample_id": "conv-26",
+      "category": "1",
+      "selection_key_sha256": "3d073ee928de69b6baca2f4363c56b1216d56a196e1a63c64dafa83335b99860"
+    },
+    {
+      "blind_id": "locomo-b200v2-96972aee6eb69e4deb8f",
+      "sample_id": "conv-26",
+      "category": "2",
+      "selection_key_sha256": "2127f5b99395569511f81d3d0556db182142cdc315bde1f74747692d95fb9b42"
+    },
+    {
+      "blind_id": "locomo-b200v2-527dc57332914b80d063",
+      "sample_id": "conv-26",
+      "category": "2",
+      "selection_key_sha256": "451a25dc25b707491b47e8fcad2e5baf56cc94a12ae25f95b4aa9f8b2777d19e"
+    },
+    {
+      "blind_id": "locomo-b200v2-a48fcf4efce78538993a",
+      "sample_id": "conv-26",
+      "category": "1",
+      "selection_key_sha256": "03cf7a796ae5220df8f0d65cf0df7201313b1b7b2aec7584e197ffde4a103c14"
+    },
+    {
+      "blind_id": "locomo-b200v2-a04462d6a3bf19f5c207",
+      "sample_id": "conv-26",
+      "category": "3",
+      "selection_key_sha256": "01184ac9ce8a54f4b51afbb64fa56ef721cc67c1cc8ed546613590897eb15e28"
+    },
+    {
+      "blind_id": "locomo-b200v2-0740da44d816d5963a17",
+      "sample_id": "conv-26",
+      "category": "4",
+      "selection_key_sha256": "b630a086e8fb10b0ae962e259b09c52e7bc6514b7be5bafddc1d03481e8d848c"
+    },
+    {
+      "blind_id": "locomo-b200v2-bcc5f7275b3a605ec937",
+      "sample_id": "conv-26",
+      "category": "4",
+      "selection_key_sha256": "d55de3c1f9a8a180c6162d56e0e828e94a0b1e21cc629e162a70e55899b54cd5"
+    },
+    {
+      "blind_id": "locomo-b200v2-74d048273c959d367893",
+      "sample_id": "conv-30",
+      "category": "4",
+      "selection_key_sha256": "3661f93a0285f65e6a1d14b571d6e1f462bee9a30d1698345f83c3aaf62748db"
+    },
+    {
+      "blind_id": "locomo-b200v2-6657969742e9877c8dd9",
+      "sample_id": "conv-30",
+      "category": "2",
+      "selection_key_sha256": "a08e54868817c88b50403d3ee5104b3e4962a10d09d213cc3010a594e6182934"
+    },
+    {
+      "blind_id": "locomo-b200v2-7f9828af605f04eb51ae",
+      "sample_id": "conv-30",
+      "category": "1",
+      "selection_key_sha256": "bbd37a3c40d8e258219714e6de9aec087ba6b6590246008b94739eecc6119ab1"
+    },
+    {
+      "blind_id": "locomo-b200v2-5ff926abf280d696d773",
+      "sample_id": "conv-30",
+      "category": "1",
+      "selection_key_sha256": "c231ed28f9668714b469d60c1154a7f4874df1daf00551f8b2ba02280176e8eb"
+    },
+    {
+      "blind_id": "locomo-b200v2-ac0cdfccd7f80d9adcd2",
+      "sample_id": "conv-30",
+      "category": "2",
+      "selection_key_sha256": "471ddeaaecb62788ef842d5e32a97a1fb6f5b5ba296d732a4cb21d4498909bfd"
+    },
+    {
+      "blind_id": "locomo-b200v2-b93dad2827d493bf6c5f",
+      "sample_id": "conv-30",
+      "category": "4",
+      "selection_key_sha256": "3b8905ce513ecd44ac7f59e1183651a99f646938c5b1425e5698fa481bb62021"
+    },
+    {
+      "blind_id": "locomo-b200v2-60e89fcb548a8d1dd86b",
+      "sample_id": "conv-30",
+      "category": "4",
+      "selection_key_sha256": "cc8a8a54affc5202157dc88e9a06f1de1b9e9c36e8ce3a1d26114e0d3f4d04e3"
+    },
+    {
+      "blind_id": "locomo-b200v2-4e07cb1ebc48b23a7bb8",
+      "sample_id": "conv-41",
+      "category": "1",
+      "selection_key_sha256": "7131e557f30b2f6c04c242791dc87f1147b1acb5b9f14fb63a64342cc398581b"
+    },
+    {
+      "blind_id": "locomo-b200v2-503899153e6c1c5e62a2",
+      "sample_id": "conv-41",
+      "category": "1",
+      "selection_key_sha256": "7be986bf0bbc2927de7b331379e4e46938e01af9903729ae98276d23938d3642"
+    },
+    {
+      "blind_id": "locomo-b200v2-10dc0b5dbd2333733397",
+      "sample_id": "conv-41",
+      "category": "1",
+      "selection_key_sha256": "5867c841c6571a262f05c5cc5583eb0e2f6724b933dab008aaeaef211de22ae5"
+    },
+    {
+      "blind_id": "locomo-b200v2-a0c83c142816625502a5",
+      "sample_id": "conv-41",
+      "category": "2",
+      "selection_key_sha256": "6734c7cf6e5dcea85ec25d984b382c50a72bbf5bf3c472f1f4f8cc3c7dc993cb"
+    },
+    {
+      "blind_id": "locomo-b200v2-655c7d84853d3009f55a",
+      "sample_id": "conv-41",
+      "category": "2",
+      "selection_key_sha256": "062c3807df67a0badfcd5f92d473fdc6d4d2fceb4da3c16c04f9252b72d15e99"
+    },
+    {
+      "blind_id": "locomo-b200v2-638b1b8bf8df3014bb94",
+      "sample_id": "conv-41",
+      "category": "4",
+      "selection_key_sha256": "7956915517a579fd468fa6b1c708c770fbbf6376328777d82de0b59cbf5b8c96"
+    },
+    {
+      "blind_id": "locomo-b200v2-1880fd7332b0036c539b",
+      "sample_id": "conv-41",
+      "category": "4",
+      "selection_key_sha256": "a08bb85bcc205533a7583e8a04e7b4a53db0243112b36019a046d24a8b993985"
+    },
+    {
+      "blind_id": "locomo-b200v2-385096da47abac4fc90e",
+      "sample_id": "conv-41",
+      "category": "4",
+      "selection_key_sha256": "10f12096f0fd984d9e751e5251094f41e8eb4702f9d52af9d1acae284ad6325d"
+    },
+    {
+      "blind_id": "locomo-b200v2-e2bd61e120b6c0d0ce8a",
+      "sample_id": "conv-42",
+      "category": "2",
+      "selection_key_sha256": "89ae133822eb422b885681cdd4f70e6245d012ca35c96eb56d62cfd7a66a9528"
+    },
+    {
+      "blind_id": "locomo-b200v2-2f673169224a05894c2e",
+      "sample_id": "conv-42",
+      "category": "3",
+      "selection_key_sha256": "35b2587bf196c78600077e9477c0567e3b6e8f1e4631703b89a06ec15b2d4c7e"
+    },
+    {
+      "blind_id": "locomo-b200v2-15b7d31fc3086b108621",
+      "sample_id": "conv-42",
+      "category": "2",
+      "selection_key_sha256": "1a2e0085b7a5f1e7fe851fb952d6be6a3f72ec62fd6eff525b838bd4e39feddc"
+    },
+    {
+      "blind_id": "locomo-b200v2-11b961465d4a99e62c36",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "3e22f4706b570e579000a0bfc721e314667a54cffc529c4cf90f9249ffe43c01"
+    },
+    {
+      "blind_id": "locomo-b200v2-9280c2de0c99701f5b61",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "2286597903dd8a7d9a20f5c46a9c0640eeeed46d8204ac55e179b52c1806f508"
+    },
+    {
+      "blind_id": "locomo-b200v2-3a2f7f886b4803a7f0da",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "6c15b31b05df96d74222d342c782c5a759e74e864f9b76a24286645a5916867d"
+    },
+    {
+      "blind_id": "locomo-b200v2-1c783c283f9405de194c",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "13fa2c93debf098943e60e510813369439f8b8d43394b03e7d5ce52bc193cb81"
+    },
+    {
+      "blind_id": "locomo-b200v2-6060166f0bcc36c523fc",
+      "sample_id": "conv-42",
+      "category": "2",
+      "selection_key_sha256": "077bc220367e95ae1838f5aa0a756d7465edba25ecbf1d0c65f0eea05d2b88b7"
+    },
+    {
+      "blind_id": "locomo-b200v2-fac9eace94f0098bdb69",
+      "sample_id": "conv-42",
+      "category": "2",
+      "selection_key_sha256": "a2b936bbb7a9bea49ccee1924c8a8b61f2f30d6911db79c79db6bc2560bd8b32"
+    },
+    {
+      "blind_id": "locomo-b200v2-695f6dd6b5b4c8fe35ba",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "77b0f32d3d4c637c645b7d3eb78270f17f937f53740360b7ed7431bb0b4bcf23"
+    },
+    {
+      "blind_id": "locomo-b200v2-196370dde2b34192be2b",
+      "sample_id": "conv-42",
+      "category": "1",
+      "selection_key_sha256": "245e7159724282c59271e91c563e83507f7898b9c30400081d311dc8684dfdd2"
+    },
+    {
+      "blind_id": "locomo-b200v2-175b07493bf02f9e6959",
+      "sample_id": "conv-42",
+      "category": "4",
+      "selection_key_sha256": "4747e444c3a065c12e39522251550eb3d51bd77c58892a67a1ce584f2dec2704"
+    },
+    {
+      "blind_id": "locomo-b200v2-f2afbb2bf79f68058eb2",
+      "sample_id": "conv-42",
+      "category": "4",
+      "selection_key_sha256": "51a06ae8865f59f421e41968ba79b0c708d6376f9f86d874dfdaef1e2da7e280"
+    },
+    {
+      "blind_id": "locomo-b200v2-ce84f80ff724c968c996",
+      "sample_id": "conv-42",
+      "category": "4",
+      "selection_key_sha256": "46789617c976b71b242c5d27cfd90442921958f641164901125489e40976ddf3"
+    },
+    {
+      "blind_id": "locomo-b200v2-dbe42c9a853d4cfa5c27",
+      "sample_id": "conv-43",
+      "category": "2",
+      "selection_key_sha256": "5248e8b10e78ae7ce58746a0e81c0ece5345c15de7d56eb55bbd02a1ab97865a"
+    },
+    {
+      "blind_id": "locomo-b200v2-826bc68fb6bb33ab42a0",
+      "sample_id": "conv-43",
+      "category": "1",
+      "selection_key_sha256": "91a1b8af91306696378f7443a4580b719b332fff2044cb7af8679c6d8e8ed634"
+    },
+    {
+      "blind_id": "locomo-b200v2-d5dbbe244c9ed73b3ed3",
+      "sample_id": "conv-43",
+      "category": "2",
+      "selection_key_sha256": "315184404addb102ecc9cce758d4b9e79de6319253c55e5f75b14e5f790b0d46"
+    },
+    {
+      "blind_id": "locomo-b200v2-2b3d5c5041f102fc2634",
+      "sample_id": "conv-43",
+      "category": "2",
+      "selection_key_sha256": "8254b97539acd79f60d1a008ff4bf61618f1f07e2094b2f2591a1e66f6120bb6"
+    },
+    {
+      "blind_id": "locomo-b200v2-bf299c5ae0837ab0ee43",
+      "sample_id": "conv-43",
+      "category": "1",
+      "selection_key_sha256": "4bfc0181843a7c217fd32ed36736d52538e0f400d2dadb85e80cf20054016d96"
+    },
+    {
+      "blind_id": "locomo-b200v2-e1668ee0198a4c160e82",
+      "sample_id": "conv-43",
+      "category": "1",
+      "selection_key_sha256": "a1f859b3773b3f57a6f4117e8a006d55c5a70d0559d5d223f04c2b697cdec8fa"
+    },
+    {
+      "blind_id": "locomo-b200v2-36a1454b00ca6db74dc4",
+      "sample_id": "conv-43",
+      "category": "4",
+      "selection_key_sha256": "4196f0c4ba0d3c0cbc2396b0d22783da42501cd288de5a61eb85448125700eb5"
+    },
+    {
+      "blind_id": "locomo-b200v2-73f99edb8738a1a91fe5",
+      "sample_id": "conv-43",
+      "category": "4",
+      "selection_key_sha256": "66df9abfc3a49cbde4cb43f232fd0b1f003e80903050d8d6b91db7f926e09df9"
+    },
+    {
+      "blind_id": "locomo-b200v2-b76d29bd5f7aa6aab098",
+      "sample_id": "conv-43",
+      "category": "4",
+      "selection_key_sha256": "1ad7ae9c60eb3430adf9ea1f97c274ae768aa5b86947344275766984eeedb75b"
+    },
+    {
+      "blind_id": "locomo-b200v2-fd31eaff6098c6a1c391",
+      "sample_id": "conv-44",
+      "category": "2",
+      "selection_key_sha256": "261d07c2ab99bd4b1e045cfeb29ef356991635ad3f173cb171350a0db55344c5"
+    },
+    {
+      "blind_id": "locomo-b200v2-c8bc4a261ce72e056cf9",
+      "sample_id": "conv-44",
+      "category": "1",
+      "selection_key_sha256": "15e4b85687fb45357d3747c7713bc1b1a96a5ebd74a5098bbdadcf86a9f6368c"
+    },
+    {
+      "blind_id": "locomo-b200v2-2f3064aeb32a242f63ea",
+      "sample_id": "conv-44",
+      "category": "3",
+      "selection_key_sha256": "247b231b2fb31c94fa036e2af254cfbfdcb060571d5451e8285dd4dfb4f646d7"
+    },
+    {
+      "blind_id": "locomo-b200v2-c4e18ed78f0a5a054a18",
+      "sample_id": "conv-44",
+      "category": "1",
+      "selection_key_sha256": "33be18a655a8e2b531701d42f1d20c208868baea7c56d7af09522e1c7731f400"
+    },
+    {
+      "blind_id": "locomo-b200v2-9e9be86789f2d34c72d3",
+      "sample_id": "conv-44",
+      "category": "1",
+      "selection_key_sha256": "3ab5a634adbc6618dc31f9eb9265ac38f682e2cee7320e7bba7b549597909d7b"
+    },
+    {
+      "blind_id": "locomo-b200v2-8d11de095c2526f07eea",
+      "sample_id": "conv-44",
+      "category": "1",
+      "selection_key_sha256": "44d2a2dc9556c1b16d2b91586e0ec558e7de71ba5726e30b08884e8ed60362ac"
+    },
+    {
+      "blind_id": "locomo-b200v2-dff65608464cbddbf92b",
+      "sample_id": "conv-44",
+      "category": "3",
+      "selection_key_sha256": "1e86f997c8df267cd4ce5cc5a36a30d75044497cd8dd88040678cebf5d9ed1e7"
+    },
+    {
+      "blind_id": "locomo-b200v2-9a031078a4a3558f105c",
+      "sample_id": "conv-44",
+      "category": "2",
+      "selection_key_sha256": "214474505687478faab2fdc5c7c13853d4a9e8af7859f6bb6c506f84e617e29d"
+    },
+    {
+      "blind_id": "locomo-b200v2-5d4bb20f29d42dd0e978",
+      "sample_id": "conv-44",
+      "category": "4",
+      "selection_key_sha256": "0f9f3db4c3f7581299f08a4a6f28bfec2381a1f7abc061409fdb29a48475c56a"
+    },
+    {
+      "blind_id": "locomo-b200v2-cd12f47a881071fcf9df",
+      "sample_id": "conv-44",
+      "category": "4",
+      "selection_key_sha256": "58d2d3cd1a9a586feef9d0615d4f0732c1524fc19fe558acd49b97cb4cb1b0e7"
+    },
+    {
+      "blind_id": "locomo-b200v2-ec31002cea40d4642b05",
+      "sample_id": "conv-47",
+      "category": "1",
+      "selection_key_sha256": "1ee5d0dbbc1d4a7808757c447599204e4110ffd012433d5e940136763db62c71"
+    },
+    {
+      "blind_id": "locomo-b200v2-fedf428f4a474fa55438",
+      "sample_id": "conv-47",
+      "category": "3",
+      "selection_key_sha256": "247557e62c1a4502cc18012bbf04881260821dcf70b0d65a204993ccdc8764f2"
+    },
+    {
+      "blind_id": "locomo-b200v2-f561b1fa8f12a4c3aef1",
+      "sample_id": "conv-47",
+      "category": "1",
+      "selection_key_sha256": "3bec4c1151f3a7b7f9f3d9f78875882f6bedf7d172cf393b6075d9258fe5d82d"
+    },
+    {
+      "blind_id": "locomo-b200v2-49ab629dda4bc3412752",
+      "sample_id": "conv-47",
+      "category": "2",
+      "selection_key_sha256": "67e914fda2cda125d50f73863358aa4fb4128a79c1d8540acb86a6356de76110"
+    },
+    {
+      "blind_id": "locomo-b200v2-e4c7368de4af85a87b7b",
+      "sample_id": "conv-47",
+      "category": "2",
+      "selection_key_sha256": "386edc43a154b99989815bbf00cae28085bd4a481cedb6571552291c78981aec"
+    },
+    {
+      "blind_id": "locomo-b200v2-2b7ebdd313f9bdd9830d",
+      "sample_id": "conv-47",
+      "category": "4",
+      "selection_key_sha256": "284df44d0a71a9afff145932ab849f22388480b3024103a4431ab261a837a9ee"
+    },
+    {
+      "blind_id": "locomo-b200v2-44a7632ad1b68c565402",
+      "sample_id": "conv-47",
+      "category": "4",
+      "selection_key_sha256": "51005f66c08e7a24bc65162387d3e12e91abcae0a45edf3670c7edcfc7b71a9c"
+    },
+    {
+      "blind_id": "locomo-b200v2-6358ad2986df03a4ef06",
+      "sample_id": "conv-47",
+      "category": "4",
+      "selection_key_sha256": "54df71c31dde9ee181df414fe36da12e7b12d9bf1ac1ebc2c040b5a7cd8d7127"
+    },
+    {
+      "blind_id": "locomo-b200v2-295eb3b2b10344c88b37",
+      "sample_id": "conv-48",
+      "category": "3",
+      "selection_key_sha256": "3cb83597ffe96c66e232bb9fd316d73ef76b6627f030d0812781ed6c12392dfb"
+    },
+    {
+      "blind_id": "locomo-b200v2-bc01736f70deac609bca",
+      "sample_id": "conv-48",
+      "category": "1",
+      "selection_key_sha256": "9277ff787dcd2f125dd4d57a8a04751e6671dcfd462e84280ec40af866c0f180"
+    },
+    {
+      "blind_id": "locomo-b200v2-523f1b96682158847747",
+      "sample_id": "conv-48",
+      "category": "1",
+      "selection_key_sha256": "60a99f5552fa55dd0dfa8567f303413096fdda591829f83b7821c2134060e4c1"
+    },
+    {
+      "blind_id": "locomo-b200v2-027f7c760cce5397eae5",
+      "sample_id": "conv-48",
+      "category": "2",
+      "selection_key_sha256": "887890290f102406fd8fbcaa001821f724caa8832ccd74514e4f9ee26a7af076"
+    },
+    {
+      "blind_id": "locomo-b200v2-9ac0d8dbf65113d6bae5",
+      "sample_id": "conv-48",
+      "category": "2",
+      "selection_key_sha256": "19b45dc3ecae610b2fe5d45ed3fbc77a6b1d0b2fb0da5a53deeead22d33f45aa"
+    },
+    {
+      "blind_id": "locomo-b200v2-7fb3156c72ec20ee0bd2",
+      "sample_id": "conv-48",
+      "category": "2",
+      "selection_key_sha256": "68cfc49808b07049ed6b6e8eaebf3db366cf1dd0a7317e6bc7f3e7d3bff228bd"
+    },
+    {
+      "blind_id": "locomo-b200v2-df201ded1d4f780d30d2",
+      "sample_id": "conv-48",
+      "category": "2",
+      "selection_key_sha256": "08039c70a3478b0433c3ea5ff70aa2e74eb06f42d75dd7507d4a362cd1596bb5"
+    },
+    {
+      "blind_id": "locomo-b200v2-8535f45a7fa2f52db35d",
+      "sample_id": "conv-48",
+      "category": "4",
+      "selection_key_sha256": "202c44bdbcacfbf31c14e4ac9ea5e4424796a579148f540a1bcb2c579e99996c"
+    },
+    {
+      "blind_id": "locomo-b200v2-123038e477828859e9b0",
+      "sample_id": "conv-48",
+      "category": "2",
+      "selection_key_sha256": "787d51ccca4264fbe51b4e771c4555538e14396dec7607390d446e3cc9f85b4f"
+    },
+    {
+      "blind_id": "locomo-b200v2-f932a85ac7095847ec49",
+      "sample_id": "conv-48",
+      "category": "4",
+      "selection_key_sha256": "00e8ea7d8517262c1412f6b6b087aefc2d8d14e7ecdc6d18026034c10fb2070f"
+    },
+    {
+      "blind_id": "locomo-b200v2-2a4dd53f86b442a04d37",
+      "sample_id": "conv-48",
+      "category": "4",
+      "selection_key_sha256": "0b1887916dc387acd4739f8a938a6c89cf8fb45a705794ec080cc7d518d75141"
+    },
+    {
+      "blind_id": "locomo-b200v2-9d7f49ec42191ff31264",
+      "sample_id": "conv-48",
+      "category": "4",
+      "selection_key_sha256": "062cb0064699c4546445d8003933123a5c04e12a850fa5cf58e49ef7e2c8071d"
+    },
+    {
+      "blind_id": "locomo-b200v2-550a03663b53e9faf863",
+      "sample_id": "conv-49",
+      "category": "1",
+      "selection_key_sha256": "430ade15e2696eb1c9c6fadebe29b91d90771c4ad4f6a3eea097e5381c466cff"
+    },
+    {
+      "blind_id": "locomo-b200v2-63883611aa31f1a05dbc",
+      "sample_id": "conv-49",
+      "category": "3",
+      "selection_key_sha256": "723ddf10c8d5f8d2db2336c5c255fd227cbcb1431869c6aba4564200c325146c"
+    },
+    {
+      "blind_id": "locomo-b200v2-ec085a288045c6e9f338",
+      "sample_id": "conv-49",
+      "category": "1",
+      "selection_key_sha256": "302742afd34a0680e6ac1d45f13e4f315966dcc404f1e84611fff799a1f64e29"
+    },
+    {
+      "blind_id": "locomo-b200v2-e9826ef573806ac6e980",
+      "sample_id": "conv-49",
+      "category": "3",
+      "selection_key_sha256": "0ffec1cc16fd38c7d24646f96aae23d3b696303b544cbc9a0297f6bdbe290fa0"
+    },
+    {
+      "blind_id": "locomo-b200v2-3c1af5e0cfd42f95fc30",
+      "sample_id": "conv-49",
+      "category": "2",
+      "selection_key_sha256": "18dd172f9d0fe703b0a214d130e5fbb3fa7e4985635a0a85911f0cf57ed4d67b"
+    },
+    {
+      "blind_id": "locomo-b200v2-65042bfb64ddd9cd4cdb",
+      "sample_id": "conv-49",
+      "category": "1",
+      "selection_key_sha256": "22b436bc4135a541e3ba9e0dcd808e1cf0576d8f14ecd26be4fc854d6b0d1d0a"
+    },
+    {
+      "blind_id": "locomo-b200v2-bbce2713ab89b95fbea3",
+      "sample_id": "conv-49",
+      "category": "2",
+      "selection_key_sha256": "051a13364f7871680579b4232b36d6ff634489248b4b0a34d03b2a6e82612582"
+    },
+    {
+      "blind_id": "locomo-b200v2-e81f7d50c22a628ef178",
+      "sample_id": "conv-49",
+      "category": "2",
+      "selection_key_sha256": "30b76b284a5a55889a8157ec25bff7139a375715c82da7122e8e1054806df993"
+    },
+    {
+      "blind_id": "locomo-b200v2-2d72f79f1b0855925af9",
+      "sample_id": "conv-49",
+      "category": "4",
+      "selection_key_sha256": "0b8c49415469139c82f57a6e8cddd0b9cc89b2d7eb6ae71b733d3fa668912d2f"
+    },
+    {
+      "blind_id": "locomo-b200v2-cd7dfa92bddfe8715755",
+      "sample_id": "conv-49",
+      "category": "4",
+      "selection_key_sha256": "0f3ed3d400cd741d39382fbf29e515b5c05391f040dddecb64f8ab24769e71f7"
+    },
+    {
+      "blind_id": "locomo-b200v2-b7d1814be21794e9524c",
+      "sample_id": "conv-50",
+      "category": "3",
+      "selection_key_sha256": "1d5bcbc8906fb9b5123cc08378a0762290e99905a2c04139da5829b15ac67578"
+    },
+    {
+      "blind_id": "locomo-b200v2-0e052be42237f242e1f4",
+      "sample_id": "conv-50",
+      "category": "2",
+      "selection_key_sha256": "2a5fa1a81aaf4fedc5dadb8215493c537072ad60f85c45b6c002734c7bdd2488"
+    },
+    {
+      "blind_id": "locomo-b200v2-0ce1c0159459c01bf853",
+      "sample_id": "conv-50",
+      "category": "1",
+      "selection_key_sha256": "0168d4456708381278bad4f8085df878b39e315f44ce7817c0b11f93ecbcef6a"
+    },
+    {
+      "blind_id": "locomo-b200v2-7d1843f4c52125132bc5",
+      "sample_id": "conv-50",
+      "category": "1",
+      "selection_key_sha256": "8c6c1e9d5f4d2a9d47c2fb1e5e12d231c5e901e704e908b264558d88ba780d5a"
+    },
+    {
+      "blind_id": "locomo-b200v2-98a000204038ff0ffeb5",
+      "sample_id": "conv-50",
+      "category": "2",
+      "selection_key_sha256": "5c1a2d6b9db127931713d3313e65e9158237d94c6c08f2061e3319d7bf5baa5d"
+    },
+    {
+      "blind_id": "locomo-b200v2-8b395894b1d82b2e1856",
+      "sample_id": "conv-50",
+      "category": "2",
+      "selection_key_sha256": "6862aaaffefb7ee4f083ccf3c372ceadc55c73e51a87dc453d7379ae17ec680f"
+    },
+    {
+      "blind_id": "locomo-b200v2-b0351dc493b4fc0421b8",
+      "sample_id": "conv-50",
+      "category": "4",
+      "selection_key_sha256": "5ab8ef8b4c640ef30dee4b2dd4ccd7453aa0df868a700061cc87b887175ab3b6"
+    },
+    {
+      "blind_id": "locomo-b200v2-f63d14856db47979773c",
+      "sample_id": "conv-50",
+      "category": "4",
+      "selection_key_sha256": "5ecc420aace24bb31da593e85c2625db53bc1686390bd4ca60947301f5d04d01"
+    },
+    {
+      "blind_id": "locomo-b200v2-c030d4886532083791e0",
+      "sample_id": "conv-50",
+      "category": "4",
+      "selection_key_sha256": "711d5bd2bdd93d86c72317143b4a3c1a4f2faff5ba46066882c00b2490327bad"
+    },
+    {
+      "blind_id": "locomo-b200v2-053bea002fae8cd89d77",
+      "sample_id": "conv-50",
+      "category": "4",
+      "selection_key_sha256": "41ff38e2992d1df120846a8feec7a0288ba0d725ff09b21dc6191f86752ed0d7"
+    },
+    {
+      "blind_id": "locomo-b200v2-7d28a7678d2ddec6bc23",
+      "sample_id": "conv-50",
+      "category": "4",
+      "selection_key_sha256": "84bf626d09c2ce2ade52c3e7220b095ec4dcb12f707b5eb0288723c632d6b140"
+    }
+  ]
+}

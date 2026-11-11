@@ -504,6 +504,76 @@ class TestE2PilotPaidWorkGuard(unittest.TestCase):
             self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
         finally:b.close()
 
+    def _install_supplemental(self):
+        import hashlib
+        gov=self.root/"governance"
+        policy_path=gov/"policy.json"
+        policy=json.loads(policy_path.read_text())
+        protocol_sha=hashlib.sha256((gov/"E2_PROSPECTIVE_PROTOCOL_CANDIDATE.json").read_bytes()).hexdigest()
+        split_sha=hashlib.sha256((gov/"E2_SPLIT_MANIFEST.json").read_bytes()).hexdigest()
+        primary_sha=policy["e2_transition"]["pilot_execution_manifest_sha256"]
+        supp_scope="proxy:xiaoyu:e2_supp_canary"
+        supp={
+          "schema":"xiaoyu-e2-supplemental-execution-manifest-v1",
+          "status":"FROZEN_BEFORE_EXECUTION",
+          "paid_execution_authorized":True,
+          "protocol_sha256":protocol_sha,
+          "split_manifest_sha256":split_sha,
+          "original_execution_manifest_sha256":primary_sha,
+          "benchmark_pilot_hard_cap_tokens":10000,
+          "warmup":{"serial_real_cases_per_scope":2},
+          "tracks":{"supp":{
+            "scope":supp_scope,"execution_status":"READY",
+            "case_ids":["supp-a","supp-b"],"case_count":2,
+            "max_completion_tokens":60,
+            "response_format":{"type":"json_object"},
+            "invariant_prefix_sha256":self.prefix
+          }}
+        }
+        path=gov/"E2_SUPP.json"
+        path.write_text(json.dumps(supp),encoding="utf-8")
+        policy["e2_transition"]["supplemental_execution_manifests"]=[{
+          "path":"governance/E2_SUPP.json",
+          "sha256":hashlib.sha256(path.read_bytes()).hexdigest()
+        }]
+        policy["budget"]["paid_research"]["runtime_guard"]["scope_overrides"][supp_scope]={
+          "rolling_call_cap":4,"epoch_call_cap":4
+        }
+        policy_path.write_text(json.dumps(policy),encoding="utf-8")
+        return path,supp_scope
+
+    def test_registered_supplemental_scope_is_authorized_without_mutating_primary(self):
+        path,scope=self._install_supplemental()
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            cid,_,_=b.reserve(
+              self.messages,50,"supp test",phase="benchmark",
+              response_format={"type":"json_object"},budget_scope=scope,
+              case_id="supp-a",prompt_prefix_sha256=self.prefix,
+              _proxy_auth=_PROXY_AUTH_SENTINEL)
+            row=b.conn.execute("select budget_scope,case_id from calls where call_id=?",(cid,)).fetchone()
+            self.assertEqual(row["budget_scope"],scope)
+            self.assertEqual(row["case_id"],"supp-a")
+            # Original primary remains independently hash-bound/readable.
+            self.assertIsNotNone(b._e2_execution_manifest())
+        finally:b.close()
+
+    def test_supplemental_manifest_tamper_fails_closed_before_reservation(self):
+        path,scope=self._install_supplemental()
+        obj=json.loads(path.read_text())
+        obj["tracks"]["supp"]["case_ids"].append("tampered")
+        path.write_text(json.dumps(obj),encoding="utf-8")
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"supplemental execution manifest hash mismatch"):
+                b.reserve(
+                  self.messages,50,"supp test",phase="benchmark",
+                  response_format={"type":"json_object"},budget_scope=scope,
+                  case_id="supp-a",prompt_prefix_sha256=self.prefix,
+                  _proxy_auth=_PROXY_AUTH_SENTINEL)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
     def test_held_e2_track_is_rejected_before_reservation(self):
         path=self.root/"governance"/"E2_PILOT_EXECUTION_MANIFEST.json"
         m=json.loads(path.read_text())
@@ -536,6 +606,128 @@ class TestE2PilotPaidWorkGuard(unittest.TestCase):
             with self.assertRaisesRegex(ResearchBudgetError,"pilot token cap"):
                 self.reserve(b)
             self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
+
+class TestPrefrozenMainlinePaidAdmission(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory()
+        self.root=Path(self.tmp.name)
+        gov=self.root/"governance";gov.mkdir()
+        self.scope="proxy:xiaoyu:main13b-stageb-v1"
+        self.case_id="main13b:event:tok01"
+        self.messages=[
+            {"role":"system","content":"frozen event prompt"},
+            {"role":"user","content":json.dumps({"case_token":"tok01","conversation":[]},ensure_ascii=False,separators=(",",":"))},
+        ]
+        prefix_raw=json.dumps(self.messages[:-1],ensure_ascii=False,sort_keys=True,separators=(",",":")).encode("utf-8")
+        self.prefix=hashlib.sha256(prefix_raw).hexdigest()
+        auth=gov/"AUTH.json";auth.write_text('{"status":"AUTHORIZED"}',encoding="utf-8")
+        freeze=gov/"FREEZE.json";freeze.write_text('{"status":"FROZEN"}',encoding="utf-8")
+        backlog={"candidates":[{
+            "id":"MAIN13B","status":"active","paid_execution_authorized":True,
+            "paid_authorization_record":"governance/AUTH.json",
+            "paid_evidence_requirement":{
+                "budget_scope":self.scope,"phase":"benchmark",
+                "max_raw_tokens":10000,"max_calls":1,
+            }
+        }]}
+        (gov/"RESEARCH_BACKLOG.json").write_text(json.dumps(backlog),encoding="utf-8")
+        manifest={
+            "schema":"xiaoyu-prefrozen-mainline-paid-execution-manifest-v1",
+            "status":"FROZEN_BEFORE_EXECUTION","paid_execution_authorized":True,
+            "formal":False,"backlog_id":"MAIN13B","scope":self.scope,"phase":"benchmark",
+            "provider":"deepseek","model":"deepseek-flash","thinking":"disabled",
+            "max_raw_tokens":10000,"max_case_calls":1,"max_completion_tokens":100,
+            "response_format":{"type":"json_object"},
+            "case_ids":[self.case_id],
+            "case_prefix_sha256":{"main13b:event:":self.prefix},
+            "authorization":{"path":"governance/AUTH.json","sha256":hashlib.sha256(auth.read_bytes()).hexdigest()},
+            "freeze":{"path":"governance/FREEZE.json","sha256":hashlib.sha256(freeze.read_bytes()).hexdigest()},
+        }
+        mp=gov/"MAINLINE.json";mp.write_text(json.dumps(manifest),encoding="utf-8")
+        policy={
+          "budget":{"max_paid_api_calls_per_day":1000,"paid_research":{
+            "enabled":True,"provider":"deepseek","active_phase":"benchmark",
+            "benchmark_unlocked":True,"max_total_tokens":100000,
+            "smoke_max_tokens":10000,"benchmark_max_tokens":100000,
+            "thinking":"disabled","reasoning_effort":"none","temperature":0,"top_p":1,
+            "prefrozen_mainline_execution_manifests":[{
+                "scope":self.scope,"path":"governance/MAINLINE.json",
+                "sha256":hashlib.sha256(mp.read_bytes()).hexdigest()
+            }],
+            "runtime_guard":{
+                "enabled":True,"effective_after_epoch":0,"rolling_window_seconds":900,
+                "scope_raw_token_cap":20000,"scope_cache_miss_cap":20000,
+                "scope_output_token_cap":5000,"scope_call_cap":10,
+                "scope_epoch_raw_token_cap":20000,"scope_epoch_cache_miss_cap":20000,
+                "scope_epoch_output_token_cap":5000,"scope_epoch_call_cap":10,
+                "max_single_reservation_tokens":5000,"require_proxy_tag":True,
+                "allowed_proxy_tags":["xiaoyu"],"block_benchmark_weekday_peak":False
+            }
+          }},
+          "e2_transition":{"current_stage":"E2_CONFIRMATORY","confirmatory_calls_allowed":False}
+        }
+        (gov/"policy.json").write_text(json.dumps(policy),encoding="utf-8")
+        (self.root/"provider.json").write_text(json.dumps({
+          "provider":"deepseek","model":"deepseek-flash",
+          "url":"https://api.deepseek.com/chat/completions","key_env":"DEEPSEEK_API_KEY"
+        }),encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def reserve(self,b,**kw):
+        args=dict(
+            messages=self.messages,max_tokens=100,purpose=self.scope,phase="benchmark",
+            response_format={"type":"json_object"},budget_scope=self.scope,
+            case_id=self.case_id,prompt_prefix_sha256=self.prefix,
+            _proxy_auth=_PROXY_AUTH_SENTINEL)
+        args.update(kw)
+        return b.reserve(**args)
+
+    def test_exact_prefrozen_mainline_scope_bypasses_legacy_formal_gate_only_for_that_scope(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            cid,_,meta=self.reserve(b)
+            row=b.conn.execute("select budget_scope,case_id,gateway_origin from calls where call_id=?",(cid,)).fetchone()
+            self.assertEqual(row["budget_scope"],self.scope)
+            self.assertEqual(row["case_id"],self.case_id)
+            self.assertEqual(row["gateway_origin"],"http_proxy")
+            self.assertEqual(meta["provider"],"deepseek")
+        finally:b.close()
+
+    def test_wrong_case_or_prefix_fails_before_reservation(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"case_id is outside frozen allowlist"):
+                self.reserve(b,case_id="main13b:event:other")
+            with self.assertRaisesRegex(ResearchBudgetError,"prompt prefix hash mismatch"):
+                self.reserve(b,prompt_prefix_sha256="0"*64)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
+    def test_manifest_tamper_fails_closed(self):
+        p=self.root/"governance"/"MAINLINE.json"
+        obj=json.loads(p.read_text());obj["case_ids"].append("main13b:event:tampered")
+        p.write_text(json.dumps(obj),encoding="utf-8")
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"manifest hash mismatch"):
+                self.reserve(b)
+            self.assertEqual(b.status()["phase_used_or_reserved_tokens"],0)
+        finally:b.close()
+
+    def test_unregistered_scope_still_uses_legacy_confirmatory_gate(self):
+        b=ResearchApiBudget(self.root,clock=lambda:10000)
+        try:
+            with self.assertRaisesRegex(ResearchBudgetError,"E2 confirmatory authorization failed"):
+                b.reserve(
+                    self.messages,100,"other",phase="benchmark",
+                    response_format={"type":"json_object"},
+                    budget_scope="proxy:xiaoyu:other",
+                    case_id="other-case",prompt_prefix_sha256=self.prefix,
+                    _proxy_auth=_PROXY_AUTH_SENTINEL)
         finally:b.close()
 
 

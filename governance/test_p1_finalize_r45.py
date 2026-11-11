@@ -85,7 +85,8 @@ class R45FinalizerTests(unittest.TestCase):
         lease=self.g.join(
             "r45_test_author","research_engineer",r["family"],r["capability"],
             r["hypothesis"],r["lane"],lineage=r["lineage"],
-            reuse_plan=r["reuse_plan"],backlog_id="R45")
+            reuse_plan=r["reuse_plan"],backlog_id="R45",
+            worker_instance_id="chat-r45-test-0001")
         row=self.g.db.execute("select * from leases where lease_id=?",(lease["lease_id"],)).fetchone()
         w=Path(lease["workspace"])
         (w/"evidence.txt").write_text("fresh synthetic R45 evidence",encoding="utf-8")
@@ -99,6 +100,9 @@ class R45FinalizerTests(unittest.TestCase):
           "method":"Offline synthetic frozen comparison",
           "limitations":"Synthetic-only closeout-finalizer test",
           "evidence_label":"LEAD_READY",
+          "scientific_outcome":"POSITIVE",
+          "promotion_evidence_status":"VALID",
+          "scientific_falsifier_observed":False,
           "artifacts":["evidence.txt"],
           "reuse_compliance":{
             "components_considered":plan["components"],
@@ -108,7 +112,9 @@ class R45FinalizerTests(unittest.TestCase):
           },
         }
         (w/"result.json").write_text(json.dumps(manifest,ensure_ascii=False),encoding="utf-8")
-        out=self.g.submit(lease["lease_id"],"r45_test_author","result.json")
+        out=self.g.submit(
+            lease["lease_id"],"r45_test_author","result.json",
+            worker_instance_id="chat-r45-test-0001")
         return out["submission_id"]
 
     def accept(self,submission_id):
@@ -116,7 +122,7 @@ class R45FinalizerTests(unittest.TestCase):
             "r45_test_auditor","auditor","audit.r45.synthetic.finalizer",
             "privacy_erasure",
             "Independent synthetic audit checks the closeout finalizer acceptance path.",
-            "evaluation_data")
+            "evaluation_data",worker_instance_id="chat-r45-audit-0001")
         return self.g.review(
             submission_id,"r45_test_auditor","ACCEPT_E1",
             "Independent synthetic audit reproduced the frozen finalizer fixture with no material finding.",

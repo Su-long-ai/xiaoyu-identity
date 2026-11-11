@@ -113,7 +113,8 @@ class ContinuationTests(unittest.TestCase):
         first=self.initial(agent="auditor-a",role="auditor")
         result=self.submit(first,"auditor-a")
         self.assertEqual(result["next_task"]["role"],"auditor")
-        self.assertEqual(result["next_task"]["capability"],"memory_evidence")
+        from continuation import AUDITOR_TASKS
+        self.assertEqual(result["next_task"]["capability"],AUDITOR_TASKS[0]["capability"])
         research=self.initial(agent="worker-a")
         self.assertEqual(self.g.status()["active_by_role"],{"research_engineer":1,"auditor":1})
         self.assertNotEqual(research["lease_id"],result["next_lease_id"])
@@ -288,6 +289,94 @@ class ContinuationTests(unittest.TestCase):
         self.assertEqual(out["next_step"],"P1_RESEARCH_CLOSEOUT_COMPLETE")
         self.assertEqual(out["closeout_required_backlog"],[])
 
+    def test_phase_priority_gate_ignores_unclaimable_other_pool_backlog(self):
+        self.g.policy["phase_priority_guard"]["effective_after_epoch"]=0
+        self.g.policy["phase_priority_guard"]["enabled"]=True
+        self.g.policy["reuse_guard"]["enabled"]=False
+        path=self.home/"governance"/"RESEARCH_BACKLOG.json"
+        data=json.loads(path.read_text(encoding="utf-8"))
+        for row in data.get("candidates",[]):
+            row["status"]="hold"
+        main=next(r for r in data["candidates"] if r.get("id")=="MAIN01")
+        main["status"]="active"
+        for key in ("completion_submission","completion_level","completion_note"):
+            main.pop(key,None)
+        phase=data["phase_policy"]
+        phase["current_phase"]="CORE_MEMORY_PORTFOLIO_RESEARCH"
+        phase["auto_assign_plans"]=["CORE_MEMORY_EXPLORATION","CORE_MEMORY_MAINLINE"]
+        phase["closeout_mode"]=False
+        phase["closeout_required_backlog"]=[]
+        phase["agent_task_pools"]={
+            "explorer-pool-test":"exploration",
+            "mainline-pool-test":"mainline",
+        }
+        path.write_text(json.dumps(data),encoding="utf-8")
+
+        status=self.g.phase_priority_status()
+        self.assertEqual([x["id"] for x in status["available_unclaimed"]],["MAIN01"])
+        self.assertEqual(status["available_unclaimed"][0]["task_pool"],"mainline")
+
+        # Explorer cannot claim MAIN01 through continuation, so MAIN01 must not
+        # globally block a fresh explorer hypothesis.
+        out=self.g.join(
+            "explorer-pool-test","research_engineer",
+            "self.directed.explorer.pool","personalization",
+            "A divergent explorer may continue a distinct cross-family hypothesis when only mainline backlog remains.",
+            "alternative_architecture",
+            lineage="self.directed.explorer.pool")
+        self.assertEqual(out["state"],"ACTIVE")
+        self.g.release(out["lease_id"],"explorer-pool-test")
+
+        # If the same cross-pool item is elevated to an observed global
+        # product blocker, a fresh explorer must also yield.
+        data=json.loads(path.read_text(encoding="utf-8"))
+        main=next(r for r in data["candidates"] if r.get("id")=="MAIN01")
+        main["priority"]=-1
+        main["observed_blocker"]="synthetic-product-correctness-blocker"
+        path.write_text(json.dumps(data),encoding="utf-8")
+        status=self.g.phase_priority_status()
+        self.assertTrue(status["available_unclaimed"][0]["global_preempt_self_directed"])
+        with self.assertRaisesRegex(GovernanceError,"global product blocker backlog"):
+            self.g.join(
+                "explorer-pool-urgent","research_engineer",
+                "self.directed.explorer.urgent","personalization",
+                "A fresh explorer must yield when a cross-pool negative-priority product blocker is waiting.",
+                "alternative_architecture",
+                lineage="self.directed.explorer.urgent")
+
+        # The same backlog remains claimable for a mainline worker and therefore
+        # must still block that worker's self-directed bypass.
+        with self.assertRaisesRegex(GovernanceError,"global product blocker backlog"):
+            self.g.join(
+                "mainline-pool-test","research_engineer",
+                "self.directed.mainline.pool","cost_reliability",
+                "A mainline worker must not bypass an available mainline backlog item with self-directed work.",
+                "main_bottleneck",
+                lineage="self.directed.mainline.pool")
+
+    def test_phase_priority_gate_respects_remediation_author_continuity(self):
+        path=self.home/"governance"/"RESEARCH_BACKLOG.json"
+        data=json.loads(path.read_text(encoding="utf-8"))
+        data["phase_policy"]["agent_task_pools"]={
+            "mainline-owner":"mainline",
+            "mainline-peer":"mainline",
+        }
+        path.write_text(json.dumps(data),encoding="utf-8")
+        phase_status={
+            "available_unclaimed":[{
+                "id":"MAIN01",
+                "task_pool":"mainline",
+                "remediation":True,
+                "previous_agent_id":"mainline-owner",
+            }]
+        }
+        self.assertEqual(
+            [x["id"] for x in self.g._phase_claimable_for_agent(
+                phase_status,"mainline-owner")],
+            ["MAIN01"])
+        self.assertEqual(
+            self.g._phase_claimable_for_agent(phase_status,"mainline-peer"),[])
+
     def test_phase_priority_gate_blocks_self_directed_while_unclaimed_p1_exists(self):
         self.g.policy["phase_priority_guard"]["effective_after_epoch"]=0
         self.g.policy["phase_priority_guard"]["enabled"]=True
@@ -311,6 +400,47 @@ class ContinuationTests(unittest.TestCase):
             reuse_plan=spec.get("reuse_plan"),backlog_id=spec.get("backlog_id") or "")
         self.assertEqual(out["state"],"ACTIVE")
         self.g.release(out["lease_id"],"worker-backlog")
+
+    def test_phase_priority_reexposes_released_unsubmitted_backlog(self):
+        self.g.policy["phase_priority_guard"]["effective_after_epoch"]=0
+        self.g.policy["phase_priority_guard"]["enabled"]=True
+        path=self.home/"governance"/"RESEARCH_BACKLOG.json"
+        data=json.loads(path.read_text(encoding="utf-8"))
+        row=next(r for r in data["candidates"] if r.get("id")=="R45")
+        row["priority"]=-20
+        data["phase_policy"]["closeout_mode"]=False
+        data["phase_policy"]["closeout_required_backlog"]=[]
+        path.write_text(json.dumps(data),encoding="utf-8")
+
+        from continuation import _specs
+        spec=next(x for x in _specs(self.g,"research_engineer")
+                  if x.get("backlog_id")=="R45")
+        lease=self.g.join(
+            "released-formal-owner","research_engineer",
+            spec["family"],spec["capability"],spec["hypothesis"],spec["lane"],
+            lineage=spec["lineage"],reuse_plan=spec.get("reuse_plan"),
+            backlog_id="R45")
+        self.g.release(lease["lease_id"],"released-formal-owner")
+
+        status=self.g.phase_priority_status()
+        item=next(x for x in status["available_unclaimed"] if x["id"]=="R45")
+        self.assertTrue(item["followup"])
+        self.assertTrue(item["global_preempt_self_directed"])
+        self.assertEqual(item["previous_lease_id"],lease["lease_id"])
+
+        with self.assertRaisesRegex(GovernanceError,"global product blocker backlog"):
+            self.g.join(
+                "fresh-self-directed","research_engineer",
+                "self.directed.must.yield","cost_reliability",
+                "A fresh self-directed task must yield when a released unsubmitted formal blocker remains active.",
+                "main_bottleneck",lineage="self.directed.must.yield",
+                reuse_plan={
+                    "mode":"extend",
+                    "components":["xiaoyu_existing_core"],
+                    "gap":"Synthetic test-only reuse plan long enough to exercise the phase-priority guard before any new work.",
+                    "new_dependencies":[],
+                    "no_new_infrastructure":True,
+                })
 
     def test_phase_priority_gate_reopens_self_directed_after_backlog_exhaustion(self):
         self.g.policy["phase_priority_guard"]["effective_after_epoch"]=0

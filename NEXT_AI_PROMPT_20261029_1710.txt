@@ -1,0 +1,40 @@
+你现在接手本地项目“小鱼 / XiaoYu 长期身份系统”。项目根目录：D:\dsh-fish。
+
+请先完整阅读：
+D:\dsh-fish\plans\NEXT_AI_HANDOFF_20261029_1710.md
+
+然后立即追本地实时状态，不要依赖交接文件里的静态数字。第一轮先执行并核对：
+- py -3.11 governance\control.py status
+- py -3.11 governance\control.py queue
+- py -3.11 governance\e2_token_efficiency_doctor.py
+- py -3.11 governance\e2_confirmatory_prefreeze_doctor.py
+- git status --short --branch
+- 检查 D:\dsh-fish\governance\workspaces\fish-6534847e38ed48b6 的最新文件、heartbeat、result/receipt/submission 状态
+
+关键约束：
+1. 当前 R52 的 agent_id=fish_re_b_20261026_identity，lease_id=fish-6534847e38ed48b6；如果仍 ACTIVE，绝对不要新建第二个 R52 Agent，也不要换 identity。继续/监控同一个 lease。
+2. 不要 reset/stash/clean 当前 dirty Git worktree；里面有大量未提交的 confirmatory pre-freeze / R49 / R52 关键工作。
+3. LongMemEval 46/46 paid pilot 已完成，不再发新的 LME pilot call。原始 baseline 永远保留为 12/46 normalized exact；R48/R50/R51 的 ACCEPT_E1 不能回写成新的 pilot 分数。
+4. HaluMem 18 个 confirmatory users 与 LME 454 confirmatory cases仍严格 untouched；在最终 confirmatory freeze 前禁止读取/执行。
+5. R47/R48/R49/R50/R51 已 ACCEPT_E1；当前直接 blocker 是 R52 HaluMem open-domain end-to-end composition。
+6. confirmatory doctor 当前应是 healthy hold / freeze_allowed=false / execution_allowed=false。不要为了推进而绕过 blocker。
+7. OPENAI_API_KEY 当前缺失只是 HaluMem judge runtime warning；不要用 DeepSeek 或其他 judge 静默替代，必须保持正式 judge/comparability contract。
+8. 继续科研要窄、可证伪、复用现有 SQLite/FTS5/provenance/authority/R47/R49，不重造 memory framework。
+9. Paid token 不要为了额度而消耗；所有 paid calls 必须走现有 governance proxy/cap/peak guards。
+10. 不要宣称 E2/E3，除非真正完成 untouched confirmatory + 独立正式审计。
+
+接手后的优先决策：
+- 若 R52 仍 ACTIVE：不要抢工作，先检查最新 v8+ 指标/失败点，继续同一 Agent 到提交。
+- 若 R52 已 SUBMITTED：用既有 Independent Auditor（xy-auditor-independent-20261026-01）做 exact-byte 独立审计，不得自批。
+- 若 R52 NEEDS_WORK：保留旧审计不可变，用同一 RE identity 做新 remediation submission。
+- 若 R52 ACCEPT_E1：将 exact accepted bytes 绑定进 E2 confirmatory implementation bindings；完成 tracked HaluMem confirmatory runner、冻结 judge/scorer、重建 final re-audit manifest，再让 Independent Auditor 对 exact v2 bytes 做最终 re-audit。
+- 只有最终 re-audit READY 后，Lead 才能单独创建 confirmatory execution freeze；之后才允许 untouched confirmatory execution。
+
+工作方式：中文汇报；先做再报；不要反复问我；每轮尽可能持续推进多个可闭环任务；遇到真实 blocker 就给出证据和最小下一步，不要靠放宽科学标准“解卡”。
+
+现在追上本地最新进度后继续工作。
+
+新增产品约束（2026-10-29）：
+- 接手时同时读取 D:\dsh-fish\plans\PRODUCT_CLOSURE_POLICY_20261029.md。
+- E2 confirmatory 收口后，默认转入最小产品纵向集成和 longitudinal shadow，不自动重开大规模科研。
+- 没有真实产品/longitudinal P0/P1 时，不因“还能优化”继续制造 backlog、guard、doctor 或 framework。

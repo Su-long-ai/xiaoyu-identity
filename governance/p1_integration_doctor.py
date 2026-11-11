@@ -496,26 +496,42 @@ def evaluate(contract_path=DEFAULT_CONTRACT, candidate_path=DEFAULT_CANDIDATE, d
         backlog=load_json(backlog_path)
         phase=backlog.get("phase_policy",{})
         if phase.get("closeout_mode"):
-            spec_map={x["id"]:x for x in contract.get("stages",[])}
-            expected=[]
-            for sid in direct_blocked_required:
-                spec=spec_map.get(sid,{})
-                rid=spec.get("remediation_backlog_id") or spec.get("replication_backlog_id")
-                if not rid:
-                    lead=spec.get("lead_e0",{})
-                    if lead.get("replication_required"):
-                        rid=lead.get("replication_backlog_id")
-                if rid:
-                    expected.append(str(rid))
-                else:
-                    errors.append({"stage":sid,"type":"direct_blocker_without_closeout_path"})
-            expected=sorted(set(expected))
+            phase_name=str(phase.get("current_phase") or "")
             actual=sorted(set(str(x) for x in phase.get("closeout_required_backlog",[])))
-            closeout_sync={"checked":True,"ok":expected==actual,
-                           "expected":expected,"actual":actual}
-            if expected!=actual:
-                errors.append({"type":"closeout_backlog_drift",
-                               "expected":expected,"actual":actual})
+            # RESEARCH_BACKLOG.phase_policy is the *current* project-phase
+            # scheduler. Once the project has explicitly advanced beyond P1,
+            # later-phase closeout items must not retroactively make the frozen
+            # P1 assembly unhealthy. Missing current_phase preserves the legacy
+            # P1-closeout behavior used by older fixtures/snapshots.
+            check_p1_closeout=(not phase_name or phase_name in ("P1","P1_CLOSEOUT"))
+            if check_p1_closeout:
+                spec_map={x["id"]:x for x in contract.get("stages",[])}
+                expected=[]
+                for sid in direct_blocked_required:
+                    spec=spec_map.get(sid,{})
+                    rid=spec.get("remediation_backlog_id") or spec.get("replication_backlog_id")
+                    if not rid:
+                        lead=spec.get("lead_e0",{})
+                        if lead.get("replication_required"):
+                            rid=lead.get("replication_backlog_id")
+                    if rid:
+                        expected.append(str(rid))
+                    else:
+                        errors.append({"stage":sid,"type":"direct_blocker_without_closeout_path"})
+                expected=sorted(set(expected))
+                closeout_sync={"checked":True,"ok":expected==actual,
+                               "expected":expected,"actual":actual,
+                               "current_phase":phase_name or None,
+                               "scope":"P1_CURRENT_PHASE"}
+                if expected!=actual:
+                    errors.append({"type":"closeout_backlog_drift",
+                                   "expected":expected,"actual":actual})
+            else:
+                closeout_sync={"checked":False,"ok":True,
+                               "expected":[],"actual":actual,
+                               "current_phase":phase_name,
+                               "scope":"LATER_PHASE_BACKLOG_IGNORED_FOR_P1",
+                               "ignored_later_phase_backlog":True}
 
     report = {
         "schema": "xiaoyu-p1-integration-doctor-v1",

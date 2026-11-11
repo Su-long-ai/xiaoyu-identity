@@ -1,0 +1,24 @@
+{
+  "schema": "xiaoyu-product-memory-engine-component-v1",
+  "component_id": "xiaoyu-memory-engine-r52-r49-r47-v1",
+  "product_component_version": 1,
+  "promoted_at_utc": "2026-10-29T12:43:43.145589+00:00",
+  "source_authority": "ACCEPT_E1 exact frozen research components",
+  "source_relpath": "governance/confirmatory_frozen",
+  "runtime_relpath": "product_components/memory_engine_v1",
+  "files": {
+    "r47_open_domain_memory_store_frozen.py": "44d41231dae573dbc360b62a8144ebe4b929808a72dc7197705ee26a704092f9",
+    "r49_structural_v5.py": "8d57bef1608fc4d207be42941b5c08ef57c7f203f07bb80dbe29239749b00d29",
+    "r49_confirmed_transition.py": "15c7ac6e8390620e720282032c29f30e866752e2f6c98138c7749194ac6bd315",
+    "r49_atomic_confirmed_transition.py": "43c10d8a90bc463b3101c7116027ed9cfcef7c8e4c3dbe8d081ab4d4942aadc7",
+    "r52_qa_sufficiency_v7.py": "0f7354ae03874ae7b644257f9bd18aa78e1f0a68570f36d6e2f79a9140b37a4b",
+    "r52_candidate_v7.py": "4921020cc33520ea04b48f7b3e4ea0806215d3fb1cc6d33fdec4e934d5a4afb1",
+    "r52_composition_candidate_v7.py": "9c01a443c1841e49443453b0629523102a7aef83e8fedaf3a809fa0ad5806322",
+    "r52_composition_candidate_v8.py": "57f7a955f724c99c8c25451801681124b2b58b7348d0d02e8a921845590d4e71",
+    "r52_holdout_inputs.json": "bbdec22b6aa49282ea10557dcdac1a877d45ce0ec91e4453156b7e3f8932dce8",
+    "r52_exact_components_outputs.json": "24a3afe231355c3445af351a6ed8829fcc20555dd1aa9bfe2c30bb2ae469c2f5"
+  },
+  "runtime_dependency_direction": "product runtime depends only on this promoted package; governance is not a runtime dependency",
+  "private_data_included": false,
+  "provider_calls_required": false
+}

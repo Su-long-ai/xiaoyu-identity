@@ -1,0 +1,30 @@
+{
+  "schema": "xiaoyu-external-stage1-pass-rule-freeze-v2",
+  "created_at": "2026-11-02T15:58:00+08:00",
+  "status": "FROZEN_BEFORE_NEXT_EXTERNAL100_RUN",
+  "supersedes": "governance/evaluation/EXTERNAL_STAGE1_PASS_RULE_FREEZE_V1.json",
+  "reason": "Eliminate false gains from answerer resampling when candidate retrieval is identical to baseline.",
+  "stage1_input": {
+    "path": "governance/evaluation/locomo_stage1_100_input_v1.json",
+    "sha256": "6215dd3c2a0f8d249d2cbce3e69cee3aa8963347e00eb7ad4547151187bc7592",
+    "questions": 100
+  },
+  "stage1_membership": {
+    "path": "governance/evaluation/locomo_stage1_100_membership_v1.json",
+    "sha256": "fd067ab521f5907a2255bee4f62aa3a0d15fdc31b8499ce908fafd996e809a97",
+    "reselection_allowed": false
+  },
+  "current_baseline": {
+    "baseline_id": "baseline-g003-reserved_hop_expansion_v2"
+  },
+  "pass_rule": {
+    "type": "MATCHED_CURRENT_BASELINE_CAUSAL_RETRIEVAL_SCREEN",
+    "min_candidate_vs_baseline_accuracy_delta": 0.01,
+    "min_candidate_vs_baseline_full_evidence_delta": 0.0,
+    "min_retrieval_changed_questions": 1,
+    "material_authority_regressions_max": 0,
+    "baseline_promotion_allowed": false,
+    "external200_unlock": "PASS_ONLY",
+    "identical_retrieval_policy": "REUSE_BASELINE_ANSWER_AND_JUDGEMENT"
+  }
+}
