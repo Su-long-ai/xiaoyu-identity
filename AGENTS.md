@@ -1,3 +1,20 @@
+## Owner 2026-11-14 — 强模型日裁决已吸收：先拆 H/R/P/W/A，再做答案契约
+
+最新方向：governance/evaluation/v11_capability/agents/ANSWER_CONTRACT_EXECUTION_DIRECTION_20261114.md。下一阶段停止以 recall/TopK/来源数为独立目标，冻结无缺口驱动的 source expansion / replay / 平行 gate。先用 evidence_delivery_diagnostic.py 做“人工完整原文替换 + 模型实际输入封存”，把 H(授权历史)→R(检索原文)→P(实际模型输入)→W(时间/冲突/推理)→A(最终答案)断点拆开；answer_outcome_gate.py 和 product_benefit_gate.py 已支持该机器归因。只有完整原文诊断证明证据消费/输出契约有独立收益后，才实现答案契约执行器。每天一次稀缺强模型只读已曝光开发材料做离线失败教师，不接实时回答、不做唯一 judge、不读封存 fresh。正式V1/QQ/private identity不动；不新增付费调用。
+
+---
+
+## Owner 2026-11-14 — G154实测不晋升，下一主线纠正最终答案完整性
+
+单人本地G154机读收据：governance/evaluation/v11_capability/agents/results/product_integration/LEAD_G154_STRUCTURED_PRODUCT_RC_20261114/G154_PRODUCT_STAGE_MACHINE_DECISION.json。G154真实外部公开RHELM12回答OFF 5/12→ON 4/12（0胜1负），独立新原生合成8/8→8/8，未实现能力提升；**不得宣布产品晋升**，但保留结构化来源研究候选。退步为模型回答日期但遗漏同问的时间（授权来源中时间实际存在）。已经通过真实SHA答案接入无gold请求字段完整性机器gate和可选finish_reason真值采集；第三方A1不存在，不自称独立审计。正式V1/QQ发送/私人identity没动。下一优先：完整用户要求的字段消费+多来源关系/时间事实，先用未见题真实最终回答验净收益再集成；不继续围绕已曝光G154题目标榜。具体最新执行与成本约束见 governance/evaluation/v11_capability/agents/OUTCOME_FIRST_MACHINE_GATE_20261113.md。单次≤¥2、共享项目≤¥40。下方旧同类排序被此条覆盖。
+
+---
+## Owner 2026-11-13 23:30 — Outcome-first 修正与机器 gate（优先于下方旧同类科研指令）
+
+最新必读：`governance/evaluation/v11_capability/agents/OUTCOME_FIRST_MACHINE_GATE_20261113.md`。研发必须区分已知错题诊断、未见样本验证、独立产品验证；不给 retrieval-only / 已曝光DEV / 截断正确判定晋升正式能力。`product_benefit_gate.py` 已连 `answer_outcome_gate.py` 与 `product_pair_evidence.check_output_integrity`，原始SHA答案真实验证、质量损坏扣分、整体收益宽容少量普通退步；证据不足保留隔离试验而非删除。正式V1/QQ发送和私人资料不动，单人工作不冒充独立审计，付费每任务≤2元/项目≤40元沿共享账本。旧文件若冲突以此段为准。
+
+---
+
 ## Owner 2026-11-04 22:19 — 以产品净收益驱动任务，旧实验默认后置
 
 **即刻最高优先级**：`governance/evaluation/v11_capability/agents/CAPABILITY_FIRST_EXECUTION_20261104.md`。真实 raw60：正式X039只有状态30/60、最终回答27/60；M2-X067 隔离A+B开发实验在类别单题运行中提升至状态45/60、最终回答57/60，权限撤销状态仍0/15。**只有完整原始对话→可信状态→Top7→最终回答的同题净收益，才算产品能力提升。** A1-X064合法更正状态1/20、负例20/20；OWNER写入修复公共DEV 5/12→12/12但需A1-X067语义authority独立核验。先消化现有成果，暂停无直接问题对应的外部大调查/大规模重复排名/纯词表微调；单次研究12→40→材料性必要才大样本。保留各自正在进行的任务与原Agent ID，不在本会话伪造后台启动；没有新增审批门槛。现有正式V1/真实QQ/private/保护集不碰，Lead禁Codex、禁主动Ollama。优先读本段和新执行文件，旧同类指令若冲突，以本段为准。
