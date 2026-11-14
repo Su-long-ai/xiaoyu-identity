@@ -11,8 +11,17 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 PROVIDERS = {
+    "deepseek_web": {
+        "url":"http://127.0.0.1:8787/v1/chat/completions",
+        "model":"deepseek-v4-flash",
+        "key_env":"",
+        "key_file":r"D:\cpod\deepseek-web-api\data\.api-key",
+        "reasoning_effort":"none",
+        "fallbacks":["qwen","deepseek"],
+    },
     "deepseek": {"url":"https://api.deepseek.com/chat/completions",
-                 "model":"deepseek-flash","key_env":"DEEPSEEK_API_KEY"},
+                 "model":"deepseek-flash","key_env":"DEEPSEEK_API_KEY",
+                 "reasoning_effort":"none"},
     "openai": {"url":"https://api.openai.com/v1/chat/completions",
                "model":"gpt-4.1-mini","key_env":"OPENAI_API_KEY"},
     "qwen": {"url":"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -39,8 +48,17 @@ def load_provider(home):
             "url":str(raw.get("url") or base["url"]).strip(),
             "model":str(raw.get("model") or base["model"]).strip(),
             "key_env":str(raw.get("key_env") if "key_env" in raw else base["key_env"]).strip()}
-    if "enable_thinking" in base:
-        config["enable_thinking"]=bool(raw.get("enable_thinking",base["enable_thinking"]))
+    key_file=raw.get("key_file") if "key_file" in raw else base.get("key_file","")
+    if key_file:
+        config["key_file"]=str(key_file).strip()
+    if "enable_thinking" in base or "enable_thinking" in raw:
+        config["enable_thinking"]=bool(raw.get("enable_thinking",base.get("enable_thinking",False)))
+    if "reasoning_effort" in base or "reasoning_effort" in raw:
+        config["reasoning_effort"]=str(raw.get("reasoning_effort",base.get("reasoning_effort",""))).strip().lower()
+    fallbacks=raw.get("fallbacks",base.get("fallbacks",[]))
+    if isinstance(fallbacks,list):
+        config["fallbacks"]=[str(x).strip().lower() for x in fallbacks
+                             if str(x).strip().lower() in PROVIDERS and str(x).strip().lower()!=provider]
     return config
 
 def save_provider(home, provider, model="", url="", key_env=""):
@@ -51,8 +69,14 @@ def save_provider(home, provider, model="", url="", key_env=""):
             "model":(model or spec["model"]).strip(),
             "url":(url or spec["url"]).strip(),
             "key_env":key_env.strip() if provider=="custom" else spec["key_env"]}
+    if spec.get("key_file"):
+        config["key_file"]=spec["key_file"]
     if "enable_thinking" in spec:
         config["enable_thinking"]=bool(spec["enable_thinking"])
+    if "reasoning_effort" in spec:
+        config["reasoning_effort"]=spec["reasoning_effort"]
+    if spec.get("fallbacks"):
+        config["fallbacks"]=list(spec["fallbacks"])
     validate(config)
     home=Path(home)
     path=home/"provider.json"
@@ -72,7 +96,7 @@ def validate(config):
     if parsed.scheme=="https" and parsed.hostname:
         pass
     elif (parsed.scheme=="http" and parsed.hostname in ("localhost","127.0.0.1","::1")
-          and provider in ("ollama","custom")):
+          and provider in ("ollama","custom","deepseek_web")):
         pass
     else:
         raise ProviderConfigError("Only HTTPS or local HTTP endpoints allowed")
@@ -82,7 +106,7 @@ def validate(config):
         "/compatible-mode/v1/chat/completions",
     ):
         raise ProviderConfigError("Only chat/completions-compatible endpoints supported")
-    if provider in ("deepseek","openai","qwen") and url!=PROVIDERS[provider]["url"]:
+    if provider in ("deepseek","openai","qwen","deepseek_web") and url!=PROVIDERS[provider]["url"]:
         raise ProviderConfigError("Use custom provider for nonstandard endpoints")
     if len(config.get("key_env",""))>70:
         raise ProviderConfigError("Invalid key env var")
@@ -247,13 +271,27 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
     return out
 
 
-def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
-    """OpenAI-compatible messages; no key ever persisted to the companion archive."""
-    validate(config)
+def _provider_key(config):
     envvar=config.get("key_env","")
     key=os.getenv(envvar,"").strip() if envvar else ""
-    if envvar and not key:
+    if key:
+        return key
+    key_file=str(config.get("key_file") or "").strip()
+    if key_file:
+        try:
+            for line in Path(key_file).read_text(encoding="utf-8-sig").splitlines():
+                if line.strip():
+                    return line.strip()
+        except OSError:
+            pass
+        raise ProviderConfigError(f"本地模型凭据文件不可用：{key_file}")
+    if envvar:
         raise ProviderConfigError(f"请先在系统环境变量中配置 {envvar}，不要把密钥输入聊天记录。")
+    return ""
+
+def _chat_once(config, messages, max_tokens, timeout, on_dispatched):
+    validate(config)
+    key=_provider_key(config)
     body={"model":config["model"], "messages":messages,
           "max_tokens":max_tokens, "stream":False}
     if isinstance(config.get("enable_thinking"),bool):
@@ -262,7 +300,7 @@ def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
     if thinking in ("enabled","disabled"):
         body["thinking"]={"type":thinking}
     effort=str(config.get("reasoning_effort") or "").strip().lower()
-    if effort in ("none","low","high","max"):
+    if effort in ("none","low","medium","high","max"):
         body["reasoning_effort"]=effort
     if config.get("temperature") is not None:
         body["temperature"]=float(config["temperature"])
@@ -286,7 +324,6 @@ def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
             with _urlopen_with_dispatch(req,timeout,on_dispatched) as resp:
                 result=json.loads(resp.read(2_000_000).decode("utf-8"))
     except urllib.error.HTTPError as e:
-        # Never surface provider response body; it might echo sensitive data.
         if e.code==402:
             raise RuntimeError(f"{config['provider']} API 返回 402：账户余额或计费不可用。") from None
         raise RuntimeError(f"{config['provider']} API 返回 HTTP {e.code}。") from None
@@ -295,9 +332,51 @@ def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
     except TimeoutError:
         raise RuntimeError("模型调用超时。") from None
     choices=result.get("choices") or []
-    if not choices: raise RuntimeError("模型服务没有返回有效回答。")
+    if not choices:
+        raise RuntimeError("模型服务没有返回有效回答。")
     msg=choices[0].get("message") or {}
     response=str(msg.get("content") or "").strip()
     if not response:
         raise RuntimeError("模型返回空回复。")
     return response,result.get("usage") or {}
+
+def _fallback_config(provider):
+    spec=PROVIDERS[provider]
+    cfg={"provider":provider,"url":spec["url"],"model":spec["model"],
+         "key_env":spec.get("key_env","")}
+    for name in ("key_file","enable_thinking","reasoning_effort"):
+        if name in spec:
+            cfg[name]=spec[name]
+    return cfg
+
+def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
+    """OpenAI-compatible messages with ordered provider fallback.
+
+    Credentials stay outside portable identity archives. The dispatch callback is
+    still fired at most once even when a fallback provider is attempted.
+    """
+    fired=False
+    def dispatch_once():
+        nonlocal fired
+        if fired:
+            return
+        fired=True
+        if on_dispatched is not None:
+            on_dispatched()
+
+    chain=[config]
+    for provider in config.get("fallbacks",[]):
+        if provider in PROVIDERS and provider!=config.get("provider"):
+            chain.append(_fallback_config(provider))
+    errors=[]
+    for candidate in chain:
+        try:
+            return _chat_once(candidate,messages,max_tokens,timeout,
+                              dispatch_once if on_dispatched is not None else None)
+        except (ProviderConfigError,RuntimeError) as exc:
+            errors.append((candidate.get("provider","unknown"),str(exc)))
+    if len(errors)==1:
+        raise RuntimeError(errors[0][1])
+    names=" -> ".join(name for name,_ in errors)
+    raise RuntimeError(f"模型主路由及后备路由均不可用（{names}）。")
+

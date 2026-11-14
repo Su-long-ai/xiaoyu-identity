@@ -1,0 +1,56 @@
+{
+  "schema": "xiaoyu-auth-document-ingress-v2-deterministic-safety-v1",
+  "status": "PASS",
+  "manifest_path": "D:\\dsh-fish\\governance\\evaluation\\v11_capability\\agents\\results\\product_integration\\LEAD_AUTH_DOCUMENT_INGRESS_V2_20261114\\AUTH_DOCUMENT_INGRESS_V2_MANIFEST.json",
+  "manifest_sha256": "5ace01232a7c96b9ade7fe61962615113d4408664bf580bec1441b952edcc87a",
+  "manifest_members_verified": true,
+  "changed_or_added_files": [
+    "authenticated_document_store.py",
+    "durable_write_index.py",
+    "test_bulk_projection_v2.py",
+    "unified_runtime.py"
+  ],
+  "removed_files": [],
+  "unit_tests": {
+    "passed": 18,
+    "failed": 0,
+    "coverage": [
+      "x355 authority/revoke/no-save/cross-owner/model-no-write",
+      "existing answer-contract bridge",
+      "bulk index semantic equivalence",
+      "bulk index idempotence",
+      "duplicate source fail-closed",
+      "runtime bulk projection idempotence",
+      "english CJK sidecar skip"
+    ]
+  },
+  "compileall_pass": true,
+  "performance_benchmark_path": "D:\\dsh-fish\\governance\\evaluation\\v11_capability\\agents\\results\\product_integration\\LEAD_AUTH_DOCUMENT_INGRESS_V2_20261114\\LOCAL_BULK_PROJECTION_BENCHMARK.json",
+  "performance": {
+    "schema": "xiaoyu-auth-document-ingress-v2-performance-comparison-v1",
+    "same_persona": "Martin_Keller",
+    "same_documents": 1686,
+    "same_characters": 4487735,
+    "before_canonical_bulk_seconds": 42.912,
+    "after_canonical_bulk_seconds": 19.812,
+    "seconds_saved": 23.1,
+    "relative_reduction_pct": 53.83,
+    "idempotent_projection_seconds": 1.145,
+    "search_seconds": 0.06,
+    "gold_loaded": false,
+    "question_loaded": false,
+    "model_calls": 0
+  },
+  "answer_contract_algorithm_unchanged": true,
+  "authority_adapter_unchanged": true,
+  "observed_p0": {
+    "cross_owner_exposures": 0,
+    "no_save_violations": 0,
+    "revoked_source_revivals": 0,
+    "model_document_writes": 0,
+    "false_external_send_claims": 0
+  },
+  "material_p0": 0,
+  "independent_a1": false,
+  "a1_claim": "NOT_CLAIMED"
+}

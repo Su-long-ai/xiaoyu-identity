@@ -1,0 +1,108 @@
+{
+  "schema": "xiaoyu-answer-contract-fresh-replication-status-v1",
+  "status": "REPLICATED_POSITIVE_RESEARCH_SIGNAL_NOT_PRODUCT_PILOT",
+  "candidate_freeze_sha256": "610d951b60994d975223e204ff7f0f1684978250e9a1c04e5d103a4854fd65f0",
+  "batch1": {
+    "n": 24,
+    "baseline_correct": 7,
+    "candidate_correct": 8,
+    "wins": 3,
+    "losses": 2,
+    "net": 1,
+    "suite_sha256": "74584816dae8ce19aedeb64eb1eb410fe50e74517ecc44f902524d7921fb21a1"
+  },
+  "batch2": {
+    "n": 24,
+    "baseline_correct": 5,
+    "candidate_correct": 9,
+    "wins": 4,
+    "losses": 0,
+    "net": 4,
+    "suite_sha256": "a53d614200dfa713eae1a52b649764ba2a862f040ee928d1728e9b5d6c2eacf2"
+  },
+  "combined_primary": {
+    "n": 48,
+    "baseline_correct": 12,
+    "candidate_correct": 17,
+    "wins": 7,
+    "losses": 2,
+    "net_final_correct": 5,
+    "baseline_accuracy": 0.25,
+    "candidate_accuracy": 0.3541666666666667,
+    "absolute_accuracy_delta": 0.10416666666666667,
+    "by_category": {
+      "fact": {
+        "n": 6,
+        "wins": 1,
+        "losses": 0,
+        "baseline_correct": 2,
+        "candidate_correct": 3
+      },
+      "aggregation": {
+        "n": 6,
+        "wins": 0,
+        "losses": 1,
+        "baseline_correct": 1,
+        "candidate_correct": 0
+      },
+      "temporal": {
+        "n": 8,
+        "wins": 1,
+        "losses": 0,
+        "baseline_correct": 1,
+        "candidate_correct": 2
+      },
+      "attachment": {
+        "n": 6,
+        "wins": 1,
+        "losses": 0,
+        "baseline_correct": 2,
+        "candidate_correct": 3
+      },
+      "mixed": {
+        "n": 8,
+        "wins": 2,
+        "losses": 0,
+        "baseline_correct": 4,
+        "candidate_correct": 6
+      },
+      "hallucination": {
+        "n": 6,
+        "wins": 2,
+        "losses": 1,
+        "baseline_correct": 2,
+        "candidate_correct": 3
+      },
+      "misleading": {
+        "n": 8,
+        "wins": 0,
+        "losses": 0,
+        "baseline_correct": 0,
+        "candidate_correct": 0
+      }
+    }
+  },
+  "batch1_postseal_audit": {
+    "primary_net": 1,
+    "evidence_grounded_audit_net": 3,
+    "does_not_replace_primary": true
+  },
+  "execution": {
+    "supplement_trigger_count": 28,
+    "fallback_count": 7,
+    "repair_count": 0
+  },
+  "decision": "FREEZE_RESEARCH_CANDIDATE_AND_INTEGRATE_DEFAULT_OFF_PRODUCT_RC",
+  "not_yet_claimed": [
+    "product_pilot_ready",
+    "overall_capability_improved",
+    "release_ready"
+  ],
+  "next_required": [
+    "exact_product_route",
+    "same_sha_a1",
+    "fresh_paired_product_final_answers",
+    "rollback_provenance"
+  ],
+  "created_at": 1794667469.3290563
+}
