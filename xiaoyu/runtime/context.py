@@ -42,6 +42,8 @@ class ContextRequest:
     include_lossy_summaries: bool = True
     max_memory_facts: int = 6
     max_summaries: int = 2
+    viewer_principal_ids: tuple[str, ...] = ()
+    shared_identity_block: Optional[dict[str, Any]] = None
 
 
 @dataclass(frozen=True)
@@ -233,13 +235,41 @@ class ContextAssembler:
     @staticmethod
     def _allowed_audiences(audience_scope: str) -> tuple[str, ...]:
         normalized = audience_scope.upper()
-        if normalized == "PRIVATE":
-            return ("PRIVATE",)
+        if normalized in {"PRIVATE", "OWNER_PRIVATE"}:
+            return ("PRIVATE", "OWNER_PRIVATE")
         if normalized in {"GROUP", "GROUP_SHARED"}:
             return ("GROUP", "GROUP_SHARED")
         if normalized in {"SHARED", "SHARED_ACTIVITY"}:
             return ("SHARED", "SHARED_ACTIVITY", "GROUP_SHARED")
+        if normalized == "GUEST":
+            return ("GUEST", "PUBLIC")
+        if normalized == "PUBLIC":
+            return ("PUBLIC",)
         return ()
+
+    @staticmethod
+    def _is_private(audience_scope: str) -> bool:
+        return audience_scope.upper() in {"PRIVATE", "OWNER_PRIVATE"}
+
+    @classmethod
+    def _identity_payload(cls, request: ContextRequest) -> dict[str, Any]:
+        if cls._is_private(request.audience_scope):
+            return dict(request.identity_block)
+        # Non-private surfaces must not inherit an arbitrary owner-private
+        # identity/persona blob. Additional fields require an explicitly
+        # audience-safe projection from the caller.
+        payload = {"identity_id": request.identity_id}
+        if request.shared_identity_block is not None:
+            payload.update(dict(request.shared_identity_block))
+        payload["identity_id"] = request.identity_id
+        return payload
+
+    @staticmethod
+    def _viewer_set(request: ContextRequest) -> tuple[str, ...]:
+        values = set(request.viewer_principal_ids)
+        if request.principal_id:
+            values.add(request.principal_id)
+        return tuple(sorted(str(value) for value in values if str(value)))
 
     @staticmethod
     def _block(
@@ -275,14 +305,24 @@ class ContextAssembler:
         allowed_audiences = self._allowed_audiences(
             request.audience_scope
         )
+        private_scope = self._is_private(request.audience_scope)
+        viewer_set = self._viewer_set(request)
         with self.db.transaction() as conn:
             active_purposes = self.repository.active_purposes(
-                conn, identity_id=request.identity_id
+                conn,
+                identity_id=request.identity_id,
+                principal_id=request.principal_id,
+                context_space=request.context_space,
+                allowed_audiences=allowed_audiences,
+                private_scope=private_scope,
             )
             delegations = self.repository.active_delegations(
                 conn,
                 identity_id=request.identity_id,
                 principal_id=request.principal_id,
+                context_space=request.context_space,
+                allowed_audiences=allowed_audiences,
+                private_scope=private_scope,
                 now=current,
             )
             corrections = self.repository.current_corrections(
@@ -293,7 +333,12 @@ class ContextAssembler:
                 allowed_audiences=allowed_audiences,
             )
             unresolved = self.repository.unresolved_effects(
-                conn, identity_id=request.identity_id
+                conn,
+                identity_id=request.identity_id,
+                principal_id=request.principal_id,
+                context_space=request.context_space,
+                allowed_audiences=allowed_audiences,
+                private_scope=private_scope,
             )
 
         gate_result = self.gate.decide(
@@ -307,11 +352,21 @@ class ContextAssembler:
             self._block(
                 "IDENTITY",
                 FidelityClass.NEVER_LOSSY,
-                dict(request.identity_block),
-            )
+                self._identity_payload(request),
+            ),
+            self._block(
+                "AUDIENCE_BOUNDARY",
+                FidelityClass.NEVER_LOSSY,
+                {
+                    "principal_id": request.principal_id,
+                    "viewer_principal_ids": list(viewer_set),
+                    "audience_scope": request.audience_scope,
+                    "context_space": request.context_space,
+                },
+            ),
         ]
 
-        if request.audience_scope.upper() == "PRIVATE":
+        if private_scope:
             relationship = self.relationship_service.get(
                 identity_id=request.identity_id,
                 principal_id=request.principal_id,
@@ -369,7 +424,7 @@ class ContextAssembler:
                     "resolved_utc_time": row["resolved_utc_time"],
                     "timezone": row["timezone"],
                 }
-                if request.audience_scope.upper() == "PRIVATE":
+                if private_scope:
                     item["payload"] = json.loads(row["payload_json"])
                 purpose_payload.append(item)
             blocks.append(
@@ -413,7 +468,7 @@ class ContextAssembler:
                     "action_class": str(row["action_class"]),
                     "dispatch_state": str(row["dispatch_state"]),
                 }
-                if request.audience_scope.upper() == "PRIVATE":
+                if private_scope:
                     item["request"] = json.loads(row["request_json"])
                 effect_payload.append(item)
             blocks.append(
@@ -453,7 +508,7 @@ class ContextAssembler:
                     )
                 )
 
-            if request.audience_scope.upper() == "PRIVATE":
+            if private_scope:
                 profile = self.profile_service.read_fresh(
                     identity_id=request.identity_id,
                     principal_scope=request.principal_id,
