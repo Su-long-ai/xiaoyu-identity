@@ -2,6 +2,7 @@
 from .delivery import DeliveryAttemptAlreadyActive, DeliveryCoordinator, DeliveryLedger
 from .outbox import OutboxDispatcher
 from .power import PowerLifecycle, PowerState, ResumeReport
+from .provider_registry import ProviderRegistry
 from .scheduler import PurposeDecision, PurposeScheduler
 
 __all__ = [
@@ -11,6 +12,7 @@ __all__ = [
     "OutboxDispatcher",
     "PowerLifecycle",
     "PowerState",
+    "ProviderRegistry",
     "PurposeDecision",
     "PurposeScheduler",
     "ResumeReport",
