@@ -58,8 +58,8 @@ _REQUEST_SCHEMAS = {
         set(),
     ),
     "notification.deliver": (
-        {"logical_notification_id", "surface", "text"},
-        {"recipient"},
+        {"logical_notification_id", "surface", "recipient", "text"},
+        set(),
     ),
 }
 
