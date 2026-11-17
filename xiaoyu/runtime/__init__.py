@@ -44,11 +44,20 @@ from .resource_broker import (
     ResourceUnavailable,
 )
 from .scheduler import PurposeDecision, PurposeScheduler
+from .vision import (
+    CapturedVisionFrame,
+    SidecarProcessSupervisor,
+    VisionAnalysis,
+    VisionObservation,
+    VisionSensorState,
+    VisionSidecar,
+)
 
 __all__ = [
     "AUDIENCE_RESET_COMPONENTS",
     "AmbientPresenceEngine",
     "AudienceResetDecision",
+    "CapturedVisionFrame",
     "DeliveryAttemptAlreadyActive",
     "DeliveryCoordinator",
     "DeliveryLedger",
@@ -80,6 +89,11 @@ __all__ = [
     "RuntimeAdmission",
     "RuntimeHost",
     "STATE_RECOVERY_PATHS",
+    "SidecarProcessSupervisor",
+    "VisionAnalysis",
+    "VisionObservation",
+    "VisionSensorState",
+    "VisionSidecar",
     "apply_audience_reset",
     "audience_reset_decision",
     "evaluate_provider",
