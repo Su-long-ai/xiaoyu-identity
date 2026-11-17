@@ -10,6 +10,15 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+DEFAULT_ALLOWED_DATA_CLASSES = {
+    "deepseek_web": ("PUBLIC", "OWNER_PRIVATE"),
+    "deepseek": ("PUBLIC", "OWNER_PRIVATE"),
+    "openai": ("PUBLIC", "OWNER_PRIVATE"),
+    "qwen": ("PUBLIC", "OWNER_PRIVATE"),
+    "ollama": ("PUBLIC", "OWNER_PRIVATE"),
+    "custom": ("PUBLIC",),
+}
+
 PROVIDERS = {
     "deepseek_web": {
         "url":"http://127.0.0.1:8787/v1/chat/completions",
@@ -349,11 +358,34 @@ def _fallback_config(provider):
             cfg[name]=spec[name]
     return cfg
 
-def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
+def _provider_allows_data_class(config, required_data_class):
+    if not required_data_class:
+        return True
+    explicit=config.get("allowed_data_classes")
+    if explicit is not None:
+        allowed={str(x).strip().upper() for x in explicit}
+    else:
+        allowed=set(DEFAULT_ALLOWED_DATA_CLASSES.get(
+            str(config.get("provider") or "").lower(),
+            ("PUBLIC",),
+        ))
+    return str(required_data_class).upper() in allowed
+
+
+def chat(
+    config,
+    messages,
+    max_tokens=500,
+    timeout=75,
+    on_dispatched=None,
+    attempt_guard=None,
+    required_data_class=None,
+):
     """OpenAI-compatible messages with ordered provider fallback.
 
-    Credentials stay outside portable identity archives. The dispatch callback is
-    still fired at most once even when a fallback provider is attempted.
+    attempt_guard is a context-manager factory invoked independently for
+    every concrete provider attempt. A guard may release its protected state
+    at the exact network-dispatch boundary through guard.on_dispatched().
     """
     fired=False
     def dispatch_once():
@@ -370,13 +402,44 @@ def chat(config, messages, max_tokens=500, timeout=75, on_dispatched=None):
             chain.append(_fallback_config(provider))
     errors=[]
     for candidate in chain:
-        try:
-            return _chat_once(candidate,messages,max_tokens,timeout,
-                              dispatch_once if on_dispatched is not None else None)
-        except (ProviderConfigError,RuntimeError) as exc:
-            errors.append((candidate.get("provider","unknown"),str(exc)))
+        name=candidate.get("provider","unknown")
+        if not _provider_allows_data_class(candidate,required_data_class):
+            errors.append((
+                name,
+                f"provider not eligible for {required_data_class}",
+            ))
+            continue
+
+        guard=attempt_guard(candidate) if attempt_guard is not None else None
+        if guard is None:
+            class _NoopGuard:
+                def __enter__(self):
+                    return self
+                def __exit__(self,*args):
+                    return False
+            guard=_NoopGuard()
+
+        # Guard-entry errors intentionally escape fallback. If freshness or
+        # privacy authority changed, another provider attempt is unsafe.
+        with guard:
+            per_attempt=getattr(guard,"on_dispatched",None)
+            def dispatched():
+                if per_attempt is not None:
+                    per_attempt()
+                dispatch_once()
+            callback=(
+                dispatched
+                if (per_attempt is not None or on_dispatched is not None)
+                else None
+            )
+            try:
+                return _chat_once(
+                    candidate,messages,max_tokens,timeout,callback
+                )
+            except (ProviderConfigError,RuntimeError) as exc:
+                errors.append((name,str(exc)))
+
     if len(errors)==1:
         raise RuntimeError(errors[0][1])
     names=" -> ".join(name for name,_ in errors)
     raise RuntimeError(f"模型主路由及后备路由均不可用（{names}）。")
-
