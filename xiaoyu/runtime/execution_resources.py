@@ -29,7 +29,7 @@ class _ResourceLease:
     last_error: Optional[str] = None
 
 
-class ExecutionResourceBroker:
+class ExecutionResourceHandles:
     """Effect-scoped runtime handle cancellation/release registry.
 
     The broker is intentionally process-local: it coordinates runtime handles
