@@ -2,6 +2,7 @@
 from .db import Database
 from .erasure import ExternalErasureFenceStore, ErasureWatermarkError
 from .recovery import (
+    BackupError,
     MissingErasureWatermark,
     RecoveryError,
     RecoveryManager,
@@ -19,6 +20,7 @@ from .schema import (
 )
 
 __all__ = [
+    "BackupError",
     "Database",
     "ExternalErasureFenceStore",
     "ErasureWatermarkError",
