@@ -72,6 +72,8 @@ class OutboxDispatcher:
                         destination=row.destination,
                         request=row.payload,
                         now=current,
+                        purpose_revision=row.purpose_revision,
+                        purpose_occurrence_id=row.purpose_occurrence_id,
                     )
                 except DispatchAuthorizationDenied as exc:
                     self.outbox_repo.mark(
@@ -87,12 +89,16 @@ class OutboxDispatcher:
                         conn, row.effect_id, current
                     )
                     continue
-                if self._purpose_is_terminal(conn, row.purpose_id):
+                purpose_invalid = self._purpose_invalid_reason(conn, row)
+                if purpose_invalid is not None:
                     self.outbox_repo.mark(
                         conn, row.outbox_id, "FAILED_FINAL", current
                     )
-                    self.effect_repo.set_state(
-                        conn, row.effect_id, "FAILED", current
+                    self.effect_repo.set_authorization_failed(
+                        conn,
+                        row.effect_id,
+                        purpose_invalid,
+                        current,
                     )
                     self.delivery_repo.mark_cancelled(
                         conn, row.effect_id, current
@@ -101,6 +107,23 @@ class OutboxDispatcher:
                 self.effect_repo.set_state(
                     conn, row.effect_id, "DISPATCHING", current
                 )
+                if row.purpose_occurrence_id is not None:
+                    conn.execute(
+                        """UPDATE purpose_occurrences
+                           SET state='CLAIMED',effect_id=?,updated_at=?
+                           WHERE occurrence_id=? AND purpose_id=?
+                             AND purpose_revision=?
+                             AND state='READY'""",
+                        (
+                            row.effect_id,
+                            current.astimezone(timezone.utc).isoformat(
+                                timespec="microseconds"
+                            ),
+                            row.purpose_occurrence_id,
+                            row.purpose_id,
+                            row.purpose_revision,
+                        ),
+                    )
                 self.delivery_repo.mark_dispatching(
                     conn, row.effect_id, current
                 )
@@ -134,22 +157,65 @@ class OutboxDispatcher:
         return processed
 
     @staticmethod
-    def _purpose_is_terminal(conn, purpose_id: Optional[str]) -> bool:
-        if purpose_id is None:
-            return False
-        row = conn.execute(
-            "SELECT state FROM purposes WHERE purpose_id=?",
-            (purpose_id,),
+    def _purpose_invalid_reason(conn, row) -> Optional[str]:
+        if row.purpose_id is None:
+            return None
+        purpose = conn.execute(
+            "SELECT state,revision FROM purposes WHERE purpose_id=?",
+            (row.purpose_id,),
         ).fetchone()
-        if row is None:
-            # Backward-compatible for effects created before Purpose integration.
-            return False
-        return str(row["state"]) in {
+        if purpose is None:
+            return None
+        if str(purpose["state"]) in {
             "CANCELLED",
             "SUPERSEDED",
             "EXPIRED",
             "COMPLETED",
-        }
+        }:
+            return "PURPOSE_TERMINAL"
+        if row.purpose_revision is None:
+            return "PURPOSE_REVISION_MISSING"
+        if int(purpose["revision"]) != int(row.purpose_revision):
+            return "PURPOSE_REVISION_STALE"
+        if row.purpose_occurrence_id is not None:
+            occurrence = conn.execute(
+                """SELECT state,purpose_revision FROM purpose_occurrences
+                   WHERE occurrence_id=? AND purpose_id=?""",
+                (
+                    row.purpose_occurrence_id,
+                    row.purpose_id,
+                ),
+            ).fetchone()
+            if occurrence is None:
+                return "PURPOSE_OCCURRENCE_MISSING"
+            if int(occurrence["purpose_revision"]) != int(
+                row.purpose_revision
+            ):
+                return "PURPOSE_OCCURRENCE_STALE"
+            if str(occurrence["state"]) not in ("READY", "CLAIMED"):
+                return "PURPOSE_OCCURRENCE_NOT_EXECUTABLE"
+        return None
+
+    @staticmethod
+    def _mark_occurrence(conn, row, state: str, now: datetime) -> None:
+        if row.purpose_occurrence_id is None:
+            return
+        conn.execute(
+            """UPDATE purpose_occurrences
+               SET state=?,effect_id=?,updated_at=?
+               WHERE occurrence_id=? AND purpose_id=?
+                 AND purpose_revision=?""",
+            (
+                state,
+                row.effect_id,
+                now.astimezone(timezone.utc).isoformat(
+                    timespec="microseconds"
+                ),
+                row.purpose_occurrence_id,
+                row.purpose_id,
+                row.purpose_revision,
+            ),
+        )
 
     def _persist_outcome(
         self,
@@ -193,6 +259,9 @@ class OutboxDispatcher:
                     row.effect_id,
                     outcome.external_ref,
                     now,
+                )
+                self._mark_occurrence(
+                    conn, row, "COMPLETED", now
                 )
                 return
 
@@ -244,6 +313,9 @@ class OutboxDispatcher:
                 self.delivery_repo.mark_failed_final(
                     conn, row.effect_id, now
                 )
+                self._mark_occurrence(
+                    conn, row, "FAILED_FINAL", now
+                )
                 return
 
             self.outbox_repo.mark(
@@ -260,4 +332,7 @@ class OutboxDispatcher:
             )
             self.delivery_repo.mark_unknown(
                 conn, row.effect_id, now
+            )
+            self._mark_occurrence(
+                conn, row, "NEEDS_RECONCILIATION", now
             )
