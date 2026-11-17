@@ -355,6 +355,7 @@ def dual_guarded_chat(
     context_state_provider=None,
     approved_provider_digests=None,
     attempt_audit=None,
+    provider_health=None,
 ):
     """Revalidate protected context at every concrete provider attempt."""
     try:
@@ -394,6 +395,8 @@ def dual_guarded_chat(
             kwargs["required_data_class"]=required_privacy_class
         if "attempt_audit" in parameters and attempt_audit is not None:
             kwargs["attempt_audit"]=attempt_audit
+        if "provider_health" in parameters and provider_health is not None:
+            kwargs["provider_health"]=provider_health
         return chat_fn(config,messages,**kwargs)
 
     if config.get("fallbacks") and str(required_privacy_class).upper()!="PUBLIC":
@@ -460,6 +463,8 @@ def dual_guarded_chat(
             kwargs["timeout"]=timeout
         if "required_data_class" in parameters:
             kwargs["required_data_class"]=required_privacy_class
+        if "provider_health" in parameters and provider_health is not None:
+            kwargs["provider_health"]=provider_health
         if "on_dispatched" in parameters:
             kwargs["on_dispatched"]=release
         result=chat_fn(

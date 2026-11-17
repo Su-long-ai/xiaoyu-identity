@@ -449,6 +449,7 @@ def chat(
     attempt_guard=None,
     required_data_class=None,
     attempt_audit=None,
+    provider_health=None,
 ):
     """OpenAI-compatible messages with ordered provider fallback.
 
@@ -488,10 +489,16 @@ def chat(
 
         with guard:
             descriptor=_provider_descriptor(candidate)
+            health=(
+                provider_health(descriptor)
+                if provider_health is not None else None
+            )
             context_builder=getattr(guard,"provider_attempt_context",None)
             if context_builder is not None:
                 attempt_context=context_builder(descriptor,required_data_class)
-                eligibility=evaluate_provider(descriptor,attempt_context)
+                eligibility=evaluate_provider(
+                    descriptor,attempt_context,health
+                )
                 if attempt_audit is not None:
                     attempt_audit(fallback_audit(attempt_context,eligibility))
                 if not eligibility.allowed:
@@ -500,12 +507,19 @@ def chat(
                         "provider ineligible: "+",".join(eligibility.reasons),
                     ))
                     continue
-            elif not _provider_allows_data_class(candidate,required_data_class):
-                errors.append((
-                    name,
-                    f"provider not eligible for {required_data_class}",
-                ))
-                continue
+            else:
+                if not _provider_allows_data_class(candidate,required_data_class):
+                    errors.append((
+                        name,
+                        f"provider not eligible for {required_data_class}",
+                    ))
+                    continue
+                if (
+                    health is not None
+                    and str(health.readiness).upper()!="READY"
+                ):
+                    errors.append((name,"provider not ready"))
+                    continue
 
             message_builder=getattr(guard,"messages_for_attempt",None)
             attempt_messages=(

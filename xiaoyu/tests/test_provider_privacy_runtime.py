@@ -574,5 +574,41 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 store.close()
 
 
+    def test_provider_health_transition_during_chain_skips_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            readiness={"deepseek_web":"READY","deepseek":"READY"}
+            calls=[]
+            def health(descriptor):
+                state=readiness.get(descriptor.provider_id,"READY")
+                return ProviderHealth(
+                    liveness="ALIVE",
+                    readiness=state,
+                    capability_health={"chat.completion":state},
+                    reason=None if state=="READY" else "degraded-during-chain",
+                    since=NOW,
+                    retry_after_ms=None,
+                    details={},
+                )
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                readiness["deepseek"]="DEGRADED"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(RuntimeError):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            provider_health=health,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
 if __name__=="__main__":
     unittest.main()
