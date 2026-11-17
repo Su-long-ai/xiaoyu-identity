@@ -25,6 +25,8 @@ class ClaimedOutbox:
     request: Dict[str, Any]
     purpose_id: Optional[str]
     action_class: str
+    purpose_revision: Optional[int]
+    purpose_occurrence_id: Optional[str]
 
 
 class EffectRepository:
@@ -41,8 +43,9 @@ class EffectRepository:
             """INSERT INTO effects(
                    effect_id,identity_id,intent_id,purpose_id,actor_id,action_class,
                    idempotency_key,replayable,dispatch_state,request_json,receipt_id,
-                   verifier_state,created_at,updated_at,authorization_decision_id
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   verifier_state,created_at,updated_at,authorization_decision_id,
+                   purpose_revision,purpose_occurrence_id
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 effect.effect_id,
                 identity_id,
@@ -59,6 +62,8 @@ class EffectRepository:
                 datetime_to_text(effect.created_at, "created_at"),
                 datetime_to_text(updated_at, "updated_at"),
                 authorization_decision_id,
+                effect.purpose_revision,
+                effect.purpose_occurrence_id,
             ),
         )
 
@@ -137,7 +142,7 @@ class OutboxRepository:
             """SELECT o.outbox_id,o.identity_id,o.effect_id,o.destination,o.payload_json,
                       o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
                       e.authorization_decision_id,e.request_json,e.purpose_id,
-                      e.action_class
+                      e.action_class,e.purpose_revision,e.purpose_occurrence_id
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
                WHERE o.state IN ('PENDING','FAILED_RETRYABLE')
@@ -171,6 +176,8 @@ class OutboxRepository:
                     request=json.loads(row["request_json"]),
                     purpose_id=row["purpose_id"],
                     action_class=str(row["action_class"]),
+                    purpose_revision=row["purpose_revision"],
+                    purpose_occurrence_id=row["purpose_occurrence_id"],
                 )
             )
         return claimed
