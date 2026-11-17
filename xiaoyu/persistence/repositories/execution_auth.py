@@ -306,8 +306,8 @@ class ExecutionAuthorizationRepository:
         principal: PrincipalContext,
         actor: ActorContext,
         delegation: Optional[Delegation],
-        delegation_digest: Optional[str],
-        purpose_id: Optional[str],
+        delegation_digest: Optional[str] = None,
+        purpose_id: Optional[str] = None,
         action: ActionRequest,
         resource: ResourceRef,
         context: AuthorizationContext,
@@ -317,7 +317,21 @@ class ExecutionAuthorizationRepository:
         purpose_revision: Optional[int] = None,
         purpose_occurrence_id: Optional[str] = None,
     ) -> None:
-        principal_context_digest = _digest(principal.to_dict())
+        if purpose_id is None and delegation is not None:
+            purpose_id = delegation.purpose_id
+        if delegation is not None and delegation_digest is None:
+            delegation_digest = _digest(
+                DelegationRepository._semantic_payload(
+                    delegation,
+                    actor,
+                )
+            )
+        principal_context_digest = PrincipalExecutionRepository().register(
+            conn,
+            identity_id,
+            principal,
+            created_at,
+        )
         action_digest = _digest(action.to_dict())
         resource_digest = _digest(resource.to_dict())
         context_digest = _digest(context.to_dict())
