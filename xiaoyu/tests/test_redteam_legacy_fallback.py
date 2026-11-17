@@ -10,8 +10,10 @@ from identity_core import IdentityStore
 from product_memory_bridge import ProductMemoryBridge
 from send_guard import (
     FreshnessChanged,
+    capture_context_fence,
     capture_expectations,
     dual_guarded_chat,
+    persist_assistant_if_fresh,
 )
 
 
@@ -291,6 +293,61 @@ class LegacyFallbackFreshnessRedTeamTests(unittest.TestCase):
                         source_contains_private_tool_result=True,
                         tool_result_digest=None,
                     )
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_nonmemory_prompt_state_change_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            (
+                store,bridge,memory_id,generation,
+                expectations,config,messages,
+            )=self._fixture(td)
+            fence=capture_context_fence(store)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state=store.state()
+                state["mood"]="context-fence-changed"
+                store.set_state(state)
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            expected_context_fence=fence,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+                self.assertEqual(store.memory_generation(),generation)
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_nonmemory_change_rejects_stale_assistant_persistence(self):
+        with tempfile.TemporaryDirectory() as td:
+            (
+                store,bridge,memory_id,generation,
+                expectations,config,messages,
+            )=self._fixture(td)
+            fence=capture_context_fence(store)
+            before=store.event_count()
+            state=store.state()
+            state["mood"]="changed-before-persist"
+            store.set_state(state)
+            try:
+                with self.assertRaises(FreshnessChanged):
+                    persist_assistant_if_fresh(
+                        store,bridge,generation,expectations,
+                        "must-not-persist",
+                        expected_context_fence=fence,
+                    )
+                self.assertEqual(store.event_count(),before)
+                self.assertEqual(store.memory_generation(),generation)
             finally:
                 bridge.close()
                 store.close()

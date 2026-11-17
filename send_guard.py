@@ -133,6 +133,30 @@ def _messages_digest(messages):
     return "sha256:"+hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _context_fence(conn):
+    settings={
+        str(row[0]):str(row[1])
+        for row in conn.execute(
+            "SELECT key,value FROM settings "
+            "WHERE key IN ('persona','state','memory_change_seq') ORDER BY key"
+        )
+    }
+    event_row=conn.execute(
+        "SELECT COALESCE(MAX(event_id),0),COUNT(*) FROM events"
+    ).fetchone()
+    payload={
+        "settings":settings,
+        "event_max_id":int(event_row[0] or 0),
+        "event_count":int(event_row[1] or 0),
+    }
+    return _messages_digest(payload)
+
+
+def capture_context_fence(store_or_conn):
+    conn=getattr(store_or_conn,"conn",store_or_conn)
+    return _context_fence(conn)
+
+
 class _FreshAttemptGuard:
     """Revalidate protected context independently for one provider attempt."""
     def __init__(
@@ -142,6 +166,7 @@ class _FreshAttemptGuard:
         expected_generation,
         expectations,
         expected_messages_digest,
+        expected_context_fence,
         identity_id,
         principal_id,
         audience_scope,
@@ -158,6 +183,7 @@ class _FreshAttemptGuard:
         self.expected_generation=expected_generation
         self.expectations=expectations
         self.expected_messages_digest=expected_messages_digest
+        self.expected_context_fence=expected_context_fence
         self.identity_id=str(identity_id)
         self.principal_id=str(principal_id)
         self.audience_scope=str(audience_scope)
@@ -193,6 +219,11 @@ class _FreshAttemptGuard:
             self._validate_context_state()
             self.iconn=_open_locked(self.identity_db_path)
             _validate_identity(self.iconn,self.expected_generation,self.expectations)
+            if (
+                self.expected_context_fence is not None
+                and _context_fence(self.iconn) != self.expected_context_fence
+            ):
+                raise FreshnessChanged("identity_context_fence_changed")
             if self.expectations:
                 self.rconn=_open_locked(self.r47_db_path)
                 _validate_r47(self.rconn,self.expectations)
@@ -232,7 +263,9 @@ class _FreshAttemptGuard:
             principal_id=self.principal_id,
             audience_scope=self.audience_scope,
             context_space=self.context_space,
-            context_generation=str(self.expected_generation),
+            context_generation=str(
+                self.expected_context_fence or self.expected_generation
+            ),
             provider_id=descriptor.provider_id,
             required_capability="chat.completion",
             required_privacy_class=privacy_class,
@@ -249,6 +282,11 @@ class _FreshAttemptGuard:
             self._validate_context_state()
             iconn=_open_locked(self.identity_db_path)
             _validate_identity(iconn,self.expected_generation,self.expectations)
+            if (
+                self.expected_context_fence is not None
+                and _context_fence(iconn) != self.expected_context_fence
+            ):
+                raise FreshnessChanged("identity_context_fence_changed")
             if self.expectations:
                 rconn=_open_locked(self.r47_db_path)
                 _validate_r47(rconn,self.expectations)
@@ -265,6 +303,7 @@ def dual_guarded_chat(
     chat_fn,config,messages,identity_db_path,r47_db_path,
     expected_generation,expectations,
     *,
+    expected_context_fence=None,
     identity_id="xiaoyu",
     principal_id="owner",
     audience_scope="PRIVATE",
@@ -292,6 +331,7 @@ def dual_guarded_chat(
                 expected_generation,
                 expectations,
                 expected_messages_digest,
+                expected_context_fence,
                 identity_id,
                 principal_id,
                 audience_scope,
@@ -335,7 +375,8 @@ def dual_guarded_chat(
         release()
 
 def persist_assistant_if_fresh(
-    store,bridge,expected_generation,expectations,content
+    store,bridge,expected_generation,expectations,content,
+    expected_context_fence=None,
 ):
     """Atomically validate final context freshness and persist the normal assistant event."""
     if store.conn.in_transaction:
@@ -344,6 +385,11 @@ def persist_assistant_if_fresh(
     try:
         store.conn.execute("BEGIN IMMEDIATE")
         _validate_identity(store.conn,expected_generation,expectations)
+        if (
+            expected_context_fence is not None
+            and _context_fence(store.conn) != expected_context_fence
+        ):
+            raise FreshnessChanged("identity_context_fence_changed")
         if expectations:
             rconn=_open_locked(bridge.db_path)
             _validate_r47(rconn,expectations)

@@ -12,7 +12,13 @@ from tkinter import filedialog, messagebox, simpledialog, scrolledtext, ttk
 from identity_core import IdentityStore
 from model_adapter import PROVIDERS, load_provider, save_provider, chat, project_history
 from product_memory_bridge import ProductMemoryBridge, safe_product_recall
-from send_guard import dual_guarded_chat, capture_expectations, persist_assistant_if_fresh, FreshnessChanged
+from send_guard import (
+    FreshnessChanged,
+    capture_context_fence,
+    capture_expectations,
+    dual_guarded_chat,
+    persist_assistant_if_fresh,
+)
 
 HOME=Path(__file__).resolve().parent
 FISH=IdentityStore(HOME)
@@ -191,30 +197,51 @@ class PetApp:
         proposed_id=FISH.propose_from_user_event(event_id,message)
         if proposed_id:
             self.logline("系统：发现一条可保留的原话，已放入「长期记忆 → 待确认」，并未直接写入记忆。")
-        memory_generation=FISH.memory_generation()
         identity_db_path=str(FISH.db_path)
-        memory_rows, recall_error=safe_product_recall(self.memory_bridge,message,limit=7)
-        memory_expectations=capture_expectations(self.memory_bridge,memory_rows)
         r47_db_path=(str(self.memory_bridge.db_path)
                      if self.memory_bridge is not None else "")
-        if recall_error == "memory_bridge_unavailable":
-            # Preserve the more useful initialization error when available.
-            if not self.memory_bridge_error:
-                self.memory_bridge_error=recall_error
-        else:
-            self.memory_bridge_error=recall_error
-        sysmsg=FISH.identity_context(message,memories_override=memory_rows)
-        hard_memory_failure=bool(
-            recall_error
-            and not str(recall_error).startswith("quarantined_memories:")
-        )
-        history=[
-            {"role":m["role"],"content":m["content"]}
-            for m in project_history(
-                FISH,16,
-                fail_closed_current_event_id=event_id if hard_memory_failure else None,
+        # Build from one stable identity/profile/history snapshot. A memory,
+        # persona, state or conversation mutation during assembly forces a
+        # rebuild instead of blessing stale messages with a newer fence.
+        for assembly_attempt in range(2):
+            context_fence_before=capture_context_fence(FISH)
+            memory_generation=FISH.memory_generation()
+            memory_rows, recall_error=safe_product_recall(
+                self.memory_bridge,message,limit=7
             )
-        ]
+            memory_expectations=capture_expectations(
+                self.memory_bridge,memory_rows
+            )
+            if recall_error == "memory_bridge_unavailable":
+                if not self.memory_bridge_error:
+                    self.memory_bridge_error=recall_error
+            else:
+                self.memory_bridge_error=recall_error
+            sysmsg=FISH.identity_context(
+                message,memories_override=memory_rows
+            )
+            hard_memory_failure=bool(
+                recall_error
+                and not str(recall_error).startswith("quarantined_memories:")
+            )
+            history=[
+                {"role":m["role"],"content":m["content"]}
+                for m in project_history(
+                    FISH,16,
+                    fail_closed_current_event_id=(
+                        event_id if hard_memory_failure else None
+                    ),
+                )
+            ]
+            context_fence=capture_context_fence(FISH)
+            if context_fence==context_fence_before:
+                break
+        else:
+            self.logline(
+                "系统：上下文在组装期间持续变化，本次未发送；请重试。"
+            )
+            self.log.delete("end-2l","end-1l")
+            return
         config=load_provider(HOME)
         self.pending=True
         self.sendbtn.configure(state="disabled")
@@ -222,12 +249,20 @@ class PetApp:
             try:
                 text,usage=dual_guarded_chat(
                     chat,config,[{"role":"system","content":sysmsg}]+history,
-                    identity_db_path,r47_db_path,memory_generation,memory_expectations,
+                    identity_db_path,r47_db_path,
+                    memory_generation,memory_expectations,
+                    expected_context_fence=context_fence,
+                    identity_id=str(FISH.persona()["id"]),
+                    principal_id="owner",
+                    audience_scope="PRIVATE",
+                    context_space="PERSONAL",
+                    required_privacy_class="OWNER_PRIVATE",
                 )
                 self.queue.put((
                     "reply",text,usage,
                     {"generation":memory_generation,
-                     "expectations":memory_expectations},
+                     "expectations":memory_expectations,
+                     "context_fence":context_fence},
                 ))
             except Exception as err:
                 self.queue.put(("error",str(err),{},None))
@@ -248,6 +283,7 @@ class PetApp:
                         persist_assistant_if_fresh(
                             FISH,self.memory_bridge,
                             freshness["generation"],freshness["expectations"],result,
+                            expected_context_fence=freshness.get("context_fence"),
                         )
                     except FreshnessChanged:
                         self.logline(
