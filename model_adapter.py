@@ -567,6 +567,45 @@ def chat(
             on_response=getattr(guard,"on_response",None)
             if on_response is not None:
                 on_response()
+
+            # Re-evaluate provider policy/health after the request returns.
+            # A result that crossed the wire under one privacy/capability
+            # contract is not silently accepted after that contract changes.
+            fresh_descriptor=_provider_descriptor(candidate)
+            if fresh_descriptor.descriptor_digest != descriptor.descriptor_digest:
+                raise RuntimeError(
+                    "provider descriptor changed after dispatch"
+                )
+            fresh_health=(
+                provider_health(fresh_descriptor)
+                if provider_health is not None else None
+            )
+            if context_builder is not None:
+                fresh_context=context_builder(
+                    fresh_descriptor,required_data_class
+                )
+                fresh_eligibility=evaluate_provider(
+                    fresh_descriptor,fresh_context,fresh_health
+                )
+                if not fresh_eligibility.allowed:
+                    raise RuntimeError(
+                        "provider eligibility changed after dispatch: "
+                        + ",".join(fresh_eligibility.reasons)
+                    )
+            else:
+                if not _provider_allows_data_class(
+                    candidate,required_data_class
+                ):
+                    raise RuntimeError(
+                        "provider privacy eligibility changed after dispatch"
+                    )
+                if (
+                    fresh_health is not None
+                    and str(fresh_health.readiness).upper()!="READY"
+                ):
+                    raise RuntimeError(
+                        "provider health changed after dispatch"
+                    )
             return result
 
     if len(errors)==1:

@@ -1046,5 +1046,71 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 store.close()
 
 
+    def test_provider_privacy_policy_change_while_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            old=model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek_web"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES[
+                    "deepseek_web"
+                ]=("PUBLIC",)
+                return "stale-policy-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaisesRegex(
+                        RuntimeError,"descriptor changed after dispatch"
+                    ):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek_web"]=old
+                bridge.close()
+                store.close()
+
+    def test_provider_health_change_while_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={"readiness":"READY"}
+            calls=[]
+            def health(descriptor):
+                value=state["readiness"]
+                return ProviderHealth(
+                    liveness="ALIVE",
+                    readiness=value,
+                    capability_health={"chat.completion":value},
+                    reason=None if value=="READY" else "health-changed",
+                    since=NOW,
+                    retry_after_ms=None,
+                    details={},
+                )
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["readiness"]="DEGRADED"
+                return "stale-health-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaisesRegex(
+                        RuntimeError,"eligibility changed after dispatch"
+                    ):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            provider_health=health,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
 if __name__=="__main__":
     unittest.main()
