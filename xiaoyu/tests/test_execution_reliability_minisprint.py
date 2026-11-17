@@ -52,7 +52,12 @@ from xiaoyu.runtime import (
     OutboxDispatcher,
     PurposeScheduler,
 )
-from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
+from xiaoyu.runtime.outbox import TransportBinding
+from xiaoyu.runtime.recovery import (
+    ExecutionReconciler,
+    ExecutionRecoveryQueue,
+)
+from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -231,6 +236,20 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
         )
         return registry
 
+    @staticmethod
+    def _bound_transport(send, **overrides):
+        values = {
+            "provider_id": "napcat",
+            "actor_implementation_digest": "sha256:tool-v1",
+            "actor_authorization_digest": "sha256:auth-v1",
+            "artifact_digest": "sha256:provider-v1",
+            "interface_digest": "sha256:interface-v1",
+            "tool_schema_digest": "sha256:schema-v1",
+            "capability": "message.send",
+        }
+        values.update(overrides)
+        return TransportBinding(send=send, **values)
+
     def _enqueue(self, db, *, eff=None, act=None):
         eff = eff or effect()
         act = act or action()
@@ -286,6 +305,28 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             NOW,
         )
         self.assertEqual(extra.decision, AuthorizationDecision.DENY)
+
+        for bad_parameters in (
+            {},
+            {"messages": True},
+            {"messages": "1000"},
+            {"messages": float("nan")},
+            {"messages": float("inf")},
+        ):
+            with self.subTest(parameters=bad_parameters):
+                result = policy.evaluate(
+                    principal(),
+                    actor(),
+                    delegation(),
+                    action(parameters=bad_parameters),
+                    resource(),
+                    context(),
+                    NOW,
+                )
+                self.assertEqual(
+                    result.decision,
+                    AuthorizationDecision.DENY,
+                )
 
     def test_revocation_after_claim_before_transport_is_revalidated(self):
         with tempfile.TemporaryDirectory() as td:
@@ -433,9 +474,11 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
@@ -776,9 +819,11 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
@@ -802,14 +847,400 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
+
+    def test_versioned_provider_requires_bound_transport(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+            finally:
+                conn.close()
+
+    def test_transport_implementation_digest_change_is_blocked(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        ),
+                        actor_implementation_digest="sha256:tool-v2",
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+    def test_exact_transport_binding_can_dispatch_versioned_provider(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(
+                                DispatchStatus.SUCCEEDED,
+                                external_ref="msg-versioned",
+                            )
+                        )
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 1)
+            self.assertEqual(len(calls), 1)
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+            finally:
+                conn.close()
+
+    def test_reconciliation_success_requires_evidence_and_closes_occurrence(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',scheduled_wall_time=?,
+                           timezone='UTC',resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                scheduled = PurposeRepository().get(conn, "purpose-1")
+                occurrence_id = PurposeRepository().activate_occurrence(
+                    conn,
+                    scheduled,
+                    NOW,
+                )
+
+            self._enqueue(
+                db,
+                eff=replace(
+                    effect(),
+                    purpose_occurrence_id=occurrence_id,
+                ),
+            )
+
+            def unknown(payload, idem):
+                raise TimeoutError("provider ack lost")
+
+            OutboxDispatcher(db, {"qq": unknown}).dispatch_once(now=NOW)
+
+            reconciler = ExecutionReconciler(db)
+            with self.assertRaises(ValueError):
+                reconciler.reconcile_effect(
+                    effect_id="effect-1",
+                    outcome="SUCCEEDED",
+                    evidence={},
+                    observed_at=NOW + timedelta(seconds=2),
+                )
+
+            receipt = reconciler.reconcile_effect(
+                effect_id="effect-1",
+                outcome="SUCCEEDED",
+                evidence={
+                    "provider_query_id": "query-1",
+                    "provider_status": "DELIVERED",
+                },
+                external_ref="msg-confirmed",
+                observed_at=NOW + timedelta(seconds=3),
+            )
+            self.assertEqual(
+                receipt.result_class,
+                "RECONCILED_SUCCEEDED",
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "SENT",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purpose_occurrences"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM action_receipts"
+                    ).fetchone()[0],
+                    1,
+                )
+            finally:
+                conn.close()
+
+    def test_reconciliation_confirmed_failure_returns_purpose_to_waiting(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',scheduled_wall_time=?,
+                           timezone='UTC',resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                scheduled = PurposeRepository().get(conn, "purpose-1")
+                occurrence_id = PurposeRepository().activate_occurrence(
+                    conn,
+                    scheduled,
+                    NOW,
+                )
+
+            self._enqueue(
+                db,
+                eff=replace(
+                    effect(),
+                    purpose_occurrence_id=occurrence_id,
+                ),
+            )
+
+            def unknown(payload, idem):
+                raise TimeoutError("provider ack lost")
+
+            OutboxDispatcher(db, {"qq": unknown}).dispatch_once(now=NOW)
+            receipt = ExecutionReconciler(db).reconcile_effect(
+                effect_id="effect-1",
+                outcome="FAILED",
+                evidence={
+                    "provider_query_id": "query-2",
+                    "provider_status": "NOT_FOUND",
+                },
+                observed_at=NOW + timedelta(seconds=3),
+            )
+            self.assertEqual(
+                receipt.result_class,
+                "RECONCILED_FAILED",
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purpose_occurrences"
+                    ).fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes"
+                    ).fetchone()[0],
+                    "WAITING",
+                )
+            finally:
+                conn.close()
+
+    def test_dispatch_terminal_path_releases_registered_resource(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            broker = ExecutionResourceBroker()
+            calls = []
+            broker.acquire(
+                lease_id="lease-effect-1",
+                effect_id="effect-1",
+                resource_id="socket:qq",
+                release=lambda: calls.append("release"),
+            )
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: DispatchOutcome(
+                        DispatchStatus.SUCCEEDED,
+                        external_ref="msg-resource",
+                    )
+                },
+                resource_broker=broker,
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 1)
+            self.assertEqual(calls, ["release"])
+            self.assertEqual(
+                broker.list_effect("effect-1")[0].state,
+                "RELEASED",
+            )
+
+    def test_cancel_before_transport_cancels_and_releases_resource(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            broker = ExecutionResourceBroker()
+            resource_calls = []
+            transport_calls = []
+            broker.acquire(
+                lease_id="lease-effect-1",
+                effect_id="effect-1",
+                resource_id="provider-session:qq",
+                cancel=lambda: resource_calls.append("cancel"),
+                release=lambda: resource_calls.append("release"),
+            )
+
+            def fault(stage, row):
+                if stage == "after_claim":
+                    with db.transaction(immediate=True) as conn:
+                        self.assertTrue(
+                            PurposeRepository().cancel(
+                                conn,
+                                "purpose-1",
+                                NOW + timedelta(seconds=1),
+                            )
+                        )
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        transport_calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+                fault_hook=fault,
+                resource_broker=broker,
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(transport_calls, [])
+            self.assertEqual(resource_calls, ["cancel", "release"])
+            self.assertEqual(
+                broker.list_effect("effect-1")[0].state,
+                "RELEASED",
+            )
+
+    def test_retryable_effect_reaches_failed_after_retry_budget(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            calls = []
+
+            def retryable(payload, idem):
+                calls.append(payload)
+                return DispatchOutcome(
+                    DispatchStatus.FAILED_RETRYABLE,
+                    retry_after_s=0,
+                )
+
+            dispatcher = OutboxDispatcher(
+                db,
+                {"qq": retryable},
+                max_attempts=2,
+            )
+            self.assertEqual(dispatcher.dispatch_once(now=NOW), 1)
+            self.assertEqual(
+                dispatcher.dispatch_once(
+                    now=NOW + timedelta(seconds=2)
+                ),
+                1,
+            )
+            self.assertEqual(len(calls), 2)
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+            finally:
+                conn.close()
 
     def test_receipt_commit_failure_recovers_to_reconciliation(self):
         class BrokenReceiptRepository:
@@ -1018,6 +1449,52 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     for item in items
                 )
             )
+
+    def test_authorization_decision_audit_contains_exact_action(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            conn = db.connect()
+            try:
+                body = json.loads(
+                    conn.execute(
+                        """SELECT resource_json
+                           FROM authorization_decisions"""
+                    ).fetchone()[0]
+                )
+                self.assertEqual(
+                    body["action"],
+                    action().to_dict(),
+                )
+                self.assertEqual(
+                    body["resource"],
+                    resource().to_dict(),
+                )
+            finally:
+                conn.close()
+
+    def test_effect_request_rejects_missing_unknown_and_wrong_types(self):
+        with tempfile.TemporaryDirectory() as td:
+            for bad_request in (
+                {"recipient": "owner"},
+                {
+                    "recipient": "owner",
+                    "text": "hello",
+                    "surprise": "x",
+                },
+                {"recipient": "owner", "text": 123},
+            ):
+                with self.subTest(request=bad_request):
+                    db = self._db(td)
+                    self._insert_purpose(db)
+                    with self.assertRaises(EffectBindingError):
+                        self._enqueue(
+                            db,
+                            eff=effect(bad_request),
+                        )
+                    # subtests share td; clean the DB for the next case
+                    Path(td, "identity.sqlite3").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

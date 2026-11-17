@@ -115,6 +115,45 @@ class LegacyShadowBackfillTests(unittest.TestCase):
             self.assertTrue(backfill.source_order_ok("fish-1"))
             backfill.require_cutover_ready("fish-1")
 
+    def test_progress_sidecar_ahead_of_restored_shadow_replays_prefix(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(Path(td) / "identity.sqlite3")
+            self._legacy(db, "one")
+            self._legacy(db, "two")
+            backfill = LegacyShadowBackfill(db)
+            first = backfill.run_batch("fish-1", limit=20)
+            self.assertTrue(first.converged)
+            self.assertEqual(first.progress.last_processed_event_id, 2)
+
+            # Simulate restoring only the DB to a point before canonical shadow
+            # while the sibling progress file survives at watermark 2.
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """DELETE FROM canonical_event_ingest
+                       WHERE event_id IN (
+                         SELECT event_id FROM canonical_events
+                         WHERE identity_id='fish-1'
+                           AND source_namespace='legacy'
+                       )"""
+                )
+                conn.execute(
+                    """DELETE FROM canonical_events
+                       WHERE identity_id='fish-1'
+                         AND source_namespace='legacy'"""
+                )
+
+            repaired = backfill.run_batch("fish-1", limit=20)
+            self.assertTrue(repaired.converged)
+            self.assertTrue(repaired.source_order_ok)
+            self.assertEqual(repaired.progress.state, "CAUGHT_UP")
+            with db.transaction() as conn:
+                count = conn.execute(
+                    """SELECT COUNT(*) FROM canonical_events
+                       WHERE identity_id='fish-1'
+                         AND source_namespace='legacy'"""
+                ).fetchone()[0]
+            self.assertEqual(count, 2)
+
     def test_source_rollback_below_frozen_watermark_blocks_backfill(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(Path(td) / "identity.sqlite3")

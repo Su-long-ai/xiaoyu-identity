@@ -144,10 +144,23 @@ def _context_fence(conn):
     event_row=conn.execute(
         "SELECT COALESCE(MAX(event_id),0),COUNT(*) FROM events"
     ).fetchone()
+    memory_row=conn.execute(
+        """SELECT COUNT(*),
+                  COALESCE(MAX(memory_id),0),
+                  COALESCE(MAX(change_seq),0),
+                  COALESCE(SUM(memory_id),0),
+                  COALESCE(SUM(CASE WHEN status='active' THEN 1 ELSE 0 END),0)
+           FROM memories"""
+    ).fetchone()
     payload={
         "settings":settings,
         "event_max_id":int(event_row[0] or 0),
         "event_count":int(event_row[1] or 0),
+        "memory_count":int(memory_row[0] or 0),
+        "memory_max_id":int(memory_row[1] or 0),
+        "memory_max_change_seq":int(memory_row[2] or 0),
+        "memory_id_sum":int(memory_row[3] or 0),
+        "memory_active_count":int(memory_row[4] or 0),
     }
     return _messages_digest(payload)
 
@@ -165,6 +178,7 @@ def _validate_context_state_snapshot(
     audience_scope,
     context_space,
     authorization_digest,
+    routing_policy_digest,
     tool_result_digest,
     tool_implementation_digest,
     tool_schema_digest,
@@ -178,6 +192,7 @@ def _validate_context_state_snapshot(
         "audience_scope":str(audience_scope),
         "context_space":str(context_space),
         "authorization_digest":authorization_digest,
+        "routing_policy_digest":routing_policy_digest,
         "tool_result_digest":tool_result_digest,
         "tool_implementation_digest":tool_implementation_digest,
         "tool_schema_digest":tool_schema_digest,
@@ -199,10 +214,12 @@ class _FreshAttemptGuard:
         expected_context_fence,
         identity_id,
         principal_id,
+        owner_principal_id,
         audience_scope,
         context_space,
         required_privacy_class,
         authorization_digest,
+        routing_policy_digest,
         tool_result_digest,
         tool_implementation_digest,
         tool_schema_digest,
@@ -218,10 +235,14 @@ class _FreshAttemptGuard:
         self.expected_context_fence=expected_context_fence
         self.identity_id=str(identity_id)
         self.principal_id=str(principal_id)
+        self.owner_principal_id=(
+            None if owner_principal_id is None else str(owner_principal_id)
+        )
         self.audience_scope=str(audience_scope)
         self.context_space=str(context_space)
         self.required_privacy_class=str(required_privacy_class or "PUBLIC").upper()
         self.authorization_digest=authorization_digest
+        self.routing_policy_digest=routing_policy_digest
         self.tool_result_digest=tool_result_digest
         self.tool_implementation_digest=tool_implementation_digest
         self.tool_schema_digest=tool_schema_digest
@@ -240,6 +261,7 @@ class _FreshAttemptGuard:
             audience_scope=self.audience_scope,
             context_space=self.context_space,
             authorization_digest=self.authorization_digest,
+            routing_policy_digest=self.routing_policy_digest,
             tool_result_digest=self.tool_result_digest,
             tool_implementation_digest=self.tool_implementation_digest,
             tool_schema_digest=self.tool_schema_digest,
@@ -303,6 +325,8 @@ class _FreshAttemptGuard:
             provider_descriptor_digest=descriptor.descriptor_digest,
             provider_capability_digest=descriptor.capability_digest,
             provider_implementation_digest=descriptor.implementation_digest,
+            owner_principal_id=self.owner_principal_id,
+            routing_policy_digest=self.routing_policy_digest,
             expected_descriptor_digest=approved.get("descriptor_digest"),
             expected_capability_digest=approved.get("capability_digest"),
             expected_approval_binding_digest=approved.get("approval_binding_digest"),
@@ -345,10 +369,12 @@ def dual_guarded_chat(
     expected_context_fence=None,
     identity_id="xiaoyu",
     principal_id="owner",
+    owner_principal_id="owner",
     audience_scope="PRIVATE",
     context_space="PERSONAL",
     required_privacy_class="OWNER_PRIVATE",
     authorization_digest=None,
+    routing_policy_digest=None,
     tool_result_digest=None,
     tool_implementation_digest=None,
     tool_schema_digest=None,
@@ -376,10 +402,12 @@ def dual_guarded_chat(
                 expected_context_fence,
                 identity_id,
                 principal_id,
+                owner_principal_id,
                 audience_scope,
                 context_space,
                 required_privacy_class,
                 authorization_digest,
+                routing_policy_digest,
                 tool_result_digest,
                 tool_implementation_digest,
                 tool_schema_digest,
@@ -413,6 +441,7 @@ def dual_guarded_chat(
             audience_scope=audience_scope,
             context_space=context_space,
             authorization_digest=authorization_digest,
+            routing_policy_digest=routing_policy_digest,
             tool_result_digest=tool_result_digest,
             tool_implementation_digest=tool_implementation_digest,
             tool_schema_digest=tool_schema_digest,

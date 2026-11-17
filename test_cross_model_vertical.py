@@ -98,8 +98,8 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        deepseek_reply, _ = chat(deepseek, messages, max_tokens=32)
-                        qwen_reply, _ = chat(qwen, messages, max_tokens=32)
+                        deepseek_reply, _ = chat(deepseek, messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
+                        qwen_reply, _ = chat(qwen, messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
 
                 self.assertEqual(deepseek_reply, "deepseek-ok")
                 self.assertEqual(qwen_reply, "qwen-ok")
@@ -148,7 +148,7 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        reply, _ = chat(deepseek, deepseek_messages, max_tokens=32)
+                        reply, _ = chat(deepseek, deepseek_messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
                 self.assertEqual(reply, "deepseek-ok")
                 store.record("conversation.assistant", "assistant", reply)
             finally:
@@ -180,7 +180,7 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        qreply, _ = chat(qwen, qwen_messages, max_tokens=32)
+                        qreply, _ = chat(qwen, qwen_messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
 
                 self.assertEqual(qreply, "qwen-ok")
                 self.assertIn("我的鸟叫Pippin", system2)
@@ -202,6 +202,100 @@ class CrossModelVerticalTests(unittest.TestCase):
             finally:
                 bridge2.close()
                 store2.close()
+
+
+    def test_physical_delete_survives_provider_switch_without_resurrection(self):
+        with tempfile.TemporaryDirectory() as td:
+            home=Path(td)
+            store=IdentityStore(home)
+            identity_id=store.persona()["id"]
+            memory_id=store.add_memory(
+                "CROSS_MODEL_DELETE_SECRET",
+                category="shared",
+                priority=5,
+            )
+            bridge=ProductMemoryBridge(home,store,component_root=ROOT)
+            captured=[]
+            try:
+                rows=bridge.recall("CROSS_MODEL_DELETE_SECRET",limit=7)
+                system_before=store.identity_context(
+                    "what do you remember?",memories_override=rows
+                )
+                before_messages=[
+                    {"role":"system","content":system_before}
+                ]
+                deepseek=save_provider(home,"deepseek","deepseek-flash")
+                qwen=save_provider(home,"qwen","qwen3.8-flash")
+                with patch.dict(
+                    os.environ,
+                    {
+                        "DEEPSEEK_API_KEY":"TEST_DEEPSEEK_KEY",
+                        "DASHSCOPE_API_KEY":"TEST_QWEN_KEY",
+                    },
+                    clear=False,
+                ):
+                    with patch.object(
+                        urllib.request,
+                        "urlopen",
+                        side_effect=self._capture_calls(captured),
+                    ):
+                        first,_=chat(
+                            deepseek,before_messages,
+                            max_tokens=32,
+                            required_data_class="OWNER_PRIVATE",
+                        )
+                        self.assertEqual(first,"deepseek-ok")
+                        self.assertIn(
+                            "CROSS_MODEL_DELETE_SECRET",
+                            json.dumps(
+                                captured[-1]["body"]["messages"],
+                                ensure_ascii=False,
+                            ),
+                        )
+
+                        with store.conn:
+                            store.conn.execute(
+                                "DELETE FROM memories WHERE memory_id=?",
+                                (int(memory_id),),
+                            )
+                        bridge.sync()
+                        rows_after=bridge.recall(
+                            "CROSS_MODEL_DELETE_SECRET",limit=7
+                        )
+                        system_after=store.identity_context(
+                            "what do you remember?",
+                            memories_override=rows_after,
+                        )
+                        after_messages=[
+                            {"role":"system","content":system_after}
+                        ]+[
+                            {
+                                "role":x["role"],
+                                "content":x["content"],
+                            }
+                            for x in project_history(store,16)
+                        ]
+                        second,_=chat(
+                            qwen,after_messages,
+                            max_tokens=32,
+                            required_data_class="OWNER_PRIVATE",
+                        )
+                self.assertEqual(second,"qwen-ok")
+                self.assertEqual(store.persona()["id"],identity_id)
+                self.assertNotIn(
+                    "CROSS_MODEL_DELETE_SECRET",
+                    json.dumps(
+                        captured[-1]["body"]["messages"],
+                        ensure_ascii=False,
+                    ),
+                )
+                self.assertNotIn(
+                    "CROSS_MODEL_DELETE_SECRET",
+                    system_after,
+                )
+            finally:
+                bridge.close()
+                store.close()
 
 
 if __name__ == "__main__":

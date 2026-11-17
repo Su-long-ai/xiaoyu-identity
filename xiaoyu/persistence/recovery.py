@@ -659,47 +659,37 @@ class RecoveryManager:
                 raise RestoreInvariantError("identity continuity smoke failed")
             for tombstone in fence_identity.get("tombstones", []):
                 fact_key = str(tombstone["target_id"])
-                surviving = conn.execute(
-                    """SELECT revision FROM temporal_facts
-                       WHERE identity_id=? AND fact_key=? AND status!='DELETED'
-                       ORDER BY revision""",
-                    (identity_id, fact_key),
-                ).fetchall()
-                if not surviving:
-                    continue
-
-                # A fact may be legitimately reintroduced after an erasure.
-                # Preserve it only when the authority ledger proves it is
-                # strictly newer than the external deletion fence.
-                result_revision = tombstone.get("result_revision")
-                source_revision = int(
-                    tombstone.get("source_ingest_revision") or 0
-                )
-                generation = int(tombstone["erasure_generation"])
                 authority = conn.execute(
-                    """SELECT current_revision,last_source_ingest_revision,
-                              erasure_generation
+                    """SELECT last_source_ingest_revision,erasure_generation
                        FROM fact_authority_revisions
                        WHERE identity_id=? AND fact_key=?""",
                     (identity_id, fact_key),
                 ).fetchone()
-                post_erasure_reintroduction = (
-                    result_revision is not None
-                    and authority is not None
-                    and int(authority["erasure_generation"]) >= generation
-                    and int(authority["last_source_ingest_revision"])
-                        > source_revision
-                    and int(authority["current_revision"])
-                        > int(result_revision)
-                    and all(
-                        int(row["revision"]) > int(result_revision)
-                        for row in surviving
-                    )
+                tombstone_generation = int(tombstone["erasure_generation"])
+                tombstone_source = int(
+                    tombstone.get("source_ingest_revision") or 0
                 )
-                if not post_erasure_reintroduction:
+                if authority is None:
                     raise RestoreInvariantError(
-                        "erasure fence was not applied"
+                        "erasure fence authority revision is missing"
                     )
+                if int(authority["erasure_generation"]) < tombstone_generation:
+                    raise RestoreInvariantError(
+                        "erasure generation is behind trusted fence"
+                    )
+                # Active state is valid only when the DB has already processed
+                # this erasure generation and then consumed a newer source.
+                if int(authority["last_source_ingest_revision"]) <= tombstone_source:
+                    resurrected = conn.execute(
+                        """SELECT 1 FROM temporal_facts
+                           WHERE identity_id=? AND fact_key=? AND status!='DELETED'
+                           LIMIT 1""",
+                        (identity_id, fact_key),
+                    ).fetchone()
+                    if resurrected is not None:
+                        raise RestoreInvariantError(
+                            "erasure fence was not applied"
+                        )
         RecoveryManager._verify_no_replayable_restore_work(db, identity_id)
 
     @staticmethod

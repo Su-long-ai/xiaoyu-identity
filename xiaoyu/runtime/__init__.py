@@ -1,17 +1,17 @@
 """Runtime Host primitives."""
-from .host import RuntimeAdmission, RuntimeHost
 from .delivery import (
     DeliveryAttemptAlreadyActive,
     DeliveryCoordinator,
     DeliveryLedger,
 )
+from .host import RuntimeAdmission, RuntimeHost
 from .outbox import OutboxDispatcher
+from .power import PowerLifecycle, PowerState, ResumeReport
 from .presence import (
     AmbientPresenceEngine,
     PresenceFrame,
     PresenceState,
 )
-from .power import PowerLifecycle, PowerState, ResumeReport
 from .provider_registry import (
     AUDIENCE_RESET_COMPONENTS,
     AudienceResetDecision,
@@ -21,6 +21,7 @@ from .provider_registry import (
     ProviderEligibility,
     ProviderFallbackAudit,
     ProviderHealth,
+    apply_audience_reset,
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
@@ -32,10 +33,12 @@ from .recovery import (
     STATE_RECOVERY_PATHS,
 )
 from .resource_broker import (
+    ExecutionResourceBroker,
     ModeTransition,
     ResourceBroker,
     ResourceBudget,
     ResourceLease,
+    ResourceLeaseSnapshot,
     ResourceMode,
     ResourceRequest,
     ResourceUnavailable,
@@ -50,20 +53,13 @@ __all__ = [
     "DeliveryCoordinator",
     "DeliveryLedger",
     "ExecutionRecoveryQueue",
+    "ExecutionResourceBroker",
     "ModeTransition",
     "OutboxDispatcher",
-    "PresenceFrame",
-    "PresenceState",
-    "RuntimeAdmission",
-    "ResourceBroker",
-    "ResourceBudget",
-    "ResourceLease",
-    "ResourceMode",
-    "ResourceRequest",
-    "ResourceUnavailable",
-    "RuntimeHost",
     "PowerLifecycle",
     "PowerState",
+    "PresenceFrame",
+    "PresenceState",
     "PrivacyClass",
     "ProviderAttemptContext",
     "ProviderDescriptor",
@@ -73,8 +69,18 @@ __all__ = [
     "PurposeDecision",
     "PurposeScheduler",
     "RecoveryItem",
+    "ResourceBroker",
+    "ResourceBudget",
+    "ResourceLease",
+    "ResourceLeaseSnapshot",
+    "ResourceMode",
+    "ResourceRequest",
+    "ResourceUnavailable",
     "ResumeReport",
+    "RuntimeAdmission",
+    "RuntimeHost",
     "STATE_RECOVERY_PATHS",
+    "apply_audience_reset",
     "audience_reset_decision",
     "evaluate_provider",
     "provider_session_namespace",
