@@ -7,14 +7,17 @@ from pathlib import Path
 
 from xiaoyu.persistence import Database, apply_migrations, applied_versions, verify_schema
 from xiaoyu.persistence.migrations.v1_authority import REQUIRED_TABLES
+from xiaoyu.persistence.schema import MIGRATIONS
+
+EXPECTED_VERSIONS = [migration.version for migration in MIGRATIONS]
 
 
 class PersistenceMigrationTests(unittest.TestCase):
     def test_empty_database_migrates_to_v1(self):
         with tempfile.TemporaryDirectory() as td:
             db = Database(Path(td) / "identity.sqlite3")
-            self.assertEqual(apply_migrations(db), [1, 2, 3, 4, 5, 6, 7])
-            self.assertEqual(applied_versions(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(apply_migrations(db), EXPECTED_VERSIONS)
+            self.assertEqual(applied_versions(db), EXPECTED_VERSIONS)
             self.assertTrue(db.is_healthy())
 
             conn = db.connect()
@@ -45,7 +48,7 @@ class PersistenceMigrationTests(unittest.TestCase):
                 conn.close()
 
             db = Database(path)
-            self.assertEqual(apply_migrations(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(apply_migrations(db), EXPECTED_VERSIONS)
             conn = db.connect()
             try:
                 self.assertEqual(conn.execute("SELECT content FROM events WHERE event_id=1").fetchone()[0], "legacy event")
@@ -57,10 +60,10 @@ class PersistenceMigrationTests(unittest.TestCase):
     def test_migration_is_idempotent_and_verifiable(self):
         with tempfile.TemporaryDirectory() as td:
             db = Database(Path(td) / "identity.sqlite3")
-            self.assertEqual(apply_migrations(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(apply_migrations(db), EXPECTED_VERSIONS)
             self.assertEqual(apply_migrations(db), [])
             verify_schema(db)
-            self.assertEqual(applied_versions(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(db), EXPECTED_VERSIONS)
 
     def test_online_backup_preserves_schema_and_data(self):
         with tempfile.TemporaryDirectory() as td:
@@ -84,7 +87,7 @@ class PersistenceMigrationTests(unittest.TestCase):
             backup = db.backup_to(root / "backup.sqlite3")
             restored = Database(backup)
             self.assertTrue(restored.is_healthy())
-            self.assertEqual(applied_versions(restored), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(restored), EXPECTED_VERSIONS)
             conn = restored.connect()
             try:
                 row = conn.execute("SELECT payload_json FROM canonical_events WHERE event_id='evt-1'").fetchone()
