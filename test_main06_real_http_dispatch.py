@@ -44,6 +44,10 @@ def config(server):
         "provider":"custom",
         "url":f"http://127.0.0.1:{server.server_address[1]}/v1/chat/completions",
         "model":"local-main06","key_env":"",
+        # Synthetic localhost is explicitly trusted for this private-boundary
+        # transport test. Production custom providers remain PUBLIC-only by
+        # default unless policy grants a private data class.
+        "allowed_data_classes":["PUBLIC","OWNER_PRIVATE"],
     }
 
 def write_lock_available(path):

@@ -164,6 +164,43 @@ class BackupDurabilityTests(unittest.TestCase):
                     mode=RestoreMode.MANAGED,
                 )
 
+    def test_corrupt_btree_page_is_rejected_by_integrity_check(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = self._db(root / "identity.sqlite3")
+            with source.transaction(immediate=True) as conn:
+                conn.execute(
+                    "CREATE TABLE backup_probe(id INTEGER PRIMARY KEY, value TEXT)"
+                )
+                for i in range(40):
+                    conn.execute(
+                        "INSERT INTO backup_probe(value) VALUES(?)",
+                        (("row-%03d-" % i) + ("x" * 1200),),
+                    )
+            corrupt = source.backup_to(root / "page-corrupt.sqlite3")
+            probe = Database(corrupt)
+            with probe.transaction() as conn:
+                page_size = int(conn.execute("PRAGMA page_size").fetchone()[0])
+                root_page = int(
+                    conn.execute(
+                        """SELECT rootpage FROM sqlite_master
+                           WHERE type='table' AND name='backup_probe'"""
+                    ).fetchone()[0]
+                )
+
+            data = bytearray(corrupt.read_bytes())
+            offset = (root_page - 1) * page_size
+            data[offset] = 0
+            corrupt.write_bytes(bytes(data))
+
+            with self.assertRaises(RestoreInvariantError):
+                RecoveryManager.restore(
+                    candidate_path=corrupt,
+                    target_path=source.path,
+                    identity_id="fish-1",
+                    mode=RestoreMode.MANAGED,
+                )
+
     def test_corrupt_header_is_rejected_before_activation(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 import unittest
 from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -43,13 +45,14 @@ from xiaoyu.persistence.repositories.execution_auth import (
     PrincipalExecutionRepository,
 )
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
+from xiaoyu.persistence.repositories.provider_execution import ProviderExecutionRegistry
 from xiaoyu.runtime import (
     DeliveryCoordinator,
     DeliveryLedger,
     OutboxDispatcher,
-    ProviderRegistry,
     PurposeScheduler,
 )
+from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -194,7 +197,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
 
 
     def _register_provider(self, db):
-        registry = ProviderRegistry(db)
+        registry = ProviderExecutionRegistry(db)
         registry.register(
             CapabilityDescriptor(
                 provider_id="napcat",
@@ -631,12 +634,23 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     "DELIVERED",
                 )
                 receipt = conn.execute(
-                    "SELECT request_digest FROM action_receipts"
-                ).fetchone()[0]
+                    """SELECT request_digest,provider_id,receipt_json
+                       FROM action_receipts"""
+                ).fetchone()
                 expected = "sha256:" + hashlib.sha256(
                     canonical_json(eff.request).encode("utf-8")
                 ).hexdigest()
-                self.assertEqual(receipt, expected)
+                self.assertEqual(receipt["request_digest"], expected)
+                self.assertEqual(receipt["provider_id"], "napcat")
+                auth_digest = conn.execute(
+                    """SELECT authorized_request_digest
+                       FROM execution_authorizations"""
+                ).fetchone()[0]
+                receipt_body = json.loads(receipt["receipt_json"])
+                self.assertEqual(
+                    receipt_body["metadata"]["authorized_request_digest"],
+                    auth_digest,
+                )
             finally:
                 conn.close()
 
@@ -796,6 +810,214 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             ).dispatch_once(now=NOW + timedelta(seconds=2))
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
+
+    def test_receipt_commit_failure_recovers_to_reconciliation(self):
+        class BrokenReceiptRepository:
+            def insert(self, conn, identity_id, receipt):
+                raise RuntimeError("synthetic receipt commit failure")
+
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+
+            dispatcher = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: DispatchOutcome(
+                        DispatchStatus.SUCCEEDED,
+                        external_ref="msg-receipt-failure",
+                    )
+                },
+                receipt_repo=BrokenReceiptRepository(),
+            )
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "synthetic receipt commit failure",
+            ):
+                dispatcher.dispatch_once(now=NOW)
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "CLAIMED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "DISPATCHING",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM action_receipts"
+                    ).fetchone()[0],
+                    0,
+                )
+            finally:
+                conn.close()
+
+            recovered = OutboxDispatcher(db, {"qq": lambda p, i: None})
+            self.assertEqual(
+                recovered.recover_inflight(
+                    NOW + timedelta(seconds=1)
+                ),
+                1,
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "NEEDS_RECONCILIATION",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "NEEDS_RECONCILIATION",
+                )
+            finally:
+                conn.close()
+
+    def test_duplicate_dispatchers_cross_transport_boundary_once(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            calls = []
+
+            def transport(payload, idem):
+                calls.append((payload, idem))
+                return DispatchOutcome(
+                    DispatchStatus.SUCCEEDED,
+                    external_ref="msg-once",
+                )
+
+            def run(_):
+                return OutboxDispatcher(
+                    db, {"qq": transport}
+                ).dispatch_once(now=NOW)
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                processed = list(pool.map(run, (1, 2)))
+
+            self.assertEqual(sum(processed), 1)
+            self.assertEqual(len(calls), 1)
+
+    def test_cancel_while_transport_in_flight_never_claims_cancelled(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            cancel_results = []
+
+            def fault(stage, row):
+                if stage == "before_dispatch":
+                    with db.transaction(immediate=True) as conn:
+                        cancel_results.append(
+                            PurposeRepository().cancel(
+                                conn,
+                                "purpose-1",
+                                NOW + timedelta(seconds=1),
+                            )
+                        )
+
+            dispatcher = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: DispatchOutcome(
+                        DispatchStatus.SUCCEEDED,
+                        external_ref="msg-raced",
+                    )
+                },
+                fault_hook=fault,
+            )
+            self.assertEqual(
+                dispatcher.dispatch_once(
+                    now=NOW + timedelta(seconds=2)
+                ),
+                1,
+            )
+            self.assertEqual(cancel_results, [False])
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes"
+                    ).fetchone()[0],
+                    "NEEDS_RECONCILIATION",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM action_receipts"
+                    ).fetchone()[0],
+                    1,
+                )
+            finally:
+                conn.close()
+
+    def test_restart_rebuilds_active_scheduled_purpose_missing_work(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=10)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET resolved_utc_time=?,scheduled_wall_time=?,
+                           timezone='UTC'
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+            report = ExecutionRecoveryQueue(db).recover_restart(NOW)
+            self.assertEqual(report["active_work_rebuilt"], 1)
+            conn = db.connect()
+            try:
+                row = conn.execute(
+                    """SELECT state,purpose_revision
+                       FROM purpose_occurrences"""
+                ).fetchone()
+                self.assertEqual(tuple(row), ("READY", 1))
+            finally:
+                conn.close()
+
+    def test_reconciliation_queue_makes_unknown_effect_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+
+            def transport(payload, idem):
+                raise TimeoutError("unknown result")
+
+            OutboxDispatcher(
+                db, {"qq": transport}
+            ).dispatch_once(now=NOW)
+            items = ExecutionRecoveryQueue(db).list_open("fish-1")
+            self.assertTrue(
+                any(
+                    item.kind == "effect"
+                    and item.state == "NEEDS_RECONCILIATION"
+                    for item in items
+                )
+            )
+            self.assertTrue(
+                any(
+                    item.kind == "purpose"
+                    and item.state == "NEEDS_RECONCILIATION"
+                    for item in items
+                )
+            )
 
 
 if __name__ == "__main__":

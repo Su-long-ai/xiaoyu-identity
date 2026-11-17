@@ -145,12 +145,11 @@ class OutboxRepository:
                       o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
                       e.authorization_decision_id,e.request_json,e.purpose_id,
                       e.action_class,e.purpose_revision,e.purpose_occurrence_id,
-                      xa.actor_provider_id AS provider_id,
-                      xa.authorized_request_digest
+                      ea.actor_provider_id,ea.authorized_request_digest
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
-               LEFT JOIN execution_authorizations xa
-                 ON xa.authorization_decision_id=e.authorization_decision_id
+               JOIN execution_authorizations ea
+                 ON ea.authorization_decision_id=e.authorization_decision_id
                WHERE o.state IN ('PENDING','FAILED_RETRYABLE')
                  AND (o.next_attempt_at IS NULL OR o.next_attempt_at<=?)
                ORDER BY o.created_at,o.outbox_id
@@ -184,7 +183,7 @@ class OutboxRepository:
                     action_class=str(row["action_class"]),
                     purpose_revision=row["purpose_revision"],
                     purpose_occurrence_id=row["purpose_occurrence_id"],
-                    provider_id=row["provider_id"],
+                    provider_id=row["actor_provider_id"],
                     authorized_request_digest=row["authorized_request_digest"],
                 )
             )

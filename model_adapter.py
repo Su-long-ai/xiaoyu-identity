@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Replaceable chat-completion adapter. Provider settings stay OUTSIDE identity archives."""
 from __future__ import annotations
+import hashlib
 import http.client
 import json
 import os
@@ -23,9 +24,13 @@ DEFAULT_ALLOWED_DATA_CLASSES = {
     "deepseek": ("PUBLIC", "OWNER_PRIVATE"),
     "openai": ("PUBLIC", "OWNER_PRIVATE"),
     "qwen": ("PUBLIC", "OWNER_PRIVATE"),
-    "ollama": ("PUBLIC", "OWNER_PRIVATE"),
+    "ollama": ("PUBLIC", "OWNER_PRIVATE", "LOCAL_ONLY"),
     "custom": ("PUBLIC",),
 }
+
+ADAPTER_ARTIFACT_DIGEST=(
+    "sha256:"+hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+)
 
 PROVIDERS = {
     "deepseek_web": {
@@ -45,7 +50,7 @@ PROVIDERS = {
              "model":"qwen3.8-flash","key_env":"DASHSCOPE_API_KEY",
              "enable_thinking":False},
     "ollama": {"url":"http://127.0.0.1:11434/v1/chat/completions",
-               "model":"qwen3:8b","key_env":""},
+               "model":"qwen3:8b","key_env":"","data_boundary":"LOCAL"},
     "custom": {"url":"https://example.invalid/v1/chat/completions",
                "model":"","key_env":"FISH_CUSTOM_API_KEY"}
 }
@@ -396,9 +401,17 @@ def _provider_descriptor(config):
         except ValueError:
             continue
     parsed=urlsplit(str(config.get("url") or ""))
+    declared_boundary=str(
+        config.get("data_boundary")
+        or PROVIDERS.get(provider,{}).get("data_boundary")
+        or "REMOTE"
+    ).upper()
     endpoint_scope=(
         "LOCAL"
-        if parsed.hostname in ("localhost","127.0.0.1","::1")
+        if (
+            declared_boundary=="LOCAL"
+            and parsed.hostname in ("localhost","127.0.0.1","::1")
+        )
         else "REMOTE"
     )
     capability_digest=stable_digest({
@@ -406,18 +419,21 @@ def _provider_descriptor(config):
         "model":str(config.get("model") or ""),
         "capability":"chat.completion",
     })
+    implementation_digest=stable_digest({
+        "adapter":"model_adapter",
+        "artifact_digest":ADAPTER_ARTIFACT_DIGEST,
+        "provider":provider,
+        "url":str(config.get("url") or ""),
+    })
     descriptor_digest=stable_digest({
         "provider":provider,
         "url":str(config.get("url") or ""),
         "model":str(config.get("model") or ""),
         "privacy_classes":[x.value for x in privacy],
+        "endpoint_scope":endpoint_scope,
         "capability_digest":capability_digest,
+        "implementation_digest":implementation_digest,
         "policy_version":2,
-    })
-    implementation_digest=stable_digest({
-        "adapter":"model_adapter",
-        "provider":provider,
-        "url":str(config.get("url") or ""),
     })
     return ProviderDescriptor(
         provider_id=provider,
@@ -440,6 +456,7 @@ def chat(
     attempt_guard=None,
     required_data_class=None,
     attempt_audit=None,
+    provider_health=None,
 ):
     """OpenAI-compatible messages with ordered provider fallback.
 
@@ -479,10 +496,16 @@ def chat(
 
         with guard:
             descriptor=_provider_descriptor(candidate)
+            health=(
+                provider_health(descriptor)
+                if provider_health is not None else None
+            )
             context_builder=getattr(guard,"provider_attempt_context",None)
             if context_builder is not None:
                 attempt_context=context_builder(descriptor,required_data_class)
-                eligibility=evaluate_provider(descriptor,attempt_context)
+                eligibility=evaluate_provider(
+                    descriptor,attempt_context,health
+                )
                 if attempt_audit is not None:
                     attempt_audit(fallback_audit(attempt_context,eligibility))
                 if not eligibility.allowed:
@@ -491,12 +514,19 @@ def chat(
                         "provider ineligible: "+",".join(eligibility.reasons),
                     ))
                     continue
-            elif not _provider_allows_data_class(candidate,required_data_class):
-                errors.append((
-                    name,
-                    f"provider not eligible for {required_data_class}",
-                ))
-                continue
+            else:
+                if not _provider_allows_data_class(candidate,required_data_class):
+                    errors.append((
+                        name,
+                        f"provider not eligible for {required_data_class}",
+                    ))
+                    continue
+                if (
+                    health is not None
+                    and str(health.readiness).upper()!="READY"
+                ):
+                    errors.append((name,"provider not ready"))
+                    continue
 
             message_builder=getattr(guard,"messages_for_attempt",None)
             attempt_messages=(

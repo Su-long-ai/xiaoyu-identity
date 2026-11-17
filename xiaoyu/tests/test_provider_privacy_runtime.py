@@ -24,6 +24,7 @@ from xiaoyu.runtime.provider_registry import (
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
+    standing_approval_binding_digest,
 )
 
 
@@ -61,6 +62,7 @@ def attempt_context(
     required_capability=None,
     expected_descriptor_digest=None,
     expected_capability_digest=None,
+    expected_approval_binding_digest=None,
     private_tool=False,
     authorization_digest="auth-v1",
     tool_result_digest=None,
@@ -81,6 +83,7 @@ def attempt_context(
         provider_implementation_digest=d.implementation_digest,
         expected_descriptor_digest=expected_descriptor_digest,
         expected_capability_digest=expected_capability_digest,
+        expected_approval_binding_digest=expected_approval_binding_digest,
         authorization_digest=authorization_digest,
         tool_result_digest=tool_result_digest,
         tool_implementation_digest=tool_implementation_digest,
@@ -106,6 +109,24 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
         self.assertFalse(result.allowed)
         self.assertIn("local_only_requires_local_provider",result.reasons)
+
+    def test_ollama_is_local_only_eligible_but_local_proxy_is_not_assumed_local(self):
+        ollama=model_adapter._provider_descriptor(
+            model_adapter._fallback_config("ollama")
+        )
+        self.assertEqual(ollama.endpoint_scope,"LOCAL")
+        self.assertIn(PrivacyClass.LOCAL_ONLY,ollama.privacy_classes)
+        result=evaluate_provider(
+            ollama,
+            attempt_context(ollama,privacy=PrivacyClass.LOCAL_ONLY),
+        )
+        self.assertTrue(result.allowed)
+
+        web_proxy=model_adapter._provider_descriptor(
+            model_adapter._fallback_config("deepseek_web")
+        )
+        self.assertEqual(web_proxy.endpoint_scope,"REMOTE")
+        self.assertNotIn(PrivacyClass.LOCAL_ONLY,web_proxy.privacy_classes)
 
     def test_owner_private_rejects_group_guest_and_shared(self):
         d=descriptor()
@@ -148,6 +169,47 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         self.assertIn("capability_mismatch",wrong_cap.reasons)
         self.assertIn("descriptor_digest_changed",wrong_desc.reasons)
         self.assertIn("capability_digest_changed",wrong_digest.reasons)
+
+    def test_standing_approval_is_bound_to_provider_and_tool_digests(self):
+        d=descriptor()
+        baseline=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+        )
+        approval=standing_approval_binding_digest(d,baseline)
+        approved=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertTrue(evaluate_provider(d,approved).allowed)
+
+        changed_tool=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v2",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertIn(
+            "approval_binding_changed",
+            evaluate_provider(d,changed_tool).reasons,
+        )
+
+        changed_provider=descriptor(implementation_digest="impl-v2")
+        changed_provider_context=attempt_context(
+            changed_provider,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertIn(
+            "approval_binding_changed",
+            evaluate_provider(
+                changed_provider,changed_provider_context
+            ).reasons,
+        )
 
     def test_provider_health_transition_blocks_new_attempt(self):
         d=descriptor()
@@ -192,6 +254,25 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
                 d,attempt_context(d,required_capability=capability)
             )
             self.assertTrue(result.allowed,capability)
+
+    def test_stale_session_namespace_fuzz(self):
+        namespaces=set()
+        for principal in ("owner","guest"):
+            for audience in ("PRIVATE","GROUP"):
+                for space in ("PERSONAL","SHARED"):
+                    for generation in ("gen-1","gen-2"):
+                        for provider in ("provider-a","provider-b"):
+                            d=descriptor(provider_id=provider)
+                            ctx=attempt_context(
+                                d,
+                                principal_id=principal,
+                                audience_scope=audience,
+                                context_space=space,
+                                context_generation=generation,
+                                privacy=PrivacyClass.PUBLIC,
+                            )
+                            namespaces.add(provider_session_namespace(ctx))
+        self.assertEqual(len(namespaces),32)
 
 
     def test_owner_to_group_guest_and_shared_require_full_context_reset(self):
@@ -426,6 +507,294 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
             finally:
                 bridge.close()
                 store.close()
+
+
+    def test_private_three_provider_chain_still_falls_back_when_scope_is_stable(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            config["fallbacks"]=["qwen","deepseek"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                if len(calls)<3:
+                    raise RuntimeError("transient")
+                return "ok",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    answer,_=dual_guarded_chat(
+                        model_adapter.chat,config,messages,
+                        store.db_path,bridge.db_path,generation,expectations,
+                    )
+                self.assertEqual(answer,"ok")
+                self.assertEqual(calls,["deepseek_web","qwen","deepseek"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_authorization_change_between_attempts_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["authorization_digest"]="auth-v2"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_fallback_privacy_eligibility_change_is_recomputed(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            old=model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]=("PUBLIC",)
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(RuntimeError):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]=old
+                bridge.close()
+                store.close()
+
+    def test_response_after_physical_delete_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                with store.conn:
+                    store.conn.execute(
+                        "DELETE FROM memories WHERE memory_id=?",(int(mid),)
+                    )
+                return "stale-success",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_provider_health_transition_during_chain_skips_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            readiness={"deepseek_web":"READY","deepseek":"READY"}
+            calls=[]
+            def health(descriptor):
+                state=readiness.get(descriptor.provider_id,"READY")
+                return ProviderHealth(
+                    liveness="ALIVE",
+                    readiness=state,
+                    capability_health={"chat.completion":state},
+                    reason=None if state=="READY" else "degraded-during-chain",
+                    since=NOW,
+                    retry_after_ms=None,
+                    details={},
+                )
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                readiness["deepseek"]="DEGRADED"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(RuntimeError):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            provider_health=health,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_fallback_audit_records_every_allowed_and_denied_attempt(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            config["fallbacks"]=["custom"]
+            audits=[]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(RuntimeError):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            attempt_audit=audits.append,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+                self.assertEqual(
+                    [item.provider_id for item in audits],
+                    ["deepseek_web","custom"],
+                )
+                self.assertTrue(audits[0].allowed)
+                self.assertFalse(audits[1].allowed)
+                self.assertIn("privacy_class_ineligible",audits[1].reasons)
+                self.assertNotEqual(
+                    audits[0].session_namespace,
+                    audits[1].session_namespace,
+                )
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_scope_switch_matrix_blocks_second_private_attempt(self):
+        cases=[
+            ("principal_id","guest"),
+            ("audience_scope","GROUP"),
+            ("context_space","SHARED"),
+            ("identity_id","identity-2"),
+        ]
+        for field,new_value in cases:
+            with self.subTest(field=field):
+                with tempfile.TemporaryDirectory() as td:
+                    (
+                        store,bridge,mid,generation,
+                        expectations,config,messages,
+                    )=self._fixture(td)
+                    state={
+                        "identity_id":"identity-1",
+                        "principal_id":"owner",
+                        "audience_scope":"PRIVATE",
+                        "context_space":"PERSONAL",
+                        "authorization_digest":"auth-v1",
+                        "tool_result_digest":None,
+                        "tool_implementation_digest":None,
+                        "tool_schema_digest":None,
+                    }
+                    calls=[]
+                    def fake_once(
+                        candidate,attempt_messages,max_tokens,timeout,on_dispatched
+                    ):
+                        if on_dispatched:
+                            on_dispatched()
+                        calls.append(candidate["provider"])
+                        state[field]=new_value
+                        raise RuntimeError("primary failed")
+                    try:
+                        with patch.object(
+                            model_adapter,"_chat_once",side_effect=fake_once
+                        ):
+                            with self.assertRaises(FreshnessChanged):
+                                dual_guarded_chat(
+                                    model_adapter.chat,config,messages,
+                                    store.db_path,bridge.db_path,
+                                    generation,expectations,
+                                    identity_id="identity-1",
+                                    principal_id="owner",
+                                    audience_scope="PRIVATE",
+                                    context_space="PERSONAL",
+                                    authorization_digest="auth-v1",
+                                    context_state_provider=lambda:dict(state),
+                                )
+                        self.assertEqual(calls,["deepseek_web"])
+                    finally:
+                        bridge.close()
+                        store.close()
+
+    def test_private_tool_invalidation_matrix_blocks_second_attempt(self):
+        for field in (
+            "tool_result_digest",
+            "tool_implementation_digest",
+            "tool_schema_digest",
+        ):
+            with self.subTest(field=field):
+                with tempfile.TemporaryDirectory() as td:
+                    (
+                        store,bridge,mid,generation,
+                        expectations,config,messages,
+                    )=self._fixture(td)
+                    state={
+                        "identity_id":"identity-1",
+                        "principal_id":"owner",
+                        "audience_scope":"PRIVATE",
+                        "context_space":"PERSONAL",
+                        "authorization_digest":"auth-v1",
+                        "tool_result_digest":"result-v1",
+                        "tool_implementation_digest":"impl-v1",
+                        "tool_schema_digest":"schema-v1",
+                    }
+                    calls=[]
+                    def fake_once(
+                        candidate,attempt_messages,max_tokens,timeout,on_dispatched
+                    ):
+                        if on_dispatched:
+                            on_dispatched()
+                        calls.append(candidate["provider"])
+                        state[field]=state[field]+"-changed"
+                        raise RuntimeError("primary failed")
+                    try:
+                        with patch.object(
+                            model_adapter,"_chat_once",side_effect=fake_once
+                        ):
+                            with self.assertRaises(FreshnessChanged):
+                                dual_guarded_chat(
+                                    model_adapter.chat,config,messages,
+                                    store.db_path,bridge.db_path,
+                                    generation,expectations,
+                                    identity_id="identity-1",
+                                    authorization_digest="auth-v1",
+                                    tool_result_digest="result-v1",
+                                    tool_implementation_digest="impl-v1",
+                                    tool_schema_digest="schema-v1",
+                                    source_contains_private_tool_result=True,
+                                    context_state_provider=lambda:dict(state),
+                                )
+                        self.assertEqual(calls,["deepseek_web"])
+                    finally:
+                        bridge.close()
+                        store.close()
 
 
 if __name__=="__main__":

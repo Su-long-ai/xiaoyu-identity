@@ -28,12 +28,67 @@ class ExternalErasureFenceStore:
     def load(self) -> Optional[Dict[str, Any]]:
         if not self.path.exists():
             return None
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise ErasureWatermarkError(
+                "erasure watermark is unreadable"
+            ) from exc
         if int(payload.get("version", 0)) != self.VERSION:
             raise ErasureWatermarkError("unsupported erasure watermark version")
         identities = payload.get("identities")
         if not isinstance(identities, dict):
             raise ErasureWatermarkError("invalid erasure watermark identities")
+        for identity_id, identity in identities.items():
+            if not isinstance(identity, dict):
+                raise ErasureWatermarkError(
+                    "invalid erasure identity entry: %s" % identity_id
+                )
+            try:
+                generation = int(identity.get("erasure_generation", -1))
+            except (TypeError, ValueError) as exc:
+                raise ErasureWatermarkError(
+                    "invalid erasure generation"
+                ) from exc
+            if generation < 0:
+                raise ErasureWatermarkError("invalid erasure generation")
+            tombstones = identity.get("tombstones", [])
+            if not isinstance(tombstones, list):
+                raise ErasureWatermarkError("invalid erasure tombstone list")
+            seen_generations = set()
+            seen_mutations = set()
+            for tombstone in tombstones:
+                if not isinstance(tombstone, dict):
+                    raise ErasureWatermarkError("invalid erasure tombstone")
+                for required in (
+                    "target_id",
+                    "erasure_generation",
+                    "mutation_id",
+                    "requested_at",
+                    "source_event_id",
+                ):
+                    if required not in tombstone:
+                        raise ErasureWatermarkError(
+                            "erasure tombstone missing %s" % required
+                        )
+                try:
+                    item_generation = int(tombstone["erasure_generation"])
+                except (TypeError, ValueError) as exc:
+                    raise ErasureWatermarkError(
+                        "invalid tombstone generation"
+                    ) from exc
+                mutation_id = str(tombstone["mutation_id"])
+                if (
+                    item_generation <= 0
+                    or item_generation > generation
+                    or item_generation in seen_generations
+                    or mutation_id in seen_mutations
+                ):
+                    raise ErasureWatermarkError(
+                        "non-monotonic or duplicate erasure tombstone"
+                    )
+                seen_generations.add(item_generation)
+                seen_mutations.add(mutation_id)
         return payload
 
     def identity(self, identity_id: str) -> Optional[Dict[str, Any]]:
@@ -98,6 +153,25 @@ class ExternalErasureFenceStore:
         self._write(payload)
         return dict(payload["identities"][identity_id])
 
+    def generation_for_delete(
+        self,
+        *,
+        identity_id: str,
+        mutation_id: str,
+        minimum_generation: int,
+    ) -> int:
+        payload = self.load() or {"version": self.VERSION, "identities": {}}
+        identity = payload["identities"].get(
+            identity_id, {"erasure_generation": 0, "tombstones": []}
+        )
+        for item in identity.get("tombstones", []):
+            if str(item.get("mutation_id")) == mutation_id:
+                return int(item["erasure_generation"])
+        return max(
+            int(minimum_generation),
+            int(identity.get("erasure_generation", 0)) + 1,
+        )
+
     def record_fact_delete(
         self,
         *,
@@ -115,9 +189,25 @@ class ExternalErasureFenceStore:
             identity_id, {"erasure_generation": 0, "tombstones": []}
         )
         current_generation = int(identity.get("erasure_generation", 0))
-        if int(generation) < current_generation:
+        existing = next(
+            (
+                value
+                for value in identity.get("tombstones", [])
+                if str(value.get("mutation_id")) == mutation_id
+            ),
+            None,
+        )
+        if existing is not None:
+            if (
+                str(existing.get("target_id")) != fact_key
+                or int(existing.get("erasure_generation")) != int(generation)
+            ):
+                raise ErasureWatermarkError(
+                    "erasure mutation reused with different target or generation"
+                )
+        elif int(generation) <= current_generation:
             raise ErasureWatermarkError(
-                "erasure generation cannot move backwards"
+                "new erasure generation must advance external watermark"
             )
         item = {
             "erasure_id": "erasure:" + mutation_id,

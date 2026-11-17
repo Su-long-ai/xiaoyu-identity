@@ -9,7 +9,7 @@ from typing import Callable, Dict, Optional
 from xiaoyu.contracts import ActionReceipt
 from xiaoyu.contracts.common import canonical_json
 from xiaoyu.core.effects import DispatchOutcome, DispatchStatus
-from xiaoyu.persistence import Database, RecoveryQuarantineStore
+from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.effects import EffectRepository, OutboxRepository
 from xiaoyu.persistence.repositories.receipts import (
     ActionReceiptRepository,
@@ -57,8 +57,6 @@ class OutboxDispatcher:
             return recovered
 
     def dispatch_once(self, limit: int = 20, now: Optional[datetime] = None) -> int:
-        if RecoveryQuarantineStore(self.db.path).is_active():
-            return 0
         current = now or datetime.now(timezone.utc)
 
         # Claim is deliberately separate from the dispatch linearization point.

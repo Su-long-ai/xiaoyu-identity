@@ -115,6 +115,24 @@ class LegacyShadowBackfillTests(unittest.TestCase):
             self.assertTrue(backfill.source_order_ok("fish-1"))
             backfill.require_cutover_ready("fish-1")
 
+    def test_source_rollback_below_frozen_watermark_blocks_backfill(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(Path(td) / "identity.sqlite3")
+            self._legacy(db, "one")
+            self._legacy(db, "two")
+            backfill = LegacyShadowBackfill(db)
+            progress = backfill.start("fish-1")
+            self.assertEqual(progress.snapshot_high_watermark, 2)
+
+            with db.transaction(immediate=True) as conn:
+                conn.execute("DELETE FROM events WHERE event_id=2")
+
+            report = backfill.run_batch("fish-1", limit=20)
+            self.assertEqual(report.progress.state, "BLOCKED_SOURCE_GAP")
+            self.assertFalse(report.converged)
+            with self.assertRaises(Exception):
+                backfill.require_cutover_ready("fish-1")
+
     def test_incremental_overtakes_backfill_and_blocks_cutover(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(Path(td) / "identity.sqlite3")

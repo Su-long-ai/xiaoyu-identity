@@ -171,15 +171,22 @@ class LegacyShadowBackfill:
         if fault_hook is not None:
             fault_hook("before_progress", last)
 
-        caught_up = (
-            last >= progress.snapshot_high_watermark
-            or not rows
-        )
+        with self.db.transaction() as conn:
+            source_max = int(
+                conn.execute(
+                    "SELECT COALESCE(MAX(event_id),0) FROM events"
+                ).fetchone()[0]
+            )
+        caught_up = last >= progress.snapshot_high_watermark
+        if source_max < progress.snapshot_high_watermark:
+            state = "BLOCKED_SOURCE_GAP"
+        else:
+            state = "CAUGHT_UP" if caught_up else "RUNNING"
         next_progress = LegacyBackfillProgress(
             identity_id=identity_id,
             snapshot_high_watermark=progress.snapshot_high_watermark,
             last_processed_event_id=last,
-            state="CAUGHT_UP" if caught_up else "RUNNING",
+            state=state,
         )
         self.progress_store.save(next_progress)
         order_ok = self.source_order_ok(identity_id)
@@ -213,6 +220,13 @@ class LegacyShadowBackfill:
 
     def converged(self, identity_id: str, high_watermark: int) -> bool:
         with self.db.transaction() as conn:
+            source_max = int(
+                conn.execute(
+                    "SELECT COALESCE(MAX(event_id),0) FROM events"
+                ).fetchone()[0]
+            )
+            if source_max < int(high_watermark):
+                return False
             missing = conn.execute(
                 """SELECT 1
                    FROM events le
