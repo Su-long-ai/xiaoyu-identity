@@ -12,10 +12,14 @@ from xiaoyu.runtime import (
     PipecatPipelinePolicy,
     PipecatUnavailable,
     PipecatVoiceBinding,
+    ResourceBroker,
+    ResourceMode,
+    ResourceUnavailable,
     VoiceLatencyBudget,
     VoiceMetrics,
     VoiceResourceBudget,
     VoiceResourceSample,
+    VoiceRuntimeLease,
     VoiceSessionController,
     build_pipecat_params,
     evaluate_voice_gate,
@@ -107,6 +111,9 @@ class R15VoicePipecatTests(unittest.IsolatedAsyncioTestCase):
             envelope.payload["voice_turn_generation"],
             token.generation,
         )
+        self.assertFalse(envelope.payload["raw_audio_retained"])
+        self.assertNotIn("raw_audio", envelope.payload)
+        self.assertNotIn("audio_bytes", envelope.payload)
         self.assertEqual(
             envelope.principal_hint,
             "owner",
@@ -236,6 +243,26 @@ class R15VoicePipecatTests(unittest.IsolatedAsyncioTestCase):
         else:
             with self.assertRaises(PipecatUnavailable):
                 build_pipecat_params(policy)
+
+
+    def test_voice_worker_uses_existing_resource_broker_policy(self):
+        balanced = ResourceBroker(mode=ResourceMode.BALANCED)
+        lease = VoiceRuntimeLease(
+            balanced,
+            lease_id="voice-balanced",
+        )
+        acquired = lease.start()
+        self.assertEqual(acquired.lease_id, "voice-balanced")
+        self.assertTrue(lease.active)
+        self.assertTrue(lease.stop())
+        self.assertFalse(lease.active)
+
+        sleeping = ResourceBroker(mode=ResourceMode.SLEEP)
+        with self.assertRaises(ResourceUnavailable):
+            VoiceRuntimeLease(
+                sleeping,
+                lease_id="voice-sleep",
+            ).start()
 
     def test_voice_session_mechanics_do_not_mutate_semantic_db(self):
         with tempfile.TemporaryDirectory() as td:
