@@ -16,6 +16,7 @@ from xiaoyu.contracts.common import (
 from xiaoyu.core.claims import (
     OwnerMutationAdmissionPolicy,
 )
+from xiaoyu.core.erasure import ManagedErasurePropagator
 from xiaoyu.persistence import Database, ExternalErasureFenceStore, apply_migrations
 from xiaoyu.persistence.repositories.claims import ClaimRepository
 from xiaoyu.persistence.repositories.events import CanonicalEventRepository
@@ -190,6 +191,7 @@ class TemporalFactService:
         claim_repo=None,
         temporal_repo=None,
         admission_policy=None,
+        erasure_propagator=None,
     ) -> None:
         self.db = db
         self.event_repo = event_repo or CanonicalEventRepository()
@@ -197,6 +199,9 @@ class TemporalFactService:
         self.temporal_repo = temporal_repo or TemporalRepository()
         self.admission_policy = (
             admission_policy or OwnerMutationAdmissionPolicy()
+        )
+        self.erasure_propagator = (
+            erasure_propagator or ManagedErasurePropagator()
         )
 
     @staticmethod
@@ -414,6 +419,11 @@ class TemporalFactService:
             )
 
             if request.operation == FactMutationOperation.DELETE:
+                self.erasure_propagator.apply_fact_delete(
+                    conn,
+                    identity_id=event.identity_id,
+                    fact_key=fact_key,
+                )
                 erasure_generation = max(
                     erasure_generation + 1,
                     self.temporal_repo.next_erasure_generation(
