@@ -70,15 +70,15 @@ class PersistenceMigrationTests(unittest.TestCase):
             with db.transaction() as conn:
                 conn.execute(
                     """INSERT INTO canonical_events(
-                        event_id,identity_id,turn_id,event_type,surface,principal_id,
-                        audience_scope,context_space,trust_class,taint_json,payload_json,
-                        observed_at,recorded_at,correlation_id
-                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        event_id,identity_id,turn_id,event_type,surface,source_type,principal_id,
+                        audience_scope,context_space,trust_class,taint_json,eligible_for_memory,
+                        payload_type,payload_json,observed_at,recorded_at,correlation_id,schema_version
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         "evt-1", "fish-1", "turn-1", "conversation.user", "desktop",
-                        "owner", "PRIVATE", "PERSONAL", "OWNER_DIRECT", "[]",
-                        '{"text":"hello"}', "2026-11-18T12:00:00+00:00",
-                        "2026-11-18T12:00:00+00:00", "corr-1",
+                        "text", "owner", "PRIVATE", "PERSONAL", "OWNER_DIRECT", "[]", 1,
+                        "text/plain", '{"text":"hello"}', "2026-11-18T12:00:00+00:00",
+                        "2026-11-18T12:00:00+00:00", "corr-1", 1,
                     ),
                 )
             backup = db.backup_to(root / "backup.sqlite3")
