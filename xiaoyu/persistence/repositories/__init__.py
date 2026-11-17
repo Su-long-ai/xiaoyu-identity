@@ -10,6 +10,7 @@ from .purposes import PurposeRepository
 from .profile import ProfileRepository
 from .promise import PromiseRepository
 from .relationship import RelationshipRepository
+from .self_authority import SelfAuthorityRepository
 from .temporal import TemporalRepository
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "ProfileRepository",
     "PromiseRepository",
     "RelationshipRepository",
+    "SelfAuthorityRepository",
     "TemporalRepository",
 ]
