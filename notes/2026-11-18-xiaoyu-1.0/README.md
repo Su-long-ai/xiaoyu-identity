@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [VALIDATION_AND_ACCEPTANCE_PLAN.md](VALIDATION_AND_ACCEPTANCE_PLAN.md)  
+  验收计划：为 Identity、Memory、Proactivity、Vision、Voice、权限、Skill、恢复和资源定义可量化 pass/fail gate。
+
 - [LONG_TERM_HARDENING_AND_OPERATIONS.md](LONG_TERM_HARDENING_AND_OPERATIONS.md)  
   长期工程化：密钥、加密、备份、迁移、更新验签、供应链、故障恢复、资源预算和隐私运维。
 
