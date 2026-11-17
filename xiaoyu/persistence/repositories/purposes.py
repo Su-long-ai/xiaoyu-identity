@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from xiaoyu.contracts.common import (
@@ -19,6 +19,10 @@ from xiaoyu.core.purpose import (
 )
 
 
+def _utc(value: datetime) -> datetime:
+    return value.astimezone(timezone.utc)
+
+
 class PurposeRepository:
     def insert(
         self,
@@ -26,13 +30,13 @@ class PurposeRepository:
         purpose: Purpose,
         created_at: datetime,
     ) -> None:
-        timestamp = datetime_to_text(created_at, "created_at")
+        timestamp = datetime_to_text(_utc(created_at), "created_at")
         conn.execute(
             """INSERT INTO purposes(
                    purpose_id,identity_id,owner_type,owner_id,state,kind,source_event_id,
                    payload_json,scheduled_wall_time,timezone,resolved_utc_time,miss_policy,
-                   created_at,updated_at,last_evaluated_at,quiet_class,duplicate_key
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   created_at,updated_at,last_evaluated_at,quiet_class,duplicate_key,revision
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 purpose.purpose_id,
                 purpose.identity_id,
@@ -44,32 +48,24 @@ class PurposeRepository:
                 canonical_json(purpose.payload),
                 purpose.scheduled_wall_time,
                 purpose.timezone_name,
-                None
-                if purpose.resolved_utc_time is None
-                else datetime_to_text(
-                    purpose.resolved_utc_time, "resolved_utc_time"
+                None if purpose.resolved_utc_time is None else datetime_to_text(
+                    _utc(purpose.resolved_utc_time), "resolved_utc_time"
                 ),
                 purpose.miss_policy.value,
                 timestamp,
                 timestamp,
-                None
-                if purpose.last_evaluated_at is None
-                else datetime_to_text(
-                    purpose.last_evaluated_at, "last_evaluated_at"
+                None if purpose.last_evaluated_at is None else datetime_to_text(
+                    _utc(purpose.last_evaluated_at), "last_evaluated_at"
                 ),
                 purpose.quiet_class,
                 purpose.duplicate_key,
+                purpose.revision,
             ),
         )
 
-    def get(
-        self,
-        conn: sqlite3.Connection,
-        purpose_id: str,
-    ) -> Optional[Purpose]:
+    def get(self, conn: sqlite3.Connection, purpose_id: str) -> Optional[Purpose]:
         row = conn.execute(
-            "SELECT * FROM purposes WHERE purpose_id=?",
-            (purpose_id,),
+            "SELECT * FROM purposes WHERE purpose_id=?", (purpose_id,)
         ).fetchone()
         return None if row is None else self._from_row(row)
 
@@ -80,35 +76,95 @@ class PurposeRepository:
         from_states: tuple[PurposeState, ...],
         to_state: PurposeState,
         updated_at: datetime,
-        *,
-        resolved_utc_time: Optional[datetime] = None,
-        scheduled_wall_time: Optional[str] = None,
     ) -> bool:
         placeholders = ",".join("?" for _ in from_states)
-        assignments = ["state=?", "updated_at=?", "last_evaluated_at=?"]
-        values: list[object] = [
-            to_state.value,
-            datetime_to_text(updated_at, "updated_at"),
-            datetime_to_text(updated_at, "last_evaluated_at"),
-        ]
-        if resolved_utc_time is not None:
-            assignments.append("resolved_utc_time=?")
-            values.append(
-                datetime_to_text(
-                    resolved_utc_time, "resolved_utc_time"
-                )
-            )
-        if scheduled_wall_time is not None:
-            assignments.append("scheduled_wall_time=?")
-            values.append(scheduled_wall_time)
-        values.append(purpose_id)
-        values.extend(state.value for state in from_states)
+        stamp = datetime_to_text(_utc(updated_at), "updated_at")
         cur = conn.execute(
-            "UPDATE purposes SET %s WHERE purpose_id=? AND state IN (%s)"
-            % (",".join(assignments), placeholders),
-            tuple(values),
+            "UPDATE purposes SET state=?,updated_at=?,last_evaluated_at=? "
+            "WHERE purpose_id=? AND state IN (%s)" % placeholders,
+            (
+                to_state.value,
+                stamp,
+                stamp,
+                purpose_id,
+                *(state.value for state in from_states),
+            ),
         )
         return cur.rowcount == 1
+
+    def activate_occurrence(
+        self,
+        conn: sqlite3.Connection,
+        purpose: Purpose,
+        activated_at: datetime,
+    ) -> str:
+        if purpose.resolved_utc_time is None:
+            raise ValueError("scheduled purpose needs resolved_utc_time")
+        occurrence_id = "%s:r%d" % (
+            purpose.purpose_id,
+            purpose.revision,
+        )
+        stamp = datetime_to_text(_utc(activated_at), "activated_at")
+        due = datetime_to_text(
+            _utc(purpose.resolved_utc_time),
+            "scheduled_for_utc",
+        )
+        conn.execute(
+            """INSERT INTO purpose_occurrences(
+                   occurrence_id,identity_id,purpose_id,purpose_revision,
+                   scheduled_for_utc,state,effect_id,activated_at,updated_at
+               ) VALUES(?,?,?,?,?,'READY',NULL,?,?)""",
+            (
+                occurrence_id,
+                purpose.identity_id,
+                purpose.purpose_id,
+                purpose.revision,
+                due,
+                stamp,
+                stamp,
+            ),
+        )
+        cur = conn.execute(
+            """UPDATE purposes
+               SET state='ACTIVE',updated_at=?,last_evaluated_at=?
+               WHERE purpose_id=? AND state='SCHEDULED' AND revision=?""",
+            (
+                stamp,
+                stamp,
+                purpose.purpose_id,
+                purpose.revision,
+            ),
+        )
+        if cur.rowcount != 1:
+            raise RuntimeError("purpose changed before activation")
+        return occurrence_id
+
+    def list_ready_occurrences(
+        self,
+        conn: sqlite3.Connection,
+        identity_id: str,
+    ):
+        return conn.execute(
+            """SELECT * FROM purpose_occurrences
+               WHERE identity_id=? AND state='READY'
+               ORDER BY scheduled_for_utc,occurrence_id""",
+            (identity_id,),
+        ).fetchall()
+
+    def _dispatching_current_revision(
+        self,
+        conn: sqlite3.Connection,
+        purpose_id: str,
+        revision: int,
+    ) -> bool:
+        row = conn.execute(
+            """SELECT 1 FROM effects
+               WHERE purpose_id=? AND purpose_revision=?
+                 AND dispatch_state='DISPATCHING'
+               LIMIT 1""",
+            (purpose_id, revision),
+        ).fetchone()
+        return row is not None
 
     def cancel(
         self,
@@ -116,18 +172,46 @@ class PurposeRepository:
         purpose_id: str,
         updated_at: datetime,
     ) -> bool:
-        return self.transition(
-            conn,
-            purpose_id,
-            (
-                PurposeState.CONFIRMED,
-                PurposeState.SCHEDULED,
-                PurposeState.ACTIVE,
-                PurposeState.WAITING,
-            ),
-            PurposeState.CANCELLED,
-            updated_at,
+        row = conn.execute(
+            "SELECT state,revision FROM purposes WHERE purpose_id=?",
+            (purpose_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        state = PurposeState(str(row["state"]))
+        revision = int(row["revision"])
+        if state not in (
+            PurposeState.CONFIRMED,
+            PurposeState.SCHEDULED,
+            PurposeState.ACTIVE,
+            PurposeState.WAITING,
+        ):
+            return False
+        stamp = datetime_to_text(_utc(updated_at), "updated_at")
+        if self._dispatching_current_revision(conn, purpose_id, revision):
+            conn.execute(
+                """UPDATE purposes
+                   SET state='NEEDS_RECONCILIATION',updated_at=?,
+                       last_evaluated_at=?
+                   WHERE purpose_id=? AND revision=?""",
+                (stamp, stamp, purpose_id, revision),
+            )
+            return False
+        conn.execute(
+            """UPDATE purpose_occurrences
+               SET state='CANCELLED',updated_at=?
+               WHERE purpose_id=? AND purpose_revision=?
+                 AND state='READY'""",
+            (stamp, purpose_id, revision),
         )
+        cur = conn.execute(
+            """UPDATE purposes
+               SET state='CANCELLED',revision=revision+1,
+                   updated_at=?,last_evaluated_at=?
+               WHERE purpose_id=? AND revision=?""",
+            (stamp, stamp, purpose_id, revision),
+        )
+        return cur.rowcount == 1
 
     def complete(
         self,
@@ -135,13 +219,29 @@ class PurposeRepository:
         purpose_id: str,
         updated_at: datetime,
     ) -> bool:
-        return self.transition(
-            conn,
-            purpose_id,
-            (PurposeState.ACTIVE, PurposeState.WAITING),
-            PurposeState.COMPLETED,
-            updated_at,
+        stamp = datetime_to_text(_utc(updated_at), "updated_at")
+        row = conn.execute(
+            "SELECT revision FROM purposes WHERE purpose_id=?",
+            (purpose_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        revision = int(row["revision"])
+        conn.execute(
+            """UPDATE purpose_occurrences
+               SET state='COMPLETED',updated_at=?
+               WHERE purpose_id=? AND purpose_revision=?
+                 AND state IN ('READY','CLAIMED')""",
+            (stamp, purpose_id, revision),
         )
+        cur = conn.execute(
+            """UPDATE purposes SET state='COMPLETED',updated_at=?,
+                      last_evaluated_at=?
+               WHERE purpose_id=? AND revision=?
+                 AND state IN ('ACTIVE','WAITING')""",
+            (stamp, stamp, purpose_id, revision),
+        )
+        return cur.rowcount == 1
 
     def reschedule(
         self,
@@ -152,20 +252,52 @@ class PurposeRepository:
         resolved_utc_time: datetime,
         updated_at: datetime,
     ) -> bool:
+        row = conn.execute(
+            "SELECT state,revision FROM purposes WHERE purpose_id=?",
+            (purpose_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        state = PurposeState(str(row["state"]))
+        revision = int(row["revision"])
+        if state not in (
+            PurposeState.CONFIRMED,
+            PurposeState.SCHEDULED,
+            PurposeState.ACTIVE,
+            PurposeState.WAITING,
+        ):
+            return False
+        stamp = datetime_to_text(_utc(updated_at), "updated_at")
+        if self._dispatching_current_revision(conn, purpose_id, revision):
+            conn.execute(
+                """UPDATE purposes
+                   SET state='NEEDS_RECONCILIATION',updated_at=?,
+                       last_evaluated_at=?
+                   WHERE purpose_id=? AND revision=?""",
+                (stamp, stamp, purpose_id, revision),
+            )
+            return False
+        conn.execute(
+            """UPDATE purpose_occurrences
+               SET state='SUPERSEDED',updated_at=?
+               WHERE purpose_id=? AND purpose_revision=?
+                 AND state='READY'""",
+            (stamp, purpose_id, revision),
+        )
         cur = conn.execute(
             """UPDATE purposes
-               SET state='SCHEDULED',scheduled_wall_time=?,timezone=?,resolved_utc_time=?,
+               SET state='SCHEDULED',scheduled_wall_time=?,timezone=?,
+                   resolved_utc_time=?,revision=revision+1,
                    updated_at=?,last_evaluated_at=?
-               WHERE purpose_id=? AND state IN ('CONFIRMED','SCHEDULED','ACTIVE','WAITING')""",
+               WHERE purpose_id=? AND revision=?""",
             (
                 scheduled_wall_time,
                 timezone_name,
-                datetime_to_text(
-                    resolved_utc_time, "resolved_utc_time"
-                ),
-                datetime_to_text(updated_at, "updated_at"),
-                datetime_to_text(updated_at, "last_evaluated_at"),
+                datetime_to_text(_utc(resolved_utc_time), "resolved_utc_time"),
+                stamp,
+                stamp,
                 purpose_id,
+                revision,
             ),
         )
         return cur.rowcount == 1
@@ -185,7 +317,7 @@ class PurposeRepository:
                ORDER BY resolved_utc_time,purpose_id LIMIT ?""",
             (
                 identity_id,
-                datetime_to_text(now, "now"),
+                datetime_to_text(_utc(now), "now"),
                 max(1, min(limit, 500)),
             ),
         ).fetchall()
@@ -217,4 +349,5 @@ class PurposeRepository:
             else datetime_from_text(
                 row["last_evaluated_at"], "last_evaluated_at"
             ),
+            revision=int(row["revision"]),
         )
