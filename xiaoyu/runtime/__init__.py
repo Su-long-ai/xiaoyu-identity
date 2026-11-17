@@ -1,4 +1,6 @@
 """Runtime Host primitives."""
+from .host import RuntimeAdmission, RuntimeHost
+from .litellm_backend import LiteLLMBackendUnavailable, LiteLLMCompletionBackend
 from .delivery import (
     DeliveryAttemptAlreadyActive,
     DeliveryCoordinator,
@@ -34,7 +36,11 @@ __all__ = [
     "DeliveryCoordinator",
     "DeliveryLedger",
     "ExecutionRecoveryQueue",
+    "LiteLLMBackendUnavailable",
+    "LiteLLMCompletionBackend",
     "OutboxDispatcher",
+    "RuntimeAdmission",
+    "RuntimeHost",
     "PowerLifecycle",
     "PowerState",
     "PrivacyClass",
