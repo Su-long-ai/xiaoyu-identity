@@ -18,6 +18,7 @@ from xiaoyu.contracts import (
     ResourceRef,
     RiskTier,
 )
+from xiaoyu.contracts.common import canonical_json
 from xiaoyu.core.authorization import AuthorizationPolicy, AuthorizationResult
 from xiaoyu.core.effects import (
     DispatchOutcome,
@@ -589,11 +590,46 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     "SELECT request_digest FROM action_receipts"
                 ).fetchone()[0]
                 expected = "sha256:" + hashlib.sha256(
-                    (
-                        '{"recipient":"owner","text":"hello"}'
-                    ).encode("utf-8")
+                    canonical_json(eff.request).encode("utf-8")
                 ).hexdigest()
                 self.assertEqual(receipt, expected)
+            finally:
+                conn.close()
+
+    def test_receipt_digest_uses_transport_boundary_snapshot(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            original = effect().request
+            expected = "sha256:" + hashlib.sha256(
+                canonical_json(original).encode("utf-8")
+            ).hexdigest()
+
+            def mutating_transport(payload, idem):
+                payload["recipient"] = "mutated-after-call"
+                payload["text"] = "mutated"
+                return DispatchOutcome(
+                    DispatchStatus.SUCCEEDED,
+                    external_ref="msg-mutating",
+                )
+
+            self.assertEqual(
+                OutboxDispatcher(
+                    db, {"qq": mutating_transport}
+                ).dispatch_once(now=NOW),
+                1,
+            )
+            conn = db.connect()
+            try:
+                receipt = conn.execute(
+                    "SELECT request_digest FROM action_receipts"
+                ).fetchone()[0]
+                persisted = conn.execute(
+                    "SELECT payload_json FROM outbox"
+                ).fetchone()[0]
+                self.assertEqual(receipt, expected)
+                self.assertEqual(persisted, canonical_json(original))
             finally:
                 conn.close()
 
