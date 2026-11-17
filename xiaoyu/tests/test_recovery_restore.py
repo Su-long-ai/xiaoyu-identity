@@ -375,6 +375,122 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self.assertEqual(tombstone[0], 1)
             self.assertEqual(claim[0], "ERASED")
 
+    def test_restore_preserves_fact_reintroduced_after_latest_erasure(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            active = self._db(root / "identity.sqlite3")
+            self._seed_fact(active)
+            fence = ExternalErasureFenceStore(active.path)
+            fence.ensure_identity("fish-1")
+            fence.record_fact_delete(
+                identity_id="fish-1",
+                fact_key="fact:secret",
+                generation=1,
+                source_event_id="evt-delete",
+                source_ingest_revision=2,
+                mutation_id="mut-delete",
+                requested_at=STAMP,
+                result_revision=2,
+            )
+            with active.transaction(immediate=True) as conn:
+                conn.execute(
+                    "UPDATE temporal_facts SET status='DELETED' WHERE fact_key='fact:secret'"
+                )
+                conn.execute(
+                    "UPDATE claims SET status='ERASED' WHERE claim_id='claim-secret'"
+                )
+                conn.execute(
+                    """INSERT INTO claims(
+                           claim_id,identity_id,subject,predicate,object_json,
+                           trust_class,confidence,status,created_at
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "claim-new",
+                        "fish-1",
+                        "owner",
+                        "secret_pref",
+                        '"B"',
+                        "OWNER_DIRECT",
+                        1.0,
+                        "CONFIRMED",
+                        STAMP,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO temporal_facts(
+                           fact_id,identity_id,claim_id,subject,predicate,value_json,
+                           valid_from,valid_to,recorded_at,status,supersedes_fact_id,
+                           fact_key,principal_scope,context_space,cardinality,
+                           revision,mutation_id
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "fact-row-2",
+                        "fish-1",
+                        "claim-new",
+                        "owner",
+                        "secret_pref",
+                        '"B"',
+                        STAMP,
+                        None,
+                        STAMP,
+                        "CURRENT",
+                        "fact-row-1",
+                        "fact:secret",
+                        "owner",
+                        "PERSONAL",
+                        "SINGLE",
+                        3,
+                        "mut-reintroduce",
+                    ),
+                )
+                conn.execute(
+                    """UPDATE fact_authority_revisions
+                       SET current_revision=3,last_source_ingest_revision=3,
+                           erasure_generation=1
+                       WHERE identity_id='fish-1' AND fact_key='fact:secret'"""
+                )
+                conn.execute(
+                    """INSERT INTO erasure_tombstones(
+                           erasure_id,identity_id,target_type,target_id,
+                           erasure_generation,requested_at,applied_at,
+                           source_event_id,source_ingest_revision,mutation_id
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "erasure:mut-delete",
+                        "fish-1",
+                        "fact_key",
+                        "fact:secret",
+                        1,
+                        STAMP,
+                        STAMP,
+                        "evt-delete",
+                        2,
+                        "mut-delete",
+                    ),
+                )
+
+            snapshot = active.backup_to(root / "post-reintroduce.sqlite3")
+            RecoveryManager.restore(
+                candidate_path=snapshot,
+                target_path=active.path,
+                identity_id="fish-1",
+                mode=RestoreMode.MANAGED,
+            )
+
+            restored = Database(active.path)
+            with restored.transaction() as conn:
+                current = conn.execute(
+                    """SELECT value_json,status FROM temporal_facts
+                       WHERE identity_id='fish-1' AND fact_key='fact:secret'
+                         AND status='CURRENT'"""
+                ).fetchone()
+                claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim-new'"
+                ).fetchone()
+            self.assertEqual(json.loads(current["value_json"]), "B")
+            self.assertEqual(current["status"], "CURRENT")
+            self.assertEqual(claim[0], "CONFIRMED")
+
     def test_restore_rebuilds_projection_from_canonical_fact_not_old_summary(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
