@@ -54,6 +54,51 @@ class IdentityShadowIntegrationTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_stable_source_key_dedupes_canonical_replay(self):
+        with tempfile.TemporaryDirectory() as td:
+            store = IdentityStore(Path(td), enable_v1_shadow=True)
+            try:
+                extra = {
+                    "surface": "qq",
+                    "principal_id": "owner",
+                    "source_namespace": "qq",
+                    "source_event_key": "message-123",
+                }
+                store.record(
+                    "conversation.user",
+                    "user",
+                    "same upstream message",
+                    extra,
+                )
+                store.record(
+                    "conversation.user",
+                    "user",
+                    "same upstream message",
+                    extra,
+                )
+                canonical_count = store.conn.execute(
+                    """SELECT COUNT(*) FROM canonical_events
+                       WHERE identity_id=? AND source_namespace='qq'
+                         AND source_event_key='message-123'""",
+                    (store.persona()["id"],),
+                ).fetchone()[0]
+                ingest_count = store.conn.execute(
+                    """SELECT COUNT(*) FROM canonical_event_ingest cei
+                       JOIN canonical_events ce ON ce.event_id=cei.event_id
+                       WHERE ce.identity_id=? AND ce.source_namespace='qq'
+                         AND ce.source_event_key='message-123'""",
+                    (store.persona()["id"],),
+                ).fetchone()[0]
+                legacy_count = store.conn.execute(
+                    """SELECT COUNT(*) FROM events
+                       WHERE content='same upstream message'"""
+                ).fetchone()[0]
+                self.assertEqual(canonical_count, 1)
+                self.assertEqual(ingest_count, 1)
+                self.assertEqual(legacy_count, 2)
+            finally:
+                store.close()
+
     def test_shadow_failure_rolls_back_legacy_event(self):
         class BrokenShadow:
             def write(self, *args, **kwargs):
