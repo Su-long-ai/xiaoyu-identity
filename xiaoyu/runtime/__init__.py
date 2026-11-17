@@ -7,6 +7,14 @@ from .delivery import (
 from .host import RuntimeAdmission, RuntimeHost
 from .outbox import OutboxDispatcher
 from .power import PowerLifecycle, PowerState, ResumeReport
+from .product_context import (
+    CanonicalDialogueProjector,
+    CanonicalHistoryTurn,
+    CanonicalProductContext,
+    CanonicalProductContextBuilder,
+    CanonicalReadinessEvidence,
+    CanonicalReadShadowEvaluator,
+)
 from .presence import (
     AmbientPresenceEngine,
     PresenceFrame,
@@ -83,6 +91,12 @@ __all__ = [
     "ExecutionResourceBroker",
     "ModeTransition",
     "OutboxDispatcher",
+    "CanonicalDialogueProjector",
+    "CanonicalHistoryTurn",
+    "CanonicalProductContext",
+    "CanonicalProductContextBuilder",
+    "CanonicalReadinessEvidence",
+    "CanonicalReadShadowEvaluator",
     "PowerLifecycle",
     "PowerState",
     "PresenceFrame",
