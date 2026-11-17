@@ -326,20 +326,25 @@ class RecoveryManager:
                         restored_at,
                     ),
                 )
-                conn.execute(
-                    """INSERT OR IGNORE INTO projection_invalidations(
-                           identity_id,fact_key,source_revision,erasure_generation,
-                           mutation_id,invalidated_at
-                       ) VALUES(?,?,?,?,?,?)""",
-                    (
-                        identity_id,
-                        fact_key,
-                        revision,
-                        generation,
-                        str(tombstone["mutation_id"]),
-                        restored_at,
-                    ),
-                )
+                mutation_present = conn.execute(
+                    "SELECT 1 FROM fact_mutations WHERE mutation_id=?",
+                    (str(tombstone["mutation_id"]),),
+                ).fetchone()
+                if mutation_present is not None:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO projection_invalidations(
+                               identity_id,fact_key,source_revision,erasure_generation,
+                               mutation_id,invalidated_at
+                           ) VALUES(?,?,?,?,?,?)""",
+                        (
+                            identity_id,
+                            fact_key,
+                            revision,
+                            generation,
+                            str(tombstone["mutation_id"]),
+                            restored_at,
+                        ),
+                    )
 
             cur = conn.execute(
                 """UPDATE outbox SET state='NEEDS_RECONCILIATION',next_attempt_at=NULL,
