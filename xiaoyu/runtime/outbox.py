@@ -20,7 +20,7 @@ from xiaoyu.persistence.repositories.execution_auth import (
     DispatchAuthorizationDenied,
     ExecutionAuthorizationRepository,
 )
-from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceHandles
 
 
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
@@ -54,7 +54,7 @@ class OutboxDispatcher:
         delivery_repo=None,
         execution_auth_repo=None,
         max_attempts: int = 5,
-        resource_broker: Optional[ExecutionResourceBroker] = None,
+        resource_broker: Optional[ExecutionResourceHandles] = None,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
