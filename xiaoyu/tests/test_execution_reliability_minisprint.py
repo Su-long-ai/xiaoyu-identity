@@ -287,6 +287,28 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
         )
         self.assertEqual(extra.decision, AuthorizationDecision.DENY)
 
+        for bad_parameters in (
+            {},
+            {"messages": True},
+            {"messages": "1000"},
+            {"messages": float("nan")},
+            {"messages": float("inf")},
+        ):
+            with self.subTest(parameters=bad_parameters):
+                result = policy.evaluate(
+                    principal(),
+                    actor(),
+                    delegation(),
+                    action(parameters=bad_parameters),
+                    resource(),
+                    context(),
+                    NOW,
+                )
+                self.assertEqual(
+                    result.decision,
+                    AuthorizationDecision.DENY,
+                )
+
     def test_revocation_after_claim_before_transport_is_revalidated(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
@@ -1018,6 +1040,52 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     for item in items
                 )
             )
+
+    def test_authorization_decision_audit_contains_exact_action(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            conn = db.connect()
+            try:
+                body = json.loads(
+                    conn.execute(
+                        """SELECT resource_json
+                           FROM authorization_decisions"""
+                    ).fetchone()[0]
+                )
+                self.assertEqual(
+                    body["action"],
+                    action().to_dict(),
+                )
+                self.assertEqual(
+                    body["resource"],
+                    resource().to_dict(),
+                )
+            finally:
+                conn.close()
+
+    def test_effect_request_rejects_missing_unknown_and_wrong_types(self):
+        with tempfile.TemporaryDirectory() as td:
+            for bad_request in (
+                {"recipient": "owner"},
+                {
+                    "recipient": "owner",
+                    "text": "hello",
+                    "surprise": "x",
+                },
+                {"recipient": "owner", "text": 123},
+            ):
+                with self.subTest(request=bad_request):
+                    db = self._db(td)
+                    self._insert_purpose(db)
+                    with self.assertRaises(EffectBindingError):
+                        self._enqueue(
+                            db,
+                            eff=effect(bad_request),
+                        )
+                    # subtests share td; clean the DB for the next case
+                    Path(td, "identity.sqlite3").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
