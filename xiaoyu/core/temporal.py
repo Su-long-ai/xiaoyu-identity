@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum
+import json
 import hashlib
 from typing import Any, Optional
 
@@ -455,6 +455,7 @@ class TemporalFactService:
                 conn,
                 str(target["fact_id"]),
                 "RETRACTED",
+                valid_to=valid_from,
             )
             return None
 
@@ -552,7 +553,7 @@ class TemporalFactService:
         if len(current) == 1:
             previous = current[0]
             previous_value = canonical_json(
-                __import__("json").loads(previous["value_json"])
+                json.loads(previous["value_json"])
             )
             if previous_value == canonical_json(request.value):
                 raise FactConflict(
