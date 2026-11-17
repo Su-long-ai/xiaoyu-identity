@@ -8,6 +8,19 @@ from .delivery import (
 )
 from .outbox import OutboxDispatcher
 from .power import PowerLifecycle, PowerState, ResumeReport
+from .presence import AmbientPresenceEngine, PresenceFrame, PresenceState
+from .resource import (
+    CompositeResourceSampler,
+    NvmlResourceSampler,
+    OptionalResourceDependencyUnavailable,
+    PsutilResourceSampler,
+    ResourceBroker,
+    ResourceDecision,
+    ResourceMode,
+    ResourcePolicy,
+    ResourceRequest,
+    ResourceSnapshot,
+)
 from .provider_registry import (
     AUDIENCE_RESET_COMPONENTS,
     AudienceResetDecision,
@@ -39,6 +52,19 @@ __all__ = [
     "LiteLLMBackendUnavailable",
     "LiteLLMCompletionBackend",
     "OutboxDispatcher",
+    "AmbientPresenceEngine",
+    "CompositeResourceSampler",
+    "NvmlResourceSampler",
+    "OptionalResourceDependencyUnavailable",
+    "PresenceFrame",
+    "PresenceState",
+    "PsutilResourceSampler",
+    "ResourceBroker",
+    "ResourceDecision",
+    "ResourceMode",
+    "ResourcePolicy",
+    "ResourceRequest",
+    "ResourceSnapshot",
     "RuntimeAdmission",
     "RuntimeHost",
     "PowerLifecycle",
