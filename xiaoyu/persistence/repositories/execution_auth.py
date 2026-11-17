@@ -32,7 +32,10 @@ class DispatchAuthorizationDenied(PermissionError):
 
 class DelegationRepository:
     @staticmethod
-    def _semantic_payload(delegation: Delegation) -> dict:
+    def _semantic_payload(
+        delegation: Delegation,
+        actor: ActorContext,
+    ) -> dict:
         return {
             "delegation_id": delegation.delegation_id,
             "issued_by_principal": delegation.issued_by_principal,
@@ -50,6 +53,8 @@ class DelegationRepository:
                 delegation.expires_at, "expires_at"
             ),
             "revocable": delegation.revocable,
+            "actor_implementation_digest": actor.implementation_digest,
+            "actor_authorization_digest": actor.authorization_digest,
         }
 
     def ensure(
@@ -57,8 +62,9 @@ class DelegationRepository:
         conn: sqlite3.Connection,
         identity_id: str,
         delegation: Delegation,
+        actor: ActorContext,
     ) -> str:
-        payload = self._semantic_payload(delegation)
+        payload = self._semantic_payload(delegation, actor)
         digest = _digest(payload)
         existing = conn.execute(
             """SELECT delegation_digest FROM delegations
