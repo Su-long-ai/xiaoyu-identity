@@ -237,10 +237,12 @@ class PetApp:
             if context_fence==context_fence_before:
                 break
         else:
+            # Remove the pending placeholder first, then surface the fail-closed
+            # outcome so the UI cannot remain stuck on “正在想……”.
+            self.log.delete("end-2l","end-1l")
             self.logline(
                 "系统：上下文在组装期间持续变化，本次未发送；请重试。"
             )
-            self.log.delete("end-2l","end-1l")
             return
         config=load_provider(HOME)
         self.pending=True

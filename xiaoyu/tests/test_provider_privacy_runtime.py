@@ -193,6 +193,25 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
             )
             self.assertTrue(result.allowed,capability)
 
+    def test_stale_session_namespace_fuzz(self):
+        namespaces=set()
+        for principal in ("owner","guest"):
+            for audience in ("PRIVATE","GROUP"):
+                for space in ("PERSONAL","SHARED"):
+                    for generation in ("gen-1","gen-2"):
+                        for provider in ("provider-a","provider-b"):
+                            d=descriptor(provider_id=provider)
+                            ctx=attempt_context(
+                                d,
+                                principal_id=principal,
+                                audience_scope=audience,
+                                context_space=space,
+                                context_generation=generation,
+                                privacy=PrivacyClass.PUBLIC,
+                            )
+                            namespaces.add(provider_session_namespace(ctx))
+        self.assertEqual(len(namespaces),32)
+
 
     def test_owner_to_group_guest_and_shared_require_full_context_reset(self):
         d=descriptor()
@@ -423,6 +442,115 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                             },
                         )
                 self.assertEqual(calls,[])
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_private_three_provider_chain_still_falls_back_when_scope_is_stable(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            config["fallbacks"]=["qwen","deepseek"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                if len(calls)<3:
+                    raise RuntimeError("transient")
+                return "ok",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    answer,_=dual_guarded_chat(
+                        model_adapter.chat,config,messages,
+                        store.db_path,bridge.db_path,generation,expectations,
+                    )
+                self.assertEqual(answer,"ok")
+                self.assertEqual(calls,["deepseek_web","qwen","deepseek"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_authorization_change_between_attempts_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["authorization_digest"]="auth-v2"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_fallback_privacy_eligibility_change_is_recomputed(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            old=model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]=("PUBLIC",)
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(RuntimeError):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek"]=old
+                bridge.close()
+                store.close()
+
+    def test_response_after_physical_delete_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                with store.conn:
+                    store.conn.execute(
+                        "DELETE FROM memories WHERE memory_id=?",(int(mid),)
+                    )
+                return "stale-success",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
             finally:
                 bridge.close()
                 store.close()
