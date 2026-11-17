@@ -397,9 +397,10 @@ class CanonicalMemoryService:
         with self.db.transaction() as conn:
             if fact_key is None:
                 row = conn.execute(
-                    """SELECT tf.*,c.source_event_id
+                    """SELECT tf.*,cs.event_id AS source_event_id
                        FROM temporal_facts tf
                        JOIN claims c ON c.claim_id=tf.claim_id
+                       JOIN claim_sources cs ON cs.claim_id=c.claim_id
                        WHERE tf.subject=?
                          AND tf.predicate=?
                          AND tf.status='CURRENT'
@@ -411,9 +412,10 @@ class CanonicalMemoryService:
                 ).fetchone()
             else:
                 row = conn.execute(
-                    """SELECT tf.*,c.source_event_id
+                    """SELECT tf.*,cs.event_id AS source_event_id
                        FROM temporal_facts tf
                        JOIN claims c ON c.claim_id=tf.claim_id
+                       JOIN claim_sources cs ON cs.claim_id=c.claim_id
                        WHERE tf.fact_key=? AND tf.status='CURRENT'
                        ORDER BY tf.revision DESC LIMIT 1""",
                     (fact_key,),
@@ -441,9 +443,10 @@ class CanonicalMemoryService:
     ) -> list[CanonicalMemoryItem]:
         with self.db.transaction() as conn:
             rows = conn.execute(
-                """SELECT tf.*,c.source_event_id
+                """SELECT tf.*,cs.event_id AS source_event_id
                    FROM temporal_facts tf
                    JOIN claims c ON c.claim_id=tf.claim_id
+                   JOIN claim_sources cs ON cs.claim_id=c.claim_id
                    WHERE tf.identity_id=?
                      AND tf.principal_scope=?
                      AND tf.context_space=?
