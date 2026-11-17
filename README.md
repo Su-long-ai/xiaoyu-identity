@@ -1,4 +1,8 @@
-# 小鱼 · 独立可迁移的私人 AI 伴侣原型
+# Persistent AI Identity & Long-Term Memory System
+
+**Private research system for stateful AI agents:** model-independent identity, event-sourced long-term memory, human-confirmed persona evolution, portability across providers, and external memory evaluation.
+
+**Portfolio signal:** persistent memory · stateful agents · provenance · provider abstraction · evaluation.
 
 > **Research direction — 2026-11-02:** Retrieval-completeness capability sprint is ACTIVE. The frozen LoCoMo200 run scored 44.50% overall; complete evidence reached context on 35% of items, and answer accuracy was 88.57% when evidence was complete. Current P0 work is read-side retrieval completeness, especially Multi-hop (10% complete-evidence recall). See [governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md](governance/CAPABILITY_SPRINT_RETRIEVAL_20261102.md).
 
