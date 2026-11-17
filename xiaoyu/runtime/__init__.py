@@ -6,6 +6,11 @@ from .delivery import (
     DeliveryLedger,
 )
 from .outbox import OutboxDispatcher
+from .presence import (
+    AmbientPresenceEngine,
+    PresenceFrame,
+    PresenceState,
+)
 from .power import PowerLifecycle, PowerState, ResumeReport
 from .provider_registry import (
     AUDIENCE_RESET_COMPONENTS,
@@ -26,17 +31,36 @@ from .recovery import (
     RecoveryItem,
     STATE_RECOVERY_PATHS,
 )
+from .resource_broker import (
+    ModeTransition,
+    ResourceBroker,
+    ResourceBudget,
+    ResourceLease,
+    ResourceMode,
+    ResourceRequest,
+    ResourceUnavailable,
+)
 from .scheduler import PurposeDecision, PurposeScheduler
 
 __all__ = [
     "AUDIENCE_RESET_COMPONENTS",
+    "AmbientPresenceEngine",
     "AudienceResetDecision",
     "DeliveryAttemptAlreadyActive",
     "DeliveryCoordinator",
     "DeliveryLedger",
     "ExecutionRecoveryQueue",
+    "ModeTransition",
     "OutboxDispatcher",
+    "PresenceFrame",
+    "PresenceState",
     "RuntimeAdmission",
+    "ResourceBroker",
+    "ResourceBudget",
+    "ResourceLease",
+    "ResourceMode",
+    "ResourceRequest",
+    "ResourceUnavailable",
     "RuntimeHost",
     "PowerLifecycle",
     "PowerState",
