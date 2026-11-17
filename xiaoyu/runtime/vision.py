@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import math
 import subprocess
@@ -26,6 +26,9 @@ class CapturedVisionFrame:
     audience_scope: str = "PRIVATE"
     context_space: str = "PERSONAL"
     privacy_class: str = "OWNER_PRIVATE"
+    width: Optional[int] = None
+    height: Optional[int] = None
+    pixel_format: str = "BYTES"
 
     def __post_init__(self) -> None:
         require_aware(self.captured_at, "captured_at")
@@ -33,6 +36,80 @@ class CapturedVisionFrame:
             raise ValueError("source_id is required")
         if not isinstance(self.content, (bytes, bytearray, memoryview)):
             raise TypeError("vision frame content must be bytes-like")
+
+
+class OptionalVisionDependencyUnavailable(RuntimeError):
+    pass
+
+
+class MssScreenCapture:
+    """Thin transient screen-capture adapter over python-mss."""
+
+    def __init__(
+        self,
+        *,
+        monitor_index: int = 1,
+        source_id: str = "screen:primary",
+        surface: str = "desktop.vision",
+        principal_hint: Optional[str] = "owner",
+        audience_scope: str = "PRIVATE",
+        context_space: str = "PERSONAL",
+        privacy_class: str = "OWNER_PRIVATE",
+        mss_factory=None,
+    ) -> None:
+        if monitor_index < 0:
+            raise ValueError("monitor_index cannot be negative")
+        if mss_factory is None:
+            try:
+                from mss import MSS  # type: ignore
+            except ImportError as exc:
+                raise OptionalVisionDependencyUnavailable(
+                    "python-mss is not installed"
+                ) from exc
+            mss_factory = MSS
+        self.monitor_index = int(monitor_index)
+        self.source_id = source_id
+        self.surface = surface
+        self.principal_hint = principal_hint
+        self.audience_scope = audience_scope
+        self.context_space = context_space
+        self.privacy_class = privacy_class
+        self._factory = mss_factory
+        self._capture = None
+
+    def _instance(self):
+        if self._capture is None:
+            self._capture = self._factory()
+        return self._capture
+
+    def __call__(self) -> CapturedVisionFrame:
+        capture = self._instance()
+        monitors = capture.monitors
+        if self.monitor_index >= len(monitors):
+            raise RuntimeError("requested monitor is unavailable")
+        shot = capture.grab(monitors[self.monitor_index])
+        return CapturedVisionFrame(
+            source_id=self.source_id,
+            content=bytes(shot.rgb),
+            captured_at=datetime.now(timezone.utc),
+            surface=self.surface,
+            principal_hint=self.principal_hint,
+            audience_scope=self.audience_scope,
+            context_space=self.context_space,
+            privacy_class=self.privacy_class,
+            width=int(shot.width),
+            height=int(shot.height),
+            pixel_format="RGB",
+        )
+
+    def close(self) -> None:
+        capture = self._capture
+        self._capture = None
+        if capture is None:
+            return
+        close = getattr(capture, "close", None)
+        if callable(close):
+            close()
 
 
 @dataclass(frozen=True)
@@ -179,6 +256,9 @@ class VisionSidecar:
         changed = self._enabled or self.process_supervisor.running
         self._enabled = False
         self.process_supervisor.stop()
+        close_capture = getattr(self.capture, "close", None)
+        if callable(close_capture):
+            close_capture()
         self._clear_sensor_state()
         return changed
 
