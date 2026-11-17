@@ -10,7 +10,10 @@ from typing import Any, Optional
 
 from xiaoyu.core.identity import SelfAuthorityService
 from xiaoyu.core.memory import CanonicalMemoryService
-from xiaoyu.persistence import Database
+from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence.backfill import LegacyShadowBackfill
+from xiaoyu.persistence.memory_backfill import LegacyMemoryTemporalBackfill
+from xiaoyu.core.identity import LegacySelfBackfill
 from xiaoyu.runtime.context import (
     AssembledContext,
     ContextAssembler,
@@ -760,3 +763,81 @@ class CanonicalReadShadowMonitor:
             )
         except (KeyError, TypeError, ValueError):
             return None
+
+
+
+@dataclass(frozen=True)
+class CanonicalReadShadowPreparation:
+    identity_id: str
+    event_backfill_converged: bool
+    memory_backfill_converged: bool
+    persona_revision: int
+    readiness: CanonicalReadShadowStatus
+
+
+class CanonicalReadShadowBootstrap:
+    """Idempotently prepare canonical read shadow without changing product reads."""
+
+    def __init__(
+        self,
+        db: Database,
+        status_path,
+        *,
+        required_consecutive: int = 20,
+    ) -> None:
+        self.db = db
+        self.status_path = Path(status_path)
+        self.required_consecutive = int(required_consecutive)
+
+    def prepare(
+        self,
+        *,
+        identity_id: str,
+        principal_id: str = "owner",
+        event_batch_limit: int = 1000,
+        observed_at: Optional[datetime] = None,
+    ) -> CanonicalReadShadowPreparation:
+        apply_migrations(self.db)
+
+        backfill = LegacyShadowBackfill(self.db)
+        report = backfill.run_batch(
+            identity_id,
+            limit=event_batch_limit,
+        )
+        while not report.converged:
+            if report.processed <= 0:
+                raise RuntimeError(
+                    "canonical event shadow backfill made no progress"
+                )
+            report = backfill.run_batch(
+                identity_id,
+                limit=event_batch_limit,
+            )
+
+        persona = LegacySelfBackfill(self.db).run()
+        memory = LegacyMemoryTemporalBackfill(
+            self.db,
+            principal_id=principal_id,
+        ).run(identity_id)
+        if not memory.converged:
+            raise RuntimeError(
+                "canonical memory backfill did not converge"
+            )
+
+        monitor = CanonicalReadShadowMonitor(
+            self.db,
+            self.status_path,
+            required_consecutive=self.required_consecutive,
+        )
+        readiness = monitor.observe(
+            identity_id=identity_id,
+            principal_id=principal_id,
+            observed_at=observed_at,
+        )
+        return CanonicalReadShadowPreparation(
+            identity_id=identity_id,
+            event_backfill_converged=report.converged,
+            memory_backfill_converged=memory.converged,
+            persona_revision=persona.persona_revision,
+            readiness=readiness,
+        )
