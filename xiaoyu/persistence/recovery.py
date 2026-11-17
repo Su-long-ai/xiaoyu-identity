@@ -441,7 +441,7 @@ class RecoveryManager:
                     "SELECT 1 FROM fact_mutations WHERE mutation_id=?",
                     (str(tombstone["mutation_id"]),),
                 ).fetchone()
-                if mutation_present is not None:
+                if must_reapply_delete and mutation_present is not None:
                     conn.execute(
                         """INSERT OR IGNORE INTO projection_invalidations(
                                identity_id,fact_key,source_revision,erasure_generation,
