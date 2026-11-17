@@ -521,6 +521,7 @@ def chat(
     provider_health=None,
     runtime_host=None,
     required_features=(),
+    transport_backend=None,
 ):
     """OpenAI-compatible messages with ordered provider fallback.
 
@@ -623,9 +624,19 @@ def chat(
                 else None
             )
             try:
-                result=_chat_once(
-                    candidate,attempt_messages,max_tokens,timeout,callback
-                )
+                if transport_backend is None:
+                    result=_chat_once(
+                        candidate,attempt_messages,max_tokens,timeout,callback
+                    )
+                else:
+                    result=transport_backend.complete(
+                        candidate,
+                        attempt_messages,
+                        max_tokens,
+                        timeout,
+                        callback,
+                        api_key=_provider_key(candidate),
+                    )
             except (ProviderConfigError,RuntimeError) as exc:
                 errors.append((name,str(exc)))
                 continue
