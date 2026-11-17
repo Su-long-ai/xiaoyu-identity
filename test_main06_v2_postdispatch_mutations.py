@@ -20,19 +20,20 @@ def run(kind):
                 on_dispatched();gate.set();assert finish.wait(3)
                 return "stale reply",{}
             def worker():
-                out["reply"]=dual_guarded_chat(fake,{},[],s.db_path,b.db_path,gen,ex)[0]
+                try:
+                    out["reply"]=dual_guarded_chat(
+                        fake,{},[],s.db_path,b.db_path,gen,ex
+                    )[0]
+                except FreshnessChanged:
+                    out["stale_rejected"]=True
             t=threading.Thread(target=worker);t.start();assert gate.wait(3)
             if kind=="retract": assert s.retract_memory(mid)
             elif kind=="archive": assert s.archive_memory(mid)
             elif kind=="correct": s.correct_memory(mid,"postdispatch replacement")
             else: raise AssertionError(kind)
             finish.set();t.join(3);assert not t.is_alive()
-            try:
-                persist_assistant_if_fresh(s,b,gen,ex,out["reply"])
-            except FreshnessChanged:
-                pass
-            else:
-                raise AssertionError(kind+" stale reply persisted")
+            assert out.get("stale_rejected") is True,(kind,out)
+            assert "reply" not in out,(kind,out)
             assert s.actual_progress()["assistant_replies"]==0
         finally:
             finish.set();b.close();s.close()

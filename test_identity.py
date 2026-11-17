@@ -170,7 +170,10 @@ class IdentityTests(unittest.TestCase):
         config=save_provider(self.home,"qwen","qwen3.8-flash")
         with patch.dict(os.environ,{"DASHSCOPE_API_KEY":"DO_NOT_EXPORT_QWEN_SECRET"}):
             with patch.object(urllib.request,"urlopen",return_value=FakeResponse()) as mocked:
-                msg, usage=chat(config,[{"role":"user","content":"test"}],max_tokens=16)
+                msg, usage=chat(
+                    config,[{"role":"user","content":"test"}],
+                    max_tokens=16,required_data_class="PUBLIC",
+                )
                 self.assertEqual(msg,"ok")
                 self.assertEqual(usage["total_tokens"],7)
                 req=mocked.call_args[0][0]
@@ -186,7 +189,11 @@ class IdentityTests(unittest.TestCase):
             def read(self,*a): return b'{"choices":[{"message":{"content":"hello"}}],"usage":{"completion_tokens":3}}'
         with patch.dict(os.environ,{"DEEPSEEK_API_KEY":"DO_NOT_EXPORT_TEST_SECRET"}):
             with patch.object(urllib.request,"urlopen",return_value=FakeResponse()) as mocked:
-                msg, usage=chat(load_provider(self.home),[{"role":"user","content":"你好"}])
+                msg, usage=chat(
+                    load_provider(self.home),
+                    [{"role":"user","content":"你好"}],
+                    required_data_class="PUBLIC",
+                )
                 self.assertEqual(msg,"hello")
                 self.assertEqual(usage["completion_tokens"],3)
                 self.assertIn("Bearer DO_NOT_EXPORT_TEST_SECRET",mocked.call_args[0][0].get_header("Authorization"))
