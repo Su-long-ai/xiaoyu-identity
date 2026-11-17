@@ -20,7 +20,7 @@ def apply(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id),
-            FOREIGN KEY (effect_id) REFERENCES effects(effect_id)
+            FOREIGN KEY (effect_id) REFERENCES effects(effect_id) DEFERRABLE INITIALLY DEFERRED
         )"""
     )
     conn.execute(
