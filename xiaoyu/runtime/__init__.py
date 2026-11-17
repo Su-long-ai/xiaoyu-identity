@@ -15,6 +15,7 @@ from .provider_registry import (
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
+    standing_approval_binding_digest,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "audience_reset_decision",
     "evaluate_provider",
     "provider_session_namespace",
+    "standing_approval_binding_digest",
 ]

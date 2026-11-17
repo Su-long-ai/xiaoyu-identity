@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Replaceable chat-completion adapter. Provider settings stay OUTSIDE identity archives."""
 from __future__ import annotations
+import hashlib
 import http.client
 import json
 import os
@@ -26,6 +27,10 @@ DEFAULT_ALLOWED_DATA_CLASSES = {
     "ollama": ("PUBLIC", "OWNER_PRIVATE", "LOCAL_ONLY"),
     "custom": ("PUBLIC",),
 }
+
+ADAPTER_ARTIFACT_DIGEST=(
+    "sha256:"+hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+)
 
 PROVIDERS = {
     "deepseek_web": {
@@ -414,6 +419,12 @@ def _provider_descriptor(config):
         "model":str(config.get("model") or ""),
         "capability":"chat.completion",
     })
+    implementation_digest=stable_digest({
+        "adapter":"model_adapter",
+        "artifact_digest":ADAPTER_ARTIFACT_DIGEST,
+        "provider":provider,
+        "url":str(config.get("url") or ""),
+    })
     descriptor_digest=stable_digest({
         "provider":provider,
         "url":str(config.get("url") or ""),
@@ -421,12 +432,8 @@ def _provider_descriptor(config):
         "privacy_classes":[x.value for x in privacy],
         "endpoint_scope":endpoint_scope,
         "capability_digest":capability_digest,
+        "implementation_digest":implementation_digest,
         "policy_version":2,
-    })
-    implementation_digest=stable_digest({
-        "adapter":"model_adapter",
-        "provider":provider,
-        "url":str(config.get("url") or ""),
     })
     return ProviderDescriptor(
         provider_id=provider,

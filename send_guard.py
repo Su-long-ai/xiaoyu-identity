@@ -305,6 +305,7 @@ class _FreshAttemptGuard:
             provider_implementation_digest=descriptor.implementation_digest,
             expected_descriptor_digest=approved.get("descriptor_digest"),
             expected_capability_digest=approved.get("capability_digest"),
+            expected_approval_binding_digest=approved.get("approval_binding_digest"),
             authorization_digest=self.authorization_digest,
             tool_result_digest=self.tool_result_digest,
             tool_implementation_digest=self.tool_implementation_digest,

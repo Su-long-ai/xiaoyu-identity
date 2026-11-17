@@ -24,6 +24,7 @@ from xiaoyu.runtime.provider_registry import (
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
+    standing_approval_binding_digest,
 )
 
 
@@ -61,6 +62,7 @@ def attempt_context(
     required_capability=None,
     expected_descriptor_digest=None,
     expected_capability_digest=None,
+    expected_approval_binding_digest=None,
     private_tool=False,
     authorization_digest="auth-v1",
     tool_result_digest=None,
@@ -81,6 +83,7 @@ def attempt_context(
         provider_implementation_digest=d.implementation_digest,
         expected_descriptor_digest=expected_descriptor_digest,
         expected_capability_digest=expected_capability_digest,
+        expected_approval_binding_digest=expected_approval_binding_digest,
         authorization_digest=authorization_digest,
         tool_result_digest=tool_result_digest,
         tool_implementation_digest=tool_implementation_digest,
@@ -166,6 +169,47 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         self.assertIn("capability_mismatch",wrong_cap.reasons)
         self.assertIn("descriptor_digest_changed",wrong_desc.reasons)
         self.assertIn("capability_digest_changed",wrong_digest.reasons)
+
+    def test_standing_approval_is_bound_to_provider_and_tool_digests(self):
+        d=descriptor()
+        baseline=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+        )
+        approval=standing_approval_binding_digest(d,baseline)
+        approved=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertTrue(evaluate_provider(d,approved).allowed)
+
+        changed_tool=attempt_context(
+            d,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v2",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertIn(
+            "approval_binding_changed",
+            evaluate_provider(d,changed_tool).reasons,
+        )
+
+        changed_provider=descriptor(implementation_digest="impl-v2")
+        changed_provider_context=attempt_context(
+            changed_provider,
+            tool_implementation_digest="tool-impl-v1",
+            tool_schema_digest="tool-schema-v1",
+            expected_approval_binding_digest=approval,
+        )
+        self.assertIn(
+            "approval_binding_changed",
+            evaluate_provider(
+                changed_provider,changed_provider_context
+            ).reasons,
+        )
 
     def test_provider_health_transition_blocks_new_attempt(self):
         d=descriptor()

@@ -43,6 +43,7 @@ class ProviderAttemptContext:
     provider_implementation_digest: str
     expected_descriptor_digest: Optional[str] = None
     expected_capability_digest: Optional[str] = None
+    expected_approval_binding_digest: Optional[str] = None
     authorization_digest: Optional[str] = None
     tool_result_digest: Optional[str] = None
     tool_implementation_digest: Optional[str] = None
@@ -117,6 +118,22 @@ def stable_digest(value: Mapping[str, Any] | Dict[str, Any]) -> str:
     return "sha256:"+hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def standing_approval_binding_digest(
+    descriptor: ProviderDescriptor,
+    context: ProviderAttemptContext,
+) -> str:
+    """Bind reusable approval to exactly the provider/tool contract it approved."""
+    return stable_digest({
+        "authorization_digest":context.authorization_digest,
+        "provider_id":descriptor.provider_id,
+        "provider_descriptor_digest":descriptor.descriptor_digest,
+        "provider_capability_digest":descriptor.capability_digest,
+        "provider_implementation_digest":descriptor.implementation_digest,
+        "tool_implementation_digest":context.tool_implementation_digest,
+        "tool_schema_digest":context.tool_schema_digest,
+    })
+
+
 def provider_session_namespace(context: ProviderAttemptContext) -> str:
     """Namespace all hidden provider state by authority + implementation state."""
     return stable_digest({
@@ -186,6 +203,12 @@ def evaluate_provider(
         and context.expected_capability_digest != descriptor.capability_digest
     ):
         reasons.append("capability_digest_changed")
+    if (
+        context.expected_approval_binding_digest is not None
+        and context.expected_approval_binding_digest
+            != standing_approval_binding_digest(descriptor,context)
+    ):
+        reasons.append("approval_binding_changed")
 
     if health is not None and str(health.readiness).upper() != "READY":
         reasons.append("provider_not_ready")
