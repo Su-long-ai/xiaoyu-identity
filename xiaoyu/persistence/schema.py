@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
 from .db import Database
-from .migrations import v1_authority, v2_receipts_delivery
+from .migrations import v1_authority, v2_receipts_delivery, v3_purpose_runtime
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,7 @@ class Migration:
 MIGRATIONS = (
     Migration(v1_authority.VERSION, v1_authority.NAME, v1_authority.apply, v1_authority.verify),
     Migration(v2_receipts_delivery.VERSION, v2_receipts_delivery.NAME, v2_receipts_delivery.apply, v2_receipts_delivery.verify),
+    Migration(v3_purpose_runtime.VERSION, v3_purpose_runtime.NAME, v3_purpose_runtime.apply, v3_purpose_runtime.verify),
 )
 
 
