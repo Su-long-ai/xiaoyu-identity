@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
-from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
 
 
 class ExecutionResourceBrokerTests(unittest.TestCase):
