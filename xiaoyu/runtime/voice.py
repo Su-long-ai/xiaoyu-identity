@@ -13,6 +13,7 @@ from xiaoyu.contracts import (
     TrustClass,
 )
 from xiaoyu.contracts.common import require_aware
+from xiaoyu.runtime.resource_broker import ResourceBroker, ResourceRequest
 
 
 VOICE_ENGINE = "PIPECAT_PIPELINE_WORKER"
@@ -222,6 +223,7 @@ class VoiceSessionController:
                 "text": text,
                 "evidence_class": "UNTRUSTED_OBSERVATION",
                 "voice_turn_generation": token.generation,
+                "raw_audio_retained": False,
             },
         )
         self._current_token = None
@@ -364,3 +366,41 @@ class PipecatVoiceBinding:
     def on_user_started_speaking(self) -> bool:
         """Pipecat turn-start interruption also clears XiaoYu TTS presentation."""
         return self.controller.interrupt_output()
+
+
+class VoiceRuntimeLease:
+    """Bind the external Pipecat worker to the existing R13 resource policy."""
+
+    def __init__(
+        self,
+        broker: ResourceBroker,
+        *,
+        lease_id: str = "voice-pipeline",
+        request: Optional[ResourceRequest] = None,
+    ) -> None:
+        self.broker = broker
+        self.lease_id = lease_id
+        self.request = request or ResourceRequest(
+            owner_id="voice-pipeline",
+            ram_mb=512,
+            vram_mb=0,
+            cpu_fraction=0.15,
+            gpu_fraction=0.0,
+            priority=80,
+            preemptible=True,
+        )
+        self._active = False
+
+    def start(self):
+        lease = self.broker.reserve(self.lease_id, self.request)
+        self._active = True
+        return lease
+
+    def stop(self) -> bool:
+        released = self.broker.release(self.lease_id)
+        self._active = False
+        return released
+
+    @property
+    def active(self) -> bool:
+        return self._active
