@@ -114,13 +114,26 @@ def apply(conn: sqlite3.Connection) -> None:
             mutation_digest TEXT NOT NULL,
             expected_revision INTEGER NOT NULL,
             result_revision INTEGER NOT NULL,
+            request_json TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (source_event_id) REFERENCES canonical_events(event_id)
         )"""
     )
+    mutation_columns = _columns(conn, "fact_mutations")
+    if "request_json" not in mutation_columns:
+        conn.execute(
+            "ALTER TABLE fact_mutations ADD COLUMN request_json TEXT"
+        )
     conn.execute(
         """CREATE INDEX IF NOT EXISTS idx_fact_mutations_key_revision
            ON fact_mutations(identity_id,fact_key,result_revision)"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS fact_mutation_order (
+            mutation_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            mutation_id TEXT NOT NULL UNIQUE,
+            FOREIGN KEY (mutation_id) REFERENCES fact_mutations(mutation_id)
+        )"""
     )
 
     conn.execute(
@@ -183,6 +196,7 @@ def verify(conn: sqlite3.Connection) -> None:
         "canonical_event_ingest",
         "fact_authority_revisions",
         "fact_mutations",
+        "fact_mutation_order",
         "projection_invalidations",
     ):
         if required not in tables:
