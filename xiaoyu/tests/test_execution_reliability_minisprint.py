@@ -57,7 +57,7 @@ from xiaoyu.runtime.recovery import (
     ExecutionReconciler,
     ExecutionRecoveryQueue,
 )
-from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceHandles
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -1236,7 +1236,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             db = self._db(td)
             self._insert_purpose(db)
             self._enqueue(db)
-            broker = ExecutionResourceBroker()
+            broker = ExecutionResourceHandles()
             calls = []
             broker.acquire(
                 lease_id="lease-effect-1",
@@ -1268,7 +1268,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             db = self._db(td)
             self._insert_purpose(db)
             self._enqueue(db)
-            broker = ExecutionResourceBroker()
+            broker = ExecutionResourceHandles()
             resource_calls = []
             transport_calls = []
             broker.acquire(
