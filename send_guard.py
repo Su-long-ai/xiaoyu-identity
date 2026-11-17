@@ -144,10 +144,23 @@ def _context_fence(conn):
     event_row=conn.execute(
         "SELECT COALESCE(MAX(event_id),0),COUNT(*) FROM events"
     ).fetchone()
+    memory_row=conn.execute(
+        """SELECT COUNT(*),
+                  COALESCE(MAX(memory_id),0),
+                  COALESCE(MAX(change_seq),0),
+                  COALESCE(SUM(memory_id),0),
+                  COALESCE(SUM(CASE WHEN status='active' THEN 1 ELSE 0 END),0)
+           FROM memories"""
+    ).fetchone()
     payload={
         "settings":settings,
         "event_max_id":int(event_row[0] or 0),
         "event_count":int(event_row[1] or 0),
+        "memory_count":int(memory_row[0] or 0),
+        "memory_max_id":int(memory_row[1] or 0),
+        "memory_max_change_seq":int(memory_row[2] or 0),
+        "memory_id_sum":int(memory_row[3] or 0),
+        "memory_active_count":int(memory_row[4] or 0),
     }
     return _messages_digest(payload)
 

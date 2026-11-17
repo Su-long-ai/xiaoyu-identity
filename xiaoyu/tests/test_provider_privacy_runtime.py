@@ -720,6 +720,36 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 bridge.close()
                 store.close()
 
+    def test_unselected_physical_delete_invalidates_full_prompt_fence(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            unselected=store.add_memory("UNSELECTED_PRIVATE_MEMORY")
+            fence=capture_context_fence(store)
+            generation_after_add=store.memory_generation()
+            with store.conn:
+                store.conn.execute(
+                    "DELETE FROM memories WHERE memory_id=?",(int(unselected),)
+                )
+            # Direct erasure can predate bridge tombstone reconciliation and
+            # need not advance the legacy generation setting; the full prompt
+            # fence must still notice it.
+            self.assertEqual(
+                store.memory_generation(),
+                generation_after_add,
+            )
+            self.assertNotEqual(capture_context_fence(store),fence)
+            try:
+                with self.assertRaises(FreshnessChanged):
+                    dual_guarded_chat(
+                        model_adapter.chat,config,messages,
+                        store.db_path,bridge.db_path,
+                        generation_after_add,[],
+                        expected_context_fence=fence,
+                    )
+            finally:
+                bridge.close()
+                store.close()
+
 
     def test_provider_health_transition_during_chain_skips_fallback(self):
         with tempfile.TemporaryDirectory() as td:
