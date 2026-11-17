@@ -1,4 +1,5 @@
 """Runtime Host primitives."""
+from .host import RuntimeAdmission, RuntimeHost
 from .delivery import (
     DeliveryAttemptAlreadyActive,
     DeliveryCoordinator,
@@ -35,6 +36,8 @@ __all__ = [
     "DeliveryLedger",
     "ExecutionRecoveryQueue",
     "OutboxDispatcher",
+    "RuntimeAdmission",
+    "RuntimeHost",
     "PowerLifecycle",
     "PowerState",
     "PrivacyClass",
