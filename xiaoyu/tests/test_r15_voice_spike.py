@@ -127,7 +127,14 @@ class R15VoiceSpikeTests(unittest.TestCase):
         )
         self.assertEqual(envelope.payload["confidence"], 0.93)
         self.assertFalse(envelope.payload["raw_audio_retained"])
-        self.assertNotIn("audio", str(envelope.payload).lower())
+        self.assertNotIn("raw_audio", envelope.payload)
+        self.assertNotIn("audio_bytes", envelope.payload)
+        self.assertFalse(
+            any(
+                isinstance(value, (bytes, bytearray, memoryview))
+                for value in envelope.payload.values()
+            )
+        )
 
     def test_user_barge_in_interrupts_assistant_generation_and_tts(self):
         bridge = VoiceTurnBridge(session_id="voice-3")
