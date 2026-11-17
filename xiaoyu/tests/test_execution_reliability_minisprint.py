@@ -1311,6 +1311,98 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             finally:
                 conn.close()
 
+    def test_receipt_commit_crash_reconciles_stranded_delivery_attempt(self):
+        class BrokenReceiptRepository:
+            def insert(self, conn, identity_id, receipt):
+                raise RuntimeError("synthetic receipt commit failure")
+
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            DeliveryLedger(db).create(
+                delivery_id="delivery-crash",
+                identity_id="fish-1",
+                logical_notification_id="notice-crash",
+                purpose_id="purpose-1",
+                preferred_surface="qq",
+                created_at=NOW,
+            )
+            DeliveryCoordinator(db).enqueue_attempt(
+                attempt_id="attempt-crash",
+                delivery_id="delivery-crash",
+                logical_notification_id="notice-crash",
+                decision_id="auth-crash",
+                outbox_id="outbox-crash",
+                identity_id="fish-1",
+                principal=principal(),
+                actor=actor(),
+                delegation=delegation(),
+                action=action(),
+                resource=resource(),
+                context=context(),
+                auth_result=AuthorizationResult(
+                    AuthorizationDecision.ALLOW,
+                    "VALID_DELEGATION",
+                    "del-1",
+                ),
+                effect=replace(
+                    effect(),
+                    effect_id="effect-crash",
+                    idempotency_key="idem-crash",
+                ),
+                surface="qq",
+                created_at=NOW,
+            )
+
+            dispatcher = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: DispatchOutcome(
+                        DispatchStatus.SUCCEEDED,
+                        external_ref="msg-crash",
+                    )
+                },
+                receipt_repo=BrokenReceiptRepository(),
+            )
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "synthetic receipt commit failure",
+            ):
+                dispatcher.dispatch_once(now=NOW)
+
+            recovery = ExecutionRecoveryQueue(db)
+            self.assertEqual(
+                recovery.recover_restart(
+                    NOW + timedelta(seconds=1)
+                )["claimed_recovered"],
+                1,
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        """SELECT state FROM delivery_attempts
+                           WHERE attempt_id='attempt-crash'"""
+                    ).fetchone()[0],
+                    "UNKNOWN",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        """SELECT state FROM deliveries
+                           WHERE delivery_id='delivery-crash'"""
+                    ).fetchone()[0],
+                    "NEEDS_RECONCILIATION",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        """SELECT dispatch_state FROM effects
+                           WHERE effect_id='effect-crash'"""
+                    ).fetchone()[0],
+                    "NEEDS_RECONCILIATION",
+                )
+            finally:
+                conn.close()
+
     def test_duplicate_dispatchers_cross_transport_boundary_once(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
