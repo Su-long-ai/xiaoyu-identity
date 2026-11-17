@@ -23,7 +23,7 @@ DEFAULT_ALLOWED_DATA_CLASSES = {
     "deepseek": ("PUBLIC", "OWNER_PRIVATE"),
     "openai": ("PUBLIC", "OWNER_PRIVATE"),
     "qwen": ("PUBLIC", "OWNER_PRIVATE"),
-    "ollama": ("PUBLIC", "OWNER_PRIVATE"),
+    "ollama": ("PUBLIC", "OWNER_PRIVATE", "LOCAL_ONLY"),
     "custom": ("PUBLIC",),
 }
 
@@ -45,7 +45,7 @@ PROVIDERS = {
              "model":"qwen3.8-flash","key_env":"DASHSCOPE_API_KEY",
              "enable_thinking":False},
     "ollama": {"url":"http://127.0.0.1:11434/v1/chat/completions",
-               "model":"qwen3:8b","key_env":""},
+               "model":"qwen3:8b","key_env":"","data_boundary":"LOCAL"},
     "custom": {"url":"https://example.invalid/v1/chat/completions",
                "model":"","key_env":"FISH_CUSTOM_API_KEY"}
 }
@@ -396,9 +396,17 @@ def _provider_descriptor(config):
         except ValueError:
             continue
     parsed=urlsplit(str(config.get("url") or ""))
+    declared_boundary=str(
+        config.get("data_boundary")
+        or PROVIDERS.get(provider,{}).get("data_boundary")
+        or "REMOTE"
+    ).upper()
     endpoint_scope=(
         "LOCAL"
-        if parsed.hostname in ("localhost","127.0.0.1","::1")
+        if (
+            declared_boundary=="LOCAL"
+            and parsed.hostname in ("localhost","127.0.0.1","::1")
+        )
         else "REMOTE"
     )
     capability_digest=stable_digest({
@@ -411,6 +419,7 @@ def _provider_descriptor(config):
         "url":str(config.get("url") or ""),
         "model":str(config.get("model") or ""),
         "privacy_classes":[x.value for x in privacy],
+        "endpoint_scope":endpoint_scope,
         "capability_digest":capability_digest,
         "policy_version":2,
     })

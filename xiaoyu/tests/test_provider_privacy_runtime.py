@@ -107,6 +107,24 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertIn("local_only_requires_local_provider",result.reasons)
 
+    def test_ollama_is_local_only_eligible_but_local_proxy_is_not_assumed_local(self):
+        ollama=model_adapter._provider_descriptor(
+            model_adapter._fallback_config("ollama")
+        )
+        self.assertEqual(ollama.endpoint_scope,"LOCAL")
+        self.assertIn(PrivacyClass.LOCAL_ONLY,ollama.privacy_classes)
+        result=evaluate_provider(
+            ollama,
+            attempt_context(ollama,privacy=PrivacyClass.LOCAL_ONLY),
+        )
+        self.assertTrue(result.allowed)
+
+        web_proxy=model_adapter._provider_descriptor(
+            model_adapter._fallback_config("deepseek_web")
+        )
+        self.assertEqual(web_proxy.endpoint_scope,"REMOTE")
+        self.assertNotIn(PrivacyClass.LOCAL_ONLY,web_proxy.privacy_classes)
+
     def test_owner_private_rejects_group_guest_and_shared(self):
         d=descriptor()
         group=evaluate_provider(
