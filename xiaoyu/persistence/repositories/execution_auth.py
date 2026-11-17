@@ -493,6 +493,56 @@ class ExecutionAuthorizationRepository:
                 "authorization effect request changed"
             )
 
+        delegation_id = row["delegation_id"]
+        if delegation_id is not None:
+            delegation = conn.execute(
+                """SELECT * FROM delegations WHERE delegation_id=?""",
+                (delegation_id,),
+            ).fetchone()
+            if delegation is None:
+                raise DispatchAuthorizationDenied(
+                    "delegation disappeared"
+                )
+            if str(delegation["principal_id"]) != str(row["principal_id"]):
+                raise DispatchAuthorizationDenied(
+                    "delegation principal changed"
+                )
+            if str(delegation["actor_id"]) != actor_id:
+                raise DispatchAuthorizationDenied(
+                    "delegation actor changed"
+                )
+            if delegation["delegation_digest"] != row["delegation_digest"]:
+                raise DispatchAuthorizationDenied(
+                    "standing delegation semantics changed"
+                )
+            revoked = delegation["revoked_at"]
+            if (
+                revoked is not None
+                and now >= datetime_from_text(
+                    str(revoked), "revoked_at"
+                )
+            ):
+                raise DispatchAuthorizationDenied(
+                    "delegation revoked"
+                )
+            valid_from = datetime_from_text(
+                str(delegation["valid_from"]), "valid_from"
+            )
+            if now < valid_from:
+                raise DispatchAuthorizationDenied(
+                    "delegation not yet valid"
+                )
+            expires = delegation["expires_at"]
+            if (
+                expires is not None
+                and now >= datetime_from_text(
+                    str(expires), "expires_at"
+                )
+            ):
+                raise DispatchAuthorizationDenied(
+                    "delegation expired"
+                )
+
         principal_expires = row["principal_expires_at"]
         if (
             principal_expires is not None
@@ -565,56 +615,6 @@ class ExecutionAuthorizationRepository:
             raise DispatchAuthorizationDenied(
                 "actor provider changed"
             )
-
-        delegation_id = row["delegation_id"]
-        if delegation_id is not None:
-            delegation = conn.execute(
-                """SELECT * FROM delegations WHERE delegation_id=?""",
-                (delegation_id,),
-            ).fetchone()
-            if delegation is None:
-                raise DispatchAuthorizationDenied(
-                    "delegation disappeared"
-                )
-            if str(delegation["principal_id"]) != str(row["principal_id"]):
-                raise DispatchAuthorizationDenied(
-                    "delegation principal changed"
-                )
-            if str(delegation["actor_id"]) != actor_id:
-                raise DispatchAuthorizationDenied(
-                    "delegation actor changed"
-                )
-            if delegation["delegation_digest"] != row["delegation_digest"]:
-                raise DispatchAuthorizationDenied(
-                    "standing delegation semantics changed"
-                )
-            revoked = delegation["revoked_at"]
-            if (
-                revoked is not None
-                and now >= datetime_from_text(
-                    str(revoked), "revoked_at"
-                )
-            ):
-                raise DispatchAuthorizationDenied(
-                    "delegation revoked"
-                )
-            valid_from = datetime_from_text(
-                str(delegation["valid_from"]), "valid_from"
-            )
-            if now < valid_from:
-                raise DispatchAuthorizationDenied(
-                    "delegation not yet valid"
-                )
-            expires = delegation["expires_at"]
-            if (
-                expires is not None
-                and now >= datetime_from_text(
-                    str(expires), "expires_at"
-                )
-            ):
-                raise DispatchAuthorizationDenied(
-                    "delegation expired"
-                )
 
         provider_snapshot_present = any(
             row[name] is not None
