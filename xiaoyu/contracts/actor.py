@@ -23,6 +23,7 @@ class ActorContext:
     device_id: Optional[str]
     trust_tier: str
     attestation_state: Optional[str] = None
+    authorization_digest: Optional[str] = None
     schema_version: int = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
@@ -35,6 +36,7 @@ class ActorContext:
             "device_id": self.device_id,
             "trust_tier": self.trust_tier,
             "attestation_state": self.attestation_state,
+            "authorization_digest": self.authorization_digest,
         }
 
     @classmethod
@@ -42,6 +44,7 @@ class ActorContext:
         ensure_exact_fields(data, (
             "schema_version", "actor_id", "actor_type", "implementation_digest",
             "provider_id", "device_id", "trust_tier", "attestation_state",
+            "authorization_digest",
         ))
         return cls(**data)
 
@@ -58,6 +61,7 @@ class Delegation:
     valid_from: datetime
     expires_at: Optional[datetime]
     revocable: bool
+    revoked_at: Optional[datetime] = None
     schema_version: int = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -66,6 +70,8 @@ class Delegation:
             require_aware(self.expires_at, "expires_at")
             if self.expires_at < self.valid_from:
                 raise ValueError("expires_at cannot be earlier than valid_from")
+        if self.revoked_at is not None:
+            require_aware(self.revoked_at, "revoked_at")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -80,6 +86,7 @@ class Delegation:
             "valid_from": datetime_to_text(self.valid_from, "valid_from"),
             "expires_at": None if self.expires_at is None else datetime_to_text(self.expires_at, "expires_at"),
             "revocable": self.revocable,
+            "revoked_at": None if self.revoked_at is None else datetime_to_text(self.revoked_at, "revoked_at"),
         }
 
     @classmethod
@@ -87,7 +94,7 @@ class Delegation:
         ensure_exact_fields(data, (
             "schema_version", "delegation_id", "issued_by_principal", "issued_to_actor",
             "purpose_id", "action_classes", "resources", "max_effect",
-            "valid_from", "expires_at", "revocable",
+            "valid_from", "expires_at", "revocable", "revoked_at",
         ))
         expires = data["expires_at"]
         return cls(
@@ -102,4 +109,5 @@ class Delegation:
             valid_from=datetime_from_text(data["valid_from"], "valid_from"),
             expires_at=None if expires is None else datetime_from_text(expires, "expires_at"),
             revocable=bool(data["revocable"]),
+            revoked_at=None if data["revoked_at"] is None else datetime_from_text(data["revoked_at"], "revoked_at"),
         )
