@@ -13,8 +13,10 @@ from .product_context import (
     CanonicalProductContext,
     CanonicalProductContextBuilder,
     CanonicalReadinessEvidence,
+    CanonicalReadShadowBootstrap,
     CanonicalReadShadowEvaluator,
     CanonicalReadShadowMonitor,
+    CanonicalReadShadowPreparation,
     CanonicalReadShadowStatus,
 )
 from .presence import (
@@ -98,8 +100,10 @@ __all__ = [
     "CanonicalProductContext",
     "CanonicalProductContextBuilder",
     "CanonicalReadinessEvidence",
+    "CanonicalReadShadowBootstrap",
     "CanonicalReadShadowEvaluator",
     "CanonicalReadShadowMonitor",
+    "CanonicalReadShadowPreparation",
     "CanonicalReadShadowStatus",
     "PowerLifecycle",
     "PowerState",
