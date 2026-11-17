@@ -57,7 +57,7 @@ from xiaoyu.runtime.recovery import (
     ExecutionReconciler,
     ExecutionRecoveryQueue,
 )
-from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
