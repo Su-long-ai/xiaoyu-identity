@@ -7,7 +7,7 @@ import json
 import uuid
 from typing import Callable, Dict, Optional, Union
 
-from xiaoyu.contracts import ActionReceipt
+from xiaoyu.contracts import ActionReceipt, ActorContext, CapabilityDescriptor
 from xiaoyu.contracts.common import canonical_json
 from xiaoyu.core.effects import DispatchOutcome, DispatchStatus
 from xiaoyu.persistence import Database
@@ -37,6 +37,30 @@ class TransportBinding:
     interface_digest: Optional[str]
     tool_schema_digest: Optional[str]
     capability: Optional[str]
+
+    @classmethod
+    def from_descriptor(
+        cls,
+        *,
+        send: Transport,
+        actor: ActorContext,
+        descriptor: CapabilityDescriptor,
+    ) -> "TransportBinding":
+        if actor.provider_id != descriptor.provider_id:
+            raise ValueError(
+                "actor provider does not match capability descriptor"
+            )
+        return cls(
+            send=send,
+            actor_id=actor.actor_id,
+            provider_id=descriptor.provider_id,
+            actor_implementation_digest=actor.implementation_digest,
+            actor_authorization_digest=actor.authorization_digest,
+            artifact_digest=descriptor.artifact_digest,
+            interface_digest=descriptor.interface_digest,
+            tool_schema_digest=descriptor.tool_schema_digest,
+            capability=descriptor.capability,
+        )
 
 
 TransportEntry = Union[Transport, TransportBinding]
