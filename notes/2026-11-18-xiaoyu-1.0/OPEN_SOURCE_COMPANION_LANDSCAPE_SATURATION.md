@@ -1472,3 +1472,144 @@ choose reference project
 ```
 
 This document therefore marks the open-source ecosystem survey as **LANDSCAPE_SATURATED_2026-11-18**.
+
+
+---
+
+# 15. Late saturation additions
+
+## S11. OpenAlma
+
+Repository: https://github.com/mekineer-com/OpenAlma  
+License: GPL-3.0
+
+OpenAlma is one of the closest newly found whole-product references.
+
+Verified from its current README:
+
+- one always-present local memory/orchestration service;
+- multiple clients (SillyTavern / WhatsApp / Iris / others);
+- conversations become episodes;
+- people/topics/patterns become revisable dossiers;
+- sleep-gap automatic extraction;
+- memory injected automatically into later turns;
+- entity graph + temporal queries;
+- life goals separated from active intentions;
+- SPEAK/LISTEN gating;
+- cross-chat awareness;
+- photo memory / visual recall lane;
+- manual record-and-review mode;
+- Atomic Mind Map for entity/dossier curation;
+- staged reflection/consolidation;
+- launcher-managed backup/migration/rollback behavior.
+
+### XiaoYu relevance
+
+High-value ideas:
+
+- dossiers as human-readable evidence-linked projections;
+- goal vs intention separation;
+- cross-surface awareness;
+- reviewable visual memory;
+- sleep-gap consolidation;
+- entity/dossier curation UI.
+
+Do not adopt OpenAlma as a new Core. Its memory engine remains a separate architectural choice, while XiaoYu already has stronger existing provenance/governance foundations.
+
+GPL-3.0 also makes direct code reuse a separate licensing decision; architecture/mechanism study is the cleaner default.
+
+---
+
+## B-tier direct comparator: Serenity
+
+Repository: https://github.com/RECTDEV/serenity  
+License: custom CC BY-NC-derived community license / commercial license path
+
+Serenity is a direct whole-product companion comparator with:
+
+- local Ollama inference;
+- cross-session vector memory;
+- voice/wake word;
+- screen/camera vision;
+- Telegram/WhatsApp;
+- Obsidian integration;
+- cron/reminders;
+- proactive reach-out;
+- autonomous goals;
+- curiosity loop;
+- periodic dream/consolidation cycle;
+- emotional state variables;
+- skills.
+
+### XiaoYu relevance
+
+It validates user demand for one persistent agent spanning personal/work/coding/voice/messaging.
+
+However, its public architecture centers vector memory and comparatively free-running autonomous/emotional loops. These mechanisms do not overturn XiaoYu's stronger decisions around:
+
+- source authority;
+- temporal correction;
+- calibrated proactivity;
+- verified SkillBank admission;
+- code-enforced permissions;
+- evidence-based persona change.
+
+Treat Serenity as a feature/product comparator and a counterexample for what must be gated, not as a Core architecture target.
+
+---
+
+# 16. Physical / wearable saturation result
+
+Final hardware/wearable scans did not introduce a new durable memory type, but they exposed a new **access boundary**:
+
+```
+Principal Resolution
+```
+
+When a device has microphones/cameras in a shared environment, XiaoYu must distinguish:
+
+- authenticated owner;
+- recognized-but-not-strongly-authenticated speaker;
+- known guest;
+- unknown person;
+- multi-person audience.
+
+Speaker identification can assist but must not be treated as definitive authentication.
+
+This requirement is now recorded in the architecture-delta document.
+
+---
+
+# 17. Final landscape saturation status
+
+After adding:
+
+- OpenAlma;
+- Serenity;
+- personal-agent runtimes;
+- Wasm/container tool runtimes;
+- realtime voice frameworks;
+- shared-activity ecosystems;
+- guest-lounge patterns;
+- multi-device CoreNode/Host designs;
+- wearable/hardware projects;
+
+new discoveries no longer introduce a new fundamental XiaoYu durable state family.
+
+They map into:
+
+```
+SELF
+USER MODEL
+MEMORY
+GOALS / INTENTIONS / PURPOSE
+SKILLS
+WORLD / PERCEPTION
+EXECUTION STATE
+PRINCIPAL / AUDIENCE CONTEXT
+SHARED ACTIVITY
+```
+
+The open-source landscape is therefore considered saturated for **architecture and project-class discovery** as of 2026-11-18.
+
+Individual implementation source mining can continue when a concrete XiaoYu module is being built, but that is no longer landscape discovery.
