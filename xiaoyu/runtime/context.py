@@ -45,6 +45,22 @@ class ContextRequest:
     viewer_principal_ids: tuple[str, ...] = ()
     shared_identity_block: Optional[dict[str, Any]] = None
 
+    def __post_init__(self) -> None:
+        audience = self.audience_scope.upper()
+        if (
+            audience in {
+                "GROUP",
+                "GROUP_SHARED",
+                "SHARED",
+                "SHARED_ACTIVITY",
+                "GUEST",
+            }
+            and not self.viewer_principal_ids
+        ):
+            raise ValueError(
+                "non-private context requires viewer_principal_ids"
+            )
+
 
 @dataclass(frozen=True)
 class AssembledContext:
