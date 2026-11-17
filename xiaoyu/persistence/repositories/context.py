@@ -223,18 +223,47 @@ class MemoryContextRepository:
         if not allowed_audiences:
             return []
         placeholders = ",".join("?" for _ in allowed_audiences)
-        principal_clause = (
-            " AND ea.principal_id=?"
-            if private_scope
-            else ""
-        )
-        params = [
-            identity_id,
-            context_space,
-            *allowed_audiences,
-        ]
+
         if private_scope:
-            params.append(principal_id)
+            # Preserve legacy unresolved work that predates durable execution
+            # authorization snapshots, but never import an effect that is
+            # explicitly bound to a different audience/context.
+            return conn.execute(
+                """SELECT e.effect_id,e.purpose_id,e.actor_id,e.action_class,
+                          e.dispatch_state,e.request_json,e.updated_at,
+                          ea.principal_id AS authorized_principal_id,
+                          ea.audience_scope AS authorized_audience_scope,
+                          ea.context_space AS authorized_context_space
+                   FROM effects e
+                   LEFT JOIN execution_authorizations ea
+                     ON ea.authorization_decision_id=
+                        e.authorization_decision_id
+                   WHERE e.identity_id=?
+                     AND e.dispatch_state IN (
+                         'QUEUED','CLAIMED','DISPATCHING',
+                         'NEEDS_RECONCILIATION'
+                     )
+                     AND (
+                         ea.authorization_decision_id IS NULL
+                         OR (
+                             ea.principal_id=?
+                             AND ea.context_space=?
+                             AND ea.audience_scope IN (%s)
+                         )
+                     )
+                   ORDER BY e.updated_at,e.effect_id"""
+                % placeholders,
+                (
+                    identity_id,
+                    principal_id,
+                    context_space,
+                    *allowed_audiences,
+                ),
+            ).fetchall()
+
+        # Non-private context is fail-closed: unresolved external work is
+        # visible only when its durable authorization snapshot proves the
+        # same audience and context-space binding.
         return conn.execute(
             """SELECT e.effect_id,e.purpose_id,e.actor_id,e.action_class,
                       e.dispatch_state,e.request_json,e.updated_at,
@@ -251,11 +280,16 @@ class MemoryContextRepository:
                      'NEEDS_RECONCILIATION'
                  )
                  AND ea.context_space=?
-                 AND ea.audience_scope IN (%s)%s
+                 AND ea.audience_scope IN (%s)
                ORDER BY e.updated_at,e.effect_id"""
-            % (placeholders, principal_clause),
-            tuple(params),
+            % placeholders,
+            (
+                identity_id,
+                context_space,
+                *allowed_audiences,
+            ),
         ).fetchall()
+
 
     def authority_freshness(
         self,
