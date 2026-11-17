@@ -95,6 +95,10 @@ class OutboxDispatcher:
             if self.fault_hook:
                 self.fault_hook("after_claim", row)
 
+            # Freeze the exact request before the final preflight.  From this
+            # point through receipt persistence, authorization and transport
+            # refer to this same canonical object.
+
             transport, binding_error = self._resolve_transport(
                 row,
                 self.transports.get(row.destination),
@@ -128,7 +132,7 @@ class OutboxDispatcher:
                         action_class=row.action_class,
                         purpose_id=row.purpose_id,
                         destination=row.destination,
-                        request=row.payload,
+                        request=transport_payload,
                         effect_request=row.request,
                         now=current,
                         purpose_revision=row.purpose_revision,
