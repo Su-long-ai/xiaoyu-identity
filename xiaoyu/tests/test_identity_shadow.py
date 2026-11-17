@@ -5,6 +5,9 @@ import unittest
 from pathlib import Path
 
 from identity_core import IdentityStore
+from xiaoyu.persistence.schema import MIGRATIONS
+
+EXPECTED_VERSIONS = [migration.version for migration in MIGRATIONS]
 
 
 class IdentityShadowIntegrationTests(unittest.TestCase):
@@ -162,7 +165,7 @@ class IdentityShadowIntegrationTests(unittest.TestCase):
                         "SELECT version FROM schema_migrations ORDER BY version"
                     ).fetchall()
                 ]
-                self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7])
+                self.assertEqual(versions, EXPECTED_VERSIONS)
             finally:
                 second.close()
 
