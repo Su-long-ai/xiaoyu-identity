@@ -53,7 +53,10 @@ from xiaoyu.runtime import (
     PurposeScheduler,
 )
 from xiaoyu.runtime.outbox import TransportBinding
-from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
+from xiaoyu.runtime.recovery import (
+    ExecutionReconciler,
+    ExecutionRecoveryQueue,
+)
 from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
 
 
@@ -946,6 +949,173 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                         "SELECT dispatch_state FROM effects"
                     ).fetchone()[0],
                     "SUCCEEDED",
+                )
+            finally:
+                conn.close()
+
+    def test_reconciliation_success_requires_evidence_and_closes_occurrence(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',scheduled_wall_time=?,
+                           timezone='UTC',resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                scheduled = PurposeRepository().get(conn, "purpose-1")
+                occurrence_id = PurposeRepository().activate_occurrence(
+                    conn,
+                    scheduled,
+                    NOW,
+                )
+
+            self._enqueue(
+                db,
+                eff=replace(
+                    effect(),
+                    purpose_occurrence_id=occurrence_id,
+                ),
+            )
+
+            def unknown(payload, idem):
+                raise TimeoutError("provider ack lost")
+
+            OutboxDispatcher(db, {"qq": unknown}).dispatch_once(now=NOW)
+
+            reconciler = ExecutionReconciler(db)
+            with self.assertRaises(ValueError):
+                reconciler.reconcile_effect(
+                    effect_id="effect-1",
+                    outcome="SUCCEEDED",
+                    evidence={},
+                    observed_at=NOW + timedelta(seconds=2),
+                )
+
+            receipt = reconciler.reconcile_effect(
+                effect_id="effect-1",
+                outcome="SUCCEEDED",
+                evidence={
+                    "provider_query_id": "query-1",
+                    "provider_status": "DELIVERED",
+                },
+                external_ref="msg-confirmed",
+                observed_at=NOW + timedelta(seconds=3),
+            )
+            self.assertEqual(
+                receipt.result_class,
+                "RECONCILED_SUCCEEDED",
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "SENT",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purpose_occurrences"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM action_receipts"
+                    ).fetchone()[0],
+                    1,
+                )
+            finally:
+                conn.close()
+
+    def test_reconciliation_confirmed_failure_returns_purpose_to_waiting(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',scheduled_wall_time=?,
+                           timezone='UTC',resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                scheduled = PurposeRepository().get(conn, "purpose-1")
+                occurrence_id = PurposeRepository().activate_occurrence(
+                    conn,
+                    scheduled,
+                    NOW,
+                )
+
+            self._enqueue(
+                db,
+                eff=replace(
+                    effect(),
+                    purpose_occurrence_id=occurrence_id,
+                ),
+            )
+
+            def unknown(payload, idem):
+                raise TimeoutError("provider ack lost")
+
+            OutboxDispatcher(db, {"qq": unknown}).dispatch_once(now=NOW)
+            receipt = ExecutionReconciler(db).reconcile_effect(
+                effect_id="effect-1",
+                outcome="FAILED",
+                evidence={
+                    "provider_query_id": "query-2",
+                    "provider_status": "NOT_FOUND",
+                },
+                observed_at=NOW + timedelta(seconds=3),
+            )
+            self.assertEqual(
+                receipt.result_class,
+                "RECONCILED_FAILED",
+            )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purpose_occurrences"
+                    ).fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes"
+                    ).fetchone()[0],
+                    "WAITING",
                 )
             finally:
                 conn.close()
