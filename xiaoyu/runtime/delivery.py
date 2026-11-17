@@ -1,26 +1,32 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Callable, Dict, Optional
+from typing import Optional
 
+from xiaoyu.contracts import (
+    ActionRequest,
+    ActorContext,
+    AuthorizationContext,
+    Delegation,
+    EffectIntent,
+    PrincipalContext,
+    ResourceRef,
+)
+from xiaoyu.core.authorization import AuthorizationResult
+from xiaoyu.core.effects import EffectCoordinator
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.receipts import DeliveryRepository
 
 
-DeliveryTransport = Callable[[dict], Optional[str]]
-
-
 class DeliveryLedger:
-    """Carrier fallback with one logical durable delivery outcome."""
+    """Durable logical-delivery metadata only.
 
-    def __init__(
-        self,
-        db: Database,
-        transports: Dict[str, DeliveryTransport],
-        repository=None,
-    ) -> None:
+    Carrier transports are deliberately absent here. Every actual carrier attempt
+    must flow through DeliveryCoordinator -> EffectCoordinator -> OutboxDispatcher.
+    """
+
+    def __init__(self, db: Database, repository=None) -> None:
         self.db = db
-        self.transports = dict(transports)
         self.repository = repository or DeliveryRepository()
 
     def create(
@@ -45,55 +51,74 @@ class DeliveryLedger:
                 created_at=current,
             )
 
-    def attempt(
+
+class DeliveryAttemptAlreadyActive(RuntimeError):
+    pass
+
+
+class DeliveryCoordinator:
+    """Reserve one logical carrier attempt and enqueue its authorized effect atomically."""
+
+    def __init__(
+        self,
+        db: Database,
+        delivery_repo=None,
+        effect_coordinator=None,
+    ) -> None:
+        self.db = db
+        self.delivery_repo = delivery_repo or DeliveryRepository()
+        self.effect_coordinator = effect_coordinator or EffectCoordinator(db)
+
+    def enqueue_attempt(
         self,
         *,
-        identity_id: str,
+        attempt_id: str,
+        delivery_id: str,
         logical_notification_id: str,
+        decision_id: str,
+        outbox_id: str,
+        identity_id: str,
+        principal: PrincipalContext,
+        actor: ActorContext,
+        delegation: Optional[Delegation],
+        action: ActionRequest,
+        resource: ResourceRef,
+        context: AuthorizationContext,
+        auth_result: AuthorizationResult,
+        effect: EffectIntent,
         surface: str,
-        payload: dict,
-        now: Optional[datetime] = None,
-    ) -> bool:
-        current = now or datetime.now(timezone.utc)
+        created_at: Optional[datetime] = None,
+    ) -> None:
+        current = created_at or datetime.now(timezone.utc)
         with self.db.transaction(immediate=True) as conn:
-            if not self.repository.begin_attempt(
+            if not self.delivery_repo.reserve_attempt(
                 conn,
+                attempt_id=attempt_id,
+                delivery_id=delivery_id,
                 identity_id=identity_id,
                 logical_notification_id=logical_notification_id,
+                effect_id=effect.effect_id,
                 surface=surface,
-                updated_at=current,
+                created_at=current,
             ):
-                return False
-
-        transport = self.transports.get(surface)
-        if transport is None:
-            with self.db.transaction(immediate=True) as conn:
-                self.repository.mark_failed(
-                    conn,
-                    identity_id=identity_id,
-                    logical_notification_id=logical_notification_id,
-                    updated_at=current,
+                raise DeliveryAttemptAlreadyActive(
+                    "logical notification already delivered, reconciling, "
+                    "or has an active carrier attempt"
                 )
-            return False
-
-        try:
-            external_ref = transport(payload)
-        except Exception:
-            with self.db.transaction(immediate=True) as conn:
-                self.repository.mark_failed(
-                    conn,
-                    identity_id=identity_id,
-                    logical_notification_id=logical_notification_id,
-                    updated_at=current,
-                )
-            return False
-
-        with self.db.transaction(immediate=True) as conn:
-            return self.repository.mark_delivered(
+            self.effect_coordinator.enqueue_authorized_in_transaction(
                 conn,
+                decision_id=decision_id,
+                outbox_id=outbox_id,
                 identity_id=identity_id,
-                logical_notification_id=logical_notification_id,
-                surface=surface,
-                external_ref=external_ref,
-                updated_at=current,
+                principal=principal,
+                actor=actor,
+                delegation=delegation,
+                action=action,
+                resource=resource,
+                context=context,
+                auth_result=auth_result,
+                effect=effect,
+                destination=surface,
+                payload=effect.request,
+                created_at=current,
             )
