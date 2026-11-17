@@ -1025,3 +1025,89 @@ Export
 This is the implementation-level version of:
 
 > External projects may give XiaoYu eyes, voice, hands and infrastructure. They must not become a second XiaoYu.
+
+
+---
+
+# 29. Final voice/runtime override after ecosystem source mining
+
+This section supersedes the earlier recommendation to build XiaoYu's streaming voice orchestration manually as the first implementation.
+
+## Primary Voice Session Engine spike: Pipecat
+
+Pipecat should be evaluated first because the current upstream already provides:
+
+- Python 3.11+ support;
+- local microphone/speaker transport;
+- VAD and turn strategies;
+- local smart-turn models;
+- interruption/barge-in handling;
+- cancellation frames;
+- TTS service abstractions;
+- scripted interruption evaluation;
+- broad STT/TTS/LLM provider integration.
+
+Recommended layering:
+
+```
+XiaoYu Core
+  canonical turn
+  memory/context
+  provider policy
+  identity
+  permissions
+        ↓
+XiaoYu Voice Adapter
+        ↓
+Pipecat Voice Session
+  LocalAudioTransport
+  ASR adapter
+  LLM stream bridge
+  Qwen3-TTS / GPT-SoVITS adapter
+  turn/interruption pipeline
+        ↓
+XiaoYu Body State Adapter
+```
+
+Pipecat must not become XiaoYu's identity or conversation authority.
+
+## Fallback decision
+
+If a same-machine spike shows material:
+
+- latency overhead;
+- dependency conflicts;
+- excessive RAM/CPU;
+- hard-to-control canonical-turn semantics;
+
+then implement the previously designed minimal custom pipeline.
+
+Do not build both in parallel before measuring.
+
+## Future remote/mobile voice
+
+LiveKit Agents becomes the stronger candidate only when XiaoYu needs:
+
+- WebRTC/mobile realtime sessions;
+- multi-user rooms;
+- telephony;
+- remote media transport;
+- distributed realtime voice.
+
+---
+
+# 30. Principal resolution implementation candidate
+
+For future shared-mic/device use, prefer existing speaker-embedding infrastructure over training a custom model.
+
+Sherpa-ONNX provides:
+
+- speaker embedding extraction;
+- enrollment;
+- search/identification;
+- verification;
+- diarization support.
+
+Use it as one evidence source inside Principal Resolution.
+
+Do not let speaker score directly unlock owner-private memory or high-risk permissions without stronger session/device authentication.
