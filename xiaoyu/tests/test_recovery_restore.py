@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence import Database, apply_migrations, applied_versions
 from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
     MissingErasureWatermark,
@@ -419,6 +419,28 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self.assertEqual(rows[0]["projection_type"], "CURRENT_FACT")
             self.assertEqual(rows[0]["builder_version"], "recovery-current-fact-v1")
             self.assertEqual(json.loads(rows[0]["value_json"])["values"], ["A"])
+
+    def test_portable_import_migrates_old_v5_snapshot_before_activation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            candidate = Database(root / "v5.sqlite3")
+            self.assertEqual(
+                apply_migrations(candidate, target_version=5),
+                [1, 2, 3, 4, 5],
+            )
+            ExternalErasureFenceStore(candidate.path).ensure_identity("fish-1")
+            target = root / "new-home.sqlite3"
+
+            RecoveryManager.restore(
+                candidate_path=candidate.path,
+                target_path=target,
+                identity_id="fish-1",
+                mode=RestoreMode.PORTABLE_IMPORT,
+            )
+            self.assertEqual(
+                applied_versions(Database(target)),
+                [1, 2, 3, 4, 5, 6, 7],
+            )
 
     def test_managed_restore_without_trusted_watermark_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
