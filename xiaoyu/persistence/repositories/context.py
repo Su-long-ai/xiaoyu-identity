@@ -48,18 +48,46 @@ class MemoryContextRepository:
         conn: sqlite3.Connection,
         *,
         identity_id: str,
+        principal_id: str,
+        context_space: str,
+        allowed_audiences: tuple[str, ...],
+        private_scope: bool,
     ):
+        if not allowed_audiences:
+            return []
+        placeholders = ",".join("?" for _ in allowed_audiences)
+        principal_clause = (
+            " AND ce.principal_id=?"
+            if private_scope
+            else ""
+        )
+        params = [
+            identity_id,
+            context_space,
+            *allowed_audiences,
+        ]
+        if private_scope:
+            params.append(principal_id)
         return conn.execute(
-            """SELECT purpose_id,owner_type,owner_id,state,kind,payload_json,
-                      revision,source_event_id,resolved_utc_time,timezone
-               FROM purposes
-               WHERE identity_id=?
-                 AND state IN (
+            """SELECT p.purpose_id,p.owner_type,p.owner_id,p.state,p.kind,
+                      p.payload_json,p.revision,p.source_event_id,
+                      p.resolved_utc_time,p.timezone,
+                      ce.principal_id AS source_principal_id,
+                      ce.audience_scope AS source_audience_scope,
+                      ce.context_space AS source_context_space
+               FROM purposes p
+               JOIN canonical_events ce
+                 ON ce.event_id=p.source_event_id
+               WHERE p.identity_id=?
+                 AND p.state IN (
                      'CONFIRMED','SCHEDULED','ACTIVE','WAITING',
                      'NEEDS_RECONCILIATION'
                  )
-               ORDER BY updated_at,purpose_id""",
-            (identity_id,),
+                 AND ce.context_space=?
+                 AND ce.audience_scope IN (%s)%s
+               ORDER BY p.updated_at,p.purpose_id"""
+            % (placeholders, principal_clause),
+            tuple(params),
         ).fetchall()
 
     def active_delegations(
@@ -68,20 +96,82 @@ class MemoryContextRepository:
         *,
         identity_id: str,
         principal_id: str,
+        context_space: str,
+        allowed_audiences: tuple[str, ...],
+        private_scope: bool,
         now: datetime,
     ):
-        stamp = datetime_to_text(now.astimezone(timezone.utc), "now")
+        if not allowed_audiences:
+            return []
+        stamp = datetime_to_text(
+            now.astimezone(timezone.utc), "now"
+        )
+        if private_scope:
+            placeholders = ",".join("?" for _ in allowed_audiences)
+            return conn.execute(
+                """SELECT d.delegation_id,d.principal_id,d.actor_id,
+                          d.purpose_id,d.scope_json,d.valid_from,d.expires_at,
+                          d.revoked_at,d.delegation_digest,d.revocable
+                   FROM delegations d
+                   WHERE d.identity_id=? AND d.principal_id=?
+                     AND d.revoked_at IS NULL
+                     AND d.valid_from<=?
+                     AND (d.expires_at IS NULL OR d.expires_at>?)
+                     AND (
+                         NOT EXISTS(
+                             SELECT 1 FROM execution_authorizations any_ea
+                             WHERE any_ea.delegation_id=d.delegation_id
+                         )
+                         OR EXISTS(
+                             SELECT 1 FROM execution_authorizations ea
+                             WHERE ea.delegation_id=d.delegation_id
+                               AND ea.identity_id=d.identity_id
+                               AND ea.principal_id=d.principal_id
+                               AND ea.context_space=?
+                               AND ea.audience_scope IN (%s)
+                         )
+                     )
+                   ORDER BY d.delegation_id"""
+                % placeholders,
+                (
+                    identity_id,
+                    principal_id,
+                    stamp,
+                    stamp,
+                    context_space,
+                    *allowed_audiences,
+                ),
+            ).fetchall()
+
+        # A standing delegation has no audience field. In non-private contexts
+        # expose it only if a durable execution authorization proves that the
+        # same delegation was admitted for this audience/context.
+        placeholders = ",".join("?" for _ in allowed_audiences)
         return conn.execute(
-            """SELECT delegation_id,principal_id,actor_id,purpose_id,
-                      scope_json,valid_from,expires_at,revoked_at,
-                      delegation_digest,revocable
-               FROM delegations
-               WHERE identity_id=? AND principal_id=?
-                 AND revoked_at IS NULL
-                 AND valid_from<=?
-                 AND (expires_at IS NULL OR expires_at>?)
-               ORDER BY delegation_id""",
-            (identity_id, principal_id, stamp, stamp),
+            """SELECT DISTINCT d.delegation_id,d.principal_id,d.actor_id,
+                      d.purpose_id,d.scope_json,d.valid_from,d.expires_at,
+                      d.revoked_at,d.delegation_digest,d.revocable
+               FROM delegations d
+               JOIN execution_authorizations ea
+                 ON ea.delegation_id=d.delegation_id
+                AND ea.identity_id=d.identity_id
+                AND ea.principal_id=d.principal_id
+               WHERE d.identity_id=? AND d.principal_id=?
+                 AND d.revoked_at IS NULL
+                 AND d.valid_from<=?
+                 AND (d.expires_at IS NULL OR d.expires_at>?)
+                 AND ea.context_space=?
+                 AND ea.audience_scope IN (%s)
+               ORDER BY d.delegation_id"""
+            % placeholders,
+            (
+                identity_id,
+                principal_id,
+                stamp,
+                stamp,
+                context_space,
+                *allowed_audiences,
+            ),
         ).fetchall()
 
     def current_corrections(
@@ -125,19 +215,81 @@ class MemoryContextRepository:
         conn: sqlite3.Connection,
         *,
         identity_id: str,
+        principal_id: str,
+        context_space: str,
+        allowed_audiences: tuple[str, ...],
+        private_scope: bool,
     ):
+        if not allowed_audiences:
+            return []
+        placeholders = ",".join("?" for _ in allowed_audiences)
+
+        if private_scope:
+            # Preserve legacy unresolved work that predates durable execution
+            # authorization snapshots, but never import an effect that is
+            # explicitly bound to a different audience/context.
+            return conn.execute(
+                """SELECT e.effect_id,e.purpose_id,e.actor_id,e.action_class,
+                          e.dispatch_state,e.request_json,e.updated_at,
+                          ea.principal_id AS authorized_principal_id,
+                          ea.audience_scope AS authorized_audience_scope,
+                          ea.context_space AS authorized_context_space
+                   FROM effects e
+                   LEFT JOIN execution_authorizations ea
+                     ON ea.authorization_decision_id=
+                        e.authorization_decision_id
+                   WHERE e.identity_id=?
+                     AND e.dispatch_state IN (
+                         'QUEUED','CLAIMED','DISPATCHING',
+                         'NEEDS_RECONCILIATION'
+                     )
+                     AND (
+                         ea.authorization_decision_id IS NULL
+                         OR (
+                             ea.principal_id=?
+                             AND ea.context_space=?
+                             AND ea.audience_scope IN (%s)
+                         )
+                     )
+                   ORDER BY e.updated_at,e.effect_id"""
+                % placeholders,
+                (
+                    identity_id,
+                    principal_id,
+                    context_space,
+                    *allowed_audiences,
+                ),
+            ).fetchall()
+
+        # Non-private context is fail-closed: unresolved external work is
+        # visible only when its durable authorization snapshot proves the
+        # same audience and context-space binding.
         return conn.execute(
-            """SELECT effect_id,purpose_id,actor_id,action_class,
-                      dispatch_state,request_json,updated_at
-               FROM effects
-               WHERE identity_id=?
-                 AND dispatch_state IN (
+            """SELECT e.effect_id,e.purpose_id,e.actor_id,e.action_class,
+                      e.dispatch_state,e.request_json,e.updated_at,
+                      ea.principal_id AS authorized_principal_id,
+                      ea.audience_scope AS authorized_audience_scope,
+                      ea.context_space AS authorized_context_space
+               FROM effects e
+               JOIN execution_authorizations ea
+                 ON ea.authorization_decision_id=
+                    e.authorization_decision_id
+               WHERE e.identity_id=?
+                 AND e.dispatch_state IN (
                      'QUEUED','CLAIMED','DISPATCHING',
                      'NEEDS_RECONCILIATION'
                  )
-               ORDER BY updated_at,effect_id""",
-            (identity_id,),
+                 AND ea.context_space=?
+                 AND ea.audience_scope IN (%s)
+               ORDER BY e.updated_at,e.effect_id"""
+            % placeholders,
+            (
+                identity_id,
+                context_space,
+                *allowed_audiences,
+            ),
         ).fetchall()
+
 
     def authority_freshness(
         self,

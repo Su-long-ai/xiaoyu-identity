@@ -51,6 +51,7 @@ class ProviderAttemptContext:
     tool_implementation_digest: Optional[str] = None
     tool_schema_digest: Optional[str] = None
     source_contains_private_tool_result: bool = False
+    viewer_principal_ids: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,10 @@ def audience_reset_decision(
     ):
         if getattr(previous,field) != getattr(current,field):
             reasons.append(field+"_changed")
+    if tuple(sorted(previous.viewer_principal_ids)) != tuple(
+        sorted(current.viewer_principal_ids)
+    ):
+        reasons.append("viewer_principal_ids_changed")
     if reasons:
         return AudienceResetDecision(
             required=True,
@@ -162,6 +167,7 @@ def provider_session_namespace(context: ProviderAttemptContext) -> str:
         "audience_scope":context.audience_scope,
         "context_space":context.context_space,
         "context_generation":context.context_generation,
+        "viewer_principal_ids":sorted(context.viewer_principal_ids),
         "provider_id":context.provider_id,
         "provider_descriptor_digest":context.provider_descriptor_digest,
         "provider_capability_digest":context.provider_capability_digest,
@@ -229,6 +235,13 @@ def evaluate_provider(
         # Owner-private authority is an allowlist binding, not a denylist.
         if not owner_principal or principal != owner_principal:
             reasons.append("owner_private_principal_mismatch")
+        viewers = {
+            str(value).lower()
+            for value in context.viewer_principal_ids
+            if str(value)
+        }
+        if viewers and viewers != {owner_principal}:
+            reasons.append("owner_private_viewer_set_mismatch")
         if context_space in {"SHARED","GROUP","GUEST"}:
             reasons.append("owner_private_context_space_mismatch")
 

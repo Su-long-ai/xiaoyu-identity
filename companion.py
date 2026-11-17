@@ -262,6 +262,7 @@ class PetApp:
                     owner_principal_id="owner",
                     audience_scope="PRIVATE",
                     context_space="PERSONAL",
+                    viewer_principal_ids=("owner",),
                     required_privacy_class="OWNER_PRIVATE",
                     routing_policy_digest=routing_policy_digest,
                     context_state_provider=lambda:{
@@ -269,6 +270,7 @@ class PetApp:
                         "principal_id":"owner",
                         "audience_scope":"PRIVATE",
                         "context_space":"PERSONAL",
+                        "viewer_principal_ids":("owner",),
                         "authorization_digest":None,
                         "routing_policy_digest":stable_digest(
                             load_provider(HOME)
@@ -572,6 +574,7 @@ class PetApp:
                         owner_principal_id="owner",
                         audience_scope="PRIVATE",
                         context_space="PERSONAL",
+                    viewer_principal_ids=("owner",),
                         required_privacy_class="OWNER_PRIVATE",
                         routing_policy_digest=routing_policy_digest,
                         context_state_provider=lambda:{
@@ -579,6 +582,7 @@ class PetApp:
                             "principal_id":"owner",
                             "audience_scope":"PRIVATE",
                             "context_space":"PERSONAL",
+                            "viewer_principal_ids":("owner",),
                             "authorization_digest":None,
                             "routing_policy_digest":stable_digest(
                                 load_provider(HOME)
