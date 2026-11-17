@@ -233,7 +233,7 @@ def managed_restore(
     with the old backup.
     """
     current_home=Path(current_home)
-    live_path=current_home/"identity.sqlite3"
+    live_path=IdentityStore.db_path_for_home(current_home)
     if not live_path.is_file():
         raise ManagedRestoreError(
             "current managed authority database is required"
@@ -257,7 +257,7 @@ def managed_restore(
             new_home,
         )
         restored_db=Database(
-            Path(restored_home)/"identity.sqlite3"
+            IdentityStore.db_path_for_home(restored_home)
         )
         apply_migrations(restored_db)
 
