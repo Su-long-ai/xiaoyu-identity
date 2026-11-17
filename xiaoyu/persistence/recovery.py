@@ -6,6 +6,7 @@ from enum import Enum
 import hashlib
 import json
 import os
+import sqlite3
 from pathlib import Path
 from typing import Optional
 
@@ -97,8 +98,7 @@ class RecoveryManager:
         created_at: Optional[datetime] = None,
     ) -> Path:
         source = Database(source_path)
-        if not source.is_healthy():
-            raise RestoreInvariantError("source integrity_check failed")
+        RecoveryManager._require_healthy(source, "source")
         apply_migrations(source)
         verify_schema(source)
 
@@ -107,8 +107,7 @@ class RecoveryManager:
 
         backup = source.backup_to(backup_path)
         backup_db = Database(backup)
-        if not backup_db.is_healthy():
-            raise RestoreInvariantError("backup integrity_check failed")
+        RecoveryManager._require_healthy(backup_db, "backup")
         backup_fence = ExternalErasureFenceStore(backup)
         fence.copy_to(backup_fence)
 
@@ -153,8 +152,7 @@ class RecoveryManager:
             raise ValueError("restore candidate must differ from active target")
 
         candidate = Database(candidate_path)
-        if not candidate.is_healthy():
-            raise RestoreInvariantError("candidate integrity_check failed")
+        RecoveryManager._require_healthy(candidate, "candidate")
         apply_migrations(candidate)
         verify_schema(candidate)
 
@@ -184,8 +182,7 @@ class RecoveryManager:
                 p.unlink()
         candidate.backup_to(stage_path)
         stage = Database(stage_path)
-        if not stage.is_healthy():
-            raise RestoreInvariantError("staged restore integrity_check failed")
+        RecoveryManager._require_healthy(stage, "staged restore")
 
         if target_path.exists():
             RecoveryManager._checkpoint(target_path)
@@ -397,8 +394,7 @@ class RecoveryManager:
 
     @staticmethod
     def _verify_candidate(db: Database, identity_id: str, fence_identity: dict) -> None:
-        if not db.is_healthy():
-            raise RestoreInvariantError("candidate integrity_check failed after prepare")
+        RecoveryManager._require_healthy(db, "candidate after prepare")
         verify_schema(db)
         with db.transaction() as conn:
             fk = conn.execute("PRAGMA foreign_key_check").fetchall()
@@ -434,6 +430,17 @@ class RecoveryManager:
             ).fetchone()
             if row is not None:
                 raise RestoreInvariantError("restored executable outbox work remains")
+
+    @staticmethod
+    def _require_healthy(db: Database, label: str) -> None:
+        try:
+            healthy = db.is_healthy()
+        except sqlite3.DatabaseError as exc:
+            raise RestoreInvariantError(
+                "%s integrity_check failed: %s" % (label, exc)
+            ) from exc
+        if not healthy:
+            raise RestoreInvariantError("%s integrity_check failed" % label)
 
     @staticmethod
     def _checkpoint(path: Path) -> None:
