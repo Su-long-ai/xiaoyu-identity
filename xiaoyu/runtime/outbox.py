@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import uuid
 from typing import Callable, Dict, Optional
 
+from xiaoyu.contracts import ActionReceipt
+from xiaoyu.contracts.common import canonical_json
 from xiaoyu.core.effects import DispatchOutcome, DispatchStatus
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.effects import EffectRepository, OutboxRepository
+from xiaoyu.persistence.repositories.receipts import ActionReceiptRepository
 
 
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
@@ -19,12 +24,14 @@ class OutboxDispatcher:
         effect_repo=None,
         outbox_repo=None,
         fault_hook=None,
+        receipt_repo=None,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
         self.effect_repo = effect_repo or EffectRepository()
         self.outbox_repo = outbox_repo or OutboxRepository()
         self.fault_hook = fault_hook
+        self.receipt_repo = receipt_repo or ActionReceiptRepository()
 
     def recover_inflight(self, now: Optional[datetime] = None) -> int:
         current = now or datetime.now(timezone.utc)
@@ -65,6 +72,27 @@ class OutboxDispatcher:
     def _persist_outcome(self, row, outcome: DispatchOutcome, now: datetime) -> None:
         with self.db.transaction(immediate=True) as conn:
             if outcome.status == DispatchStatus.SUCCEEDED:
+                request_digest = "sha256:" + hashlib.sha256(
+                    canonical_json(row.request).encode("utf-8")
+                ).hexdigest()
+                result_payload = outcome.result or {}
+                result_digest = "sha256:" + hashlib.sha256(
+                    canonical_json(result_payload).encode("utf-8")
+                ).hexdigest()
+                receipt = ActionReceipt(
+                    receipt_id=str(uuid.uuid4()),
+                    effect_id=row.effect_id,
+                    actor_id=row.actor_id,
+                    provider_id=row.destination,
+                    authorization_decision_id=row.authorization_decision_id,
+                    request_digest=request_digest,
+                    result_class=outcome.status.value,
+                    result_digest=result_digest,
+                    external_ref=outcome.external_ref,
+                    observed_at=now,
+                    metadata={"attempt_count": row.attempt_count},
+                )
+                self.receipt_repo.insert(conn, row.identity_id, receipt)
                 self.outbox_repo.mark(conn, row.outbox_id, "SENT", now)
                 self.effect_repo.set_state(conn, row.effect_id, "SUCCEEDED", now)
                 return
