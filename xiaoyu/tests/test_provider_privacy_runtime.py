@@ -15,10 +15,12 @@ from send_guard import (
     dual_guarded_chat,
 )
 from xiaoyu.runtime.provider_registry import (
+    AUDIENCE_RESET_COMPONENTS,
     PrivacyClass,
     ProviderAttemptContext,
     ProviderDescriptor,
     ProviderHealth,
+    audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
 )
@@ -191,6 +193,38 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
             self.assertTrue(result.allowed,capability)
 
 
+    def test_owner_to_group_guest_and_shared_require_full_context_reset(self):
+        d=descriptor()
+        owner=attempt_context(d)
+        targets=[
+            attempt_context(d,audience_scope="GROUP",privacy=PrivacyClass.PUBLIC),
+            attempt_context(d,principal_id="guest",privacy=PrivacyClass.PUBLIC),
+            attempt_context(d,context_space="SHARED",privacy=PrivacyClass.PUBLIC),
+        ]
+        for target in targets:
+            decision=audience_reset_decision(owner,target)
+            self.assertTrue(decision.required)
+            self.assertEqual(
+                set(decision.clear_components),
+                set(AUDIENCE_RESET_COMPONENTS),
+            )
+        self.assertFalse(audience_reset_decision(owner,owner).required)
+
+    def test_model_switch_preserves_authority_but_never_session_namespace(self):
+        first=descriptor(provider_id="provider-a")
+        second=descriptor(provider_id="provider-b")
+        first_context=attempt_context(first)
+        second_context=attempt_context(second)
+        self.assertTrue(evaluate_provider(first,first_context).allowed)
+        self.assertTrue(evaluate_provider(second,second_context).allowed)
+        self.assertEqual(first_context.identity_id,second_context.identity_id)
+        self.assertEqual(first_context.principal_id,second_context.principal_id)
+        self.assertNotEqual(
+            provider_session_namespace(first_context),
+            provider_session_namespace(second_context),
+        )
+
+
 class ProviderFallbackIntegrationTests(unittest.TestCase):
     def _fixture(self, td):
         store=IdentityStore(Path(td))
@@ -205,11 +239,11 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
         config=model_adapter._fallback_config("deepseek_web")
         config["fallbacks"]=["deepseek"]
         messages=[{"role":"system","content":rows[0]["text"]}]
-        return store,bridge,generation,expectations,config,messages
+        return store,bridge,mid,generation,expectations,config,messages
 
     def test_provider_digest_change_between_attempts_blocks_fallback(self):
         with tempfile.TemporaryDirectory() as td:
-            store,bridge,generation,expectations,config,messages=self._fixture(td)
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
             fallback_before=model_adapter._fallback_config("deepseek")
             approved=model_adapter._provider_descriptor(fallback_before)
             old_model=model_adapter.PROVIDERS["deepseek"]["model"]
@@ -241,7 +275,7 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
 
     def test_tool_result_invalidation_between_attempts_blocks_fallback(self):
         with tempfile.TemporaryDirectory() as td:
-            store,bridge,generation,expectations,config,messages=self._fixture(td)
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
             state={
                 "identity_id":"identity-1",
                 "principal_id":"owner",
@@ -294,6 +328,79 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
             )
         self.assertEqual(answer,"ok")
         self.assertEqual(calls,["deepseek_web","qwen","deepseek"])
+
+
+    def test_memory_correction_between_attempts_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                store.correct_memory(mid,"CORRECTED_PRIVATE_CONTEXT")
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+                self.assertNotEqual(store.memory_generation(),generation)
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_physical_memory_delete_between_attempts_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                with store.conn:
+                    store.conn.execute(
+                        "DELETE FROM memories WHERE memory_id=?",(int(mid),)
+                    )
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_incomplete_live_scope_state_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                calls.append(candidate["provider"])
+                return "must-not-run",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            context_state_provider=lambda:{
+                                "audience_scope":"PRIVATE",
+                                "context_space":"PERSONAL",
+                            },
+                        )
+                self.assertEqual(calls,[])
+            finally:
+                bridge.close()
+                store.close()
 
 
 if __name__=="__main__":

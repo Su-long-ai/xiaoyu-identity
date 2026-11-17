@@ -4,12 +4,15 @@ from .outbox import OutboxDispatcher
 from .power import PowerLifecycle, PowerState, ResumeReport
 from .scheduler import PurposeDecision, PurposeScheduler
 from .provider_registry import (
+    AUDIENCE_RESET_COMPONENTS,
+    AudienceResetDecision,
     PrivacyClass,
     ProviderAttemptContext,
     ProviderDescriptor,
     ProviderEligibility,
     ProviderFallbackAudit,
     ProviderHealth,
+    audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
 )
@@ -24,12 +27,15 @@ __all__ = [
     "PurposeDecision",
     "PurposeScheduler",
     "ResumeReport",
+    "AUDIENCE_RESET_COMPONENTS",
+    "AudienceResetDecision",
     "PrivacyClass",
     "ProviderAttemptContext",
     "ProviderDescriptor",
     "ProviderEligibility",
     "ProviderFallbackAudit",
     "ProviderHealth",
+    "audience_reset_decision",
     "evaluate_provider",
     "provider_session_namespace",
 ]

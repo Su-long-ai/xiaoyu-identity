@@ -217,7 +217,7 @@ class _FreshAttemptGuard:
             "tool_schema_digest":self.tool_schema_digest,
         }
         for key,value in expected.items():
-            if current.get(key,value) != value:
+            if current.get(key) != value:
                 raise FreshnessChanged("attempt_context_changed:"+key)
 
     def __enter__(self):

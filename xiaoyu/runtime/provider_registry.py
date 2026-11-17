@@ -71,6 +71,47 @@ class ProviderFallbackAudit:
     capability_digest: str
 
 
+AUDIENCE_RESET_COMPONENTS=(
+    "private_retrieval",
+    "private_profile",
+    "cached_context",
+    "provider_session_kv",
+    "tool_delegations",
+    "retained_messages",
+    "surface_state",
+)
+
+
+@dataclass(frozen=True)
+class AudienceResetDecision:
+    required: bool
+    clear_components: Tuple[str, ...]
+    reasons: Tuple[str, ...]
+
+
+def audience_reset_decision(
+    previous: ProviderAttemptContext,
+    current: ProviderAttemptContext,
+) -> AudienceResetDecision:
+    """Declare the mandatory reset boundary before any audience/principal reuse."""
+    reasons=[]
+    for field in (
+        "identity_id",
+        "principal_id",
+        "audience_scope",
+        "context_space",
+    ):
+        if getattr(previous,field) != getattr(current,field):
+            reasons.append(field+"_changed")
+    if reasons:
+        return AudienceResetDecision(
+            required=True,
+            clear_components=AUDIENCE_RESET_COMPONENTS,
+            reasons=tuple(reasons),
+        )
+    return AudienceResetDecision(False,(),())
+
+
 def stable_digest(value: Mapping[str, Any] | Dict[str, Any]) -> str:
     payload=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":"))
     return "sha256:"+hashlib.sha256(payload.encode("utf-8")).hexdigest()
