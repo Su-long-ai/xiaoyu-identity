@@ -56,6 +56,7 @@ def effect(surface="desktop", idem="notice-r7:desktop"):
         {
             "logical_notification_id": "notice-r7",
             "surface": surface,
+            "recipient": "owner",
             "text": "finished",
         },
         idem,
