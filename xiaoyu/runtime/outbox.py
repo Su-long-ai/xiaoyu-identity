@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import uuid
 from typing import Callable, Dict, Optional
 
@@ -143,6 +144,10 @@ class OutboxDispatcher:
             if self.fault_hook:
                 self.fault_hook("before_dispatch", row)
 
+            transport_payload = json.loads(canonical_json(row.payload))
+            transport_request_digest = "sha256:" + hashlib.sha256(
+                canonical_json(transport_payload).encode("utf-8")
+            ).hexdigest()
             transport = self.transports.get(row.destination)
             if transport is None:
                 outcome = DispatchOutcome(
@@ -151,7 +156,10 @@ class OutboxDispatcher:
                 )
             else:
                 try:
-                    outcome = transport(row.payload, row.idempotency_key)
+                    outcome = transport(
+                        transport_payload,
+                        row.idempotency_key,
+                    )
                 except Exception as exc:
                     outcome = DispatchOutcome(
                         DispatchStatus.UNKNOWN,
@@ -163,7 +171,12 @@ class OutboxDispatcher:
             processed += 1
             if self.fault_hook:
                 self.fault_hook("after_dispatch", row)
-            self._persist_outcome(row, outcome, current)
+            self._persist_outcome(
+                row,
+                outcome,
+                current,
+                request_digest=transport_request_digest,
+            )
         return processed
 
     @staticmethod
@@ -251,12 +264,11 @@ class OutboxDispatcher:
         row,
         outcome: DispatchOutcome,
         now: datetime,
+        *,
+        request_digest: str,
     ) -> None:
         with self.db.transaction(immediate=True) as conn:
             if outcome.status == DispatchStatus.SUCCEEDED:
-                request_digest = "sha256:" + hashlib.sha256(
-                    canonical_json(row.payload).encode("utf-8")
-                ).hexdigest()
                 result_payload = outcome.result or {}
                 result_digest = "sha256:" + hashlib.sha256(
                     canonical_json(result_payload).encode("utf-8")
