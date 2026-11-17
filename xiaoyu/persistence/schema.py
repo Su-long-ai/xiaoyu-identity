@@ -18,6 +18,7 @@ from .migrations import (
     v10_profile_relationship_promise,
     v11_memory_context,
     v12_authority_cutover,
+    v13_self_authority,
 )
 
 
@@ -42,6 +43,7 @@ MIGRATIONS = (
     Migration(v10_profile_relationship_promise.VERSION, v10_profile_relationship_promise.NAME, v10_profile_relationship_promise.apply, v10_profile_relationship_promise.verify),
     Migration(v11_memory_context.VERSION, v11_memory_context.NAME, v11_memory_context.apply, v11_memory_context.verify),
     Migration(v12_authority_cutover.VERSION, v12_authority_cutover.NAME, v12_authority_cutover.apply, v12_authority_cutover.verify),
+    Migration(v13_self_authority.VERSION, v13_self_authority.NAME, v13_self_authority.apply, v13_self_authority.verify),
 )
 
 
