@@ -174,6 +174,8 @@ class _FreshAttemptGuard:
         required_privacy_class,
         authorization_digest,
         tool_result_digest,
+        tool_implementation_digest,
+        tool_schema_digest,
         source_contains_private_tool_result,
         context_state_provider,
         approved_provider_digests,
@@ -191,6 +193,8 @@ class _FreshAttemptGuard:
         self.required_privacy_class=str(required_privacy_class or "PUBLIC").upper()
         self.authorization_digest=authorization_digest
         self.tool_result_digest=tool_result_digest
+        self.tool_implementation_digest=tool_implementation_digest
+        self.tool_schema_digest=tool_schema_digest
         self.source_contains_private_tool_result=bool(source_contains_private_tool_result)
         self.context_state_provider=context_state_provider
         self.approved_provider_digests=dict(approved_provider_digests or {})
@@ -209,6 +213,8 @@ class _FreshAttemptGuard:
             "context_space":self.context_space,
             "authorization_digest":self.authorization_digest,
             "tool_result_digest":self.tool_result_digest,
+            "tool_implementation_digest":self.tool_implementation_digest,
+            "tool_schema_digest":self.tool_schema_digest,
         }
         for key,value in expected.items():
             if current.get(key,value) != value:
@@ -269,10 +275,15 @@ class _FreshAttemptGuard:
             provider_id=descriptor.provider_id,
             required_capability="chat.completion",
             required_privacy_class=privacy_class,
+            provider_descriptor_digest=descriptor.descriptor_digest,
+            provider_capability_digest=descriptor.capability_digest,
+            provider_implementation_digest=descriptor.implementation_digest,
             expected_descriptor_digest=approved.get("descriptor_digest"),
             expected_capability_digest=approved.get("capability_digest"),
             authorization_digest=self.authorization_digest,
             tool_result_digest=self.tool_result_digest,
+            tool_implementation_digest=self.tool_implementation_digest,
+            tool_schema_digest=self.tool_schema_digest,
             source_contains_private_tool_result=self.source_contains_private_tool_result,
         )
 
@@ -311,6 +322,8 @@ def dual_guarded_chat(
     required_privacy_class="OWNER_PRIVATE",
     authorization_digest=None,
     tool_result_digest=None,
+    tool_implementation_digest=None,
+    tool_schema_digest=None,
     source_contains_private_tool_result=False,
     context_state_provider=None,
     approved_provider_digests=None,
@@ -339,6 +352,8 @@ def dual_guarded_chat(
                 required_privacy_class,
                 authorization_digest,
                 tool_result_digest,
+                tool_implementation_digest,
+                tool_schema_digest,
                 source_contains_private_tool_result,
                 context_state_provider,
                 approved_provider_digests,

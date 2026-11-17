@@ -9,6 +9,7 @@ from .provider_registry import (
     ProviderDescriptor,
     ProviderEligibility,
     ProviderFallbackAudit,
+    ProviderHealth,
     evaluate_provider,
     provider_session_namespace,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "ProviderDescriptor",
     "ProviderEligibility",
     "ProviderFallbackAudit",
+    "ProviderHealth",
     "evaluate_provider",
     "provider_session_namespace",
 ]

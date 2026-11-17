@@ -38,10 +38,15 @@ class ProviderAttemptContext:
     provider_id: str
     required_capability: str
     required_privacy_class: PrivacyClass
+    provider_descriptor_digest: str
+    provider_capability_digest: str
+    provider_implementation_digest: str
     expected_descriptor_digest: Optional[str] = None
     expected_capability_digest: Optional[str] = None
     authorization_digest: Optional[str] = None
     tool_result_digest: Optional[str] = None
+    tool_implementation_digest: Optional[str] = None
+    tool_schema_digest: Optional[str] = None
     source_contains_private_tool_result: bool = False
 
 
@@ -72,6 +77,7 @@ def stable_digest(value: Mapping[str, Any] | Dict[str, Any]) -> str:
 
 
 def provider_session_namespace(context: ProviderAttemptContext) -> str:
+    """Namespace all hidden provider state by authority + implementation state."""
     return stable_digest({
         "identity_id":context.identity_id,
         "principal_id":context.principal_id,
@@ -79,6 +85,13 @@ def provider_session_namespace(context: ProviderAttemptContext) -> str:
         "context_space":context.context_space,
         "context_generation":context.context_generation,
         "provider_id":context.provider_id,
+        "provider_descriptor_digest":context.provider_descriptor_digest,
+        "provider_capability_digest":context.provider_capability_digest,
+        "provider_implementation_digest":context.provider_implementation_digest,
+        "authorization_digest":context.authorization_digest,
+        "tool_result_digest":context.tool_result_digest,
+        "tool_implementation_digest":context.tool_implementation_digest,
+        "tool_schema_digest":context.tool_schema_digest,
     })
 
 
@@ -98,6 +111,12 @@ def evaluate_provider(
         reasons.append("provider_id_mismatch")
     if descriptor.capability != context.required_capability:
         reasons.append("capability_mismatch")
+    if descriptor.descriptor_digest != context.provider_descriptor_digest:
+        reasons.append("attempt_descriptor_mismatch")
+    if descriptor.capability_digest != context.provider_capability_digest:
+        reasons.append("attempt_capability_digest_mismatch")
+    if descriptor.implementation_digest != context.provider_implementation_digest:
+        reasons.append("attempt_implementation_digest_mismatch")
 
     privacy=_effective_privacy(context)
     if privacy not in descriptor.privacy_classes:
