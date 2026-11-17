@@ -62,6 +62,10 @@ PROVIDERS = {
 
 class ProviderConfigError(RuntimeError): pass
 
+class ProviderDispatchUncertain(RuntimeError):
+    """The request may have been partially disclosed; automatic fallback is unsafe."""
+    pass
+
 def load_provider(home):
     path=Path(home)/"provider.json"
     raw=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -140,31 +144,69 @@ def validate(config):
 
 
 class _DispatchHTTPConnection(http.client.HTTPConnection):
-    """Report disclosure immediately before http.client starts socket output."""
+    """Release freshness only after the complete request body is dispatched."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
+        self._dispatch_started=False
         super().__init__(*args,**kwargs)
 
-    def _send_output(self,message_body=None,encode_chunked=False):
+    def send(self,data):
+        if self.sock is None:
+            if self.auto_open:
+                self.connect()
+            else:
+                raise http.client.NotConnected()
+        self._dispatch_started=True
+        return super().send(data)
+
+    def request(self,*args,**kwargs):
+        self._dispatch_started=False
+        try:
+            result=super().request(*args,**kwargs)
+        except Exception as exc:
+            if self._dispatch_started:
+                raise ProviderDispatchUncertain(
+                    "provider request may have been partially dispatched"
+                ) from exc
+            raise
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return super()._send_output(message_body,encode_chunked=encode_chunked)
+        return result
 
 
 class _DispatchHTTPSConnection(http.client.HTTPSConnection):
-    """HTTPS equivalent with the same pre-output disclosure boundary."""
+    """HTTPS equivalent with the same complete-body dispatch boundary."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
+        self._dispatch_started=False
         super().__init__(*args,**kwargs)
 
-    def _send_output(self,message_body=None,encode_chunked=False):
+    def send(self,data):
+        if self.sock is None:
+            if self.auto_open:
+                self.connect()
+            else:
+                raise http.client.NotConnected()
+        self._dispatch_started=True
+        return super().send(data)
+
+    def request(self,*args,**kwargs):
+        self._dispatch_started=False
+        try:
+            result=super().request(*args,**kwargs)
+        except Exception as exc:
+            if self._dispatch_started:
+                raise ProviderDispatchUncertain(
+                    "provider request may have been partially dispatched"
+                ) from exc
+            raise
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return super()._send_output(message_body,encode_chunked=encode_chunked)
+        return result
 
 
 class _DispatchHTTPHandler(urllib.request.HTTPHandler):
@@ -419,6 +461,11 @@ def _provider_descriptor(config):
         )
         else "REMOTE"
     )
+    session_mode=str(
+        config.get("session_mode")
+        or PROVIDERS.get(provider,{}).get("session_mode")
+        or "STATELESS"
+    ).upper()
     capability_digest=stable_digest({
         "provider":provider,
         "model":str(config.get("model") or ""),
@@ -436,6 +483,7 @@ def _provider_descriptor(config):
         "model":str(config.get("model") or ""),
         "privacy_classes":[x.value for x in privacy],
         "endpoint_scope":endpoint_scope,
+        "session_mode":session_mode,
         "capability_digest":capability_digest,
         "implementation_digest":implementation_digest,
         "policy_version":2,
@@ -448,13 +496,13 @@ def _provider_descriptor(config):
         implementation_digest=implementation_digest,
         endpoint_scope=endpoint_scope,
         privacy_classes=tuple(privacy),
-        session_mode="STATELESS",
+        session_mode=session_mode,
     )
 
 
 
 def capability_descriptor_for_config(config):
-    """Bridge the legacy adapter config into the public capability contract."""
+    """Bridge adapter config into XiaoYu's public capability contract."""
     runtime_descriptor=_provider_descriptor(config)
     interface_digest=stable_digest({
         "contract":"openai.chat.completions",
@@ -467,7 +515,7 @@ def capability_descriptor_for_config(config):
             "choices.message.content":"str",
             "usage":"object",
         },
-        "adapter_policy_version":1,
+        "adapter_policy_version":2,
     })
     isolation=(
         IsolationMode.SIDECAR
@@ -477,7 +525,7 @@ def capability_descriptor_for_config(config):
     return CapabilityDescriptor(
         provider_id=runtime_descriptor.provider_id,
         capability=runtime_descriptor.capability,
-        implementation_version="model-adapter-v1",
+        implementation_version="model-adapter-v2",
         contract_name="openai.chat.completions",
         contract_min_version="1.0",
         contract_max_exclusive="2.0",
@@ -491,6 +539,7 @@ def capability_descriptor_for_config(config):
             "implementation_digest":
                 runtime_descriptor.implementation_digest,
             "endpoint_scope":runtime_descriptor.endpoint_scope,
+            "session_mode":runtime_descriptor.session_mode,
             "model":str(config.get("model") or ""),
             "fallback_capable":True,
         },
@@ -527,6 +576,10 @@ def chat(
     Every concrete provider attempt gets a fresh eligibility decision, fresh
     message object, and (when supplied) a fresh authority/freshness guard.
     """
+    if not str(required_data_class or "").strip():
+        raise ProviderConfigError(
+            "required_data_class must be explicit for every provider attempt"
+        )
     fired=False
     def dispatch_once():
         nonlocal fired
@@ -537,9 +590,15 @@ def chat(
             on_dispatched()
 
     chain=[None]
-    for provider in config.get("fallbacks",[]):
-        if provider in PROVIDERS and provider!=config.get("provider"):
-            chain.append(provider)
+    # Automatic fallback is a cross-provider disclosure decision. A caller that
+    # did not classify its payload may still use its selected primary provider
+    # for backwards compatibility, but cannot silently disclose the same
+    # context to another provider. Guarded product paths always pass a class.
+    fallback_classified=bool(str(required_data_class or "").strip())
+    if fallback_classified:
+        for provider in config.get("fallbacks",[]):
+            if provider in PROVIDERS and provider!=config.get("provider"):
+                chain.append(provider)
 
     errors=[]
     for fallback_provider in chain:
@@ -565,17 +624,17 @@ def chat(
                 if provider_health is not None else None
             )
             if runtime_host is not None:
-                admission=runtime_host.admit_provider(
+                runtime_admission=runtime_host.admit_provider(
                     descriptor,
                     required_data_class=required_data_class,
                     required_features=tuple(required_features or ()),
                     live_health=health,
                 )
-                if not admission.allowed:
+                if not runtime_admission.allowed:
                     errors.append((
                         name,
                         "runtime host rejected provider: "
-                        + ",".join(admission.reasons),
+                        + ",".join(runtime_admission.reasons),
                     ))
                     continue
             context_builder=getattr(guard,"provider_attempt_context",None)
@@ -626,6 +685,11 @@ def chat(
                 result=_chat_once(
                     candidate,attempt_messages,max_tokens,timeout,callback
                 )
+            except ProviderDispatchUncertain:
+                # Some bytes may already have crossed the provider boundary,
+                # but the complete request was not confirmed dispatched.
+                # Never replay the same private context to another provider.
+                raise
             except (ProviderConfigError,RuntimeError) as exc:
                 errors.append((name,str(exc)))
                 continue
@@ -633,6 +697,57 @@ def chat(
             on_response=getattr(guard,"on_response",None)
             if on_response is not None:
                 on_response()
+
+            # Re-evaluate provider policy/health after the request returns.
+            # A result that crossed the wire under one privacy/capability
+            # contract is not silently accepted after that contract changes.
+            fresh_descriptor=_provider_descriptor(candidate)
+            if fresh_descriptor.descriptor_digest != descriptor.descriptor_digest:
+                raise RuntimeError(
+                    "provider descriptor changed after dispatch"
+                )
+            fresh_health=(
+                provider_health(fresh_descriptor)
+                if provider_health is not None else None
+            )
+            if runtime_host is not None:
+                fresh_runtime_admission=runtime_host.admit_provider(
+                    fresh_descriptor,
+                    required_data_class=required_data_class,
+                    required_features=tuple(required_features or ()),
+                    live_health=fresh_health,
+                )
+                if not fresh_runtime_admission.allowed:
+                    raise RuntimeError(
+                        "runtime host eligibility changed after dispatch: "
+                        + ",".join(fresh_runtime_admission.reasons)
+                    )
+            if context_builder is not None:
+                fresh_context=context_builder(
+                    fresh_descriptor,required_data_class
+                )
+                fresh_eligibility=evaluate_provider(
+                    fresh_descriptor,fresh_context,fresh_health
+                )
+                if not fresh_eligibility.allowed:
+                    raise RuntimeError(
+                        "provider eligibility changed after dispatch: "
+                        + ",".join(fresh_eligibility.reasons)
+                    )
+            else:
+                if not _provider_allows_data_class(
+                    candidate,required_data_class
+                ):
+                    raise RuntimeError(
+                        "provider privacy eligibility changed after dispatch"
+                    )
+                if (
+                    fresh_health is not None
+                    and str(fresh_health.readiness).upper()!="READY"
+                ):
+                    raise RuntimeError(
+                        "provider health changed after dispatch"
+                    )
             return result
 
     if len(errors)==1:
