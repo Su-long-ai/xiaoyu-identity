@@ -51,9 +51,7 @@ def validate_action_parameters(action: ActionRequest) -> Optional[str]:
         if expected_type is int:
             if isinstance(value, bool) or not isinstance(value, int):
                 return "PARAMETER_TYPE_MISMATCH_%s" % key
-            if value != 1:
-                # Current contracts model exactly one outbound message per
-                # EffectIntent.  Batches need a future explicit action schema.
+            if value <= 0:
                 return "PARAMETER_VALUE_MISMATCH_%s" % key
         elif not isinstance(value, expected_type):
             return "PARAMETER_TYPE_MISMATCH_%s" % key
