@@ -625,6 +625,177 @@ class R9TemporalShadowTests(unittest.TestCase):
                 ["games", "music"],
             )
 
+    def test_full_rebuild_matches_incremental_authority_snapshot(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = Database(root / "source.sqlite3")
+            apply_migrations(source)
+
+            city1 = self._event(
+                source,
+                source_key="rebuild-city-1",
+                observed_at=JAN,
+                text="I live in Nanjing",
+            )
+            city = self._mutate(
+                source,
+                mutation_id="rebuild-mut-city-1",
+                event=city1,
+                subject="owner",
+                predicate="city",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=0,
+                value="Nanjing",
+                valid_from=JAN,
+            )
+            city2 = self._event(
+                source,
+                source_key="rebuild-city-2",
+                observed_at=NOV,
+                text="I moved to Suzhou",
+            )
+            self._mutate(
+                source,
+                mutation_id="rebuild-mut-city-2",
+                event=city2,
+                subject="owner",
+                predicate="city",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=1,
+                value="Suzhou",
+                valid_from=NOV,
+            )
+
+            pref1 = self._event(
+                source,
+                source_key="rebuild-pref-1",
+                observed_at=JAN,
+                text="prefer local",
+            )
+            pref = self._mutate(
+                source,
+                mutation_id="rebuild-mut-pref-1",
+                event=pref1,
+                subject="owner",
+                predicate="tool_preference",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=0,
+                value="local",
+                valid_from=JAN,
+            )
+            retract = self._event(
+                source,
+                source_key="rebuild-pref-retract",
+                observed_at=JUN,
+                text="stop using that preference",
+            )
+            self._mutate(
+                source,
+                mutation_id="rebuild-mut-pref-retract",
+                event=retract,
+                subject="owner",
+                predicate="tool_preference",
+                operation=FactMutationOperation.RETRACT,
+                expected_revision=1,
+                valid_from=JUN,
+            )
+
+            secret1 = self._event(
+                source,
+                source_key="rebuild-secret-1",
+                observed_at=JAN,
+                text="remember A",
+            )
+            secret = self._mutate(
+                source,
+                mutation_id="rebuild-mut-secret-1",
+                event=secret1,
+                subject="owner",
+                predicate="secret_pref",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=0,
+                value="A",
+                valid_from=JAN,
+            )
+            deletion = self._event(
+                source,
+                source_key="rebuild-secret-delete",
+                observed_at=JUN,
+                text="delete it",
+            )
+            self._mutate(
+                source,
+                mutation_id="rebuild-mut-secret-delete",
+                event=deletion,
+                subject="owner",
+                predicate="secret_pref",
+                operation=FactMutationOperation.DELETE,
+                expected_revision=1,
+            )
+            secret2 = self._event(
+                source,
+                source_key="rebuild-secret-2",
+                observed_at=NOV,
+                text="new preference B",
+            )
+            self._mutate(
+                source,
+                mutation_id="rebuild-mut-secret-2",
+                event=secret2,
+                subject="owner",
+                predicate="secret_pref",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=2,
+                value="B",
+                valid_from=NOV,
+            )
+
+            service = TemporalFactService(source)
+            source_snapshot = service.authority_snapshot(
+                identity_id="fish-1"
+            )
+            target = Database(root / "rebuilt.sqlite3")
+            report = service.rebuild_into(
+                target,
+                identity_id="fish-1",
+            )
+            self.assertEqual(
+                report["snapshot"],
+                source_snapshot,
+            )
+            self.assertEqual(report["mutations"], 7)
+            self.assertGreaterEqual(report["events"], 7)
+
+            rebuilt = TemporalFactService(target)
+            self.assertEqual(
+                json.loads(
+                    rebuilt.get_fact_at_time(
+                        identity_id="fish-1",
+                        fact_key=city.fact_key,
+                        at=DEC,
+                    )[0]["value_json"]
+                ),
+                "Suzhou",
+            )
+            self.assertEqual(
+                rebuilt.get_fact_at_time(
+                    identity_id="fish-1",
+                    fact_key=pref.fact_key,
+                    at=NOV,
+                ),
+                [],
+            )
+            self.assertEqual(
+                json.loads(
+                    rebuilt.get_fact_at_time(
+                        identity_id="fish-1",
+                        fact_key=secret.fact_key,
+                        at=DEC,
+                    )[0]["value_json"]
+                ),
+                "B",
+            )
+
     def test_mutation_invalidates_projection_with_revision_and_erasure_generation(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
