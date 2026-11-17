@@ -48,6 +48,7 @@ from xiaoyu.persistence.repositories.purposes import PurposeRepository
 from xiaoyu.runtime import (
     DeliveryCoordinator,
     DeliveryLedger,
+    ExecutionRecoveryQueue,
     OutboxDispatcher,
     ProviderRegistry,
     PurposeScheduler,
@@ -961,6 +962,62 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 )
             finally:
                 conn.close()
+
+    def test_restart_rebuilds_active_scheduled_purpose_missing_work(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=10)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET resolved_utc_time=?,scheduled_wall_time=?,
+                           timezone='UTC'
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+            report = ExecutionRecoveryQueue(db).recover_restart(NOW)
+            self.assertEqual(report["active_work_rebuilt"], 1)
+            conn = db.connect()
+            try:
+                row = conn.execute(
+                    """SELECT state,purpose_revision
+                       FROM purpose_occurrences"""
+                ).fetchone()
+                self.assertEqual(tuple(row), ("READY", 1))
+            finally:
+                conn.close()
+
+    def test_reconciliation_queue_makes_unknown_effect_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+
+            def transport(payload, idem):
+                raise TimeoutError("unknown result")
+
+            OutboxDispatcher(
+                db, {"qq": transport}
+            ).dispatch_once(now=NOW)
+            items = ExecutionRecoveryQueue(db).list_open("fish-1")
+            self.assertTrue(
+                any(
+                    item.kind == "effect"
+                    and item.state == "NEEDS_RECONCILIATION"
+                    for item in items
+                )
+            )
+            self.assertTrue(
+                any(
+                    item.kind == "purpose"
+                    and item.state == "NEEDS_RECONCILIATION"
+                    for item in items
+                )
+            )
 
 
 if __name__ == "__main__":
