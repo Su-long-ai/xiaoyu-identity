@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence.schema import MIGRATIONS
 from xiaoyu.release.authority import (
     ReleaseActivationError,
     ReleaseAuthority,
@@ -71,10 +72,11 @@ class ReleaseAuthorityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             db = Database(Path(td) / "identity.sqlite3")
             apply_migrations(db)
+            latest = max(migration.version for migration in MIGRATIONS)
             evidence = ReleaseSmokeRunner.run(
                 db_path=db.path,
                 identity_id="fish-1",
-                manifest=manifest("candidate", 7, 7),
+                manifest=manifest("candidate", latest, latest),
             )
             self.assertEqual(evidence, GOOD)
 
