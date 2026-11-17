@@ -34,7 +34,10 @@ from xiaoyu.core.purpose import (
     PurposeState,
 )
 from xiaoyu.persistence import Database, apply_migrations
-from xiaoyu.persistence.repositories.execution_auth import DelegationRepository
+from xiaoyu.persistence.repositories.execution_auth import (
+    DelegationRepository,
+    PrincipalExecutionRepository,
+)
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
 from xiaoyu.runtime import (
     DeliveryCoordinator,
@@ -632,6 +635,68 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 self.assertEqual(persisted, canonical_json(original))
             finally:
                 conn.close()
+
+    def test_principal_revocation_after_enqueue_blocks_transport(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            with db.transaction(immediate=True) as conn:
+                self.assertTrue(
+                    PrincipalExecutionRepository().revoke(
+                        conn,
+                        identity_id="fish-1",
+                        principal_id="owner",
+                        session_scope="desktop",
+                        revoked_at=NOW + timedelta(seconds=1),
+                    )
+                )
+            calls = []
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+    def test_principal_viewer_change_invalidates_old_authorization(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            changed = PrincipalContext(
+                principal_id="owner",
+                authentication_level="OWNER_AUTHENTICATED",
+                confidence=1.0,
+                evidence_classes=("LOCAL_OS_SESSION",),
+                viewer_set=("owner", "guest"),
+                session_scope="desktop",
+                expires_at=NOW + timedelta(hours=1),
+            )
+            with db.transaction(immediate=True) as conn:
+                PrincipalExecutionRepository().register(
+                    conn,
+                    "fish-1",
+                    changed,
+                    NOW + timedelta(seconds=1),
+                )
+            calls = []
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":
