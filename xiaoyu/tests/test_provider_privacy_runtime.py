@@ -543,7 +543,7 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 bridge.close()
                 store.close()
 
-    def test_unclassified_direct_chat_never_crosses_provider_boundary(self):
+    def test_unclassified_direct_chat_fails_before_any_provider_boundary(self):
         config=model_adapter._fallback_config("deepseek_web")
         config["fallbacks"]=["qwen","deepseek"]
         calls=[]
@@ -555,7 +555,7 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 model_adapter.chat(
                     config,[{"role":"user","content":"unclassified"}]
                 )
-        self.assertEqual(calls,["deepseek_web"])
+        self.assertEqual(calls,[])
 
     def test_public_three_provider_chain_still_falls_back(self):
         config=model_adapter._fallback_config("deepseek_web")
