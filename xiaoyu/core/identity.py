@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 import json
 from typing import Optional
 
-from xiaoyu.contracts import TrustClass
+from xiaoyu.core.claims import (
+    ClaimAdmissionError,
+    OwnerMutationAdmissionPolicy,
+)
 from xiaoyu.contracts.common import datetime_from_text
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.events import (
@@ -51,22 +54,21 @@ class SelfIdentity:
 class SelfAuthorityService:
     """Canonical SELF authority: stable identity + slow persona history."""
 
-    OWNER_TRUST = {
-        TrustClass.OWNER_DIRECT,
-        TrustClass.OWNER_AUTHENTICATED_DEVICE,
-    }
-
     def __init__(
         self,
         db: Database,
         *,
         repository=None,
         event_repository=None,
+        admission_policy=None,
     ) -> None:
         self.db = db
         self.repository = repository or SelfAuthorityRepository()
         self.event_repository = (
             event_repository or CanonicalEventRepository()
+        )
+        self.admission_policy = (
+            admission_policy or OwnerMutationAdmissionPolicy()
         )
 
     @staticmethod
@@ -182,14 +184,12 @@ class SelfAuthorityService:
                     raise PersonaEvidenceError(
                         "persona evidence identity mismatch"
                     )
-                if event.principal_id != principal_id:
-                    raise PersonaEvidenceError(
-                        "persona evidence principal mismatch"
+                try:
+                    self.admission_policy.require(
+                        event, principal_id
                     )
-                if event.trust_class not in self.OWNER_TRUST:
-                    raise PersonaEvidenceError(
-                        "persona evidence is not owner-authoritative"
-                    )
+                except ClaimAdmissionError as exc:
+                    raise PersonaEvidenceError(str(exc)) from exc
             try:
                 self.repository.append_persona(
                     conn,
