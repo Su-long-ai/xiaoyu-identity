@@ -10,12 +10,14 @@ from xiaoyu.contracts import (
     Delegation,
     EffectIntent,
     InputSourceEnvelope,
+    MultimodalEvidenceRef,
     IsolationMode,
     PrincipalContext,
     ProviderHealth,
     ProviderLifecycle,
     Taint,
     TrustClass,
+    DeliveryReceipt,
 )
 from xiaoyu.contracts.common import canonical_json
 from xiaoyu.contracts.errors import ContractFieldError, ContractTimeError
@@ -109,6 +111,28 @@ class ContractRoundTripTests(unittest.TestCase):
             metadata={"attempt": 1},
         )
         self.assertEqual(ActionReceipt.from_dict(receipt.to_dict()), receipt)
+
+    def test_multimodal_and_delivery_roundtrip(self):
+        evidence = MultimodalEvidenceRef(
+            modality="image",
+            source_id="vision:frame-1",
+            observed_from=NOW,
+            observed_to=NOW + timedelta(milliseconds=50),
+            content_digest="sha256:image",
+            derived_text="window shows build finished",
+            retention_class="TRANSIENT",
+            privacy_class="OWNER_PRIVATE",
+        )
+        self.assertEqual(MultimodalEvidenceRef.from_dict(evidence.to_dict()), evidence)
+
+        delivery = DeliveryReceipt(
+            logical_delivery_id="notification-1",
+            surface="desktop",
+            state="DELIVERED",
+            external_ref=None,
+            observed_at=NOW,
+        )
+        self.assertEqual(DeliveryReceipt.from_dict(delivery.to_dict()), delivery)
 
     def test_capability_and_health_roundtrip(self):
         descriptor = CapabilityDescriptor(
