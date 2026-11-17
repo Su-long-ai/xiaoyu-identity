@@ -211,12 +211,14 @@ class R11MemoryContextTests(unittest.TestCase):
         audience="PRIVATE",
         explicit=False,
         continuation=False,
+        viewer=(),
     ):
         return ContextRequest(
             identity_id="fish-1",
             principal_id="owner",
             audience_scope=audience,
             context_space="PERSONAL",
+            viewer_principal_ids=tuple(viewer),
             turn_text=text,
             identity_block={
                 "identity_id": "fish-1",
@@ -438,6 +440,7 @@ class R11MemoryContextTests(unittest.TestCase):
                 self._request(
                     "你记得我的偏好吗？",
                     audience="GROUP",
+                    viewer=("owner", "guest"),
                     explicit=True,
                 ),
                 now=T1,
