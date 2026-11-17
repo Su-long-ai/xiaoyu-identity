@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from xiaoyu.persistence import Database, apply_migrations, applied_versions
-from xiaoyu.persistence.erasure import ExternalErasureFenceStore
+from xiaoyu.persistence.erasure import ExternalErasureFenceStore, ErasureWatermarkError
 from xiaoyu.persistence.recovery import (
     MissingErasureWatermark,
     RecoveryManager,
@@ -480,6 +480,23 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                 applied_versions(Database(target)),
                 [1, 2, 3, 4, 5, 6, 7],
             )
+
+    def test_managed_restore_with_corrupt_watermark_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            active = self._db(root / "identity.sqlite3")
+            fence = ExternalErasureFenceStore(active.path)
+            fence.ensure_identity("fish-1")
+            snapshot = active.backup_to(root / "old.sqlite3")
+            fence.path.write_text("{not-json", encoding="utf-8")
+
+            with self.assertRaises(ErasureWatermarkError):
+                RecoveryManager.restore(
+                    candidate_path=snapshot,
+                    target_path=active.path,
+                    identity_id="fish-1",
+                    mode=RestoreMode.MANAGED,
+                )
 
     def test_managed_restore_without_trusted_watermark_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
