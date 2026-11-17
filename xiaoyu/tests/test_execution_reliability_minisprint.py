@@ -883,6 +883,37 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
 
+    def test_tool_schema_digest_change_invalidates_old_authorization(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE provider_registry
+                       SET tool_schema_digest='sha256:schema-v2',
+                           updated_at=?
+                       WHERE provider_id='napcat'""",
+                    ((NOW + timedelta(seconds=1)).isoformat(),),
+                )
+
+            calls = []
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
+                    )
+                },
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
     def test_provider_health_change_blocks_queued_effect(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
