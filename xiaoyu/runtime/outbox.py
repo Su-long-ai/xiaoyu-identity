@@ -51,6 +51,7 @@ class OutboxDispatcher:
         receipt_repo=None,
         delivery_repo=None,
         execution_auth_repo=None,
+        max_attempts: int = 5,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
@@ -62,6 +63,11 @@ class OutboxDispatcher:
         self.execution_auth_repo = (
             execution_auth_repo or ExecutionAuthorizationRepository()
         )
+        if isinstance(max_attempts, bool) or not isinstance(max_attempts, int):
+            raise ValueError("max_attempts must be an integer")
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be >= 1")
+        self.max_attempts = max_attempts
 
     def recover_inflight(self, now: Optional[datetime] = None) -> int:
         current = now or datetime.now(timezone.utc)
@@ -389,7 +395,11 @@ class OutboxDispatcher:
                 return
 
             if outcome.status == DispatchStatus.FAILED_RETRYABLE:
-                if row.replayable and row.idempotency_key:
+                if (
+                    row.replayable
+                    and row.idempotency_key
+                    and row.attempt_count < self.max_attempts
+                ):
                     delay = max(
                         0.0,
                         float(outcome.retry_after_s or 1.0),
@@ -407,6 +417,22 @@ class OutboxDispatcher:
                     )
                     self.delivery_repo.mark_retryable(
                         conn, row.effect_id, now
+                    )
+                elif row.replayable and row.idempotency_key:
+                    self.outbox_repo.mark(
+                        conn,
+                        row.outbox_id,
+                        "FAILED_FINAL",
+                        now,
+                    )
+                    self.effect_repo.set_state(
+                        conn, row.effect_id, "FAILED", now
+                    )
+                    self.delivery_repo.mark_failed_final(
+                        conn, row.effect_id, now
+                    )
+                    self._mark_occurrence(
+                        conn, row, "FAILED_FINAL", now
                     )
                 else:
                     self.outbox_repo.mark(
