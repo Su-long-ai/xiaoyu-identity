@@ -130,33 +130,31 @@ def validate(config):
 
 
 class _DispatchHTTPConnection(http.client.HTTPConnection):
-    """HTTPConnection that reports the local data-release point exactly once."""
+    """Report disclosure immediately before http.client starts socket output."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
         super().__init__(*args,**kwargs)
 
-    def request(self,*args,**kwargs):
-        result=super().request(*args,**kwargs)
+    def _send_output(self,message_body=None,encode_chunked=False):
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return result
+        return super()._send_output(message_body,encode_chunked=encode_chunked)
 
 
 class _DispatchHTTPSConnection(http.client.HTTPSConnection):
-    """HTTPSConnection equivalent used by urllib's normal HTTPS handler path."""
+    """HTTPS equivalent with the same pre-output disclosure boundary."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
         super().__init__(*args,**kwargs)
 
-    def request(self,*args,**kwargs):
-        result=super().request(*args,**kwargs)
+    def _send_output(self,message_body=None,encode_chunked=False):
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return result
+        return super()._send_output(message_body,encode_chunked=encode_chunked)
 
 
 class _DispatchHTTPHandler(urllib.request.HTTPHandler):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -223,6 +224,30 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
             provider_session_namespace(first_context),
             provider_session_namespace(second_context),
         )
+
+
+    def test_dispatch_callback_fires_before_socket_output_failure(self):
+        events=[]
+        conn=model_adapter._DispatchHTTPConnection(
+            "127.0.0.1",
+            on_dispatched=lambda:events.append("dispatched"),
+        )
+        with patch.object(
+            http.client.HTTPConnection,
+            "_send_output",
+            side_effect=TimeoutError("partial-send-timeout"),
+        ):
+            with self.assertRaises(TimeoutError):
+                conn._send_output(b"PRIVATE_BODY")
+        self.assertEqual(events,["dispatched"])
+        with patch.object(
+            http.client.HTTPConnection,
+            "_send_output",
+            side_effect=TimeoutError("retry"),
+        ):
+            with self.assertRaises(TimeoutError):
+                conn._send_output(b"PRIVATE_BODY")
+        self.assertEqual(events,["dispatched"])
 
 
 class ProviderFallbackIntegrationTests(unittest.TestCase):
