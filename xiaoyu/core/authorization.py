@@ -19,12 +19,45 @@ from xiaoyu.contracts import (
 
 OWNER_STRONG_LEVELS = {"OWNER_AUTHENTICATED"}
 
+# Execution Reliability deliberately keeps this small and explicit.  These are
+# the only external action classes implemented by the current R5-R8 slice.
+_ACTION_PARAMETER_SCHEMAS = {
+    "message.send": {"messages": int},
+    "notification.deliver": {"messages": int},
+}
+
 
 @dataclass(frozen=True)
 class AuthorizationResult:
     decision: AuthorizationDecision
     reason_code: str
     matched_delegation_id: Optional[str] = None
+
+
+def validate_action_parameters(action: ActionRequest) -> Optional[str]:
+    schema = _ACTION_PARAMETER_SCHEMAS.get(action.action_class)
+    if schema is None:
+        return "UNKNOWN_ACTION"
+    actual = set(action.parameters)
+    expected = set(schema)
+    missing = expected - actual
+    if missing:
+        return "MISSING_PARAMETER_%s" % sorted(missing)[0]
+    unknown = actual - expected
+    if unknown:
+        return "UNKNOWN_PARAMETER_%s" % sorted(unknown)[0]
+    for key, expected_type in schema.items():
+        value = action.parameters[key]
+        if expected_type is int:
+            if isinstance(value, bool) or not isinstance(value, int):
+                return "PARAMETER_TYPE_MISMATCH_%s" % key
+            if value != 1:
+                # Current contracts model exactly one outbound message per
+                # EffectIntent.  Batches need a future explicit action schema.
+                return "PARAMETER_VALUE_MISMATCH_%s" % key
+        elif not isinstance(value, expected_type):
+            return "PARAMETER_TYPE_MISMATCH_%s" % key
+    return None
 
 
 class AuthorizationPolicy:
@@ -43,6 +76,13 @@ class AuthorizationPolicy:
         current = now or datetime.now(timezone.utc)
         if current.tzinfo is None or current.utcoffset() is None:
             raise ValueError("authorization time must be timezone-aware")
+
+        action_error = validate_action_parameters(action)
+        if action_error is not None:
+            return AuthorizationResult(
+                AuthorizationDecision.DENY,
+                "ACTION_INVALID_%s" % action_error,
+            )
 
         if principal.expires_at is not None and current >= principal.expires_at:
             return AuthorizationResult(AuthorizationDecision.DENY, "PRINCIPAL_EXPIRED")
