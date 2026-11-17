@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 import unittest
 from dataclasses import replace
@@ -632,12 +633,23 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     "DELIVERED",
                 )
                 receipt = conn.execute(
-                    "SELECT request_digest FROM action_receipts"
-                ).fetchone()[0]
+                    """SELECT request_digest,provider_id,receipt_json
+                       FROM action_receipts"""
+                ).fetchone()
                 expected = "sha256:" + hashlib.sha256(
                     canonical_json(eff.request).encode("utf-8")
                 ).hexdigest()
-                self.assertEqual(receipt, expected)
+                self.assertEqual(receipt["request_digest"], expected)
+                self.assertEqual(receipt["provider_id"], "napcat")
+                auth_digest = conn.execute(
+                    """SELECT authorized_request_digest
+                       FROM execution_authorizations"""
+                ).fetchone()[0]
+                receipt_body = json.loads(receipt["receipt_json"])
+                self.assertEqual(
+                    receipt_body["metadata"]["authorized_request_digest"],
+                    auth_digest,
+                )
             finally:
                 conn.close()
 
