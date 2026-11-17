@@ -57,6 +57,10 @@ PROVIDERS = {
 
 class ProviderConfigError(RuntimeError): pass
 
+class ProviderDispatchUncertain(RuntimeError):
+    """The request may have been partially disclosed; automatic fallback is unsafe."""
+    pass
+
 def load_provider(home):
     path=Path(home)/"provider.json"
     raw=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -135,31 +139,69 @@ def validate(config):
 
 
 class _DispatchHTTPConnection(http.client.HTTPConnection):
-    """Report disclosure immediately before http.client starts socket output."""
+    """Release freshness only after the complete request body is dispatched."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
+        self._dispatch_started=False
         super().__init__(*args,**kwargs)
 
-    def _send_output(self,message_body=None,encode_chunked=False):
+    def send(self,data):
+        if self.sock is None:
+            if self.auto_open:
+                self.connect()
+            else:
+                raise http.client.NotConnected()
+        self._dispatch_started=True
+        return super().send(data)
+
+    def request(self,*args,**kwargs):
+        self._dispatch_started=False
+        try:
+            result=super().request(*args,**kwargs)
+        except Exception as exc:
+            if self._dispatch_started:
+                raise ProviderDispatchUncertain(
+                    "provider request may have been partially dispatched"
+                ) from exc
+            raise
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return super()._send_output(message_body,encode_chunked=encode_chunked)
+        return result
 
 
 class _DispatchHTTPSConnection(http.client.HTTPSConnection):
-    """HTTPS equivalent with the same pre-output disclosure boundary."""
+    """HTTPS equivalent with the same complete-body dispatch boundary."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
+        self._dispatch_started=False
         super().__init__(*args,**kwargs)
 
-    def _send_output(self,message_body=None,encode_chunked=False):
+    def send(self,data):
+        if self.sock is None:
+            if self.auto_open:
+                self.connect()
+            else:
+                raise http.client.NotConnected()
+        self._dispatch_started=True
+        return super().send(data)
+
+    def request(self,*args,**kwargs):
+        self._dispatch_started=False
+        try:
+            result=super().request(*args,**kwargs)
+        except Exception as exc:
+            if self._dispatch_started:
+                raise ProviderDispatchUncertain(
+                    "provider request may have been partially dispatched"
+                ) from exc
+            raise
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return super()._send_output(message_body,encode_chunked=encode_chunked)
+        return result
 
 
 class _DispatchHTTPHandler(urllib.request.HTTPHandler):
@@ -560,6 +602,11 @@ def chat(
                 result=_chat_once(
                     candidate,attempt_messages,max_tokens,timeout,callback
                 )
+            except ProviderDispatchUncertain:
+                # Some bytes may already have crossed the provider boundary,
+                # but the complete request was not confirmed dispatched.
+                # Never replay the same private context to another provider.
+                raise
             except (ProviderConfigError,RuntimeError) as exc:
                 errors.append((name,str(exc)))
                 continue

@@ -437,28 +437,23 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
 
 
-    def test_dispatch_callback_fires_before_socket_output_failure(self):
+    def test_partial_send_failure_is_uncertain_and_does_not_release_fence(self):
         events=[]
+        class FailingSocket:
+            def sendall(self,data):
+                raise TimeoutError("partial-send-timeout")
         conn=model_adapter._DispatchHTTPConnection(
-            "127.0.0.1",
+            "synthetic.local",
             on_dispatched=lambda:events.append("dispatched"),
         )
-        with patch.object(
-            http.client.HTTPConnection,
-            "_send_output",
-            side_effect=TimeoutError("partial-send-timeout"),
-        ):
-            with self.assertRaises(TimeoutError):
-                conn._send_output(b"PRIVATE_BODY")
-        self.assertEqual(events,["dispatched"])
-        with patch.object(
-            http.client.HTTPConnection,
-            "_send_output",
-            side_effect=TimeoutError("retry"),
-        ):
-            with self.assertRaises(TimeoutError):
-                conn._send_output(b"PRIVATE_BODY")
-        self.assertEqual(events,["dispatched"])
+        conn.connect=lambda:setattr(conn,"sock",FailingSocket())
+        with self.assertRaises(model_adapter.ProviderDispatchUncertain):
+            conn.request(
+                "POST","/v1/chat/completions",
+                body=b"PRIVATE_BODY",
+                headers={"Content-Type":"application/json"},
+            )
+        self.assertEqual(events,[])
 
 
 class ProviderFallbackIntegrationTests(unittest.TestCase):
@@ -1110,6 +1105,48 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
             finally:
                 bridge.close()
                 store.close()
+
+
+    def test_uncertain_partial_dispatch_never_attempts_fallback_provider(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                calls.append(candidate["provider"])
+                raise model_adapter.ProviderDispatchUncertain(
+                    "synthetic partial dispatch"
+                )
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(model_adapter.ProviderDispatchUncertain):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_successful_request_dispatch_callback_fires_after_full_body_send(self):
+        events=[]
+        sent=[]
+        class RecordingSocket:
+            def sendall(self,data):
+                sent.append(bytes(data))
+        conn=model_adapter._DispatchHTTPConnection(
+            "synthetic.local",
+            on_dispatched=lambda:events.append(("dispatched",len(sent))),
+        )
+        conn.connect=lambda:setattr(conn,"sock",RecordingSocket())
+        conn.request(
+            "POST","/v1/chat/completions",
+            body=b"PRIVATE_BODY",
+            headers={"Content-Type":"application/json"},
+        )
+        self.assertTrue(sent)
+        self.assertEqual(events,[("dispatched",len(sent))])
+        self.assertGreaterEqual(events[0][1],2)
 
 
 if __name__=="__main__":
