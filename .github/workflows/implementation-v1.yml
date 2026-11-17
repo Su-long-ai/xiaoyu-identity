@@ -4,19 +4,21 @@ on:
   pull_request:
     paths:
       - "xiaoyu/**"
+      - "identity_core.py"
       - ".github/workflows/implementation-v1.yml"
   push:
     branches:
       - "feat/implementation-v1-*"
     paths:
       - "xiaoyu/**"
+      - "identity_core.py"
       - ".github/workflows/implementation-v1.yml"
 
 permissions:
   contents: read
 
 jobs:
-  contracts-and-migrations:
+  implementation-regression:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -34,7 +36,7 @@ jobs:
       - name: Compile XiaoYu package
         run: python -m compileall -q xiaoyu
 
-      - name: Run R1-R4 regression
+      - name: Run R1-R5 and legacy identity regression
         run: |
           python -m unittest -v \
             xiaoyu.tests.test_architecture_imports \
@@ -42,5 +44,6 @@ jobs:
             xiaoyu.tests.test_persistence_migrations \
             xiaoyu.tests.test_canonical_events \
             xiaoyu.tests.test_identity_shadow \
+            xiaoyu.tests.test_authorization_policy \
             test_identity \
             test_identity_v2
