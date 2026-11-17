@@ -16,7 +16,8 @@ from xiaoyu.contracts.common import (
 from xiaoyu.core.claims import (
     OwnerMutationAdmissionPolicy,
 )
-from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.core.erasure import ManagedErasurePropagator
+from xiaoyu.persistence import Database, ExternalErasureFenceStore, apply_migrations
 from xiaoyu.persistence.repositories.claims import ClaimRepository
 from xiaoyu.persistence.repositories.events import CanonicalEventRepository
 from xiaoyu.persistence.repositories.temporal import TemporalRepository
@@ -190,6 +191,7 @@ class TemporalFactService:
         claim_repo=None,
         temporal_repo=None,
         admission_policy=None,
+        erasure_propagator=None,
     ) -> None:
         self.db = db
         self.event_repo = event_repo or CanonicalEventRepository()
@@ -197,6 +199,9 @@ class TemporalFactService:
         self.temporal_repo = temporal_repo or TemporalRepository()
         self.admission_policy = (
             admission_policy or OwnerMutationAdmissionPolicy()
+        )
+        self.erasure_propagator = (
+            erasure_propagator or ManagedErasurePropagator()
         )
 
     @staticmethod
@@ -414,11 +419,37 @@ class TemporalFactService:
             )
 
             if request.operation == FactMutationOperation.DELETE:
+                self.erasure_propagator.apply_fact_delete(
+                    conn,
+                    identity_id=event.identity_id,
+                    fact_key=fact_key,
+                )
                 erasure_generation = max(
                     erasure_generation + 1,
                     self.temporal_repo.next_erasure_generation(
                         conn, event.identity_id
                     ),
+                )
+                # Persist the privacy fence outside the restorable DB before
+                # committing the in-DB tombstone. If the DB transaction later
+                # fails, the conservative external fence still honors the
+                # user's deletion intent instead of allowing resurrection.
+                fence_store = ExternalErasureFenceStore(self.db.path)
+                fence_store.sync_from_connection(conn, event.identity_id)
+                erasure_generation = fence_store.generation_for_delete(
+                    identity_id=event.identity_id,
+                    mutation_id=request.mutation_id,
+                    minimum_generation=erasure_generation,
+                )
+                fence_store.record_fact_delete(
+                    identity_id=event.identity_id,
+                    fact_key=fact_key,
+                    generation=erasure_generation,
+                    source_event_id=event.event_id,
+                    source_ingest_revision=source_ingest_revision,
+                    mutation_id=request.mutation_id,
+                    requested_at=datetime_to_text(at, "requested_at"),
+                    result_revision=revision,
                 )
                 self.temporal_repo.insert_erasure_fence(
                     conn,

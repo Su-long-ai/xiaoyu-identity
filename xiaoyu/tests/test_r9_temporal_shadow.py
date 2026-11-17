@@ -20,7 +20,7 @@ from xiaoyu.core.temporal import (
     StaleSourceEvent,
     TemporalFactService,
 )
-from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence import Database, ExternalErasureFenceStore, apply_migrations
 from xiaoyu.persistence.repositories.events import (
     CanonicalEventConflict,
     CanonicalEventRepository,
@@ -412,6 +412,41 @@ class R9TemporalShadowTests(unittest.TestCase):
                 value="A",
                 valid_from=JAN,
             )
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO projections(
+                           identity_id,projection_key,projection_type,value_json,
+                           source_fact_ids_json,builder_version,built_at,
+                           source_revision,erasure_generation
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "fish-1",
+                        first.fact_key,
+                        "PROFILE_SUMMARY",
+                        '{"secret_pref":"A"}',
+                        json.dumps([first.fact_id]),
+                        "test-builder",
+                        JAN.isoformat(),
+                        1,
+                        0,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO relationship_state(
+                           identity_id,principal_id,state,value_json,
+                           source_fact_ids_json,effective_from,updated_at
+                       ) VALUES(?,?,?,?,?,?,?)""",
+                    (
+                        "fish-1",
+                        "owner",
+                        "ESTABLISHED",
+                        '{"derived":"A"}',
+                        json.dumps([first.fact_id]),
+                        JAN.isoformat(),
+                        JAN.isoformat(),
+                    ),
+                )
+
             delete_event = self._event(
                 db,
                 source_key="secret-delete",
@@ -427,6 +462,24 @@ class R9TemporalShadowTests(unittest.TestCase):
                 operation=FactMutationOperation.DELETE,
                 expected_revision=1,
             )
+            with db.transaction() as conn:
+                old_claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim:mut-secret-1'"
+                ).fetchone()
+                deletion_claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim:mut-secret-delete'"
+                ).fetchone()
+                projections = conn.execute(
+                    "SELECT COUNT(*) FROM projections WHERE identity_id='fish-1'"
+                ).fetchone()[0]
+                relationship = conn.execute(
+                    """SELECT 1 FROM relationship_state
+                       WHERE identity_id='fish-1' AND principal_id='owner'"""
+                ).fetchone()
+            self.assertEqual(old_claim[0], "ERASED")
+            self.assertEqual(deletion_claim[0], "CONFIRMED")
+            self.assertEqual(projections, 0)
+            self.assertIsNone(relationship)
             with self.assertRaises(DeletedFactReplay):
                 self._mutate(
                     db,
@@ -470,6 +523,67 @@ class R9TemporalShadowTests(unittest.TestCase):
                 json.loads(rows[0]["value_json"]),
                 "B",
             )
+
+    def test_delete_generation_advances_external_watermark_after_prior_crash(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            event = self._event(
+                db,
+                source_key="external-generation-source",
+                observed_at=JAN,
+                text="value A",
+            )
+            first = self._mutate(
+                db,
+                mutation_id="mut-external-generation-assert",
+                event=event,
+                subject="owner",
+                predicate="generation_guard",
+                operation=FactMutationOperation.ASSERT,
+                expected_revision=0,
+                value="A",
+                valid_from=JAN,
+            )
+
+            fence = ExternalErasureFenceStore(db.path)
+            fence.ensure_identity("fish-1")
+            fence.record_fact_delete(
+                identity_id="fish-1",
+                fact_key="fact:simulated-prior-crash",
+                generation=5,
+                source_event_id="evt-simulated-prior-crash",
+                source_ingest_revision=5,
+                mutation_id="mut-simulated-prior-crash",
+                requested_at=JUN.isoformat(),
+                result_revision=1,
+            )
+
+            delete_event = self._event(
+                db,
+                source_key="external-generation-delete",
+                observed_at=NOV,
+                text="delete generation guard",
+            )
+            deleted = self._mutate(
+                db,
+                mutation_id="mut-external-generation-delete",
+                event=delete_event,
+                subject="owner",
+                predicate="generation_guard",
+                operation=FactMutationOperation.DELETE,
+                expected_revision=1,
+            )
+            self.assertEqual(deleted.erasure_generation, 6)
+            self.assertEqual(
+                fence.identity("fish-1")["erasure_generation"], 6
+            )
+            with db.transaction() as conn:
+                row = conn.execute(
+                    """SELECT erasure_generation FROM erasure_tombstones
+                       WHERE mutation_id='mut-external-generation-delete'"""
+                ).fetchone()
+            self.assertEqual(row[0], 6)
+            self.assertEqual(deleted.fact_key, first.fact_key)
 
     def test_expected_revision_and_source_revision_prevent_stale_overwrite(self):
         with tempfile.TemporaryDirectory() as td:

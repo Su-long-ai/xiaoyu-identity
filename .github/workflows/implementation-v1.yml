@@ -5,8 +5,13 @@ on:
     paths:
       - "xiaoyu/**"
       - "identity_core.py"
+      - "companion.py"
       - "model_adapter.py"
       - "send_guard.py"
+      - "test_main06_real_http_dispatch.py"
+      - "test_main06_v2_postdispatch_mutations.py"
+      - "test_nonmemory_state_generation_bypass.py"
+      - "test_main07_growth_manager_binding.py"
       - ".github/workflows/implementation-v1.yml"
   push:
     branches:
@@ -15,8 +20,13 @@ on:
     paths:
       - "xiaoyu/**"
       - "identity_core.py"
+      - "companion.py"
       - "model_adapter.py"
       - "send_guard.py"
+      - "test_main06_real_http_dispatch.py"
+      - "test_main06_v2_postdispatch_mutations.py"
+      - "test_nonmemory_state_generation_bypass.py"
+      - "test_main07_growth_manager_binding.py"
       - ".github/workflows/implementation-v1.yml"
 
 permissions:
@@ -38,11 +48,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Compile XiaoYu package
-        run: python -m compileall -q xiaoyu
+      - name: Compile XiaoYu package and product facades
+        run: |
+          python -m compileall -q xiaoyu
+          python -m py_compile companion.py model_adapter.py send_guard.py
 
       - name: Discover all XiaoYu implementation tests
         run: python -m unittest discover -v -s xiaoyu/tests -p "test_*.py"
 
       - name: Run legacy identity regression
         run: python -m unittest -v test_identity test_identity_v2
+
+      - name: Run product privacy and dispatch regressions
+        run: |
+          python test_main06_real_http_dispatch.py
+          python test_main06_v2_postdispatch_mutations.py
+          python test_nonmemory_state_generation_bypass.py
+          python test_main07_growth_manager_binding.py

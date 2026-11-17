@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Replaceable chat-completion adapter. Provider settings stay OUTSIDE identity archives."""
 from __future__ import annotations
+import hashlib
 import http.client
 import json
 import os
@@ -10,14 +11,26 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from xiaoyu.runtime.provider_registry import (
+    PrivacyClass,
+    ProviderDescriptor,
+    evaluate_provider,
+    fallback_audit,
+    stable_digest,
+)
+
 DEFAULT_ALLOWED_DATA_CLASSES = {
     "deepseek_web": ("PUBLIC", "OWNER_PRIVATE"),
     "deepseek": ("PUBLIC", "OWNER_PRIVATE"),
     "openai": ("PUBLIC", "OWNER_PRIVATE"),
     "qwen": ("PUBLIC", "OWNER_PRIVATE"),
-    "ollama": ("PUBLIC", "OWNER_PRIVATE"),
+    "ollama": ("PUBLIC", "OWNER_PRIVATE", "LOCAL_ONLY"),
     "custom": ("PUBLIC",),
 }
+
+ADAPTER_ARTIFACT_DIGEST=(
+    "sha256:"+hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+)
 
 PROVIDERS = {
     "deepseek_web": {
@@ -37,7 +50,7 @@ PROVIDERS = {
              "model":"qwen3.8-flash","key_env":"DASHSCOPE_API_KEY",
              "enable_thinking":False},
     "ollama": {"url":"http://127.0.0.1:11434/v1/chat/completions",
-               "model":"qwen3:8b","key_env":""},
+               "model":"qwen3:8b","key_env":"","data_boundary":"LOCAL"},
     "custom": {"url":"https://example.invalid/v1/chat/completions",
                "model":"","key_env":"FISH_CUSTOM_API_KEY"}
 }
@@ -122,33 +135,31 @@ def validate(config):
 
 
 class _DispatchHTTPConnection(http.client.HTTPConnection):
-    """HTTPConnection that reports the local data-release point exactly once."""
+    """Report disclosure immediately before http.client starts socket output."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
         super().__init__(*args,**kwargs)
 
-    def request(self,*args,**kwargs):
-        result=super().request(*args,**kwargs)
+    def _send_output(self,message_body=None,encode_chunked=False):
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return result
+        return super()._send_output(message_body,encode_chunked=encode_chunked)
 
 
 class _DispatchHTTPSConnection(http.client.HTTPSConnection):
-    """HTTPSConnection equivalent used by urllib's normal HTTPS handler path."""
+    """HTTPS equivalent with the same pre-output disclosure boundary."""
     def __init__(self,*args,on_dispatched=None,**kwargs):
         self._on_dispatched=on_dispatched
         super().__init__(*args,**kwargs)
 
-    def request(self,*args,**kwargs):
-        result=super().request(*args,**kwargs)
+    def _send_output(self,message_body=None,encode_chunked=False):
         callback=self._on_dispatched
         self._on_dispatched=None
         if callback is not None:
             callback()
-        return result
+        return super()._send_output(message_body,encode_chunked=encode_chunked)
 
 
 class _DispatchHTTPHandler(urllib.request.HTTPHandler):
@@ -372,6 +383,70 @@ def _provider_allows_data_class(config, required_data_class):
     return str(required_data_class).upper() in allowed
 
 
+def _clone_messages(messages):
+    return json.loads(json.dumps(messages,ensure_ascii=False))
+
+
+def _provider_descriptor(config):
+    provider=str(config.get("provider") or "unknown").lower()
+    explicit=config.get("allowed_data_classes")
+    if explicit is not None:
+        allowed=tuple(sorted({str(x).strip().upper() for x in explicit}))
+    else:
+        allowed=tuple(sorted(DEFAULT_ALLOWED_DATA_CLASSES.get(provider,("PUBLIC",))))
+    privacy=[]
+    for value in allowed:
+        try:
+            privacy.append(PrivacyClass(value))
+        except ValueError:
+            continue
+    parsed=urlsplit(str(config.get("url") or ""))
+    declared_boundary=str(
+        config.get("data_boundary")
+        or PROVIDERS.get(provider,{}).get("data_boundary")
+        or "REMOTE"
+    ).upper()
+    endpoint_scope=(
+        "LOCAL"
+        if (
+            declared_boundary=="LOCAL"
+            and parsed.hostname in ("localhost","127.0.0.1","::1")
+        )
+        else "REMOTE"
+    )
+    capability_digest=stable_digest({
+        "provider":provider,
+        "model":str(config.get("model") or ""),
+        "capability":"chat.completion",
+    })
+    implementation_digest=stable_digest({
+        "adapter":"model_adapter",
+        "artifact_digest":ADAPTER_ARTIFACT_DIGEST,
+        "provider":provider,
+        "url":str(config.get("url") or ""),
+    })
+    descriptor_digest=stable_digest({
+        "provider":provider,
+        "url":str(config.get("url") or ""),
+        "model":str(config.get("model") or ""),
+        "privacy_classes":[x.value for x in privacy],
+        "endpoint_scope":endpoint_scope,
+        "capability_digest":capability_digest,
+        "implementation_digest":implementation_digest,
+        "policy_version":2,
+    })
+    return ProviderDescriptor(
+        provider_id=provider,
+        capability="chat.completion",
+        descriptor_digest=descriptor_digest,
+        capability_digest=capability_digest,
+        implementation_digest=implementation_digest,
+        endpoint_scope=endpoint_scope,
+        privacy_classes=tuple(privacy),
+        session_mode="STATELESS",
+    )
+
+
 def chat(
     config,
     messages,
@@ -380,12 +455,13 @@ def chat(
     on_dispatched=None,
     attempt_guard=None,
     required_data_class=None,
+    attempt_audit=None,
+    provider_health=None,
 ):
     """OpenAI-compatible messages with ordered provider fallback.
 
-    attempt_guard is a context-manager factory invoked independently for
-    every concrete provider attempt. A guard may release its protected state
-    at the exact network-dispatch boundary through guard.on_dispatched().
+    Every concrete provider attempt gets a fresh eligibility decision, fresh
+    message object, and (when supplied) a fresh authority/freshness guard.
     """
     fired=False
     def dispatch_once():
@@ -396,20 +472,19 @@ def chat(
         if on_dispatched is not None:
             on_dispatched()
 
-    chain=[config]
+    chain=[None]
     for provider in config.get("fallbacks",[]):
         if provider in PROVIDERS and provider!=config.get("provider"):
-            chain.append(_fallback_config(provider))
-    errors=[]
-    for candidate in chain:
-        name=candidate.get("provider","unknown")
-        if not _provider_allows_data_class(candidate,required_data_class):
-            errors.append((
-                name,
-                f"provider not eligible for {required_data_class}",
-            ))
-            continue
+            chain.append(provider)
 
+    errors=[]
+    for fallback_provider in chain:
+        candidate=(
+            dict(config)
+            if fallback_provider is None
+            else _fallback_config(fallback_provider)
+        )
+        name=candidate.get("provider","unknown")
         guard=attempt_guard(candidate) if attempt_guard is not None else None
         if guard is None:
             class _NoopGuard:
@@ -419,9 +494,46 @@ def chat(
                     return False
             guard=_NoopGuard()
 
-        # Guard-entry errors intentionally escape fallback. If freshness or
-        # privacy authority changed, another provider attempt is unsafe.
         with guard:
+            descriptor=_provider_descriptor(candidate)
+            health=(
+                provider_health(descriptor)
+                if provider_health is not None else None
+            )
+            context_builder=getattr(guard,"provider_attempt_context",None)
+            if context_builder is not None:
+                attempt_context=context_builder(descriptor,required_data_class)
+                eligibility=evaluate_provider(
+                    descriptor,attempt_context,health
+                )
+                if attempt_audit is not None:
+                    attempt_audit(fallback_audit(attempt_context,eligibility))
+                if not eligibility.allowed:
+                    errors.append((
+                        name,
+                        "provider ineligible: "+",".join(eligibility.reasons),
+                    ))
+                    continue
+            else:
+                if not _provider_allows_data_class(candidate,required_data_class):
+                    errors.append((
+                        name,
+                        f"provider not eligible for {required_data_class}",
+                    ))
+                    continue
+                if (
+                    health is not None
+                    and str(health.readiness).upper()!="READY"
+                ):
+                    errors.append((name,"provider not ready"))
+                    continue
+
+            message_builder=getattr(guard,"messages_for_attempt",None)
+            attempt_messages=(
+                message_builder(messages)
+                if message_builder is not None
+                else _clone_messages(messages)
+            )
             per_attempt=getattr(guard,"on_dispatched",None)
             def dispatched():
                 if per_attempt is not None:
@@ -433,11 +545,17 @@ def chat(
                 else None
             )
             try:
-                return _chat_once(
-                    candidate,messages,max_tokens,timeout,callback
+                result=_chat_once(
+                    candidate,attempt_messages,max_tokens,timeout,callback
                 )
             except (ProviderConfigError,RuntimeError) as exc:
                 errors.append((name,str(exc)))
+                continue
+
+            on_response=getattr(guard,"on_response",None)
+            if on_response is not None:
+                on_response()
+            return result
 
     if len(errors)==1:
         raise RuntimeError(errors[0][1])

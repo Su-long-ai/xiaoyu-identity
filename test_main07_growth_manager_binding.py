@@ -14,10 +14,15 @@ def build_events():
 class FakeFish:
     def __init__(self):
         self.calls=[]
+        self.db_path="synthetic-identity.db"
     def recent_events(self,limit):
         return build_events()[-limit:]
     def propose_growth(self,text,ids,confirmed=False):
         self.calls.append({"text":text,"ids":list(ids),"confirmed":bool(confirmed)})
+    def memory_generation(self):
+        return 7
+    def persona(self):
+        return {"id":"synthetic-identity"}
 
 class FakeWin:
     def __init__(self,*a,**k): pass
@@ -47,10 +52,27 @@ fake=FakeFish()
 captured={}
 def fake_chat(config,messages,max_tokens=500,**kwargs):
     captured["messages"]=messages
+    captured["max_tokens"]=max_tokens
     return "候选反思：依据事件 999999 和 888888（恶意伪造编号）",{}
+
+def fake_dual_guarded_chat(
+    chat_fn,config,messages,identity_db_path,r47_db_path,
+    expected_generation,expectations,**kwargs
+):
+    captured["guard"]={
+        "identity_db_path":identity_db_path,
+        "generation":expected_generation,
+        "expectations":expectations,
+        **kwargs,
+    }
+    return chat_fn(
+        config,messages,max_tokens=kwargs.get("max_tokens",500)
+    )
 
 orig={
  "FISH":companion.FISH,"load_provider":companion.load_provider,"chat":companion.chat,
+ "dual_guarded_chat":companion.dual_guarded_chat,
+ "capture_context_fence":companion.capture_context_fence,
  "Thread":companion.threading.Thread,"Toplevel":companion.tk.Toplevel,
  "Label":companion.tk.Label,"Frame":companion.tk.Frame,"Button":companion.tk.Button,
  "ScrolledText":companion.scrolledtext.ScrolledText,
@@ -59,6 +81,8 @@ try:
     companion.FISH=fake
     companion.load_provider=lambda home:{"provider":"synthetic"}
     companion.chat=fake_chat
+    companion.dual_guarded_chat=fake_dual_guarded_chat
+    companion.capture_context_fence=lambda fish:"stable-growth-fence"
     companion.threading.Thread=InlineThread
     companion.tk.Toplevel=FakeWin
     companion.tk.Label=FakeWidget
@@ -68,12 +92,16 @@ try:
     app=companion.PetApp.__new__(companion.PetApp)
     app.root=FakeWin()
     app.reflection=None
+    app.memory_bridge=None
     companion.PetApp.growth_manager(app)
     propose=next(v for k,v in commands.items() if "基于经历生成建议" in k)
     propose()
     payload=json.loads(captured["messages"][1]["content"])
     visible=[int(x["id"]) for x in payload]
     assert visible==list(range(40,52)),visible
+    assert captured["guard"]["required_privacy_class"]=="OWNER_PRIVATE",captured
+    assert captured["guard"]["expected_context_fence"]=="stable-growth-fence",captured
+    assert captured["max_tokens"]==350,captured
     assert fake.calls and fake.calls[-1]["confirmed"] is False
     assert fake.calls[-1]["ids"]==visible,(fake.calls[-1],visible)
     assert app.reflection==visible
@@ -85,6 +113,8 @@ finally:
     companion.FISH=orig["FISH"]
     companion.load_provider=orig["load_provider"]
     companion.chat=orig["chat"]
+    companion.dual_guarded_chat=orig["dual_guarded_chat"]
+    companion.capture_context_fence=orig["capture_context_fence"]
     companion.threading.Thread=orig["Thread"]
     companion.tk.Toplevel=orig["Toplevel"]
     companion.tk.Label=orig["Label"]

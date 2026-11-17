@@ -5,7 +5,19 @@ from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
 from .db import Database
-from .migrations import v1_authority, v2_receipts_delivery, v3_purpose_runtime, v4_delivery_attempts, v5_temporal_shadow, v6_execution_authorization, v7_purpose_occurrence, v10_profile_relationship_promise, v11_memory_context
+from .migrations import (
+    v1_authority,
+    v2_receipts_delivery,
+    v3_purpose_runtime,
+    v4_delivery_attempts,
+    v5_temporal_shadow,
+    v6_execution_authorization,
+    v7_purpose_occurrence,
+    v8_execution_dispatch_binding,
+    v9_execution_principal_validity,
+    v10_profile_relationship_promise,
+    v11_memory_context,
+)
 
 
 @dataclass(frozen=True)
@@ -24,9 +36,22 @@ MIGRATIONS = (
     Migration(v5_temporal_shadow.VERSION, v5_temporal_shadow.NAME, v5_temporal_shadow.apply, v5_temporal_shadow.verify),
     Migration(v6_execution_authorization.VERSION, v6_execution_authorization.NAME, v6_execution_authorization.apply, v6_execution_authorization.verify),
     Migration(v7_purpose_occurrence.VERSION, v7_purpose_occurrence.NAME, v7_purpose_occurrence.apply, v7_purpose_occurrence.verify),
+    Migration(v8_execution_dispatch_binding.VERSION, v8_execution_dispatch_binding.NAME, v8_execution_dispatch_binding.apply, v8_execution_dispatch_binding.verify),
+    Migration(v9_execution_principal_validity.VERSION, v9_execution_principal_validity.NAME, v9_execution_principal_validity.apply, v9_execution_principal_validity.verify),
     Migration(v10_profile_relationship_promise.VERSION, v10_profile_relationship_promise.NAME, v10_profile_relationship_promise.apply, v10_profile_relationship_promise.verify),
     Migration(v11_memory_context.VERSION, v11_memory_context.NAME, v11_memory_context.apply, v11_memory_context.verify),
 )
+
+
+class UnsupportedSchemaVersion(RuntimeError):
+    pass
+
+
+def latest_schema_version() -> int:
+    return max(migration.version for migration in MIGRATIONS)
+
+
+LATEST_SCHEMA_VERSION = latest_schema_version()
 
 
 def _now() -> str:
@@ -43,23 +68,62 @@ def _ensure_migration_table(conn) -> None:
     )
 
 
+def _recorded_versions(conn) -> List[int]:
+    present = conn.execute(
+        """SELECT 1 FROM sqlite_master
+           WHERE type='table' AND name='schema_migrations'"""
+    ).fetchone()
+    if present is None:
+        return []
+    return [
+        int(row[0])
+        for row in conn.execute(
+            "SELECT version FROM schema_migrations ORDER BY version"
+        ).fetchall()
+    ]
+
+
+def assert_schema_compatible(
+    db: Database,
+    max_supported_version: Optional[int] = None,
+) -> None:
+    supported = (
+        latest_schema_version()
+        if max_supported_version is None
+        else int(max_supported_version)
+    )
+    with db.transaction() as conn:
+        versions = _recorded_versions(conn)
+    future = [version for version in versions if version > supported]
+    if future:
+        raise UnsupportedSchemaVersion(
+            "database schema version %d is newer than supported %d"
+            % (max(future), supported)
+        )
+
+
 def applied_versions(db: Database) -> List[int]:
     with db.transaction() as conn:
-        _ensure_migration_table(conn)
-        return [int(row[0]) for row in conn.execute(
-            "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall()]
+        return _recorded_versions(conn)
 
 
-def apply_migrations(db: Database, target_version: Optional[int] = None) -> List[int]:
+def apply_migrations(
+    db: Database,
+    target_version: Optional[int] = None,
+) -> List[int]:
+    assert_schema_compatible(db)
     applied_now: List[int] = []
     for migration in MIGRATIONS:
-        if target_version is not None and migration.version > target_version:
+        if (
+            target_version is not None
+            and migration.version > target_version
+        ):
             break
         with db.transaction(immediate=True) as conn:
             _ensure_migration_table(conn)
             present = conn.execute(
-                "SELECT 1 FROM schema_migrations WHERE version=?", (migration.version,)
+                "SELECT 1 FROM schema_migrations WHERE version=?",
+                (migration.version,),
             ).fetchone()
             if present is not None:
                 migration.verify(conn)
@@ -67,7 +131,9 @@ def apply_migrations(db: Database, target_version: Optional[int] = None) -> List
             migration.apply(conn)
             migration.verify(conn)
             conn.execute(
-                "INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
+                """INSERT INTO schema_migrations(
+                       version,name,applied_at
+                   ) VALUES(?,?,?)""",
                 (migration.version, migration.name, _now()),
             )
             applied_now.append(migration.version)
@@ -75,10 +141,14 @@ def apply_migrations(db: Database, target_version: Optional[int] = None) -> List
 
 
 def verify_schema(db: Database) -> None:
+    assert_schema_compatible(db)
     with db.transaction() as conn:
         _ensure_migration_table(conn)
         versions = {
-            int(row[0]) for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
+            int(row[0])
+            for row in conn.execute(
+                "SELECT version FROM schema_migrations"
+            ).fetchall()
         }
         for migration in MIGRATIONS:
             if migration.version in versions:
