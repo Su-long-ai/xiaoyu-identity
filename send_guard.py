@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Dual-boundary freshness guard for current product context send + reply persistence."""
 from __future__ import annotations
+import hashlib
 import inspect
 import json
 import sqlite3
+
+from xiaoyu.runtime.provider_registry import PrivacyClass, ProviderAttemptContext
 
 class FreshnessChanged(RuntimeError):
     pass
@@ -125,6 +128,35 @@ def _close_lock(conn):
     finally:
         conn.close()
 
+def _messages_digest(messages):
+    payload=json.dumps(messages,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+    return "sha256:"+hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _context_fence(conn):
+    settings={
+        str(row[0]):str(row[1])
+        for row in conn.execute(
+            "SELECT key,value FROM settings "
+            "WHERE key IN ('persona','state','memory_change_seq') ORDER BY key"
+        )
+    }
+    event_row=conn.execute(
+        "SELECT COALESCE(MAX(event_id),0),COUNT(*) FROM events"
+    ).fetchone()
+    payload={
+        "settings":settings,
+        "event_max_id":int(event_row[0] or 0),
+        "event_count":int(event_row[1] or 0),
+    }
+    return _messages_digest(payload)
+
+
+def capture_context_fence(store_or_conn):
+    conn=getattr(store_or_conn,"conn",store_or_conn)
+    return _context_fence(conn)
+
+
 class _FreshAttemptGuard:
     """Revalidate protected context independently for one provider attempt."""
     def __init__(
@@ -133,29 +165,76 @@ class _FreshAttemptGuard:
         r47_db_path,
         expected_generation,
         expectations,
+        expected_messages_digest,
+        expected_context_fence,
+        identity_id,
+        principal_id,
+        audience_scope,
+        context_space,
+        required_privacy_class,
+        authorization_digest,
+        tool_result_digest,
+        tool_implementation_digest,
+        tool_schema_digest,
+        source_contains_private_tool_result,
+        context_state_provider,
+        approved_provider_digests,
     ):
         self.identity_db_path=identity_db_path
         self.r47_db_path=r47_db_path
         self.expected_generation=expected_generation
         self.expectations=expectations
+        self.expected_messages_digest=expected_messages_digest
+        self.expected_context_fence=expected_context_fence
+        self.identity_id=str(identity_id)
+        self.principal_id=str(principal_id)
+        self.audience_scope=str(audience_scope)
+        self.context_space=str(context_space)
+        self.required_privacy_class=str(required_privacy_class or "PUBLIC").upper()
+        self.authorization_digest=authorization_digest
+        self.tool_result_digest=tool_result_digest
+        self.tool_implementation_digest=tool_implementation_digest
+        self.tool_schema_digest=tool_schema_digest
+        self.source_contains_private_tool_result=bool(source_contains_private_tool_result)
+        self.context_state_provider=context_state_provider
+        self.approved_provider_digests=dict(approved_provider_digests or {})
         self.iconn=None
         self.rconn=None
         self.released=False
 
+    def _validate_context_state(self):
+        if self.context_state_provider is None:
+            return
+        current=dict(self.context_state_provider() or {})
+        expected={
+            "identity_id":self.identity_id,
+            "principal_id":self.principal_id,
+            "audience_scope":self.audience_scope,
+            "context_space":self.context_space,
+            "authorization_digest":self.authorization_digest,
+            "tool_result_digest":self.tool_result_digest,
+            "tool_implementation_digest":self.tool_implementation_digest,
+            "tool_schema_digest":self.tool_schema_digest,
+        }
+        for key,value in expected.items():
+            if current.get(key) != value:
+                raise FreshnessChanged("attempt_context_changed:"+key)
+
     def __enter__(self):
         try:
+            self._validate_context_state()
             self.iconn=_open_locked(self.identity_db_path)
-            _validate_identity(
-                self.iconn,
-                self.expected_generation,
-                self.expectations,
-            )
+            _validate_identity(self.iconn,self.expected_generation,self.expectations)
+            if (
+                self.expected_context_fence is not None
+                and _context_fence(self.iconn) != self.expected_context_fence
+            ):
+                raise FreshnessChanged("identity_context_fence_changed")
             if self.expectations:
                 self.rconn=_open_locked(self.r47_db_path)
-                _validate_r47(
-                    self.rconn,
-                    self.expectations,
-                )
+                _validate_r47(self.rconn,self.expectations)
+            if self.source_contains_private_tool_result and not self.tool_result_digest:
+                raise FreshnessChanged("private_tool_result_requires_fresh_digest")
             return self
         except Exception:
             self.release()
@@ -173,6 +252,59 @@ class _FreshAttemptGuard:
     def on_dispatched(self):
         self.release()
 
+    def messages_for_attempt(self,messages):
+        if _messages_digest(messages) != self.expected_messages_digest:
+            raise FreshnessChanged("captured_messages_changed")
+        return json.loads(json.dumps(messages,ensure_ascii=False))
+
+    def provider_attempt_context(self,descriptor,required_data_class=None):
+        approved=self.approved_provider_digests.get(descriptor.provider_id,{})
+        privacy=str(required_data_class or self.required_privacy_class or "PUBLIC").upper()
+        try:
+            privacy_class=PrivacyClass(privacy)
+        except ValueError:
+            privacy_class=PrivacyClass.PUBLIC
+        return ProviderAttemptContext(
+            identity_id=self.identity_id,
+            principal_id=self.principal_id,
+            audience_scope=self.audience_scope,
+            context_space=self.context_space,
+            context_generation=str(
+                self.expected_context_fence or self.expected_generation
+            ),
+            provider_id=descriptor.provider_id,
+            required_capability="chat.completion",
+            required_privacy_class=privacy_class,
+            provider_descriptor_digest=descriptor.descriptor_digest,
+            provider_capability_digest=descriptor.capability_digest,
+            provider_implementation_digest=descriptor.implementation_digest,
+            expected_descriptor_digest=approved.get("descriptor_digest"),
+            expected_capability_digest=approved.get("capability_digest"),
+            authorization_digest=self.authorization_digest,
+            tool_result_digest=self.tool_result_digest,
+            tool_implementation_digest=self.tool_implementation_digest,
+            tool_schema_digest=self.tool_schema_digest,
+            source_contains_private_tool_result=self.source_contains_private_tool_result,
+        )
+
+    def on_response(self):
+        iconn=rconn=None
+        try:
+            self._validate_context_state()
+            iconn=_open_locked(self.identity_db_path)
+            _validate_identity(iconn,self.expected_generation,self.expectations)
+            if (
+                self.expected_context_fence is not None
+                and _context_fence(iconn) != self.expected_context_fence
+            ):
+                raise FreshnessChanged("identity_context_fence_changed")
+            if self.expectations:
+                rconn=_open_locked(self.r47_db_path)
+                _validate_r47(rconn,self.expectations)
+        finally:
+            _close_lock(rconn)
+            _close_lock(iconn)
+
     def __exit__(self,exc_type,exc,tb):
         self.release()
         return False
@@ -180,7 +312,24 @@ class _FreshAttemptGuard:
 
 def dual_guarded_chat(
     chat_fn,config,messages,identity_db_path,r47_db_path,
-    expected_generation,expectations
+    expected_generation,expectations,
+    *,
+    max_tokens=500,
+    timeout=75,
+    expected_context_fence=None,
+    identity_id="xiaoyu",
+    principal_id="owner",
+    audience_scope="PRIVATE",
+    context_space="PERSONAL",
+    required_privacy_class="OWNER_PRIVATE",
+    authorization_digest=None,
+    tool_result_digest=None,
+    tool_implementation_digest=None,
+    tool_schema_digest=None,
+    source_contains_private_tool_result=False,
+    context_state_provider=None,
+    approved_provider_digests=None,
+    attempt_audit=None,
 ):
     """Revalidate protected context at every concrete provider attempt."""
     try:
@@ -188,25 +337,43 @@ def dual_guarded_chat(
     except (TypeError,ValueError):
         parameters={}
 
-    # New adapter path: each primary/fallback attempt gets a fresh lock and
-    # validation window.  If authority changes after one provider dispatch,
-    # the next guard fails before any bytes are sent to another provider.
     if "attempt_guard" in parameters:
+        expected_messages_digest=_messages_digest(messages)
         def guard_factory(candidate):
             return _FreshAttemptGuard(
                 identity_db_path,
                 r47_db_path,
                 expected_generation,
                 expectations,
+                expected_messages_digest,
+                expected_context_fence,
+                identity_id,
+                principal_id,
+                audience_scope,
+                context_space,
+                required_privacy_class,
+                authorization_digest,
+                tool_result_digest,
+                tool_implementation_digest,
+                tool_schema_digest,
+                source_contains_private_tool_result,
+                context_state_provider,
+                approved_provider_digests,
             )
         kwargs={"attempt_guard":guard_factory}
+        if "max_tokens" in parameters:
+            kwargs["max_tokens"]=max_tokens
+        if "timeout" in parameters:
+            kwargs["timeout"]=timeout
         if "required_data_class" in parameters:
-            kwargs["required_data_class"]="OWNER_PRIVATE"
+            kwargs["required_data_class"]=required_privacy_class
+        if "attempt_audit" in parameters and attempt_audit is not None:
+            kwargs["attempt_audit"]=attempt_audit
         return chat_fn(config,messages,**kwargs)
 
-    # Compatibility path for chat implementations that only expose the old
-    # single-dispatch callback.  They cannot safely support multiple guarded
-    # provider attempts, so validate/serialize exactly as before.
+    if config.get("fallbacks") and str(required_privacy_class).upper()!="PUBLIC":
+        raise FreshnessChanged("private_fallback_requires_attempt_guard")
+
     iconn=rconn=None
     released=False
     def release():
@@ -222,14 +389,20 @@ def dual_guarded_chat(
         if expectations:
             rconn=_open_locked(r47_db_path)
             _validate_r47(rconn,expectations)
+        kwargs={}
+        if "max_tokens" in parameters:
+            kwargs["max_tokens"]=max_tokens
+        if "timeout" in parameters:
+            kwargs["timeout"]=timeout
         if "on_dispatched" in parameters:
-            return chat_fn(config,messages,on_dispatched=release)
-        return chat_fn(config,messages)
+            kwargs["on_dispatched"]=release
+        return chat_fn(config,messages,**kwargs)
     finally:
         release()
 
 def persist_assistant_if_fresh(
-    store,bridge,expected_generation,expectations,content
+    store,bridge,expected_generation,expectations,content,
+    expected_context_fence=None,
 ):
     """Atomically validate final context freshness and persist the normal assistant event."""
     if store.conn.in_transaction:
@@ -238,6 +411,11 @@ def persist_assistant_if_fresh(
     try:
         store.conn.execute("BEGIN IMMEDIATE")
         _validate_identity(store.conn,expected_generation,expectations)
+        if (
+            expected_context_fence is not None
+            and _context_fence(store.conn) != expected_context_fence
+        ):
+            raise FreshnessChanged("identity_context_fence_changed")
         if expectations:
             rconn=_open_locked(bridge.db_path)
             _validate_r47(rconn,expectations)

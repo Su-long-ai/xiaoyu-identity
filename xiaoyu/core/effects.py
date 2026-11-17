@@ -52,6 +52,45 @@ class EffectBindingError(ValueError):
     pass
 
 
+_REQUEST_SCHEMAS = {
+    "message.send": (
+        {"text"},
+        {"recipient"},
+    ),
+    "notification.deliver": (
+        {"logical_notification_id", "surface", "text"},
+        {"recipient"},
+    ),
+}
+
+
+def _validate_request_shape(action_class: str, request: Dict[str, Any]) -> None:
+    schema = _REQUEST_SCHEMAS.get(action_class)
+    if schema is None:
+        raise EffectBindingError("unknown executable action")
+    required, optional = schema
+    actual = set(request)
+    missing = required - actual
+    if missing:
+        raise EffectBindingError(
+            "effect request missing field: %s" % sorted(missing)[0]
+        )
+    unknown = actual - required - optional
+    if unknown:
+        raise EffectBindingError(
+            "effect request has unknown field: %s" % sorted(unknown)[0]
+        )
+    for key in actual:
+        if not isinstance(request[key], str):
+            raise EffectBindingError(
+                "effect request field must be string: %s" % key
+            )
+        if key in required and not request[key]:
+            raise EffectBindingError(
+                "effect request field must be non-empty: %s" % key
+            )
+
+
 class EffectCoordinator:
     """Atomically persists authorization + effect + outbox commitment."""
 
@@ -63,6 +102,7 @@ class EffectCoordinator:
         outbox_repo=None,
         delegation_repo=None,
         actor_registry_repo=None,
+        principal_registry_repo=None,
         execution_auth_repo=None,
         authorization_policy=None,
     ) -> None:
@@ -71,6 +111,7 @@ class EffectCoordinator:
             ActorRegistryRepository,
             DelegationRepository,
             ExecutionAuthorizationRepository,
+            PrincipalExecutionRepository,
         )
 
         self.db = db
@@ -79,6 +120,9 @@ class EffectCoordinator:
         self.outbox_repo = outbox_repo or OutboxRepository()
         self.delegation_repo = delegation_repo or DelegationRepository()
         self.actor_registry_repo = actor_registry_repo or ActorRegistryRepository()
+        self.principal_registry_repo = (
+            principal_registry_repo or PrincipalExecutionRepository()
+        )
         self.execution_auth_repo = execution_auth_repo or ExecutionAuthorizationRepository()
         self.authorization_policy = authorization_policy or AuthorizationPolicy()
 
@@ -87,7 +131,9 @@ class EffectCoordinator:
         actor: ActorContext,
         delegation: Optional[Delegation],
         action: ActionRequest,
+        resource: ResourceRef,
         effect: EffectIntent,
+        destination: str,
         payload: Dict[str, Any],
     ) -> None:
         if effect.actor_id != actor.actor_id:
@@ -106,6 +152,19 @@ class EffectCoordinator:
             raise EffectBindingError("effect purpose does not match delegation purpose")
         if canonical_json(payload) != canonical_json(effect.request):
             raise EffectBindingError("outbox payload must equal effect request")
+
+        _validate_request_shape(action.action_class, effect.request)
+
+        recipient = effect.request.get("recipient")
+        if recipient is not None and recipient != resource.identifier:
+            raise EffectBindingError(
+                "effect recipient does not match authorized resource"
+            )
+        surface = effect.request.get("surface")
+        if surface is not None and surface != destination:
+            raise EffectBindingError(
+                "effect surface does not match transport destination"
+            )
 
     def enqueue_authorized_in_transaction(
         self,
@@ -147,7 +206,15 @@ class EffectCoordinator:
             raise EffectNotAuthorized(
                 "caller authorization result does not match policy"
             )
-        self._validate_binding(actor, delegation, action, effect, payload)
+        self._validate_binding(
+            actor,
+            delegation,
+            action,
+            resource,
+            effect,
+            destination,
+            payload,
+        )
         purpose_row = None
         if effect.purpose_id is not None:
             purpose_row = conn.execute(
@@ -200,9 +267,11 @@ class EffectCoordinator:
             context=context,
             result=auth_result,
             created_at=created_at,
+            purpose_id_override=effect.purpose_id,
         )
+        delegation_digest = None
         if delegation is not None:
-            self.delegation_repo.ensure(
+            delegation_digest = self.delegation_repo.ensure(
                 conn,
                 identity_id,
                 delegation,
@@ -213,6 +282,12 @@ class EffectCoordinator:
             actor,
             created_at,
         )
+        self.principal_registry_repo.register(
+            conn,
+            identity_id,
+            principal,
+            created_at,
+        )
         self.execution_auth_repo.record(
             conn,
             decision_id=decision_id,
@@ -220,6 +295,8 @@ class EffectCoordinator:
             principal=principal,
             actor=actor,
             delegation=delegation,
+            delegation_digest=delegation_digest,
+            purpose_id=effect.purpose_id,
             action=action,
             resource=resource,
             context=context,

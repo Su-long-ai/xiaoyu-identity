@@ -412,6 +412,41 @@ class R9TemporalShadowTests(unittest.TestCase):
                 value="A",
                 valid_from=JAN,
             )
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO projections(
+                           identity_id,projection_key,projection_type,value_json,
+                           source_fact_ids_json,builder_version,built_at,
+                           source_revision,erasure_generation
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "fish-1",
+                        first.fact_key,
+                        "PROFILE_SUMMARY",
+                        '{"secret_pref":"A"}',
+                        json.dumps([first.fact_id]),
+                        "test-builder",
+                        JAN.isoformat(),
+                        1,
+                        0,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO relationship_state(
+                           identity_id,principal_id,state,value_json,
+                           source_fact_ids_json,effective_from,updated_at
+                       ) VALUES(?,?,?,?,?,?,?)""",
+                    (
+                        "fish-1",
+                        "owner",
+                        "ESTABLISHED",
+                        '{"derived":"A"}',
+                        json.dumps([first.fact_id]),
+                        JAN.isoformat(),
+                        JAN.isoformat(),
+                    ),
+                )
+
             delete_event = self._event(
                 db,
                 source_key="secret-delete",
@@ -427,6 +462,24 @@ class R9TemporalShadowTests(unittest.TestCase):
                 operation=FactMutationOperation.DELETE,
                 expected_revision=1,
             )
+            with db.transaction() as conn:
+                old_claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim:mut-secret-1'"
+                ).fetchone()
+                deletion_claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim:mut-secret-delete'"
+                ).fetchone()
+                projections = conn.execute(
+                    "SELECT COUNT(*) FROM projections WHERE identity_id='fish-1'"
+                ).fetchone()[0]
+                relationship = conn.execute(
+                    """SELECT 1 FROM relationship_state
+                       WHERE identity_id='fish-1' AND principal_id='owner'"""
+                ).fetchone()
+            self.assertEqual(old_claim[0], "ERASED")
+            self.assertEqual(deletion_claim[0], "CONFIRMED")
+            self.assertEqual(projections, 0)
+            self.assertIsNone(relationship)
             with self.assertRaises(DeletedFactReplay):
                 self._mutate(
                     db,

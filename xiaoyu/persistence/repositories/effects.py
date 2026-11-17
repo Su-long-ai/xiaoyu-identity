@@ -203,18 +203,47 @@ class OutboxRepository:
         if cur.rowcount != 1:
             raise KeyError("unknown outbox_id %s" % outbox_id)
 
-    def recover_claimed_as_reconciliation(self, conn: sqlite3.Connection, now: datetime) -> int:
+    def recover_claimed(self, conn: sqlite3.Connection, now: datetime) -> int:
+        """Recover only genuinely uncertain in-flight rows as reconciliation.
+
+        CLAIMED + effect QUEUED means the dispatcher crashed before the final
+        DISPATCHING linearization transaction, so no transport call was allowed
+        yet and the row is safe to re-queue.  DISPATCHING means transport may
+        have happened, so it must never be blindly retried.
+        """
         timestamp = datetime_to_text(now, "now")
         rows = conn.execute(
-            "SELECT outbox_id,effect_id FROM outbox WHERE state='CLAIMED'"
+            """SELECT o.outbox_id,o.effect_id,e.dispatch_state
+               FROM outbox o
+               JOIN effects e ON e.effect_id=o.effect_id
+               WHERE o.state='CLAIMED'"""
         ).fetchall()
         for row in rows:
+            if str(row["dispatch_state"]) == "QUEUED":
+                conn.execute(
+                    """UPDATE outbox
+                       SET state='PENDING',updated_at=?
+                       WHERE outbox_id=? AND state='CLAIMED'""",
+                    (timestamp, row["outbox_id"]),
+                )
+                continue
             conn.execute(
-                "UPDATE outbox SET state='NEEDS_RECONCILIATION',updated_at=? WHERE outbox_id=?",
+                """UPDATE outbox
+                   SET state='NEEDS_RECONCILIATION',updated_at=?
+                   WHERE outbox_id=? AND state='CLAIMED'""",
                 (timestamp, row["outbox_id"]),
             )
             conn.execute(
-                "UPDATE effects SET dispatch_state='NEEDS_RECONCILIATION',updated_at=? WHERE effect_id=?",
+                """UPDATE effects
+                   SET dispatch_state='NEEDS_RECONCILIATION',updated_at=?
+                   WHERE effect_id=?""",
                 (timestamp, row["effect_id"]),
             )
         return len(rows)
+
+    # Compatibility alias for older callers.  New semantics distinguish
+    # pre-dispatch CLAIMED from uncertain DISPATCHING.
+    def recover_claimed_as_reconciliation(
+        self, conn: sqlite3.Connection, now: datetime
+    ) -> int:
+        return self.recover_claimed(conn, now)

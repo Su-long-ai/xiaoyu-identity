@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from zoneinfo import ZoneInfo
@@ -129,13 +130,28 @@ class PurposeScheduler:
                     seconds = purpose.payload.get(
                         "reschedule_seconds"
                     )
+                    max_auto = purpose.payload.get(
+                        "max_auto_reschedules",
+                        1,
+                    )
                     if (
                         isinstance(seconds, bool)
                         or not isinstance(seconds, (int, float))
+                        or not math.isfinite(float(seconds))
                         or seconds <= 0
                     ):
                         new_state = PurposeState.NEEDS_RECONCILIATION
                         reason = "RESCHEDULE_RULE_MISSING"
+                    elif (
+                        isinstance(max_auto, bool)
+                        or not isinstance(max_auto, int)
+                        or max_auto < 0
+                    ):
+                        new_state = PurposeState.NEEDS_RECONCILIATION
+                        reason = "RESCHEDULE_LIMIT_INVALID"
+                    elif purpose.auto_reschedule_count >= max_auto:
+                        new_state = PurposeState.NEEDS_RECONCILIATION
+                        reason = "RESCHEDULE_LIMIT_REACHED"
                     else:
                         new_due = current + timedelta(
                             seconds=float(seconds)
@@ -155,6 +171,7 @@ class PurposeScheduler:
                             purpose.timezone_name or "UTC",
                             new_due,
                             current,
+                            automatic=True,
                         )
                         if changed:
                             decisions.append(
