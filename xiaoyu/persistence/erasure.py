@@ -56,22 +56,25 @@ class ExternalErasureFenceStore:
 
     def sync_from_db(self, db, identity_id: str) -> Dict[str, Any]:
         with db.transaction() as conn:
-            rows = conn.execute(
-                """SELECT erasure_id,target_id,erasure_generation,requested_at,
-                          applied_at,source_event_id,source_ingest_revision,mutation_id
-                   FROM erasure_tombstones
-                   WHERE identity_id=? AND target_type='fact_key'
-                   ORDER BY erasure_generation,target_id""",
+            return self.sync_from_connection(conn, identity_id)
+
+    def sync_from_connection(self, conn, identity_id: str) -> Dict[str, Any]:
+        rows = conn.execute(
+            """SELECT erasure_id,target_id,erasure_generation,requested_at,
+                      applied_at,source_event_id,source_ingest_revision,mutation_id
+               FROM erasure_tombstones
+               WHERE identity_id=? AND target_type='fact_key'
+               ORDER BY erasure_generation,target_id""",
+            (identity_id,),
+        ).fetchall()
+        revisions = {
+            str(row["fact_key"]): int(row["current_revision"])
+            for row in conn.execute(
+                """SELECT fact_key,current_revision
+                   FROM fact_authority_revisions WHERE identity_id=?""",
                 (identity_id,),
             ).fetchall()
-            revisions = {
-                str(row["fact_key"]): int(row["current_revision"])
-                for row in conn.execute(
-                    """SELECT fact_key,current_revision
-                       FROM fact_authority_revisions WHERE identity_id=?""",
-                    (identity_id,),
-                ).fetchall()
-            }
+        }
         payload = self.load() or {"version": self.VERSION, "identities": {}}
         existing = payload["identities"].get(
             identity_id, {"erasure_generation": 0, "tombstones": []}
