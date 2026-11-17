@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from xiaoyu.contracts.common import canonical_json, datetime_to_text
-from xiaoyu.core.events import CanonicalEvent
+if TYPE_CHECKING:
+    from xiaoyu.core.events import CanonicalEvent
 
 
 class ClaimRepository:
@@ -14,7 +15,7 @@ class ClaimRepository:
         conn: sqlite3.Connection,
         *,
         claim_id: str,
-        event: CanonicalEvent,
+        event: "CanonicalEvent",
         subject: str,
         predicate: str,
         value: Any,
