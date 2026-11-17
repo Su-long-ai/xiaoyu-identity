@@ -146,6 +146,23 @@ class CanonicalEventRepository:
             raise KeyError("missing ingest revision for event %s" % event_id)
         return int(row[0])
 
+    def list_ingest_order(
+        self,
+        conn: sqlite3.Connection,
+        identity_id: str,
+    ) -> List[CanonicalEvent]:
+        rows = conn.execute(
+            """SELECT ce.%s
+               FROM canonical_events ce
+               JOIN canonical_event_ingest cei
+                 ON cei.event_id=ce.event_id
+               WHERE ce.identity_id=?
+               ORDER BY cei.ingest_revision"""
+            % _COLUMNS.replace(",", ",ce."),
+            (identity_id,),
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     def list_turn(
         self,
         conn: sqlite3.Connection,
