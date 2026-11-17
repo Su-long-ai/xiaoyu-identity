@@ -69,7 +69,12 @@ def _ensure_migration_table(conn) -> None:
 
 
 def _recorded_versions(conn) -> List[int]:
-    _ensure_migration_table(conn)
+    present = conn.execute(
+        """SELECT 1 FROM sqlite_master
+           WHERE type='table' AND name='schema_migrations'"""
+    ).fetchone()
+    if present is None:
+        return []
     return [
         int(row[0])
         for row in conn.execute(
