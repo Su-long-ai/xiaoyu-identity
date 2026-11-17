@@ -84,7 +84,7 @@ class ReceiptDeliveryTests(unittest.TestCase):
     def test_v2_migration_links_effect_to_authorization(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
-            self.assertEqual(applied_versions(db), [1, 2])
+            self.assertEqual(applied_versions(db), [1, 2, 3])
             self._enqueue(db)
             conn = db.connect()
             try:
