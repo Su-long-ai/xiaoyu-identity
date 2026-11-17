@@ -82,7 +82,7 @@ class ManagedRestoreRedTeamTests(unittest.TestCase):
                     root/"restored",
                 )
                 restored_db=Database(
-                    Path(report["home"])/"identity.sqlite3"
+                    IdentityStore.db_path_for_home(report["home"])
                 )
                 self.assertEqual(
                     OutboxDispatcher(
