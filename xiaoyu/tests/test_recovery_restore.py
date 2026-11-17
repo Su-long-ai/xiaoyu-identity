@@ -15,6 +15,9 @@ from xiaoyu.persistence.recovery import (
     RestoreMode,
 )
 from xiaoyu.persistence.repositories.effects import OutboxRepository
+from xiaoyu.persistence.schema import MIGRATIONS
+
+EXPECTED_VERSIONS = [migration.version for migration in MIGRATIONS]
 
 
 NOW = datetime(2026, 11, 18, 0, 0, tzinfo=timezone.utc)
@@ -594,7 +597,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             )
             self.assertEqual(
                 applied_versions(Database(target)),
-                [1, 2, 3, 4, 5, 6, 7],
+                EXPECTED_VERSIONS,
             )
 
     def test_managed_restore_with_corrupt_watermark_fails_closed(self):
