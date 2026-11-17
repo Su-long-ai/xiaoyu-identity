@@ -15,7 +15,7 @@ from xiaoyu.contracts import (
     ResourceRef,
 )
 from xiaoyu.contracts.common import StringEnum, canonical_json
-from xiaoyu.core.authorization import AuthorizationResult
+from xiaoyu.core.authorization import AuthorizationPolicy, AuthorizationResult
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.grants import AuthorizationDecisionRepository
 
@@ -55,13 +55,32 @@ class EffectBindingError(ValueError):
 class EffectCoordinator:
     """Atomically persists authorization + effect + outbox commitment."""
 
-    def __init__(self, db: Database, auth_repo=None, effect_repo=None, outbox_repo=None) -> None:
+    def __init__(
+        self,
+        db: Database,
+        auth_repo=None,
+        effect_repo=None,
+        outbox_repo=None,
+        delegation_repo=None,
+        actor_registry_repo=None,
+        execution_auth_repo=None,
+        authorization_policy=None,
+    ) -> None:
         from xiaoyu.persistence.repositories.effects import EffectRepository, OutboxRepository
+        from xiaoyu.persistence.repositories.execution_auth import (
+            ActorRegistryRepository,
+            DelegationRepository,
+            ExecutionAuthorizationRepository,
+        )
 
         self.db = db
         self.auth_repo = auth_repo or AuthorizationDecisionRepository()
         self.effect_repo = effect_repo or EffectRepository()
         self.outbox_repo = outbox_repo or OutboxRepository()
+        self.delegation_repo = delegation_repo or DelegationRepository()
+        self.actor_registry_repo = actor_registry_repo or ActorRegistryRepository()
+        self.execution_auth_repo = execution_auth_repo or ExecutionAuthorizationRepository()
+        self.authorization_policy = authorization_policy or AuthorizationPolicy()
 
     @staticmethod
     def _validate_binding(
@@ -107,8 +126,27 @@ class EffectCoordinator:
         payload: Dict[str, Any],
         created_at: datetime,
     ) -> None:
-        if auth_result.decision != AuthorizationDecision.ALLOW:
-            raise EffectNotAuthorized("effect enqueue requires ALLOW decision")
+        evaluated = self.authorization_policy.evaluate(
+            principal,
+            actor,
+            delegation,
+            action,
+            resource,
+            context,
+            created_at,
+        )
+        if evaluated.decision != AuthorizationDecision.ALLOW:
+            raise EffectNotAuthorized(
+                "effect enqueue policy denied: %s" % evaluated.reason_code
+            )
+        if (
+            auth_result.decision != evaluated.decision
+            or auth_result.matched_delegation_id
+            != evaluated.matched_delegation_id
+        ):
+            raise EffectNotAuthorized(
+                "caller authorization result does not match policy"
+            )
         self._validate_binding(actor, delegation, action, effect, payload)
         self.auth_repo.record(
             conn=conn,
@@ -121,6 +159,31 @@ class EffectCoordinator:
             resource=resource,
             context=context,
             result=auth_result,
+            created_at=created_at,
+        )
+        if delegation is not None:
+            self.delegation_repo.ensure(
+                conn,
+                identity_id,
+                delegation,
+            )
+        self.actor_registry_repo.register(
+            conn,
+            actor,
+            created_at,
+        )
+        self.execution_auth_repo.record(
+            conn,
+            decision_id=decision_id,
+            identity_id=identity_id,
+            principal=principal,
+            actor=actor,
+            delegation=delegation,
+            action=action,
+            resource=resource,
+            context=context,
+            request=payload,
+            destination=destination,
             created_at=created_at,
         )
         self.effect_repo.insert(
