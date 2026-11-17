@@ -1,4 +1,5 @@
 """Typed repositories over XiaoYu authority tables."""
+from .context import MemoryContextRepository
 from .claims import ClaimRepository
 from .effects import ClaimedOutbox, EffectRepository, OutboxRepository
 from .events import CanonicalEventConflict, CanonicalEventRepository, LegacyEventShadowWriter
@@ -25,6 +26,7 @@ __all__ = [
     "ClaimRepository",
     "EffectRepository",
     "LegacyEventShadowWriter",
+    "MemoryContextRepository",
     "OutboxRepository",
     "PurposeRepository",
     "ProfileRepository",
