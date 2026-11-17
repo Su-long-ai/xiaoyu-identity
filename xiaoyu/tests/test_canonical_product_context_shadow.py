@@ -12,6 +12,7 @@ from xiaoyu.core.identity import LegacySelfBackfill
 from xiaoyu.runtime.product_context import (
     CanonicalDialogueProjector,
     CanonicalProductContextBuilder,
+    CanonicalReadShadowBootstrap,
     CanonicalReadShadowEvaluator,
     CanonicalReadShadowMonitor,
 )
@@ -364,6 +365,70 @@ class CanonicalProductContextShadowTests(unittest.TestCase):
             self.assertEqual(
                 persisted.evidence_digest,
                 repaired.evidence_digest,
+            )
+
+
+
+    def test_shadow_bootstrap_is_idempotent_and_accumulates_readiness(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            fixture = self._legacy_fixture(root)
+            identity_id = fixture["identity_id"]
+            fixture["store"].close()
+
+            db = Database(root / "identity" / "identity.sqlite3")
+            status = root / "canonical-read-bootstrap.json"
+            bootstrap = CanonicalReadShadowBootstrap(
+                db,
+                status,
+                required_consecutive=2,
+            )
+            first = bootstrap.prepare(identity_id=identity_id)
+            self.assertTrue(first.event_backfill_converged)
+            self.assertTrue(first.memory_backfill_converged)
+            self.assertGreaterEqual(first.persona_revision, 1)
+            self.assertEqual(
+                first.readiness.consecutive_ready,
+                1,
+            )
+            self.assertFalse(
+                first.readiness.candidate_ready
+            )
+
+            with db.transaction() as conn:
+                mutation_count_before = conn.execute(
+                    "SELECT COUNT(*) FROM fact_mutations"
+                ).fetchone()[0]
+                self_versions_before = conn.execute(
+                    """SELECT COUNT(*) FROM self_persona_versions
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+
+            second = bootstrap.prepare(identity_id=identity_id)
+            self.assertEqual(
+                second.readiness.consecutive_ready,
+                2,
+            )
+            self.assertTrue(
+                second.readiness.candidate_ready
+            )
+            with db.transaction() as conn:
+                mutation_count_after = conn.execute(
+                    "SELECT COUNT(*) FROM fact_mutations"
+                ).fetchone()[0]
+                self_versions_after = conn.execute(
+                    """SELECT COUNT(*) FROM self_persona_versions
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+            self.assertEqual(
+                mutation_count_after,
+                mutation_count_before,
+            )
+            self.assertEqual(
+                self_versions_after,
+                self_versions_before,
             )
 
 
