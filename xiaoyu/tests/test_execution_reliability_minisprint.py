@@ -1478,6 +1478,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             for bad_request in (
                 {"recipient": "owner"},
+                {"text": "hello"},
                 {
                     "recipient": "owner",
                     "text": "hello",
