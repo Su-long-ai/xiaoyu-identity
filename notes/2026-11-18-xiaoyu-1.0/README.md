@@ -26,6 +26,12 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [OPEN_SOURCE_COMPANION_LANDSCAPE_SATURATION.md](OPEN_SOURCE_COMPANION_LANDSCAPE_SATURATION.md)  
+  开源生态饱和地图：从约千级 GitHub companion 仓库与精选项目中抽取代表路线、S/A 级参考、产品形态与新增路线影响。
+
+- [REFERENCE_PROJECT_MINING_PLAN.md](REFERENCE_PROJECT_MINING_PLAN.md)  
+  参考项目源码挖掘计划：明确 AIRI、N.E.K.O、V1rtual-Desk-Pet、Sentient、MIRA、Tamanitomo 等各自应抄什么机制、拒绝什么。
+
 - [REPLACEABLE_MODULE_ARCHITECTURE_SURVEY.md](REPLACEABLE_MODULE_ARCHITECTURE_SURVEY.md)  
   可替换模块饱和调查：插件分层、生命周期、能力协商、版本、热切换、故障隔离、权限与路由。
 
