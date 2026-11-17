@@ -976,6 +976,47 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
 
+    def test_transport_binding_can_be_built_from_r12_descriptor(self):
+        descriptor = CapabilityDescriptor(
+            provider_id="napcat",
+            capability="message.send",
+            implementation_version="1.0",
+            contract_name="message.send",
+            contract_min_version="1",
+            contract_max_exclusive="2",
+            artifact_digest="sha256:provider-v1",
+            descriptor_digest="sha256:descriptor-v1",
+            interface_digest="sha256:interface-v1",
+            tool_schema_digest="sha256:schema-v1",
+            isolation=IsolationMode.SIDECAR,
+            features={},
+            data_classes=("message",),
+            permissions_required=("message.send",),
+            fallback_group=None,
+            lifecycle=ProviderLifecycle.ACTIVE,
+            resource_profile={},
+        )
+        send = lambda payload, idem: DispatchOutcome(
+            DispatchStatus.SUCCEEDED
+        )
+        binding = TransportBinding.from_descriptor(
+            send=send,
+            actor=actor(),
+            descriptor=descriptor,
+        )
+        self.assertEqual(binding.actor_id, "tool:qq")
+        self.assertEqual(binding.provider_id, "napcat")
+        self.assertEqual(
+            binding.tool_schema_digest,
+            "sha256:schema-v1",
+        )
+        with self.assertRaises(ValueError):
+            TransportBinding.from_descriptor(
+                send=send,
+                actor=replace(actor(), provider_id="other"),
+                descriptor=descriptor,
+            )
+
     def test_versioned_provider_requires_bound_transport(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
