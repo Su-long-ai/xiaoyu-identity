@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox, simpledialog, scrolledtext, ttk
 from identity_core import IdentityStore
 from model_adapter import PROVIDERS, load_provider, save_provider, chat, project_history
 from product_memory_bridge import ProductMemoryBridge, safe_product_recall
+from xiaoyu.runtime.provider_registry import stable_digest
 from send_guard import (
     FreshnessChanged,
     capture_context_fence,
@@ -245,6 +246,8 @@ class PetApp:
             )
             return
         config=load_provider(HOME)
+        routing_policy_digest=stable_digest(config)
+        canonical_identity_id=str(FISH.persona()["id"])
         self.pending=True
         self.sendbtn.configure(state="disabled")
         def worker():
@@ -254,11 +257,26 @@ class PetApp:
                     identity_db_path,r47_db_path,
                     memory_generation,memory_expectations,
                     expected_context_fence=context_fence,
-                    identity_id=str(FISH.persona()["id"]),
+                    identity_id=canonical_identity_id,
                     principal_id="owner",
+                    owner_principal_id="owner",
                     audience_scope="PRIVATE",
                     context_space="PERSONAL",
                     required_privacy_class="OWNER_PRIVATE",
+                    routing_policy_digest=routing_policy_digest,
+                    context_state_provider=lambda:{
+                        "identity_id":str(FISH.persona()["id"]),
+                        "principal_id":"owner",
+                        "audience_scope":"PRIVATE",
+                        "context_space":"PERSONAL",
+                        "authorization_digest":None,
+                        "routing_policy_digest":stable_digest(
+                            load_provider(HOME)
+                        ),
+                        "tool_result_digest":None,
+                        "tool_implementation_digest":None,
+                        "tool_schema_digest":None,
+                    },
                 )
                 self.queue.put((
                     "reply",text,usage,
@@ -526,6 +544,8 @@ class PetApp:
                 messagebox.showinfo("经历不足","再聊一段时间、有几次真实互动后才能生成有依据的反思。",parent=win)
                 return
             config=load_provider(HOME)
+            routing_policy_digest=stable_digest(config)
+            canonical_identity_id=str(FISH.persona()["id"])
             identity_db_path=str(FISH.db_path)
             r47_db_path=(
                 str(self.memory_bridge.db_path)
@@ -547,11 +567,26 @@ class PetApp:
                         growth_generation,[],
                         max_tokens=350,
                         expected_context_fence=growth_fence,
-                        identity_id=str(FISH.persona()["id"]),
+                        identity_id=canonical_identity_id,
                         principal_id="owner",
+                        owner_principal_id="owner",
                         audience_scope="PRIVATE",
                         context_space="PERSONAL",
                         required_privacy_class="OWNER_PRIVATE",
+                        routing_policy_digest=routing_policy_digest,
+                        context_state_provider=lambda:{
+                            "identity_id":str(FISH.persona()["id"]),
+                            "principal_id":"owner",
+                            "audience_scope":"PRIVATE",
+                            "context_space":"PERSONAL",
+                            "authorization_digest":None,
+                            "routing_policy_digest":stable_digest(
+                                load_provider(HOME)
+                            ),
+                            "tool_result_digest":None,
+                            "tool_implementation_digest":None,
+                            "tool_schema_digest":None,
+                        },
                     )
                     self.queue_reflect.put((
                         "ok",response,list(evidence_ids),growth_fence

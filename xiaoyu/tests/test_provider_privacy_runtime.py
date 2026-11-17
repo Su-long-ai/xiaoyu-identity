@@ -68,6 +68,7 @@ def attempt_context(
     expected_approval_binding_digest=None,
     private_tool=False,
     authorization_digest="auth-v1",
+    routing_policy_digest=None,
     tool_result_digest=None,
     tool_implementation_digest=None,
     tool_schema_digest=None,
@@ -89,6 +90,7 @@ def attempt_context(
         expected_capability_digest=expected_capability_digest,
         expected_approval_binding_digest=expected_approval_binding_digest,
         authorization_digest=authorization_digest,
+        routing_policy_digest=routing_policy_digest,
         tool_result_digest=tool_result_digest,
         tool_implementation_digest=tool_implementation_digest,
         tool_schema_digest=tool_schema_digest,
@@ -967,6 +969,81 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                     finally:
                         bridge.close()
                         store.close()
+
+
+    def test_routing_policy_change_between_attempts_blocks_old_fallback_chain(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "routing_policy_digest":"route-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["routing_policy_digest"]="route-v2"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            routing_policy_digest="route-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_routing_policy_change_while_response_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "routing_policy_digest":"route-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["routing_policy_digest"]="route-v2"
+                return "stale-route-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            routing_policy_digest="route-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
 
 
 if __name__=="__main__":

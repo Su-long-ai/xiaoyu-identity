@@ -42,6 +42,7 @@ class ProviderAttemptContext:
     provider_capability_digest: str
     provider_implementation_digest: str
     owner_principal_id: Optional[str] = "owner"
+    routing_policy_digest: Optional[str] = None
     expected_descriptor_digest: Optional[str] = None
     expected_capability_digest: Optional[str] = None
     expected_approval_binding_digest: Optional[str] = None
@@ -166,6 +167,7 @@ def provider_session_namespace(context: ProviderAttemptContext) -> str:
         "provider_capability_digest":context.provider_capability_digest,
         "provider_implementation_digest":context.provider_implementation_digest,
         "authorization_digest":context.authorization_digest,
+        "routing_policy_digest":context.routing_policy_digest,
         "tool_result_digest":context.tool_result_digest,
         "tool_implementation_digest":context.tool_implementation_digest,
         "tool_schema_digest":context.tool_schema_digest,

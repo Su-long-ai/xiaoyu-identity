@@ -178,6 +178,7 @@ def _validate_context_state_snapshot(
     audience_scope,
     context_space,
     authorization_digest,
+    routing_policy_digest,
     tool_result_digest,
     tool_implementation_digest,
     tool_schema_digest,
@@ -191,6 +192,7 @@ def _validate_context_state_snapshot(
         "audience_scope":str(audience_scope),
         "context_space":str(context_space),
         "authorization_digest":authorization_digest,
+        "routing_policy_digest":routing_policy_digest,
         "tool_result_digest":tool_result_digest,
         "tool_implementation_digest":tool_implementation_digest,
         "tool_schema_digest":tool_schema_digest,
@@ -217,6 +219,7 @@ class _FreshAttemptGuard:
         context_space,
         required_privacy_class,
         authorization_digest,
+        routing_policy_digest,
         tool_result_digest,
         tool_implementation_digest,
         tool_schema_digest,
@@ -239,6 +242,7 @@ class _FreshAttemptGuard:
         self.context_space=str(context_space)
         self.required_privacy_class=str(required_privacy_class or "PUBLIC").upper()
         self.authorization_digest=authorization_digest
+        self.routing_policy_digest=routing_policy_digest
         self.tool_result_digest=tool_result_digest
         self.tool_implementation_digest=tool_implementation_digest
         self.tool_schema_digest=tool_schema_digest
@@ -257,6 +261,7 @@ class _FreshAttemptGuard:
             audience_scope=self.audience_scope,
             context_space=self.context_space,
             authorization_digest=self.authorization_digest,
+            routing_policy_digest=self.routing_policy_digest,
             tool_result_digest=self.tool_result_digest,
             tool_implementation_digest=self.tool_implementation_digest,
             tool_schema_digest=self.tool_schema_digest,
@@ -321,6 +326,7 @@ class _FreshAttemptGuard:
             provider_capability_digest=descriptor.capability_digest,
             provider_implementation_digest=descriptor.implementation_digest,
             owner_principal_id=self.owner_principal_id,
+            routing_policy_digest=self.routing_policy_digest,
             expected_descriptor_digest=approved.get("descriptor_digest"),
             expected_capability_digest=approved.get("capability_digest"),
             expected_approval_binding_digest=approved.get("approval_binding_digest"),
@@ -368,6 +374,7 @@ def dual_guarded_chat(
     context_space="PERSONAL",
     required_privacy_class="OWNER_PRIVATE",
     authorization_digest=None,
+    routing_policy_digest=None,
     tool_result_digest=None,
     tool_implementation_digest=None,
     tool_schema_digest=None,
@@ -400,6 +407,7 @@ def dual_guarded_chat(
                 context_space,
                 required_privacy_class,
                 authorization_digest,
+                routing_policy_digest,
                 tool_result_digest,
                 tool_implementation_digest,
                 tool_schema_digest,
@@ -433,6 +441,7 @@ def dual_guarded_chat(
             audience_scope=audience_scope,
             context_space=context_space,
             authorization_digest=authorization_digest,
+            routing_policy_digest=routing_policy_digest,
             tool_result_digest=tool_result_digest,
             tool_implementation_digest=tool_implementation_digest,
             tool_schema_digest=tool_schema_digest,
