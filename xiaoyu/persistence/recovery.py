@@ -358,10 +358,36 @@ class RecoveryManager:
                     (identity_id, fact_key),
                 ).fetchone()
                 current_revision = 0 if current is None else int(current[0])
+                current_source_revision = (
+                    0 if current is None else int(current[1])
+                )
+                current_erasure_generation = (
+                    0
+                    if current is None
+                    else int(
+                        conn.execute(
+                            """SELECT erasure_generation
+                               FROM fact_authority_revisions
+                               WHERE identity_id=? AND fact_key=?""",
+                            (identity_id, fact_key),
+                        ).fetchone()[0]
+                    )
+                )
                 source_revision = int(tombstone.get("source_ingest_revision") or 0)
-                revision = max(
-                    current_revision + 1,
-                    int(result_revision) if result_revision is not None else 0,
+                must_reapply_delete = (
+                    current is None
+                    or current_erasure_generation < generation
+                    or current_source_revision <= source_revision
+                )
+                revision = (
+                    max(
+                        current_revision + 1,
+                        int(result_revision)
+                        if result_revision is not None
+                        else 0,
+                    )
+                    if must_reapply_delete
+                    else current_revision
                 )
                 conn.execute(
                     """INSERT OR IGNORE INTO erasure_tombstones(
@@ -381,16 +407,17 @@ class RecoveryManager:
                         str(tombstone["mutation_id"]),
                     ),
                 )
-                conn.execute(
-                    """UPDATE temporal_facts SET status='DELETED'
-                       WHERE identity_id=? AND fact_key=? AND status!='DELETED'""",
-                    (identity_id, fact_key),
-                )
-                RecoveryManager._propagate_restored_erasure(
-                    conn,
-                    identity_id=identity_id,
-                    fact_key=fact_key,
-                )
+                if must_reapply_delete:
+                    conn.execute(
+                        """UPDATE temporal_facts SET status='DELETED'
+                           WHERE identity_id=? AND fact_key=? AND status!='DELETED'""",
+                        (identity_id, fact_key),
+                    )
+                    RecoveryManager._propagate_restored_erasure(
+                        conn,
+                        identity_id=identity_id,
+                        fact_key=fact_key,
+                    )
                 conn.execute(
                     """INSERT INTO fact_authority_revisions(
                            identity_id,fact_key,current_revision,
