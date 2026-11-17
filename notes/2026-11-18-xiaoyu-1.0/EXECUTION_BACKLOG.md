@@ -958,3 +958,127 @@ Then, in order:
 10. freeze 1.0
 
 This is the shortest path from the current research-heavy project to a finished product.
+
+
+---
+
+# AI. Pipecat Voice Session Spike
+
+**Priority:** P1-high  
+**Blocks 1.0:** Voice path decision
+
+Before implementing a custom streaming voice runtime:
+
+1. build minimal local Pipecat pipeline;
+2. use LocalAudioTransport;
+3. bridge XiaoYu canonical turn;
+4. adapt one ASR;
+5. adapt Qwen3-TTS first;
+6. validate barge-in/cancel;
+7. emit body-state events;
+8. measure latency/RAM/CPU/VRAM;
+9. compare against acceptance gates.
+
+Decision:
+
+- PASS with acceptable overhead -> Pipecat becomes Voice Session Engine;
+- FAIL materially -> implement minimal custom pipeline.
+
+Do not duplicate two full runtimes.
+
+---
+
+# AJ. Principal Resolution Skeleton
+
+**Priority:** 1.x; earlier if shared microphone/device work begins
+
+Implement a Kernel-owned principal resolver.
+
+Inputs can include:
+
+- paired device/session;
+- local OS account/session;
+- explicit unlock;
+- account identity;
+- optional speaker match;
+- optional face match;
+- current viewer/audience state.
+
+Outputs:
+
+```
+OWNER_AUTHENTICATED
+OWNER_PROBABLE
+KNOWN_GUEST
+GUEST
+UNKNOWN
+MULTI_PARTY
+```
+
+Only strongly authenticated owner state can automatically receive owner-private context and standing high-risk permissions.
+
+Speaker/face recognition is supporting evidence only.
+
+---
+
+# AK. Wearable / Bystander Privacy Gate
+
+Before smart-glasses/always-on camera work:
+
+- capture indicator;
+- easy pause/off;
+- bystander/third-party classification;
+- short raw retention;
+- no automatic face enrollment;
+- no automatic durable memory from bystanders;
+- provider-disclosure controls;
+- sensitive-location policy.
+
+This is not a 1.0 blocker.
+
+---
+
+# AL. Shared Activity Ledger
+
+**Priority:** 1.x
+
+Create one generic activity contract before separately implementing music/read/watch/focus integrations.
+
+Required fields:
+
+```
+activity_id
+type
+context_space
+participants
+subject_ref
+timeline/position
+started_at
+ended_at
+artifacts
+annotations
+source_events
+memory_candidates
+```
+
+First candidate activities:
+
+1. music/listen-together
+2. reading
+3. focus/work session
+
+Do not make each activity app invent its own long-term memory authority.
+
+---
+
+# AM. Goal vs Intention split
+
+**Priority:** 1.x
+
+Extend purpose model so:
+
+- long-term Goal = background direction;
+- Intention = current bounded effort;
+- Purpose/Event = concrete pending commitment/action/watch.
+
+A Goal alone never authorizes external action.
