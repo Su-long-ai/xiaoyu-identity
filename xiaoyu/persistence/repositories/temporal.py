@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from xiaoyu.contracts.common import (
@@ -114,10 +114,10 @@ class TemporalRepository:
                 subject,
                 predicate,
                 canonical_json(value),
-                datetime_to_text(valid_from, "valid_from"),
+                datetime_to_text(valid_from.astimezone(timezone.utc), "valid_from"),
                 None
                 if valid_to is None
-                else datetime_to_text(valid_to, "valid_to"),
+                else datetime_to_text(valid_to.astimezone(timezone.utc), "valid_to"),
                 datetime_to_text(recorded_at, "recorded_at"),
                 supersedes_fact_id,
                 fact_key,
@@ -148,7 +148,7 @@ class TemporalRepository:
                    SET status=?,valid_to=? WHERE fact_id=?""",
                 (
                     status,
-                    datetime_to_text(valid_to, "valid_to"),
+                    datetime_to_text(valid_to.astimezone(timezone.utc), "valid_to"),
                     fact_id,
                 ),
             )
@@ -330,11 +330,11 @@ class TemporalRepository:
         fact_key: str,
         at: datetime,
     ):
-        at_text = datetime_to_text(at, "at")
+        at_text = datetime_to_text(at.astimezone(timezone.utc), "at")
         return conn.execute(
             """SELECT * FROM temporal_facts
                WHERE identity_id=? AND fact_key=?
-                 AND status IN ('CURRENT','HISTORICAL')
+                 AND status IN ('CURRENT','HISTORICAL','RETRACTED')
                  AND valid_from<=?
                  AND (valid_to IS NULL OR valid_to>?)
                ORDER BY revision DESC,fact_id""",
