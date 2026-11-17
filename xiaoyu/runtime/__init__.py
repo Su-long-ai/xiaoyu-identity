@@ -15,10 +15,15 @@ from .provider_registry import (
     ProviderEligibility,
     ProviderFallbackAudit,
     ProviderHealth,
-    ProviderRegistry,
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
+    standing_approval_binding_digest,
+)
+from .recovery import (
+    ExecutionRecoveryQueue,
+    RecoveryItem,
+    STATE_RECOVERY_PATHS,
 )
 from .scheduler import PurposeDecision, PurposeScheduler
 
@@ -28,6 +33,7 @@ __all__ = [
     "DeliveryAttemptAlreadyActive",
     "DeliveryCoordinator",
     "DeliveryLedger",
+    "ExecutionRecoveryQueue",
     "OutboxDispatcher",
     "PowerLifecycle",
     "PowerState",
@@ -37,11 +43,13 @@ __all__ = [
     "ProviderEligibility",
     "ProviderFallbackAudit",
     "ProviderHealth",
-    "ProviderRegistry",
     "PurposeDecision",
     "PurposeScheduler",
+    "RecoveryItem",
     "ResumeReport",
+    "STATE_RECOVERY_PATHS",
     "audience_reset_decision",
     "evaluate_provider",
     "provider_session_namespace",
+    "standing_approval_binding_digest",
 ]
