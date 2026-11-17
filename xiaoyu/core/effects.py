@@ -94,7 +94,10 @@ class EffectCoordinator:
                 result=auth_result,
                 created_at=at,
             )
-            self.effect_repo.insert(conn, identity_id, effect, state="QUEUED", updated_at=at)
+            self.effect_repo.insert(
+                conn, identity_id, effect, state="QUEUED", updated_at=at,
+                authorization_decision_id=decision_id,
+            )
             self.outbox_repo.enqueue(
                 conn,
                 outbox_id=outbox_id,

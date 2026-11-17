@@ -20,6 +20,9 @@ class ClaimedOutbox:
     attempt_count: int
     replayable: bool
     idempotency_key: Optional[str]
+    actor_id: str
+    authorization_decision_id: str
+    request: Dict[str, Any]
 
 
 class EffectRepository:
@@ -30,13 +33,14 @@ class EffectRepository:
         effect: EffectIntent,
         state: str,
         updated_at: datetime,
+        authorization_decision_id: str,
     ) -> None:
         conn.execute(
             """INSERT INTO effects(
                    effect_id,identity_id,intent_id,purpose_id,actor_id,action_class,
                    idempotency_key,replayable,dispatch_state,request_json,receipt_id,
-                   verifier_state,created_at,updated_at
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   verifier_state,created_at,updated_at,authorization_decision_id
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 effect.effect_id,
                 identity_id,
@@ -52,6 +56,7 @@ class EffectRepository:
                 None,
                 datetime_to_text(effect.created_at, "created_at"),
                 datetime_to_text(updated_at, "updated_at"),
+                authorization_decision_id,
             ),
         )
 
@@ -108,7 +113,8 @@ class OutboxRepository:
         now_text = datetime_to_text(now, "now")
         rows = conn.execute(
             """SELECT o.outbox_id,o.identity_id,o.effect_id,o.destination,o.payload_json,
-                      o.attempt_count,e.replayable,e.idempotency_key
+                      o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
+                      e.authorization_decision_id,e.request_json
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
                WHERE o.state IN ('PENDING','FAILED_RETRYABLE')
@@ -137,6 +143,9 @@ class OutboxRepository:
                     attempt_count=int(row["attempt_count"]) + 1,
                     replayable=bool(row["replayable"]),
                     idempotency_key=row["idempotency_key"],
+                    actor_id=str(row["actor_id"]),
+                    authorization_decision_id=str(row["authorization_decision_id"]),
+                    request=json.loads(row["request_json"]),
                 )
             )
         return claimed
