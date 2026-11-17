@@ -36,7 +36,7 @@ jobs:
       - name: Compile XiaoYu package
         run: python -m compileall -q xiaoyu
 
-      - name: Run R1-R6 and legacy identity regression
+      - name: Run R1-R7 and legacy identity regression
         run: |
           python -m unittest -v \
             xiaoyu.tests.test_architecture_imports \
