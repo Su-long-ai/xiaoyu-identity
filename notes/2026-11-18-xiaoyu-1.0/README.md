@@ -50,6 +50,12 @@
 - [EXECUTION_BACKLOG.md](EXECUTION_BACKLOG.md)  
   执行 backlog：按依赖排序的 1.0 / 1.x / 2.0 任务，明确阻塞项、验收和停止条件。
 
+- [IMPLEMENTATION_SPEC_V0_2.md](IMPLEMENTATION_SPEC_V0_2.md)  
+  实现级架构规格 v0.2：最终分层、目录结构、Contract、SQLite schema、事务边界、Principal/Actor/Delegation、Effect/Outbox、ResourceBroker、Power、Release Authority 等，可直接作为编码依据。
+
+- [IMPLEMENTATION_RUNBOOK_V0_2.md](IMPLEMENTATION_RUNBOOK_V0_2.md)  
+  施工手册 v0.2：R0–R20 逐步实施顺序，每步列出要改的文件、接口、测试、退出门和回滚规则，供 coding agent 直接领取执行。
+
 - [GITHUB_SNAPSHOT_GAP_MAP.md](GITHUB_SNAPSHOT_GAP_MAP.md)  
   GitHub 快照差距图：基于现有 IdentityStore / ProductMemoryBridge 结构，给出最小增量演进路线；不把旧 GitHub 快照冒充本地最新状态。
 
