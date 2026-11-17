@@ -949,6 +949,49 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             finally:
                 conn.close()
 
+    def test_retryable_effect_reaches_failed_after_retry_budget(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            calls = []
+
+            def retryable(payload, idem):
+                calls.append(payload)
+                return DispatchOutcome(
+                    DispatchStatus.FAILED_RETRYABLE,
+                    retry_after_s=0,
+                )
+
+            dispatcher = OutboxDispatcher(
+                db,
+                {"qq": retryable},
+                max_attempts=2,
+            )
+            self.assertEqual(dispatcher.dispatch_once(now=NOW), 1)
+            self.assertEqual(
+                dispatcher.dispatch_once(
+                    now=NOW + timedelta(seconds=2)
+                ),
+                1,
+            )
+            self.assertEqual(len(calls), 2)
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+            finally:
+                conn.close()
+
     def test_receipt_commit_failure_recovers_to_reconciliation(self):
         class BrokenReceiptRepository:
             def insert(self, conn, identity_id, receipt):
