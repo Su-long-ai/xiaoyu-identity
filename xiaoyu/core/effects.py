@@ -102,6 +102,7 @@ class EffectCoordinator:
         outbox_repo=None,
         delegation_repo=None,
         actor_registry_repo=None,
+        principal_registry_repo=None,
         execution_auth_repo=None,
         authorization_policy=None,
     ) -> None:
@@ -110,6 +111,7 @@ class EffectCoordinator:
             ActorRegistryRepository,
             DelegationRepository,
             ExecutionAuthorizationRepository,
+            PrincipalExecutionRepository,
         )
 
         self.db = db
@@ -118,6 +120,9 @@ class EffectCoordinator:
         self.outbox_repo = outbox_repo or OutboxRepository()
         self.delegation_repo = delegation_repo or DelegationRepository()
         self.actor_registry_repo = actor_registry_repo or ActorRegistryRepository()
+        self.principal_registry_repo = (
+            principal_registry_repo or PrincipalExecutionRepository()
+        )
         self.execution_auth_repo = execution_auth_repo or ExecutionAuthorizationRepository()
         self.authorization_policy = authorization_policy or AuthorizationPolicy()
 
@@ -275,6 +280,12 @@ class EffectCoordinator:
         self.actor_registry_repo.register(
             conn,
             actor,
+            created_at,
+        )
+        self.principal_registry_repo.register(
+            conn,
+            identity_id,
+            principal,
             created_at,
         )
         self.execution_auth_repo.record(
