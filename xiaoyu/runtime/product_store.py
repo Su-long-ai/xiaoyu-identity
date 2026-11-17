@@ -609,3 +609,139 @@ class CanonicalProductStore:
                     "purpose source identity mismatch"
                 )
             self.purposes.insert(conn, purpose, at)
+
+
+    def identity_block(self) -> dict:
+        return self.self_authority.identity_block(
+            self.identity_id
+        )
+
+    def revise_persona(
+        self,
+        *,
+        expected_revision: int,
+        persona: dict,
+        reason: str,
+        source_event_ids: tuple[str, ...],
+        principal_id: str = "owner",
+        created_at: Optional[datetime] = None,
+    ):
+        return self.self_authority.revise(
+            identity_id=self.identity_id,
+            expected_revision=expected_revision,
+            persona=persona,
+            reason=reason,
+            source_event_ids=source_event_ids,
+            principal_id=principal_id,
+            created_at=created_at,
+        )
+
+    def save_memory(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        text: str,
+        category: str = "shared",
+        priority: int = 3,
+        created_at: Optional[datetime] = None,
+    ):
+        return self.memory.save(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            text=text,
+            category=category,
+            priority=priority,
+            created_at=created_at,
+        )
+
+    def correct_memory(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        expected_revision: int,
+        text: str,
+        category: str,
+        priority: int,
+        created_at: Optional[datetime] = None,
+    ):
+        return self.memory.correct(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            expected_revision=expected_revision,
+            text=text,
+            category=category,
+            priority=priority,
+            created_at=created_at,
+        )
+
+    def retract_memory(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        expected_revision: int,
+        created_at: Optional[datetime] = None,
+    ):
+        return self.memory.retract(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            expected_revision=expected_revision,
+            created_at=created_at,
+        )
+
+    def delete_memory(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        expected_revision: int,
+        created_at: Optional[datetime] = None,
+    ):
+        return self.memory.delete(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            expected_revision=expected_revision,
+            created_at=created_at,
+        )
+
+    def propose_memory(self, **kwargs) -> MemoryProposal:
+        return self.proposals.propose(**kwargs)
+
+    def approve_memory(self, **kwargs) -> CanonicalMemoryItem:
+        return self.proposals.approve(**kwargs)
+
+    def reject_memory(self, **kwargs) -> MemoryProposal:
+        return self.proposals.reject(**kwargs)
+
+    def presentation_state(self) -> dict:
+        return self.presentation.get(self.identity_id)
+
+    def update_presentation_state(
+        self,
+        state: dict,
+        *,
+        updated_at: Optional[datetime] = None,
+    ) -> dict:
+        return self.presentation.update(
+            identity_id=self.identity_id,
+            state=state,
+            updated_at=updated_at,
+        )
