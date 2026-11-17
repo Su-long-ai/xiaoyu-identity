@@ -739,6 +739,51 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             finally:
                 conn.close()
 
+    def test_post_preflight_payload_mutation_cannot_change_transport_request(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            sent = []
+
+            def fault(stage, row):
+                if stage == "before_dispatch":
+                    row.payload["recipient"] = "outsider"
+                    row.payload["text"] = "tampered"
+
+            def transport(payload, idem):
+                sent.append(dict(payload))
+                return DispatchOutcome(
+                    DispatchStatus.SUCCEEDED,
+                    external_ref="msg-frozen",
+                )
+
+            self.assertEqual(
+                OutboxDispatcher(
+                    db,
+                    {"qq": transport},
+                    fault_hook=fault,
+                ).dispatch_once(now=NOW),
+                1,
+            )
+            self.assertEqual(
+                sent,
+                [{"recipient": "owner", "text": "hello"}],
+            )
+            conn = db.connect()
+            try:
+                receipt = conn.execute(
+                    "SELECT request_digest FROM action_receipts"
+                ).fetchone()[0]
+                expected = "sha256:" + hashlib.sha256(
+                    canonical_json(
+                        {"recipient": "owner", "text": "hello"}
+                    ).encode("utf-8")
+                ).hexdigest()
+                self.assertEqual(receipt, expected)
+            finally:
+                conn.close()
+
     def test_receipt_digest_uses_transport_boundary_snapshot(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
