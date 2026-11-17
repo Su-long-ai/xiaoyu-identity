@@ -34,9 +34,13 @@ jobs:
       - name: Compile XiaoYu package
         run: python -m compileall -q xiaoyu
 
-      - name: Run R1-R3 regression
+      - name: Run R1-R4 regression
         run: |
           python -m unittest -v \
             xiaoyu.tests.test_architecture_imports \
             xiaoyu.tests.test_contracts \
-            xiaoyu.tests.test_persistence_migrations
+            xiaoyu.tests.test_persistence_migrations \
+            xiaoyu.tests.test_canonical_events \
+            xiaoyu.tests.test_identity_shadow \
+            test_identity \
+            test_identity_v2

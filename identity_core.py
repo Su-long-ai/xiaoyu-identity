@@ -16,6 +16,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from xiaoyu.persistence import Database as V1Database, apply_migrations as apply_v1_migrations
+from xiaoyu.persistence.repositories import LegacyEventShadowWriter
+
 SCHEMA_VERSION = 3
 NAMESPACE = "portable-companion-identity"
 USER_MEMORY_SOURCE_KINDS = {"conversation.user", "memory.saved", "memory.corrected"}
@@ -60,7 +63,8 @@ def _keywords(text):
     return set(keys)
 
 class IdentityStore:
-    def __init__(self, home):
+    def __init__(self, home, enable_v1_shadow=False):
+        self._canonical_shadow = None
         self.home = Path(home)
         self.dir = self.home / "identity"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -73,6 +77,9 @@ class IdentityStore:
             self._schema()
             self._bootstrap_once()
             self._upgrade_schema()
+            if enable_v1_shadow:
+                apply_v1_migrations(V1Database(self.db_path))
+                self._canonical_shadow = LegacyEventShadowWriter()
         except Exception:
             self.conn.close()
             raise
@@ -257,9 +264,28 @@ class IdentityStore:
             self._set("state", clean)
 
     def _insert_event(self, kind, actor, content, extra=None):
+        event_at = now()
+        legacy_extra = extra or {}
         cur = self.conn.execute(
             "INSERT INTO events(at,kind,actor,content,extra) VALUES(?,?,?,?,?)",
-            (now(), kind, actor, str(content), dump(extra or {})))
+            (event_at, kind, actor, str(content), dump(legacy_extra)))
+        if self._canonical_shadow is not None:
+            shadow_extra = (
+                dict(legacy_extra)
+                if isinstance(legacy_extra, dict)
+                else {"legacy_extra": legacy_extra}
+            )
+            self._canonical_shadow.write(
+                self.conn,
+                self.persona()["id"],
+                int(cur.lastrowid),
+                event_at,
+                kind,
+                actor,
+                str(content),
+                shadow_extra,
+                turn_id=shadow_extra.get("turn_id"),
+            )
         return cur.lastrowid
 
     def record(self, kind, actor, content, extra=None):
