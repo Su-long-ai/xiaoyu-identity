@@ -1266,3 +1266,167 @@ The most important practical rule is:
 - Pact contract testing
 - OpenTelemetry GenAI semantic conventions
 - Windows Job Objects / Named Pipes
+
+
+---
+
+# 40. Final saturation pass: failure modes and anti-patterns
+
+The final survey pass did not reveal a better top-level architecture. It mainly exposed failure modes that confirm the need for the design above.
+
+## Python in-process hot reload is not a reliable product upgrade mechanism
+
+Python's own `importlib.reload()` documentation warns that:
+
+- old object references are not rebound automatically;
+- old class instances keep old method definitions;
+- extension modules may not support repeated initialization;
+- module dictionaries retain old names/state;
+- reload is not thread-safe.
+
+Therefore:
+
+**Do not promise true hot-upgrade for in-process Python providers.**
+
+Use:
+
+- restart Core for trusted in-process provider upgrades;
+- sidecar drain-and-switch for heavy/runtime providers;
+- request-level routing for remote/stateless providers.
+
+## Runtime permissions should be just-in-time
+
+Browser extension permission systems reinforce that optional capabilities should be requested only when needed and should survive denial gracefully.
+
+For XiaoYu:
+
+- installing a Vision provider does not imply screen permission;
+- installing an ASR provider does not imply microphone permission;
+- installing a Tool provider does not imply filesystem/network permission.
+
+Installation, capability availability and permission are separate states.
+
+## Integration quality is more than “it loads”
+
+Home Assistant's quality model confirms that mature integrations need:
+
+- setup;
+- unload/reload;
+- reauthentication;
+- reconfiguration;
+- diagnostics;
+- failure handling;
+- tests.
+
+Therefore XiaoYu's provider quality tier should evaluate lifecycle and product recoverability, not only capability correctness.
+
+## Provider upgrade should not destroy configuration or identity state
+
+Home Assistant's reauthentication/reconfiguration flows preserve the existing integration identity while credentials/endpoints change.
+
+XiaoYu should follow the same principle:
+
+```
+provider credentials change
+provider endpoint changes
+model changes
+device changes
+```
+
+must not force:
+
+```
+delete provider identity
+recreate XiaoYu state
+rebuild personal history
+```
+
+## Permissions should be explicit capabilities
+
+WebAssembly WIT worlds and Extism manifests show a stronger model than “plugin runs and promises not to touch things”:
+
+- network can be absent;
+- filesystem can be absent;
+- secret access can be absent;
+- allowed hosts/paths can be narrow;
+- memory/execution can be bounded.
+
+This is the preferred future model for third-party XiaoYu extensions.
+
+## Sidecar ownership must be OS-enforced where practical
+
+On Windows, Job Objects with kill-on-close semantics provide a robust process-tree cleanup mechanism.
+
+For XiaoYu heavy providers:
+
+```
+Core owns job
+  └─ Vision/TTS/ASR sidecar
+      └─ child workers
+```
+
+Closing/disabling the capability should terminate the whole owned process tree.
+
+## Local IPC should avoid unnecessary network exposure
+
+For a Windows desktop companion:
+
+- child stdio is simplest for one-owner sidecars;
+- named pipes are appropriate for persistent duplex local IPC;
+- named-pipe ACLs should restrict callers;
+- localhost TCP should be used only when protocol/library constraints justify it.
+
+## Contract tests are more important than framework choice
+
+Pact-style contract testing reinforces a general rule:
+
+> each provider should be independently verifiable against what the Kernel actually consumes.
+
+XiaoYu does not need Pact itself for every internal interface, but it does need provider conformance tests with concrete examples and compatibility results.
+
+## Version everything that evolves independently
+
+OSGi's long experience with versioned bundles/services and SemVer's requirement to declare a clear public API support the same conclusion:
+
+XiaoYu should separately version:
+
+- capability contract;
+- provider implementation;
+- provider state schema;
+- model artifact/revision;
+- manifest schema.
+
+Do not collapse all of these into “plugin version”.
+
+---
+
+# 41. Saturation conclusion
+
+Across the final passes, mature systems from different domains converged on the same architecture:
+
+- VS Code: lazy activation and extension-host isolation;
+- Home Assistant: declarative manifests, dependencies, unload/reload, reauth/reconfigure, quality tiers;
+- HashiCorp go-plugin: subprocess/RPC fault isolation;
+- MCP: version and capability negotiation;
+- WebAssembly Component Model: explicit imported/exported capabilities;
+- Extism: sandbox limits and host-controlled permissions;
+- WebExtensions: optional runtime permissions;
+- LiteLLM: centralized retry/fallback/cooldown routing;
+- gRPC: explicit health semantics;
+- SemVer/OSGi: independently versioned contracts;
+- Pact: provider/consumer contract verification;
+- OpenTelemetry: standardized observability;
+- Windows Job Objects/Named Pipes: local process ownership and IPC.
+
+Further external searching is now expected to produce mostly alternate implementations of these same mechanisms.
+
+The architecture is therefore considered **saturated at the design level**.
+
+Future research should be empirical:
+
+1. implement a minimal Capability Registry;
+2. wrap two real providers behind one contract;
+3. measure overhead;
+4. test failure isolation;
+5. test replacement/rollback;
+6. only then generalize the next interface.
