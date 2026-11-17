@@ -22,6 +22,59 @@ def _digest(value) -> str:
     ).hexdigest()
 
 
+def _authorized_request_digest(
+    *,
+    identity_id: str,
+    principal_id: str,
+    actor_id: str,
+    actor_implementation_digest,
+    actor_authorization_digest,
+    delegation_id,
+    delegation_digest,
+    purpose_id,
+    purpose_revision,
+    purpose_occurrence_id,
+    action_class: str,
+    action_digest: str,
+    resource_digest: str,
+    context_digest: str,
+    request_digest: str,
+    destination: str,
+    actor_provider_id,
+    provider_artifact_digest,
+    provider_descriptor_digest,
+    provider_interface_digest,
+    provider_tool_schema_digest,
+    provider_capability,
+) -> str:
+    return _digest(
+        {
+            "identity_id": identity_id,
+            "principal_id": principal_id,
+            "actor_id": actor_id,
+            "actor_implementation_digest": actor_implementation_digest,
+            "actor_authorization_digest": actor_authorization_digest,
+            "delegation_id": delegation_id,
+            "delegation_digest": delegation_digest,
+            "purpose_id": purpose_id,
+            "purpose_revision": purpose_revision,
+            "purpose_occurrence_id": purpose_occurrence_id,
+            "action_class": action_class,
+            "action_digest": action_digest,
+            "resource_digest": resource_digest,
+            "context_digest": context_digest,
+            "request_digest": request_digest,
+            "destination": destination,
+            "actor_provider_id": actor_provider_id,
+            "provider_artifact_digest": provider_artifact_digest,
+            "provider_descriptor_digest": provider_descriptor_digest,
+            "provider_interface_digest": provider_interface_digest,
+            "provider_tool_schema_digest": provider_tool_schema_digest,
+            "provider_capability": provider_capability,
+        }
+    )
+
+
 class DelegationConflict(RuntimeError):
     pass
 
@@ -168,6 +221,17 @@ class ActorRegistryRepository:
 
 
 class ExecutionAuthorizationRepository:
+    @staticmethod
+    def _provider_snapshot(conn: sqlite3.Connection, provider_id):
+        if provider_id is None:
+            return None
+        return conn.execute(
+            """SELECT provider_id,capability,artifact_digest,descriptor_digest,
+                      interface_digest,tool_schema_digest,lifecycle_state
+               FROM provider_registry WHERE provider_id=?""",
+            (provider_id,),
+        ).fetchone()
+
     def record(
         self,
         conn: sqlite3.Connection,
@@ -177,6 +241,8 @@ class ExecutionAuthorizationRepository:
         principal: PrincipalContext,
         actor: ActorContext,
         delegation: Optional[Delegation],
+        delegation_digest: Optional[str],
+        purpose_id: Optional[str],
         action: ActionRequest,
         resource: ResourceRef,
         context: AuthorizationContext,
@@ -186,6 +252,41 @@ class ExecutionAuthorizationRepository:
         purpose_revision: Optional[int] = None,
         purpose_occurrence_id: Optional[str] = None,
     ) -> None:
+        action_digest = _digest(action.to_dict())
+        resource_digest = _digest(resource.to_dict())
+        context_digest = _digest(context.to_dict())
+        request_digest = _digest(request)
+        provider = self._provider_snapshot(conn, actor.provider_id)
+        provider_artifact_digest = None if provider is None else provider["artifact_digest"]
+        provider_descriptor_digest = None if provider is None else provider["descriptor_digest"]
+        provider_interface_digest = None if provider is None else provider["interface_digest"]
+        provider_tool_schema_digest = None if provider is None else provider["tool_schema_digest"]
+        provider_capability = None if provider is None else provider["capability"]
+        provider_lifecycle_state = None if provider is None else provider["lifecycle_state"]
+        authorized_digest = _authorized_request_digest(
+            identity_id=identity_id,
+            principal_id=principal.principal_id,
+            actor_id=actor.actor_id,
+            actor_implementation_digest=actor.implementation_digest,
+            actor_authorization_digest=actor.authorization_digest,
+            delegation_id=None if delegation is None else delegation.delegation_id,
+            delegation_digest=delegation_digest,
+            purpose_id=purpose_id,
+            purpose_revision=purpose_revision,
+            purpose_occurrence_id=purpose_occurrence_id,
+            action_class=action.action_class,
+            action_digest=action_digest,
+            resource_digest=resource_digest,
+            context_digest=context_digest,
+            request_digest=request_digest,
+            destination=destination,
+            actor_provider_id=actor.provider_id,
+            provider_artifact_digest=provider_artifact_digest,
+            provider_descriptor_digest=provider_descriptor_digest,
+            provider_interface_digest=provider_interface_digest,
+            provider_tool_schema_digest=provider_tool_schema_digest,
+            provider_capability=provider_capability,
+        )
         conn.execute(
             """INSERT INTO execution_authorizations(
                    authorization_decision_id,identity_id,principal_id,
@@ -193,8 +294,12 @@ class ExecutionAuthorizationRepository:
                    actor_authorization_digest,delegation_id,purpose_id,
                    action_class,action_digest,resource_digest,context_digest,
                    request_digest,destination,audience_scope,context_space,
-                   created_at,purpose_revision,purpose_occurrence_id
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   created_at,purpose_revision,purpose_occurrence_id,
+                   delegation_digest,actor_provider_id,provider_artifact_digest,
+                   provider_descriptor_digest,provider_interface_digest,
+                   provider_tool_schema_digest,provider_capability,
+                   provider_lifecycle_state,authorized_request_digest
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 decision_id,
                 identity_id,
@@ -211,20 +316,27 @@ class ExecutionAuthorizationRepository:
                 None
                 if delegation is None
                 else delegation.delegation_id,
-                None
-                if delegation is None
-                else delegation.purpose_id,
+                purpose_id,
                 action.action_class,
-                _digest(action.to_dict()),
-                _digest(resource.to_dict()),
-                _digest(context.to_dict()),
-                _digest(request),
+                action_digest,
+                resource_digest,
+                context_digest,
+                request_digest,
                 destination,
                 context.audience_scope,
                 context.context_space,
                 datetime_to_text(created_at, "created_at"),
                 purpose_revision,
                 purpose_occurrence_id,
+                delegation_digest,
+                actor.provider_id,
+                provider_artifact_digest,
+                provider_descriptor_digest,
+                provider_interface_digest,
+                provider_tool_schema_digest,
+                provider_capability,
+                provider_lifecycle_state,
+                authorized_digest,
             ),
         )
 
@@ -239,6 +351,7 @@ class ExecutionAuthorizationRepository:
         purpose_id: Optional[str],
         destination: str,
         request: dict,
+        effect_request: dict,
         now: datetime,
         purpose_revision: Optional[int] = None,
         purpose_occurrence_id: Optional[str] = None,
@@ -280,9 +393,25 @@ class ExecutionAuthorizationRepository:
             raise DispatchAuthorizationDenied(
                 "authorization destination changed"
             )
-        if str(row["request_digest"]) != _digest(request):
+        actual_request_digest = _digest(request)
+        if str(row["request_digest"]) != actual_request_digest:
             raise DispatchAuthorizationDenied(
-                "authorization request changed"
+                "authorization outbox request changed"
+            )
+        if str(row["request_digest"]) != _digest(effect_request):
+            raise DispatchAuthorizationDenied(
+                "authorization effect request changed"
+            )
+
+        principal_expires = row["principal_expires_at"]
+        if (
+            principal_expires is not None
+            and now >= datetime_from_text(
+                str(principal_expires), "principal_expires_at"
+            )
+        ):
+            raise DispatchAuthorizationDenied(
+                "principal session authorization expired"
             )
 
         actor = conn.execute(
@@ -302,61 +431,125 @@ class ExecutionAuthorizationRepository:
             raise DispatchAuthorizationDenied(
                 "actor authorization/schema digest changed"
             )
+        if actor["provider_id"] != row["actor_provider_id"]:
+            raise DispatchAuthorizationDenied(
+                "actor provider changed"
+            )
 
         delegation_id = row["delegation_id"]
-        if delegation_id is None:
-            expires = row["principal_expires_at"]
+        if delegation_id is not None:
+            delegation = conn.execute(
+                """SELECT * FROM delegations WHERE delegation_id=?""",
+                (delegation_id,),
+            ).fetchone()
+            if delegation is None:
+                raise DispatchAuthorizationDenied(
+                    "delegation disappeared"
+                )
+            if str(delegation["principal_id"]) != str(row["principal_id"]):
+                raise DispatchAuthorizationDenied(
+                    "delegation principal changed"
+                )
+            if str(delegation["actor_id"]) != actor_id:
+                raise DispatchAuthorizationDenied(
+                    "delegation actor changed"
+                )
+            if delegation["delegation_digest"] != row["delegation_digest"]:
+                raise DispatchAuthorizationDenied(
+                    "standing delegation semantics changed"
+                )
+            revoked = delegation["revoked_at"]
             if (
-                expires is not None
+                revoked is not None
                 and now >= datetime_from_text(
-                    str(expires), "principal_expires_at"
+                    str(revoked), "revoked_at"
                 )
             ):
                 raise DispatchAuthorizationDenied(
-                    "principal session authorization expired"
+                    "delegation revoked"
                 )
-            return
+            valid_from = datetime_from_text(
+                str(delegation["valid_from"]), "valid_from"
+            )
+            if now < valid_from:
+                raise DispatchAuthorizationDenied(
+                    "delegation not yet valid"
+                )
+            expires = delegation["expires_at"]
+            if (
+                expires is not None
+                and now >= datetime_from_text(
+                    str(expires), "expires_at"
+                )
+            ):
+                raise DispatchAuthorizationDenied(
+                    "delegation expired"
+                )
 
-        delegation = conn.execute(
-            """SELECT * FROM delegations WHERE delegation_id=?""",
-            (delegation_id,),
-        ).fetchone()
-        if delegation is None:
-            raise DispatchAuthorizationDenied(
-                "delegation disappeared"
+        provider_snapshot_present = any(
+            row[name] is not None
+            for name in (
+                "provider_artifact_digest",
+                "provider_descriptor_digest",
+                "provider_interface_digest",
+                "provider_tool_schema_digest",
+                "provider_capability",
+                "provider_lifecycle_state",
             )
-        if str(delegation["principal_id"]) != str(row["principal_id"]):
-            raise DispatchAuthorizationDenied(
-                "delegation principal changed"
-            )
-        if str(delegation["actor_id"]) != actor_id:
-            raise DispatchAuthorizationDenied(
-                "delegation actor changed"
-            )
-        revoked = delegation["revoked_at"]
-        if (
-            revoked is not None
-            and now >= datetime_from_text(
-                str(revoked), "revoked_at"
-            )
-        ):
-            raise DispatchAuthorizationDenied(
-                "delegation revoked"
-            )
-        valid_from = datetime_from_text(
-            str(delegation["valid_from"]), "valid_from"
         )
-        if now < valid_from:
-            raise DispatchAuthorizationDenied(
-                "delegation not yet valid"
+        if provider_snapshot_present:
+            provider_id = row["actor_provider_id"]
+            provider = self._provider_snapshot(conn, provider_id)
+            if provider is None:
+                raise DispatchAuthorizationDenied(
+                    "authorized provider disappeared"
+                )
+            comparisons = (
+                ("artifact_digest", "provider_artifact_digest"),
+                ("descriptor_digest", "provider_descriptor_digest"),
+                ("interface_digest", "provider_interface_digest"),
+                ("tool_schema_digest", "provider_tool_schema_digest"),
+                ("capability", "provider_capability"),
             )
-        expires = delegation["expires_at"]
-        if (
-            expires is not None
-            and now >= datetime_from_text(
-                str(expires), "expires_at"
-            )
-        ):
+            for current_name, snapshot_name in comparisons:
+                if provider[current_name] != row[snapshot_name]:
+                    raise DispatchAuthorizationDenied(
+                        "provider %s changed" % current_name
+                    )
+            if str(provider["lifecycle_state"]) != "ACTIVE":
+                raise DispatchAuthorizationDenied(
+                    "provider lifecycle is not ACTIVE"
+                )
+            if row["provider_lifecycle_state"] != "ACTIVE":
+                raise DispatchAuthorizationDenied(
+                    "standing approval was not granted to ACTIVE provider"
+                )
+
+        expected = _authorized_request_digest(
+            identity_id=identity_id,
+            principal_id=str(row["principal_id"]),
+            actor_id=actor_id,
+            actor_implementation_digest=actor["implementation_digest"],
+            actor_authorization_digest=actor["authorization_digest"],
+            delegation_id=delegation_id,
+            delegation_digest=row["delegation_digest"],
+            purpose_id=purpose_id,
+            purpose_revision=purpose_revision,
+            purpose_occurrence_id=purpose_occurrence_id,
+            action_class=action_class,
+            action_digest=str(row["action_digest"]),
+            resource_digest=str(row["resource_digest"]),
+            context_digest=str(row["context_digest"]),
+            request_digest=actual_request_digest,
+            destination=destination,
+            actor_provider_id=actor["provider_id"],
+            provider_artifact_digest=row["provider_artifact_digest"],
+            provider_descriptor_digest=row["provider_descriptor_digest"],
+            provider_interface_digest=row["provider_interface_digest"],
+            provider_tool_schema_digest=row["provider_tool_schema_digest"],
+            provider_capability=row["provider_capability"],
+        )
+        if str(row["authorized_request_digest"]) != expected:
             raise DispatchAuthorizationDenied(
-                "delegation expired"
+                "canonical authorized request changed"
             )
