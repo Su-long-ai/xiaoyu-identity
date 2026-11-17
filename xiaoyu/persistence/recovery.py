@@ -26,6 +26,10 @@ class RecoveryError(RuntimeError):
     pass
 
 
+class BackupError(RecoveryError):
+    pass
+
+
 class MissingErasureWatermark(RecoveryError):
     pass
 
@@ -105,36 +109,59 @@ class RecoveryManager:
         fence = ExternalErasureFenceStore(source.path)
         identity_fence = fence.sync_from_db(source, identity_id)
 
-        backup = source.backup_to(backup_path)
-        backup_db = Database(backup)
-        RecoveryManager._require_healthy(backup_db, "backup")
-        backup_fence = ExternalErasureFenceStore(backup)
-        fence.copy_to(backup_fence)
+        backup = Path(backup_path)
+        stage = backup.with_name(backup.name + ".partial")
+        stage_manifest = Path(str(stage) + ".manifest.json")
+        stage_fence = ExternalErasureFenceStore(stage).path
+        for candidate in (stage, stage_manifest, stage_fence):
+            if candidate.exists():
+                candidate.unlink()
 
-        with source.transaction() as conn:
-            source_revision = conn.execute(
-                """SELECT COALESCE(MAX(ingest_revision),0)
-                   FROM canonical_event_ingest WHERE identity_id=?""",
-                (identity_id,),
-            ).fetchone()[0]
-        versions = applied_versions(source)
-        now = (created_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
-        manifest = {
-            "version": 1,
-            "identity_id": identity_id,
-            "schema_version": max(versions, default=0),
-            "migration_version": max(versions, default=0),
-            "erasure_generation": int(identity_fence["erasure_generation"]),
-            "source_revision_watermark": int(source_revision),
-            "creation_time": now.isoformat(timespec="microseconds"),
-            "release_version": release_version,
-            "release_digest": release_digest,
-            "db_sha256": RecoveryManager._sha256(backup),
-        }
-        RecoveryManager._write_json(
-            Path(str(backup) + ".manifest.json"), manifest
-        )
-        return backup
+        try:
+            source.backup_to(stage)
+            backup_db = Database(stage)
+            RecoveryManager._require_healthy(backup_db, "backup")
+            backup_fence = ExternalErasureFenceStore(stage)
+            fence.copy_to(backup_fence)
+
+            with source.transaction() as conn:
+                source_revision = conn.execute(
+                    """SELECT COALESCE(MAX(ingest_revision),0)
+                       FROM canonical_event_ingest WHERE identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+            versions = applied_versions(source)
+            now = (created_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+            manifest = {
+                "version": 1,
+                "identity_id": identity_id,
+                "schema_version": max(versions, default=0),
+                "migration_version": max(versions, default=0),
+                "erasure_generation": int(identity_fence["erasure_generation"]),
+                "source_revision_watermark": int(source_revision),
+                "creation_time": now.isoformat(timespec="microseconds"),
+                "release_version": release_version,
+                "release_digest": release_digest,
+                "db_sha256": RecoveryManager._sha256(stage),
+            }
+            RecoveryManager._write_json(stage_manifest, manifest)
+
+            # The manifest is the commit marker and is replaced last. A crash
+            # between file replacements leaves either no manifest or a digest
+            # mismatch, both rejected by validation.
+            final_manifest = Path(str(backup) + ".manifest.json")
+            final_fence = ExternalErasureFenceStore(backup).path
+            os.replace(stage, backup)
+            os.replace(stage_fence, final_fence)
+            os.replace(stage_manifest, final_manifest)
+            return backup
+        except Exception as exc:
+            for candidate in (stage, stage_manifest, stage_fence):
+                if candidate.exists():
+                    candidate.unlink()
+            if isinstance(exc, RecoveryError):
+                raise
+            raise BackupError("backup creation failed: %s" % exc) from exc
 
     @staticmethod
     def restore(
@@ -151,6 +178,9 @@ class RecoveryManager:
         if candidate_path.resolve() == target_path.resolve():
             raise ValueError("restore candidate must differ from active target")
 
+        RecoveryManager.validate_backup_manifest(
+            candidate_path, expected_identity_id=identity_id
+        )
         candidate = Database(candidate_path)
         RecoveryManager._require_healthy(candidate, "candidate")
         apply_migrations(candidate)
@@ -222,6 +252,31 @@ class RecoveryManager:
         db = Database(target_path)
         RecoveryManager._verify_no_replayable_restore_work(db, identity_id)
         store.clear()
+
+    @staticmethod
+    def validate_backup_manifest(
+        candidate_path,
+        *,
+        expected_identity_id: Optional[str] = None,
+    ) -> Optional[dict]:
+        candidate = Path(candidate_path)
+        manifest_path = Path(str(candidate) + ".manifest.json")
+        if not manifest_path.exists():
+            return None
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise BackupError("backup manifest is unreadable") from exc
+        if int(payload.get("version", 0)) != 1:
+            raise BackupError("unsupported backup manifest version")
+        if expected_identity_id is not None and str(
+            payload.get("identity_id")
+        ) != str(expected_identity_id):
+            raise BackupError("backup identity does not match restore target")
+        expected_digest = str(payload.get("db_sha256") or "")
+        if not expected_digest or expected_digest != RecoveryManager._sha256(candidate):
+            raise BackupError("backup manifest digest mismatch")
+        return payload
 
     @staticmethod
     def _trusted_fence(
