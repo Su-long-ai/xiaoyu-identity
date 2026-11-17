@@ -59,12 +59,15 @@ class Purpose:
     quiet_class: str = "NORMAL"
     duplicate_key: Optional[str] = None
     last_evaluated_at: Optional[datetime] = None
+    revision: int = 1
 
     def __post_init__(self) -> None:
         if self.resolved_utc_time is not None:
             require_aware(self.resolved_utc_time, "resolved_utc_time")
         if self.last_evaluated_at is not None:
             require_aware(self.last_evaluated_at, "last_evaluated_at")
+        if self.revision < 1:
+            raise ValueError("purpose revision must be >= 1")
         if (self.scheduled_wall_time is None) != (self.timezone_name is None):
             raise ValueError(
                 "scheduled_wall_time and timezone_name must be set together"
@@ -72,10 +75,17 @@ class Purpose:
 
 
 def resolve_wall_time(local_time: datetime, timezone_name: str) -> datetime:
-    """Resolve an offset-aware local wall time to UTC without discarding DST choice."""
+    """Resolve a valid offset-aware local wall time, rejecting DST gaps."""
     require_aware(local_time, "local_time")
     zone = ZoneInfo(timezone_name)
-    local_in_zone = local_time.astimezone(zone)
-    if local_in_zone.replace(tzinfo=None) != local_time.replace(tzinfo=None):
-        raise ValueError("local_time offset does not match timezone wall clock")
-    return local_time.astimezone(timezone.utc)
+    resolved = local_time.astimezone(timezone.utc)
+    round_trip = resolved.astimezone(zone)
+    if (
+        round_trip.replace(tzinfo=None)
+        != local_time.replace(tzinfo=None)
+        or round_trip.utcoffset() != local_time.utcoffset()
+    ):
+        raise ValueError(
+            "local_time is nonexistent or offset does not match timezone"
+        )
+    return resolved
