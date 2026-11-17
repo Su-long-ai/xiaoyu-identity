@@ -239,6 +239,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
     @staticmethod
     def _bound_transport(send, **overrides):
         values = {
+            "actor_id": "tool:qq",
             "provider_id": "napcat",
             "actor_implementation_digest": "sha256:tool-v1",
             "actor_authorization_digest": "sha256:auth-v1",
@@ -933,6 +934,30 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 )
             finally:
                 conn.close()
+
+    def test_transport_actor_swap_is_blocked_even_with_same_digests(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        ),
+                        actor_id="tool:other",
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
 
     def test_transport_implementation_digest_change_is_blocked(self):
         with tempfile.TemporaryDirectory() as td:
