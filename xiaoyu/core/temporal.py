@@ -425,7 +425,7 @@ class TemporalFactService:
                 # fails, the conservative external fence still honors the
                 # user's deletion intent instead of allowing resurrection.
                 fence_store = ExternalErasureFenceStore(self.db.path)
-                fence_store.sync_from_db(self.db, event.identity_id)
+                fence_store.sync_from_connection(conn, event.identity_id)
                 fence_store.record_fact_delete(
                     identity_id=event.identity_id,
                     fact_key=fact_key,
