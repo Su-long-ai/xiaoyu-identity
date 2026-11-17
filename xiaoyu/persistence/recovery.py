@@ -49,6 +49,7 @@ class RestoreReport:
     revoked_delegations: int
     degraded_providers: int
     cleared_projections: int
+    rebuilt_projections: int
 
 
 class RecoveryQuarantineStore:
@@ -242,6 +243,7 @@ class RecoveryManager:
             revoked_delegations=counts["delegations"],
             degraded_providers=counts["providers"],
             cleared_projections=counts["projections"],
+            rebuilt_projections=counts["rebuilt_projections"],
         )
 
     @staticmethod
@@ -318,6 +320,7 @@ class RecoveryManager:
             "delegations": 0,
             "providers": 0,
             "projections": 0,
+            "rebuilt_projections": 0,
         }
         with db.transaction(immediate=True) as conn:
             for tombstone in fence_identity.get("tombstones", []):
@@ -445,7 +448,69 @@ class RecoveryManager:
                 "DELETE FROM projections WHERE identity_id=?", (identity_id,)
             )
             counts["projections"] = int(cur.rowcount)
+            counts["rebuilt_projections"] = RecoveryManager._rebuild_projections(
+                conn, identity_id=identity_id, built_at=restored_at
+            )
         return counts
+
+    @staticmethod
+    def _rebuild_projections(conn, *, identity_id: str, built_at: str) -> int:
+        rows = conn.execute(
+            """SELECT tf.fact_id,tf.fact_key,tf.subject,tf.predicate,
+                      tf.value_json,tf.cardinality,tf.revision,
+                      far.current_revision,far.erasure_generation
+               FROM temporal_facts tf
+               JOIN fact_authority_revisions far
+                 ON far.identity_id=tf.identity_id
+                AND far.fact_key=tf.fact_key
+               WHERE tf.identity_id=? AND tf.status='CURRENT'
+               ORDER BY tf.fact_key,tf.revision,tf.fact_id""",
+            (identity_id,),
+        ).fetchall()
+        grouped = {}
+        for row in rows:
+            grouped.setdefault(str(row["fact_key"]), []).append(row)
+
+        inserted = 0
+        for fact_key in sorted(grouped):
+            group = grouped[fact_key]
+            last = group[-1]
+            source_ids = [str(row["fact_id"]) for row in group]
+            value = {
+                "subject": str(last["subject"]),
+                "predicate": str(last["predicate"]),
+                "cardinality": str(last["cardinality"]),
+                "values": [json.loads(str(row["value_json"])) for row in group],
+            }
+            conn.execute(
+                """INSERT INTO projections(
+                       identity_id,projection_key,projection_type,value_json,
+                       source_fact_ids_json,builder_version,built_at,
+                       source_revision,erasure_generation
+                   ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    identity_id,
+                    fact_key,
+                    "CURRENT_FACT",
+                    json.dumps(
+                        value,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                    json.dumps(
+                        source_ids,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    "recovery-current-fact-v1",
+                    built_at,
+                    int(last["current_revision"]),
+                    int(last["erasure_generation"]),
+                ),
+            )
+            inserted += 1
+        return inserted
 
     @staticmethod
     def _verify_candidate(db: Database, identity_id: str, fence_identity: dict) -> None:
