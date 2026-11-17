@@ -54,8 +54,8 @@ class EffectBindingError(ValueError):
 
 _REQUEST_SCHEMAS = {
     "message.send": (
-        {"text"},
-        {"recipient"},
+        {"recipient", "text"},
+        set(),
     ),
     "notification.deliver": (
         {"logical_notification_id", "surface", "text"},
