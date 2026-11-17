@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [IMPLEMENTATION_SELECTION_MATRIX.md](IMPLEMENTATION_SELECTION_MATRIX.md)  
+  实现选型矩阵：逐模块决定现在采用什么、1.x 候选、为什么不采用其它重型方案。
+
 - [MULTIDIMENSIONAL_SATURATION_SURVEY.md](MULTIDIMENSIONAL_SATURATION_SURVEY.md)  
   多维度饱和调查：身份、记忆、偏好、主动性、视觉、权限、技能、跨端、隐私、安全、关系、运维、成本与最终产品分期。
 
