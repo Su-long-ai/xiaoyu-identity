@@ -7,6 +7,13 @@ from .delivery import (
 from .host import RuntimeAdmission, RuntimeHost
 from .outbox import OutboxDispatcher
 from .power import PowerLifecycle, PowerState, ResumeReport
+from .product_store import (
+    CanonicalProductStore,
+    CanonicalProductWriteError,
+    MemoryProposal,
+    MemoryProposalLedger,
+    PresentationStateStore,
+)
 from .product_context import (
     CanonicalDialogueProjector,
     CanonicalHistoryTurn,
@@ -99,6 +106,11 @@ __all__ = [
     "CanonicalHistoryTurn",
     "CanonicalProductContext",
     "CanonicalProductContextBuilder",
+    "CanonicalProductStore",
+    "CanonicalProductWriteError",
+    "MemoryProposal",
+    "MemoryProposalLedger",
+    "PresentationStateStore",
     "CanonicalReadinessEvidence",
     "CanonicalReadShadowBootstrap",
     "CanonicalReadShadowEvaluator",
