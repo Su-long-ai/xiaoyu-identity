@@ -499,13 +499,36 @@ class PetApp:
         edit.insert("end","可以手动写下我们相处后产生的新认识，也可以根据真实互动生成候选反思。\n"
                     "删除此提示后再写内容；不会自动将草稿加入人格。")
         def propose():
-            ev=FISH.recent_events(50)
-            real=[e for e in ev if e["kind"].startswith(("conversation.","pet."))]
+            # Recent shared history is owner-private input too. Assemble it
+            # behind the same prompt-source fence as the main chat path.
+            for assembly_attempt in range(2):
+                growth_fence_before=capture_context_fence(FISH)
+                ev=FISH.recent_events(50)
+                real=[
+                    e for e in ev
+                    if e["kind"].startswith(("conversation.","pet."))
+                ]
+                evidence,evidence_ids=growth_evidence_batch(real,12)
+                growth_generation=FISH.memory_generation()
+                growth_fence=capture_context_fence(FISH)
+                if growth_fence==growth_fence_before:
+                    break
+            else:
+                edit.delete("1.0","end")
+                edit.insert(
+                    "end",
+                    "上下文持续变化，未向模型发送旧的私人经历；请重试。",
+                )
+                return
             if len(real)<4:
                 messagebox.showinfo("经历不足","再聊一段时间、有几次真实互动后才能生成有依据的反思。",parent=win)
                 return
             config=load_provider(HOME)
-            evidence,evidence_ids=growth_evidence_batch(real,12)
+            identity_db_path=str(FISH.db_path)
+            r47_db_path=(
+                str(self.memory_bridge.db_path)
+                if getattr(self,"memory_bridge",None) is not None else ""
+            )
             edit.delete("1.0","end")
             edit.insert("end","正在生成仅供你审阅的反思建议……")
             def work():
@@ -514,20 +537,42 @@ class PetApp:
                         "只写候选文本，不给指令。")
                 try:
                     payload=json.dumps(evidence,ensure_ascii=False)
-                    response,_=chat(config,[{"role":"system","content":system},
-                      {"role":"user","content":payload}],
-                      max_tokens=350)
-                    self.queue_reflect.put(("ok",response,list(evidence_ids)))
+                    response,_=dual_guarded_chat(
+                        chat,config,
+                        [{"role":"system","content":system},
+                         {"role":"user","content":payload}],
+                        identity_db_path,r47_db_path,
+                        growth_generation,[],
+                        max_tokens=350,
+                        expected_context_fence=growth_fence,
+                        identity_id=str(FISH.persona()["id"]),
+                        principal_id="owner",
+                        audience_scope="PRIVATE",
+                        context_space="PERSONAL",
+                        required_privacy_class="OWNER_PRIVATE",
+                    )
+                    self.queue_reflect.put((
+                        "ok",response,list(evidence_ids),growth_fence
+                    ))
                 except Exception as err:
-                    self.queue_reflect.put(("error",str(err),[]))
+                    self.queue_reflect.put(("error",str(err),[],None))
             self.queue_reflect=queue.Queue()
             threading.Thread(target=work,daemon=True).start()
             def check():
                 if not win.winfo_exists():return
                 try:
-                    status,content,ids=self.queue_reflect.get_nowait()
+                    status,content,ids,response_fence=(
+                        self.queue_reflect.get_nowait()
+                    )
                     edit.delete("1.0","end")
                     if status=="ok":
+                        if capture_context_fence(FISH)!=response_fence:
+                            edit.insert(
+                                "end",
+                                "上下文在反思生成后已变化，旧候选已丢弃；请重新生成。",
+                            )
+                            self.reflection=None
+                            return
                         edit.insert("end",content)
                         FISH.propose_growth(content,ids,confirmed=False)
                         self.reflection=ids

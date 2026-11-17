@@ -314,6 +314,8 @@ def dual_guarded_chat(
     chat_fn,config,messages,identity_db_path,r47_db_path,
     expected_generation,expectations,
     *,
+    max_tokens=500,
+    timeout=75,
     expected_context_fence=None,
     identity_id="xiaoyu",
     principal_id="owner",
@@ -359,6 +361,10 @@ def dual_guarded_chat(
                 approved_provider_digests,
             )
         kwargs={"attempt_guard":guard_factory}
+        if "max_tokens" in parameters:
+            kwargs["max_tokens"]=max_tokens
+        if "timeout" in parameters:
+            kwargs["timeout"]=timeout
         if "required_data_class" in parameters:
             kwargs["required_data_class"]=required_privacy_class
         if "attempt_audit" in parameters and attempt_audit is not None:
@@ -383,9 +389,14 @@ def dual_guarded_chat(
         if expectations:
             rconn=_open_locked(r47_db_path)
             _validate_r47(rconn,expectations)
+        kwargs={}
+        if "max_tokens" in parameters:
+            kwargs["max_tokens"]=max_tokens
+        if "timeout" in parameters:
+            kwargs["timeout"]=timeout
         if "on_dispatched" in parameters:
-            return chat_fn(config,messages,on_dispatched=release)
-        return chat_fn(config,messages)
+            kwargs["on_dispatched"]=release
+        return chat_fn(config,messages,**kwargs)
     finally:
         release()
 
