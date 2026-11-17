@@ -182,6 +182,7 @@ def _validate_context_state_snapshot(
     tool_result_digest,
     tool_implementation_digest,
     tool_schema_digest,
+    viewer_principal_ids=(),
 ):
     if provider is None:
         return
@@ -197,6 +198,19 @@ def _validate_context_state_snapshot(
         "tool_implementation_digest":tool_implementation_digest,
         "tool_schema_digest":tool_schema_digest,
     }
+    viewers=tuple(sorted(
+        str(value) for value in viewer_principal_ids if str(value)
+    ))
+    if viewers:
+        current_viewers=tuple(sorted(
+            str(value)
+            for value in current.get("viewer_principal_ids", ())
+            if str(value)
+        ))
+        if current_viewers != viewers:
+            raise FreshnessChanged(
+                "attempt_context_changed:viewer_principal_ids"
+            )
     for key,value in expected.items():
         if current.get(key) != value:
             raise FreshnessChanged("attempt_context_changed:"+key)
@@ -226,6 +240,7 @@ class _FreshAttemptGuard:
         source_contains_private_tool_result,
         context_state_provider,
         approved_provider_digests,
+        viewer_principal_ids=(),
     ):
         self.identity_db_path=identity_db_path
         self.r47_db_path=r47_db_path
@@ -249,6 +264,9 @@ class _FreshAttemptGuard:
         self.source_contains_private_tool_result=bool(source_contains_private_tool_result)
         self.context_state_provider=context_state_provider
         self.approved_provider_digests=dict(approved_provider_digests or {})
+        self.viewer_principal_ids=tuple(sorted(
+            str(value) for value in viewer_principal_ids if str(value)
+        ))
         self.iconn=None
         self.rconn=None
         self.released=False
@@ -265,6 +283,7 @@ class _FreshAttemptGuard:
             tool_result_digest=self.tool_result_digest,
             tool_implementation_digest=self.tool_implementation_digest,
             tool_schema_digest=self.tool_schema_digest,
+            viewer_principal_ids=self.viewer_principal_ids,
         )
 
     def __enter__(self):
@@ -335,6 +354,7 @@ class _FreshAttemptGuard:
             tool_implementation_digest=self.tool_implementation_digest,
             tool_schema_digest=self.tool_schema_digest,
             source_contains_private_tool_result=self.source_contains_private_tool_result,
+            viewer_principal_ids=self.viewer_principal_ids,
         )
 
     def on_response(self):
@@ -383,8 +403,22 @@ def dual_guarded_chat(
     approved_provider_digests=None,
     attempt_audit=None,
     provider_health=None,
+    viewer_principal_ids=(),
 ):
     """Revalidate protected context at every concrete provider attempt."""
+    viewers=tuple(sorted(
+        str(value) for value in viewer_principal_ids if str(value)
+    ))
+    if (
+        str(audience_scope).upper() in {
+            "GROUP", "GROUP_SHARED", "SHARED",
+            "SHARED_ACTIVITY", "GUEST",
+        }
+        and not viewers
+    ):
+        raise FreshnessChanged(
+            "non_private_viewer_principal_set_required"
+        )
     try:
         parameters=inspect.signature(chat_fn).parameters
     except (TypeError,ValueError):
@@ -414,6 +448,7 @@ def dual_guarded_chat(
                 source_contains_private_tool_result,
                 context_state_provider,
                 approved_provider_digests,
+                viewers,
             )
         kwargs={"attempt_guard":guard_factory}
         if "max_tokens" in parameters:
@@ -445,6 +480,7 @@ def dual_guarded_chat(
             tool_result_digest=tool_result_digest,
             tool_implementation_digest=tool_implementation_digest,
             tool_schema_digest=tool_schema_digest,
+            viewer_principal_ids=viewers,
         )
 
     def validate_locked_state():
