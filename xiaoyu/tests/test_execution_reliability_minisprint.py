@@ -1325,7 +1325,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                         external_ref="msg-resource",
                     )
                 },
-                resource_broker=broker,
+                resource_handles=broker,
             ).dispatch_once(now=NOW)
 
             self.assertEqual(processed, 1)
@@ -1371,7 +1371,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     )
                 },
                 fault_hook=fault,
-                resource_broker=broker,
+                resource_handles=broker,
             ).dispatch_once(now=NOW + timedelta(seconds=2))
 
             self.assertEqual(processed, 0)
