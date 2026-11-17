@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -50,6 +51,17 @@ class AuthorizationPolicy:
         private_resource = bool(resource.attributes.get("private"))
         if private_resource and not strong_owner:
             return AuthorizationResult(AuthorizationDecision.DENY, "PRIVATE_RESOURCE_REQUIRES_OWNER")
+        if private_resource:
+            if context.audience_scope != "PRIVATE":
+                return AuthorizationResult(
+                    AuthorizationDecision.DENY,
+                    "PRIVATE_RESOURCE_REQUIRES_PRIVATE_AUDIENCE",
+                )
+            if any(viewer != principal.principal_id for viewer in principal.viewer_set):
+                return AuthorizationResult(
+                    AuthorizationDecision.DENY,
+                    "PRIVATE_RESOURCE_HAS_OTHER_VIEWERS",
+                )
 
         delegation_reason = self._delegation_failure_reason(
             principal, actor, delegation, action, resource, current
@@ -101,6 +113,8 @@ class AuthorizationPolicy:
             return "WRONG_PRINCIPAL"
         if delegation.issued_to_actor != actor.actor_id:
             return "WRONG_ACTOR"
+        if delegation.revoked_at is not None and current >= delegation.revoked_at:
+            return "REVOKED"
         if current < delegation.valid_from:
             return "NOT_YET_VALID"
         if delegation.expires_at is not None and current >= delegation.expires_at:
@@ -117,7 +131,17 @@ class AuthorizationPolicy:
 
         for key, limit in delegation.max_effect.items():
             requested = action.parameters.get(key)
-            if isinstance(limit, (int, float)) and isinstance(requested, (int, float)):
+            if isinstance(limit, bool):
+                return "INVALID_LIMIT_SCHEMA"
+            if isinstance(limit, (int, float)):
+                if (
+                    isinstance(requested, bool)
+                    or not isinstance(requested, (int, float))
+                    or not math.isfinite(float(requested))
+                ):
+                    return "PARAMETER_TYPE_MISMATCH"
+                if not math.isfinite(float(limit)):
+                    return "INVALID_LIMIT_SCHEMA"
                 if requested > limit:
                     return "MAX_EFFECT_EXCEEDED"
         return None
