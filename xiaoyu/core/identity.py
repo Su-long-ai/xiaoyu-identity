@@ -251,7 +251,7 @@ class SelfAuthorityService:
 
 
 class LegacySelfBackfill:
-    """One-way import of legacy persona history into canonical SELF."""
+    """Atomic, idempotent import of legacy persona history into SELF."""
 
     def __init__(
         self,
@@ -300,94 +300,164 @@ class LegacySelfBackfill:
                 result.append(event_id)
         return tuple(result)
 
+    @staticmethod
+    def _created_at(persona: dict, fallback: Optional[str]) -> datetime:
+        raw = persona.get("created_at") or fallback
+        if raw:
+            return datetime_from_text(
+                str(raw), "legacy_persona.created_at"
+            )
+        return datetime.now(timezone.utc)
+
     def run(self) -> SelfIdentity:
-        with self.db.transaction() as conn:
+        # The entire import is one SQLite transaction. A crash cannot leave a
+        # partially imported persona history that changes replay order later.
+        with self.db.transaction(immediate=True) as conn:
             legacy_persona = self._legacy_persona(conn)
             identity_id = str(legacy_persona.get("id") or "")
             if not identity_id:
                 raise SelfAuthorityError(
                     "legacy persona has no identity id"
                 )
+
             rows = conn.execute(
                 """SELECT version,at,persona_json,reason,evidence_json
                    FROM persona_versions
                    ORDER BY version"""
             ).fetchall()
+            imported = {
+                int(row[0])
+                for row in conn.execute(
+                    """SELECT legacy_persona_version
+                       FROM self_persona_versions
+                       WHERE identity_id=?
+                         AND legacy_persona_version IS NOT NULL""",
+                    (identity_id,),
+                ).fetchall()
+            }
+            canonical_only = conn.execute(
+                """SELECT 1 FROM self_persona_versions
+                   WHERE identity_id=?
+                     AND legacy_persona_version IS NULL
+                     AND reason NOT LIKE
+                         'legacy-backfill:current-persona%'
+                   LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if canonical_only is not None:
+                missing = [
+                    int(row["version"])
+                    for row in rows
+                    if int(row["version"]) not in imported
+                ]
+                if missing:
+                    raise SelfAuthorityError(
+                        "legacy persona history cannot be appended after "
+                        "canonical persona revisions"
+                    )
 
-        current = None
-        for row in rows:
-            persona = json.loads(str(row["persona_json"]))
-            created_at = datetime_from_text(
-                str(row["at"]), "legacy_persona.at"
+            identity = self.service.repository.get_identity(
+                conn, identity_id
             )
-            evidence = ()
-            with self.db.transaction() as conn:
+            current_revision = (
+                None
+                if identity is None
+                else int(identity["current_persona_revision"])
+            )
+
+            for row in rows:
+                legacy_version = int(row["version"])
+                if legacy_version in imported:
+                    continue
+                raw_persona = json.loads(
+                    str(row["persona_json"])
+                )
+                normalized = self.service.normalize_persona(
+                    identity_id, raw_persona
+                )
+                created_at = datetime_from_text(
+                    str(row["at"]), "legacy_persona.at"
+                )
                 evidence = self._canonical_evidence_ids(
                     conn, row["evidence_json"]
                 )
-            if current is None:
-                current = self.service.initialize(
-                    identity_id=identity_id,
-                    persona=persona,
-                    created_at=created_at,
-                    reason="legacy-backfill:" + str(row["reason"]),
-                    source_event_ids=evidence,
-                    legacy_persona_version=int(row["version"]),
+                reason = (
+                    "legacy-backfill:" + str(row["reason"])
                 )
-                continue
 
-            normalized = self.service.normalize_persona(
-                identity_id, persona
+                if current_revision is None:
+                    current_revision = (
+                        self.service.repository.initialize(
+                            conn,
+                            identity_id=identity_id,
+                            created_at=created_at,
+                            persona=normalized,
+                            reason=reason,
+                            source_event_ids=list(evidence),
+                            legacy_persona_version=legacy_version,
+                        )
+                    )
+                else:
+                    current_revision = (
+                        self.service.repository.append_persona(
+                            conn,
+                            identity_id=identity_id,
+                            expected_revision=current_revision,
+                            persona=normalized,
+                            reason=reason,
+                            source_event_ids=list(evidence),
+                            created_at=created_at,
+                            legacy_persona_version=legacy_version,
+                        )
+                    )
+                imported.add(legacy_version)
+
+            normalized_current = self.service.normalize_persona(
+                identity_id, legacy_persona
             )
-            if normalized == current.persona:
-                continue
-            with self.db.transaction(immediate=True) as conn:
-                revision = self.service.repository.append_persona(
+            if current_revision is None:
+                current_revision = self.service.repository.initialize(
                     conn,
                     identity_id=identity_id,
-                    expected_revision=current.persona_revision,
-                    persona=normalized,
-                    reason="legacy-backfill:" + str(row["reason"]),
-                    source_event_ids=list(evidence),
-                    created_at=created_at,
-                    legacy_persona_version=int(row["version"]),
-                )
-            current = self.service.get(identity_id)
-            if current.persona_revision != revision:
-                raise SelfAuthorityError(
-                    "legacy persona revision did not advance"
-                )
-
-        if current is None:
-            created_raw = legacy_persona.get("created_at")
-            created_at = (
-                datetime_from_text(
-                    str(created_raw), "legacy_persona.created_at"
-                )
-                if created_raw
-                else datetime.now(timezone.utc)
-            )
-            current = self.service.initialize(
-                identity_id=identity_id,
-                persona=legacy_persona,
-                created_at=created_at,
-                reason="legacy-backfill:current-persona",
-            )
-
-        normalized_current = self.service.normalize_persona(
-            identity_id, legacy_persona
-        )
-        if normalized_current != current.persona:
-            with self.db.transaction(immediate=True) as conn:
-                self.service.repository.append_persona(
-                    conn,
-                    identity_id=identity_id,
-                    expected_revision=current.persona_revision,
+                    created_at=self._created_at(
+                        legacy_persona, None
+                    ),
                     persona=normalized_current,
-                    reason="legacy-backfill:current-persona-reconcile",
+                    reason="legacy-backfill:current-persona",
                     source_event_ids=[],
-                    created_at=datetime.now(timezone.utc),
                 )
-            current = self.service.get(identity_id)
+            else:
+                current_row = self.service.repository.current_persona(
+                    conn, identity_id
+                )
+                if current_row is None:
+                    raise SelfAuthorityError(
+                        "self identity has no persona row"
+                    )
+                current_persona = (
+                    self.service.repository.decode_persona(
+                        current_row
+                    )
+                )
+                if current_persona != normalized_current:
+                    latest_at = (
+                        str(rows[-1]["at"]) if rows else None
+                    )
+                    current_revision = (
+                        self.service.repository.append_persona(
+                            conn,
+                            identity_id=identity_id,
+                            expected_revision=current_revision,
+                            persona=normalized_current,
+                            reason=(
+                                "legacy-backfill:"
+                                "current-persona-reconcile"
+                            ),
+                            source_event_ids=[],
+                            created_at=self._created_at(
+                                legacy_persona, latest_at
+                            ),
+                        )
+                    )
 
-        return current
+        return self.service.get(identity_id)
