@@ -5,10 +5,11 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from xiaoyu.persistence import Database, ExternalErasureFenceStore, apply_migrations
-from xiaoyu.persistence.recovery import RecoveryManager, RestoreInvariantError, RestoreMode
+from xiaoyu.persistence.recovery import BackupError, RecoveryManager, RestoreInvariantError, RestoreMode
 
 
 class BackupDurabilityTests(unittest.TestCase):
@@ -94,6 +95,57 @@ class BackupDurabilityTests(unittest.TestCase):
                     ).fetchall()
                 ]
             self.assertEqual(values, ["committed"])
+
+    def test_synthetic_disk_full_leaves_existing_backup_untouched(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = self._db(root / "identity.sqlite3")
+            target = root / "backup.sqlite3"
+            target.write_bytes(b"previous-backup")
+
+            original = Database.backup_to
+
+            def fail_with_partial(db, destination):
+                partial = Path(destination)
+                partial.write_bytes(b"partial")
+                raise OSError(28, "No space left on device")
+
+            with mock.patch.object(Database, "backup_to", fail_with_partial):
+                with self.assertRaises(BackupError):
+                    RecoveryManager.create_backup(
+                        source_path=source.path,
+                        backup_path=target,
+                        identity_id="fish-1",
+                        release_version="test-release",
+                        release_digest="sha256:test",
+                    )
+
+            self.assertEqual(target.read_bytes(), b"previous-backup")
+            self.assertFalse(Path(str(target) + ".partial").exists())
+            Database.backup_to = original
+
+    def test_manifest_digest_detects_partial_or_post_backup_corruption(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = self._db(root / "identity.sqlite3")
+            backup = RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root / "backup.sqlite3",
+                identity_id="fish-1",
+                release_version="test-release",
+                release_digest="sha256:test",
+            )
+            data = bytearray(backup.read_bytes())
+            data[-1] ^= 0x01
+            backup.write_bytes(bytes(data))
+
+            with self.assertRaises(BackupError):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=source.path,
+                    identity_id="fish-1",
+                    mode=RestoreMode.MANAGED,
+                )
 
     def test_truncated_backup_is_rejected_before_activation(self):
         with tempfile.TemporaryDirectory() as td:
