@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [GITHUB_SNAPSHOT_GAP_MAP.md](GITHUB_SNAPSHOT_GAP_MAP.md)  
+  GitHub 快照差距图：基于现有 IdentityStore / ProductMemoryBridge 结构，给出最小增量演进路线；不把旧 GitHub 快照冒充本地最新状态。
+
 - [VALIDATION_AND_ACCEPTANCE_PLAN.md](VALIDATION_AND_ACCEPTANCE_PLAN.md)  
   验收计划：为 Identity、Memory、Proactivity、Vision、Voice、权限、Skill、恢复和资源定义可量化 pass/fail gate。
 
