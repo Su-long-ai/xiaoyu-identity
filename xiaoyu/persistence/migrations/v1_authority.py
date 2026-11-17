@@ -14,15 +14,19 @@ STATEMENTS = (
         turn_id TEXT,
         event_type TEXT NOT NULL,
         surface TEXT NOT NULL,
+        source_type TEXT NOT NULL,
         principal_id TEXT,
         audience_scope TEXT NOT NULL,
         context_space TEXT NOT NULL,
         trust_class TEXT NOT NULL,
         taint_json TEXT NOT NULL,
+        eligible_for_memory INTEGER NOT NULL,
+        payload_type TEXT NOT NULL,
         payload_json TEXT NOT NULL,
         observed_at TEXT NOT NULL,
         recorded_at TEXT NOT NULL,
-        correlation_id TEXT NOT NULL
+        correlation_id TEXT NOT NULL,
+        schema_version INTEGER NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_canonical_events_identity_recorded ON canonical_events(identity_id, recorded_at)",
     "CREATE INDEX IF NOT EXISTS idx_canonical_events_turn ON canonical_events(turn_id, recorded_at)",
@@ -258,6 +262,10 @@ def verify(conn: sqlite3.Connection) -> None:
     event_columns = {
         str(row[1]) for row in conn.execute("PRAGMA table_info(canonical_events)").fetchall()
     }
-    for required in ("event_id", "identity_id", "trust_class", "payload_json", "correlation_id"):
+    for required in (
+        "event_id", "identity_id", "source_type", "trust_class",
+        "eligible_for_memory", "payload_type", "payload_json",
+        "correlation_id", "schema_version",
+    ):
         if required not in event_columns:
             raise RuntimeError("migration v1 canonical_events missing column: %s" % required)
