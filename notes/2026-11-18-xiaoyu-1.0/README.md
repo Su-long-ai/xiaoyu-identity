@@ -26,6 +26,12 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [REPLACEABLE_MODULE_ARCHITECTURE_SURVEY.md](REPLACEABLE_MODULE_ARCHITECTURE_SURVEY.md)  
+  可替换模块饱和调查：插件分层、生命周期、能力协商、版本、热切换、故障隔离、权限与路由。
+
+- [CAPABILITY_CONTRACT_DRAFT.md](CAPABILITY_CONTRACT_DRAFT.md)  
+  Capability Contract v0.1 草案：Provider descriptor、生命周期、health、failure taxonomy、router 与 conformance 规则。
+
 - [EXECUTION_BACKLOG.md](EXECUTION_BACKLOG.md)  
   执行 backlog：按依赖排序的 1.0 / 1.x / 2.0 任务，明确阻塞项、验收和停止条件。
 
