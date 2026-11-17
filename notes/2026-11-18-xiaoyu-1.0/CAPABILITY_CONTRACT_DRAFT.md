@@ -385,3 +385,66 @@ Before calling XiaoYu 1.0 final, freeze the first set of public capability contr
 Internal implementation may continue changing behind those boundaries.
 
 This makes future provider replacement a normal upgrade, not a project-wide refactor.
+
+
+---
+
+# 21. Principal context
+
+Every capability invocation that can access private context or perform meaningful actions receives a Kernel-resolved principal context.
+
+Minimum fields:
+
+```
+principal_id
+authentication_level
+confidence
+evidence_classes
+viewer_set
+session_scope
+expires_at
+```
+
+Providers must not independently upgrade principal identity.
+
+A speaker-identification or face-identification provider may return evidence, but only Kernel policy converts evidence into an authorization principal.
+
+Low-confidence/unknown principal defaults to Guest/Unknown restrictions.
+
+---
+
+# 22. Data-plane classification
+
+Capability contracts should explicitly declare whether their payload is:
+
+- control metadata;
+- streaming text;
+- audio stream;
+- image/frame;
+- video;
+- large binary artifact.
+
+High-throughput data-plane payloads may use a transport optimized for media/binary data while lifecycle/config/permission remains on the control plane.
+
+---
+
+# 23. Privacy-aware fallback
+
+A fallback provider must satisfy both:
+
+```
+technical compatibility
+AND
+privacy eligibility
+```
+
+Routing inputs include:
+
+- data class;
+- locality requirement;
+- cloud disclosure allowed;
+- current principal;
+- current audience;
+- explicit user grant.
+
+A local provider outage must not silently disclose private material to a cloud fallback.
