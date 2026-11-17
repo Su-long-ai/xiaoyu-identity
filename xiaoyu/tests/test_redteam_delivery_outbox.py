@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+from dataclasses import replace
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -123,6 +124,19 @@ class DeliveryOutboxRedTeamTests(unittest.TestCase):
 
     def _enqueue(self, db, surface, suffix):
         eff = effect(surface, suffix)
+        conn = db.connect()
+        try:
+            purpose_row = conn.execute(
+                "SELECT revision FROM purposes WHERE purpose_id=?",
+                (eff.purpose_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        if purpose_row is not None:
+            eff = replace(
+                eff,
+                purpose_revision=int(purpose_row["revision"]),
+            )
         DeliveryCoordinator(db).enqueue_attempt(
             attempt_id="attempt-" + suffix,
             delivery_id="delivery-1",

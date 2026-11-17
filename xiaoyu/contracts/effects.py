@@ -38,6 +38,8 @@ class EffectIntent:
     idempotency_key: Optional[str]
     replayable: bool
     created_at: datetime
+    purpose_revision: Optional[int] = None
+    purpose_occurrence_id: Optional[str] = None
     schema_version: int = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -55,6 +57,8 @@ class EffectIntent:
             "idempotency_key": self.idempotency_key,
             "replayable": self.replayable,
             "created_at": datetime_to_text(self.created_at, "created_at"),
+            "purpose_revision": self.purpose_revision,
+            "purpose_occurrence_id": self.purpose_occurrence_id,
         }
 
     @classmethod
@@ -62,6 +66,7 @@ class EffectIntent:
         ensure_exact_fields(data, (
             "schema_version", "effect_id", "intent_id", "purpose_id", "actor_id",
             "action_class", "request", "idempotency_key", "replayable", "created_at",
+            "purpose_revision", "purpose_occurrence_id",
         ))
         return cls(
             schema_version=int(data["schema_version"]),
@@ -74,4 +79,6 @@ class EffectIntent:
             idempotency_key=data["idempotency_key"],
             replayable=bool(data["replayable"]),
             created_at=datetime_from_text(data["created_at"], "created_at"),
+            purpose_revision=data["purpose_revision"],
+            purpose_occurrence_id=data["purpose_occurrence_id"],
         )

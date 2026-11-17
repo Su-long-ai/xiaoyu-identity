@@ -148,6 +148,46 @@ class EffectCoordinator:
                 "caller authorization result does not match policy"
             )
         self._validate_binding(actor, delegation, action, effect, payload)
+        purpose_row = None
+        if effect.purpose_id is not None:
+            purpose_row = conn.execute(
+                "SELECT revision,state FROM purposes WHERE purpose_id=?",
+                (effect.purpose_id,),
+            ).fetchone()
+        if purpose_row is not None:
+            if effect.purpose_revision is None:
+                raise EffectBindingError(
+                    "effect must bind current purpose revision"
+                )
+            if int(purpose_row["revision"]) != int(effect.purpose_revision):
+                raise EffectBindingError(
+                    "effect purpose revision is stale"
+                )
+            if str(purpose_row["state"]) in (
+                "CANCELLED", "SUPERSEDED", "EXPIRED", "COMPLETED",
+            ):
+                raise EffectBindingError(
+                    "effect cannot bind terminal purpose"
+                )
+            if effect.purpose_occurrence_id is not None:
+                occurrence = conn.execute(
+                    """SELECT state,purpose_revision FROM purpose_occurrences
+                       WHERE occurrence_id=? AND purpose_id=?""",
+                    (
+                        effect.purpose_occurrence_id,
+                        effect.purpose_id,
+                    ),
+                ).fetchone()
+                if (
+                    occurrence is None
+                    or int(occurrence["purpose_revision"])
+                    != int(effect.purpose_revision)
+                    or str(occurrence["state"])
+                    not in ("READY", "CLAIMED")
+                ):
+                    raise EffectBindingError(
+                        "effect purpose occurrence is not executable"
+                    )
         self.auth_repo.record(
             conn=conn,
             decision_id=decision_id,
@@ -186,6 +226,8 @@ class EffectCoordinator:
             request=payload,
             destination=destination,
             created_at=created_at,
+            purpose_revision=effect.purpose_revision,
+            purpose_occurrence_id=effect.purpose_occurrence_id,
         )
         self.effect_repo.insert(
             conn,

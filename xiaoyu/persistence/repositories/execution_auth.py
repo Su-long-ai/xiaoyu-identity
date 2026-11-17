@@ -183,6 +183,8 @@ class ExecutionAuthorizationRepository:
         request: dict,
         destination: str,
         created_at: datetime,
+        purpose_revision: Optional[int] = None,
+        purpose_occurrence_id: Optional[str] = None,
     ) -> None:
         conn.execute(
             """INSERT INTO execution_authorizations(
@@ -191,8 +193,8 @@ class ExecutionAuthorizationRepository:
                    actor_authorization_digest,delegation_id,purpose_id,
                    action_class,action_digest,resource_digest,context_digest,
                    request_digest,destination,audience_scope,context_space,
-                   created_at
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   created_at,purpose_revision,purpose_occurrence_id
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 decision_id,
                 identity_id,
@@ -221,6 +223,8 @@ class ExecutionAuthorizationRepository:
                 context.audience_scope,
                 context.context_space,
                 datetime_to_text(created_at, "created_at"),
+                purpose_revision,
+                purpose_occurrence_id,
             ),
         )
 
@@ -236,6 +240,8 @@ class ExecutionAuthorizationRepository:
         destination: str,
         request: dict,
         now: datetime,
+        purpose_revision: Optional[int] = None,
+        purpose_occurrence_id: Optional[str] = None,
     ) -> None:
         row = conn.execute(
             """SELECT * FROM execution_authorizations
@@ -261,6 +267,14 @@ class ExecutionAuthorizationRepository:
         if row["purpose_id"] != purpose_id:
             raise DispatchAuthorizationDenied(
                 "authorization purpose changed"
+            )
+        if row["purpose_revision"] != purpose_revision:
+            raise DispatchAuthorizationDenied(
+                "authorization purpose revision changed"
+            )
+        if row["purpose_occurrence_id"] != purpose_occurrence_id:
+            raise DispatchAuthorizationDenied(
+                "authorization purpose occurrence changed"
             )
         if str(row["destination"]) != destination:
             raise DispatchAuthorizationDenied(
