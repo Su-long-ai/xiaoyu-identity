@@ -56,6 +56,9 @@
 - [IMPLEMENTATION_RUNBOOK_V0_2.md](IMPLEMENTATION_RUNBOOK_V0_2.md)  
   施工手册 v0.2：R0–R20 逐步实施顺序，每步列出要改的文件、接口、测试、退出门和回滚规则，供 coding agent 直接领取执行。
 
+- [SATURATION_REAUDIT_V0_3.md](SATURATION_REAUDIT_V0_3.md)  
+  v0.3 反证式饱和复审：补齐 Promise Ledger、Memory Control Plane、Journal/Presence、Relationship Lifecycle、Offboarding、Audience Context Reset、多模态证据、Onboarding 等最后一批产品机制；作为 v0.2 实现规格的增量。
+
 - [GITHUB_SNAPSHOT_GAP_MAP.md](GITHUB_SNAPSHOT_GAP_MAP.md)  
   GitHub 快照差距图：基于现有 IdentityStore / ProductMemoryBridge 结构，给出最小增量演进路线；不把旧 GitHub 快照冒充本地最新状态。
 
