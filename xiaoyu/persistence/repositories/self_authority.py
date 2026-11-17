@@ -178,12 +178,6 @@ class SelfAuthorityRepository:
             )
 
         digest = persona_digest(persona)
-        duplicate = self.find_persona_digest(
-            conn, identity_id, digest
-        )
-        if duplicate is not None:
-            return int(duplicate["revision"])
-
         revision = current_revision + 1
         conn.execute(
             """INSERT INTO self_persona_versions(
