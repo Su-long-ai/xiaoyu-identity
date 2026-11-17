@@ -98,8 +98,8 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        deepseek_reply, _ = chat(deepseek, messages, max_tokens=32)
-                        qwen_reply, _ = chat(qwen, messages, max_tokens=32)
+                        deepseek_reply, _ = chat(deepseek, messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
+                        qwen_reply, _ = chat(qwen, messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
 
                 self.assertEqual(deepseek_reply, "deepseek-ok")
                 self.assertEqual(qwen_reply, "qwen-ok")
@@ -148,7 +148,7 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        reply, _ = chat(deepseek, deepseek_messages, max_tokens=32)
+                        reply, _ = chat(deepseek, deepseek_messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
                 self.assertEqual(reply, "deepseek-ok")
                 store.record("conversation.assistant", "assistant", reply)
             finally:
@@ -180,7 +180,7 @@ class CrossModelVerticalTests(unittest.TestCase):
                         "urlopen",
                         side_effect=self._capture_calls(captured),
                     ):
-                        qreply, _ = chat(qwen, qwen_messages, max_tokens=32)
+                        qreply, _ = chat(qwen, qwen_messages, max_tokens=32, required_data_class="OWNER_PRIVATE")
 
                 self.assertEqual(qreply, "qwen-ok")
                 self.assertIn("我的鸟叫Pippin", system2)
