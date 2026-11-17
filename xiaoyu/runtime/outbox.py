@@ -29,6 +29,7 @@ Transport = Callable[[dict, Optional[str]], DispatchOutcome]
 @dataclass(frozen=True)
 class TransportBinding:
     send: Transport
+    actor_id: Optional[str]
     provider_id: Optional[str]
     actor_implementation_digest: Optional[str]
     actor_authorization_digest: Optional[str]
@@ -249,6 +250,7 @@ class OutboxDispatcher:
         )
         if isinstance(entry, TransportBinding):
             comparisons = (
+                ("actor_id", row.actor_id, entry.actor_id),
                 ("provider_id", row.provider_id, entry.provider_id),
                 (
                     "actor_implementation_digest",
