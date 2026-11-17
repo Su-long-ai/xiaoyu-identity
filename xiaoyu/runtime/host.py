@@ -13,6 +13,10 @@ from xiaoyu.persistence.repositories.provider_execution import (
     ProviderExecutionRegistry,
 )
 from xiaoyu.runtime.provider_registry import ProviderDescriptor
+from xiaoyu.runtime.resource_broker import (
+    ResourceBroker,
+    ResourceLease,
+)
 
 
 @dataclass(frozen=True)
@@ -44,12 +48,14 @@ class RuntimeHost:
         *,
         supported_contracts: Optional[Mapping[str, str]] = None,
         registry=None,
+        resource_broker: Optional[ResourceBroker] = None,
     ) -> None:
         self.db = db
         self.registry = registry or ProviderExecutionRegistry(db)
         self.supported_contracts = dict(
             supported_contracts or self.DEFAULT_CONTRACTS
         )
+        self.resource_broker = resource_broker
 
     @staticmethod
     def _version(value: str) -> tuple[int, ...]:
@@ -146,6 +152,33 @@ class RuntimeHost:
                 "provider descriptor rejected: " + ",".join(reasons)
             )
         self.registry.register(descriptor, health)
+
+
+    def reserve_provider_resources(
+        self,
+        provider_id: str,
+        *,
+        lease_id: str,
+        priority: int = 50,
+        preemptible: bool = True,
+    ) -> ResourceLease:
+        if self.resource_broker is None:
+            raise RuntimeError("RuntimeHost has no ResourceBroker")
+        snapshot = self.registry.snapshot(provider_id)
+        if snapshot is None:
+            raise KeyError("provider not registered: %s" % provider_id)
+        descriptor, _ = snapshot
+        request = self.resource_broker.request_from_descriptor(
+            descriptor,
+            priority=priority,
+            preemptible=preemptible,
+        )
+        return self.resource_broker.reserve(lease_id, request)
+
+    def release_provider_resources(self, lease_id: str) -> bool:
+        if self.resource_broker is None:
+            return False
+        return self.resource_broker.release(lease_id)
 
     @staticmethod
     def _health_ready(health: ProviderHealth) -> bool:
