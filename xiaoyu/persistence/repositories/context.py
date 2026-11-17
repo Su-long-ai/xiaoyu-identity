@@ -107,17 +107,40 @@ class MemoryContextRepository:
             now.astimezone(timezone.utc), "now"
         )
         if private_scope:
+            placeholders = ",".join("?" for _ in allowed_audiences)
             return conn.execute(
-                """SELECT delegation_id,principal_id,actor_id,purpose_id,
-                          scope_json,valid_from,expires_at,revoked_at,
-                          delegation_digest,revocable
-                   FROM delegations
-                   WHERE identity_id=? AND principal_id=?
-                     AND revoked_at IS NULL
-                     AND valid_from<=?
-                     AND (expires_at IS NULL OR expires_at>?)
-                   ORDER BY delegation_id""",
-                (identity_id, principal_id, stamp, stamp),
+                """SELECT d.delegation_id,d.principal_id,d.actor_id,
+                          d.purpose_id,d.scope_json,d.valid_from,d.expires_at,
+                          d.revoked_at,d.delegation_digest,d.revocable
+                   FROM delegations d
+                   WHERE d.identity_id=? AND d.principal_id=?
+                     AND d.revoked_at IS NULL
+                     AND d.valid_from<=?
+                     AND (d.expires_at IS NULL OR d.expires_at>?)
+                     AND (
+                         NOT EXISTS(
+                             SELECT 1 FROM execution_authorizations any_ea
+                             WHERE any_ea.delegation_id=d.delegation_id
+                         )
+                         OR EXISTS(
+                             SELECT 1 FROM execution_authorizations ea
+                             WHERE ea.delegation_id=d.delegation_id
+                               AND ea.identity_id=d.identity_id
+                               AND ea.principal_id=d.principal_id
+                               AND ea.context_space=?
+                               AND ea.audience_scope IN (%s)
+                         )
+                     )
+                   ORDER BY d.delegation_id"""
+                % placeholders,
+                (
+                    identity_id,
+                    principal_id,
+                    stamp,
+                    stamp,
+                    context_space,
+                    *allowed_audiences,
+                ),
             ).fetchall()
 
         # A standing delegation has no audience field. In non-private contexts
