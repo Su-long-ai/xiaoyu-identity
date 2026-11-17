@@ -473,9 +473,15 @@ def chat(
             on_dispatched()
 
     chain=[None]
-    for provider in config.get("fallbacks",[]):
-        if provider in PROVIDERS and provider!=config.get("provider"):
-            chain.append(provider)
+    # Automatic fallback is a cross-provider disclosure decision. A caller that
+    # did not classify its payload may still use its selected primary provider
+    # for backwards compatibility, but cannot silently disclose the same
+    # context to another provider. Guarded product paths always pass a class.
+    fallback_classified=bool(str(required_data_class or "").strip())
+    if fallback_classified:
+        for provider in config.get("fallbacks",[]):
+            if provider in PROVIDERS and provider!=config.get("provider"):
+                chain.append(provider)
 
     errors=[]
     for fallback_provider in chain:
