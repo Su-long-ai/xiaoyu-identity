@@ -54,6 +54,7 @@ from xiaoyu.runtime import (
 )
 from xiaoyu.runtime.outbox import TransportBinding
 from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
+from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -948,6 +949,85 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 )
             finally:
                 conn.close()
+
+    def test_dispatch_terminal_path_releases_registered_resource(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            broker = ExecutionResourceBroker()
+            calls = []
+            broker.acquire(
+                lease_id="lease-effect-1",
+                effect_id="effect-1",
+                resource_id="socket:qq",
+                release=lambda: calls.append("release"),
+            )
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: DispatchOutcome(
+                        DispatchStatus.SUCCEEDED,
+                        external_ref="msg-resource",
+                    )
+                },
+                resource_broker=broker,
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 1)
+            self.assertEqual(calls, ["release"])
+            self.assertEqual(
+                broker.list_effect("effect-1")[0].state,
+                "RELEASED",
+            )
+
+    def test_cancel_before_transport_cancels_and_releases_resource(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            broker = ExecutionResourceBroker()
+            resource_calls = []
+            transport_calls = []
+            broker.acquire(
+                lease_id="lease-effect-1",
+                effect_id="effect-1",
+                resource_id="provider-session:qq",
+                cancel=lambda: resource_calls.append("cancel"),
+                release=lambda: resource_calls.append("release"),
+            )
+
+            def fault(stage, row):
+                if stage == "after_claim":
+                    with db.transaction(immediate=True) as conn:
+                        self.assertTrue(
+                            PurposeRepository().cancel(
+                                conn,
+                                "purpose-1",
+                                NOW + timedelta(seconds=1),
+                            )
+                        )
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        transport_calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+                fault_hook=fault,
+                resource_broker=broker,
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(transport_calls, [])
+            self.assertEqual(resource_calls, ["cancel", "release"])
+            self.assertEqual(
+                broker.list_effect("effect-1")[0].state,
+                "RELEASED",
+            )
 
     def test_retryable_effect_reaches_failed_after_retry_budget(self):
         with tempfile.TemporaryDirectory() as td:
