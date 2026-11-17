@@ -12,6 +12,7 @@ from identity_core import IdentityStore
 from product_memory_bridge import ProductMemoryBridge
 from send_guard import (
     FreshnessChanged,
+    capture_context_fence,
     capture_expectations,
     dual_guarded_chat,
 )
