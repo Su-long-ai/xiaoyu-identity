@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from xiaoyu.contracts import InputSourceEnvelope, Taint, TrustClass
-from xiaoyu.core import (
-    ClaimAdmissionError,
-    ClaimProposalService,
+from xiaoyu.core.claims import ClaimAdmissionError, ClaimProposalService
+from xiaoyu.core.events import CanonicalEvent, stable_event_id
+from xiaoyu.core.temporal import (
     DeletedFactReplay,
     FactCardinality,
     FactMutationOperation,
@@ -20,7 +20,6 @@ from xiaoyu.core import (
     StaleSourceEvent,
     TemporalFactService,
 )
-from xiaoyu.core.events import CanonicalEvent, stable_event_id
 from xiaoyu.persistence import Database, apply_migrations
 from xiaoyu.persistence.repositories.events import (
     CanonicalEventConflict,
