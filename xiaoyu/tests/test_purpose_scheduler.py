@@ -11,10 +11,12 @@ from xiaoyu.core.purpose import (
 )
 from xiaoyu.persistence import Database, apply_migrations, applied_versions
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
+from xiaoyu.persistence.schema import MIGRATIONS
 from xiaoyu.runtime import PowerLifecycle, PurposeScheduler
 
 UTC = timezone.utc
 NOW = datetime(2026, 11, 18, 14, 0, tzinfo=UTC)
+EXPECTED_VERSIONS = [migration.version for migration in MIGRATIONS]
 
 
 class PurposeSchedulerTests(unittest.TestCase):
@@ -57,7 +59,7 @@ class PurposeSchedulerTests(unittest.TestCase):
 
     def test_schema_v3_applied(self):
         with tempfile.TemporaryDirectory() as td:
-            self.assertEqual(applied_versions(self._db(td)), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(self._db(td)), EXPECTED_VERSIONS)
 
     def test_dst_fold_resolves_to_distinct_instants(self):
         zone = ZoneInfo("America/Los_Angeles")
