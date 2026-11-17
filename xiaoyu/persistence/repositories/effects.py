@@ -24,6 +24,7 @@ class ClaimedOutbox:
     authorization_decision_id: str
     request: Dict[str, Any]
     purpose_id: Optional[str]
+    action_class: str
 
 
 class EffectRepository:
@@ -60,6 +61,26 @@ class EffectRepository:
                 authorization_decision_id,
             ),
         )
+
+    def set_authorization_failed(
+        self,
+        conn: sqlite3.Connection,
+        effect_id: str,
+        reason: str,
+        updated_at: datetime,
+    ) -> None:
+        cur = conn.execute(
+            """UPDATE effects
+               SET dispatch_state='FAILED',verifier_state=?,updated_at=?
+               WHERE effect_id=?""",
+            (
+                "AUTH_DENIED:" + reason,
+                datetime_to_text(updated_at, "updated_at"),
+                effect_id,
+            ),
+        )
+        if cur.rowcount != 1:
+            raise KeyError("unknown effect_id %s" % effect_id)
 
     def set_state(
         self,
@@ -115,7 +136,8 @@ class OutboxRepository:
         rows = conn.execute(
             """SELECT o.outbox_id,o.identity_id,o.effect_id,o.destination,o.payload_json,
                       o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
-                      e.authorization_decision_id,e.request_json,e.purpose_id
+                      e.authorization_decision_id,e.request_json,e.purpose_id,
+                      e.action_class
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
                WHERE o.state IN ('PENDING','FAILED_RETRYABLE')
@@ -148,6 +170,7 @@ class OutboxRepository:
                     authorization_decision_id=str(row["authorization_decision_id"]),
                     request=json.loads(row["request_json"]),
                     purpose_id=row["purpose_id"],
+                    action_class=str(row["action_class"]),
                 )
             )
         return claimed
