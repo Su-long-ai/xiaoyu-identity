@@ -53,6 +53,169 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                 ),
             )
 
+    def _seed_runtime_context(self, db: Database) -> None:
+        with db.transaction(immediate=True) as conn:
+            conn.execute(
+                """INSERT INTO canonical_events(
+                       event_id,identity_id,turn_id,event_type,surface,source_type,
+                       principal_id,audience_scope,context_space,trust_class,taint_json,
+                       eligible_for_memory,payload_type,payload_json,observed_at,
+                       recorded_at,correlation_id,schema_version,source_namespace,
+                       source_event_key,semantic_digest
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-purpose",
+                    "fish-1",
+                    None,
+                    "purpose.created",
+                    "desktop",
+                    "text",
+                    "owner",
+                    "PRIVATE",
+                    "PERSONAL",
+                    "OWNER_DIRECT",
+                    "[]",
+                    0,
+                    "application/json",
+                    "{}",
+                    STAMP,
+                    STAMP,
+                    "corr-purpose",
+                    1,
+                    "test",
+                    "purpose-source",
+                    "sha256:test",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO purposes(
+                       purpose_id,identity_id,owner_type,owner_id,state,kind,
+                       source_event_id,payload_json,scheduled_wall_time,timezone,
+                       resolved_utc_time,miss_policy,created_at,updated_at,
+                       last_evaluated_at,quiet_class,duplicate_key,revision
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "purpose-1",
+                    "fish-1",
+                    "USER",
+                    "owner",
+                    "SCHEDULED",
+                    "REMINDER",
+                    "evt-purpose",
+                    "{}",
+                    "2026-11-18T09:00:00",
+                    "UTC",
+                    STAMP,
+                    "RECONCILE",
+                    STAMP,
+                    STAMP,
+                    None,
+                    "NORMAL",
+                    "dup-1",
+                    1,
+                ),
+            )
+            conn.execute(
+                """INSERT INTO delegations(
+                       delegation_id,identity_id,principal_id,actor_id,purpose_id,
+                       scope_json,valid_from,expires_at,revoked_at,
+                       delegation_digest,revocable
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "delegation-1",
+                    "fish-1",
+                    "owner",
+                    "actor-1",
+                    "purpose-1",
+                    "{}",
+                    STAMP,
+                    None,
+                    None,
+                    "sha256:delegation",
+                    1,
+                ),
+            )
+            conn.execute(
+                """INSERT INTO authorization_decisions(
+                       decision_id,identity_id,principal_id,actor_id,purpose_id,
+                       action_class,resource_json,decision,reason_code,created_at
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "auth-runtime",
+                    "fish-1",
+                    "owner",
+                    "actor-1",
+                    "purpose-1",
+                    "notify",
+                    "{}",
+                    "ALLOW",
+                    "TEST",
+                    STAMP,
+                ),
+            )
+            conn.execute(
+                """INSERT INTO execution_authorizations(
+                       authorization_decision_id,identity_id,principal_id,
+                       principal_expires_at,actor_id,actor_implementation_digest,
+                       actor_authorization_digest,delegation_id,purpose_id,
+                       action_class,action_digest,resource_digest,context_digest,
+                       request_digest,destination,audience_scope,context_space,
+                       created_at,purpose_revision,purpose_occurrence_id
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "auth-runtime",
+                    "fish-1",
+                    "owner",
+                    None,
+                    "actor-1",
+                    "sha256:impl",
+                    "sha256:auth",
+                    "delegation-1",
+                    "purpose-1",
+                    "notify",
+                    "sha256:action",
+                    "sha256:resource",
+                    "sha256:context",
+                    "sha256:request",
+                    "desktop",
+                    "PRIVATE",
+                    "PERSONAL",
+                    STAMP,
+                    1,
+                    "occurrence-1",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO purpose_occurrences(
+                       occurrence_id,identity_id,purpose_id,purpose_revision,
+                       scheduled_for_utc,state,effect_id,activated_at,updated_at
+                   ) VALUES(?,?,?,?,?,'READY',NULL,?,?)""",
+                (
+                    "occurrence-1",
+                    "fish-1",
+                    "purpose-1",
+                    1,
+                    STAMP,
+                    STAMP,
+                    STAMP,
+                ),
+            )
+            conn.execute(
+                """INSERT INTO deliveries(
+                       delivery_id,identity_id,logical_notification_id,purpose_id,
+                       surface,state,attempt_count,external_ref,created_at,updated_at
+                   ) VALUES(?,?,?,?,?,'PENDING',0,NULL,?,?)""",
+                (
+                    "delivery-1",
+                    "fish-1",
+                    "logical-1",
+                    "purpose-1",
+                    "desktop",
+                    STAMP,
+                    STAMP,
+                ),
+            )
+
     def _seed_fact(self, db: Database) -> None:
         with db.transaction(immediate=True) as conn:
             conn.execute(
@@ -119,6 +282,52 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self.assertEqual(claimed, [])
             self.assertEqual(effect_state, "NEEDS_RECONCILIATION")
             self.assertEqual(outbox_state, "NEEDS_RECONCILIATION")
+
+    def test_restore_quarantines_purpose_delivery_delegation_and_auth_snapshot(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            active = self._db(root / "identity.sqlite3")
+            self._seed_runtime_context(active)
+            ExternalErasureFenceStore(active.path).ensure_identity("fish-1")
+            snapshot = active.backup_to(root / "old.sqlite3")
+
+            report = RecoveryManager.restore(
+                candidate_path=snapshot,
+                target_path=active.path,
+                identity_id="fish-1",
+                mode=RestoreMode.MANAGED,
+            )
+            self.assertEqual(report.revoked_delegations, 1)
+            self.assertEqual(report.invalidated_execution_authorizations, 1)
+            self.assertEqual(report.quarantined_purposes, 1)
+            self.assertEqual(report.quarantined_occurrences, 1)
+            self.assertEqual(report.quarantined_deliveries, 1)
+
+            restored = Database(active.path)
+            with restored.transaction() as conn:
+                purpose = conn.execute(
+                    "SELECT state FROM purposes WHERE purpose_id='purpose-1'"
+                ).fetchone()[0]
+                occurrence = conn.execute(
+                    """SELECT state FROM purpose_occurrences
+                       WHERE occurrence_id='occurrence-1'"""
+                ).fetchone()[0]
+                delivery = conn.execute(
+                    "SELECT state FROM deliveries WHERE delivery_id='delivery-1'"
+                ).fetchone()[0]
+                revoked = conn.execute(
+                    """SELECT revoked_at FROM delegations
+                       WHERE delegation_id='delegation-1'"""
+                ).fetchone()[0]
+                auth_count = conn.execute(
+                    """SELECT COUNT(*) FROM execution_authorizations
+                       WHERE identity_id='fish-1'"""
+                ).fetchone()[0]
+            self.assertEqual(purpose, "NEEDS_RECONCILIATION")
+            self.assertEqual(occurrence, "NEEDS_RECONCILIATION")
+            self.assertEqual(delivery, "NEEDS_RECONCILIATION")
+            self.assertIsNotNone(revoked)
+            self.assertEqual(auth_count, 0)
 
     def test_old_snapshot_cannot_resurrect_fact_deleted_after_snapshot(self):
         with tempfile.TemporaryDirectory() as td:
