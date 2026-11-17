@@ -14,8 +14,10 @@ from xiaoyu.core.authorization import AuthorizationResult
 from xiaoyu.core.effects import DispatchOutcome, DispatchStatus
 from xiaoyu.persistence import Database, apply_migrations, applied_versions
 from xiaoyu.runtime import DeliveryCoordinator, DeliveryLedger, OutboxDispatcher
+from xiaoyu.persistence.schema import MIGRATIONS
 
 NOW = datetime(2026, 11, 18, 13, 0, tzinfo=timezone.utc)
+EXPECTED_VERSIONS = [migration.version for migration in MIGRATIONS]
 
 
 def principal():
@@ -112,7 +114,7 @@ class ReceiptDeliveryTests(unittest.TestCase):
     def test_v4_migration_is_present(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
-            self.assertEqual(applied_versions(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(db), EXPECTED_VERSIONS)
 
     def test_logical_delivery_create_is_unique(self):
         with tempfile.TemporaryDirectory() as td:
