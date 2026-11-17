@@ -30,10 +30,12 @@ class AuthorizationDecisionRepository:
         context: AuthorizationContext,
         result: AuthorizationResult,
         created_at: Optional[datetime] = None,
+        purpose_id_override: Optional[str] = None,
     ) -> None:
         at = created_at or datetime.now(timezone.utc)
         audit_resource = {
             "resource": resource.to_dict(),
+            "action": action.to_dict(),
             "risk_tier": action.risk_tier.value,
             "surface": context.surface,
             "context_space": context.context_space,
@@ -51,7 +53,9 @@ class AuthorizationDecisionRepository:
                 identity_id,
                 principal.principal_id,
                 actor.actor_id,
-                None if delegation is None else delegation.purpose_id,
+                purpose_id_override if purpose_id_override is not None else (
+                    None if delegation is None else delegation.purpose_id
+                ),
                 action.action_class,
                 canonical_json(audit_resource),
                 result.decision.value,

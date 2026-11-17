@@ -60,6 +60,7 @@ class Purpose:
     duplicate_key: Optional[str] = None
     last_evaluated_at: Optional[datetime] = None
     revision: int = 1
+    auto_reschedule_count: int = 0
 
     def __post_init__(self) -> None:
         if self.resolved_utc_time is not None:
@@ -68,6 +69,8 @@ class Purpose:
             require_aware(self.last_evaluated_at, "last_evaluated_at")
         if self.revision < 1:
             raise ValueError("purpose revision must be >= 1")
+        if self.auto_reschedule_count < 0:
+            raise ValueError("auto_reschedule_count must be >= 0")
         if (self.scheduled_wall_time is None) != (self.timezone_name is None):
             raise ValueError(
                 "scheduled_wall_time and timezone_name must be set together"

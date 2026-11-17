@@ -57,7 +57,7 @@ class PurposeSchedulerTests(unittest.TestCase):
 
     def test_schema_v3_applied(self):
         with tempfile.TemporaryDirectory() as td:
-            self.assertEqual(applied_versions(self._db(td)), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(self._db(td)), [1, 2, 3, 4, 5, 6, 7, 8, 9])
 
     def test_dst_fold_resolves_to_distinct_instants(self):
         zone = ZoneInfo("America/Los_Angeles")

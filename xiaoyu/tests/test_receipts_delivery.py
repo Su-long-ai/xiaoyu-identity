@@ -56,6 +56,7 @@ def effect(surface="desktop", idem="notice-r7:desktop"):
         {
             "logical_notification_id": "notice-r7",
             "surface": surface,
+            "recipient": "owner",
             "text": "finished",
         },
         idem,
@@ -112,7 +113,7 @@ class ReceiptDeliveryTests(unittest.TestCase):
     def test_v4_migration_is_present(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
-            self.assertEqual(applied_versions(db), [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(applied_versions(db), [1, 2, 3, 4, 5, 6, 7, 8, 9])
 
     def test_logical_delivery_create_is_unique(self):
         with tempfile.TemporaryDirectory() as td:

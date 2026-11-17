@@ -35,8 +35,9 @@ class PurposeRepository:
             """INSERT INTO purposes(
                    purpose_id,identity_id,owner_type,owner_id,state,kind,source_event_id,
                    payload_json,scheduled_wall_time,timezone,resolved_utc_time,miss_policy,
-                   created_at,updated_at,last_evaluated_at,quiet_class,duplicate_key,revision
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   created_at,updated_at,last_evaluated_at,quiet_class,duplicate_key,revision,
+                   auto_reschedule_count
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 purpose.purpose_id,
                 purpose.identity_id,
@@ -60,6 +61,7 @@ class PurposeRepository:
                 purpose.quiet_class,
                 purpose.duplicate_key,
                 purpose.revision,
+                purpose.auto_reschedule_count,
             ),
         )
 
@@ -151,7 +153,7 @@ class PurposeRepository:
             (identity_id,),
         ).fetchall()
 
-    def _dispatching_current_revision(
+    def _uncertain_current_revision(
         self,
         conn: sqlite3.Connection,
         purpose_id: str,
@@ -160,7 +162,9 @@ class PurposeRepository:
         row = conn.execute(
             """SELECT 1 FROM effects
                WHERE purpose_id=? AND purpose_revision=?
-                 AND dispatch_state='DISPATCHING'
+                 AND dispatch_state IN (
+                     'DISPATCHING','UNKNOWN','NEEDS_RECONCILIATION'
+                 )
                LIMIT 1""",
             (purpose_id, revision),
         ).fetchone()
@@ -188,7 +192,7 @@ class PurposeRepository:
         ):
             return False
         stamp = datetime_to_text(_utc(updated_at), "updated_at")
-        if self._dispatching_current_revision(conn, purpose_id, revision):
+        if self._uncertain_current_revision(conn, purpose_id, revision):
             conn.execute(
                 """UPDATE purposes
                    SET state='NEEDS_RECONCILIATION',updated_at=?,
@@ -251,6 +255,8 @@ class PurposeRepository:
         timezone_name: str,
         resolved_utc_time: datetime,
         updated_at: datetime,
+        *,
+        automatic: bool = False,
     ) -> bool:
         row = conn.execute(
             "SELECT state,revision FROM purposes WHERE purpose_id=?",
@@ -268,7 +274,7 @@ class PurposeRepository:
         ):
             return False
         stamp = datetime_to_text(_utc(updated_at), "updated_at")
-        if self._dispatching_current_revision(conn, purpose_id, revision):
+        if self._uncertain_current_revision(conn, purpose_id, revision):
             conn.execute(
                 """UPDATE purposes
                    SET state='NEEDS_RECONCILIATION',updated_at=?,
@@ -288,12 +294,17 @@ class PurposeRepository:
             """UPDATE purposes
                SET state='SCHEDULED',scheduled_wall_time=?,timezone=?,
                    resolved_utc_time=?,revision=revision+1,
+                   auto_reschedule_count=CASE
+                       WHEN ? THEN auto_reschedule_count+1
+                       ELSE 0
+                   END,
                    updated_at=?,last_evaluated_at=?
                WHERE purpose_id=? AND revision=?""",
             (
                 scheduled_wall_time,
                 timezone_name,
                 datetime_to_text(_utc(resolved_utc_time), "resolved_utc_time"),
+                1 if automatic else 0,
                 stamp,
                 stamp,
                 purpose_id,
@@ -350,4 +361,5 @@ class PurposeRepository:
                 row["last_evaluated_at"], "last_evaluated_at"
             ),
             revision=int(row["revision"]),
+            auto_reschedule_count=int(row["auto_reschedule_count"]),
         )

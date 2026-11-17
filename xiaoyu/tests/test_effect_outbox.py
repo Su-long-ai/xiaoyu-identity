@@ -100,7 +100,7 @@ def effect(replayable=True, idempotency_key="idem-1"):
         purpose_id="purpose-1",
         actor_id="tool:qq",
         action_class="message.send",
-        request={"text": "done"},
+        request={"recipient": "owner", "text": "done"},
         idempotency_key=idempotency_key,
         replayable=replayable,
         created_at=NOW,
@@ -131,7 +131,7 @@ class EffectOutboxTests(unittest.TestCase):
             ),
             effect=eff or effect(),
             destination="qq",
-            payload={"text": "done"},
+            payload={"recipient": "owner", "text": "done"},
             created_at=NOW,
         )
 
