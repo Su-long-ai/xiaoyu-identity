@@ -14,6 +14,8 @@ from .product_context import (
     CanonicalProductContextBuilder,
     CanonicalReadinessEvidence,
     CanonicalReadShadowEvaluator,
+    CanonicalReadShadowMonitor,
+    CanonicalReadShadowStatus,
 )
 from .presence import (
     AmbientPresenceEngine,
@@ -97,6 +99,8 @@ __all__ = [
     "CanonicalProductContextBuilder",
     "CanonicalReadinessEvidence",
     "CanonicalReadShadowEvaluator",
+    "CanonicalReadShadowMonitor",
+    "CanonicalReadShadowStatus",
     "PowerLifecycle",
     "PowerState",
     "PresenceFrame",
