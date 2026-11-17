@@ -84,7 +84,7 @@ class PersistenceMigrationTests(unittest.TestCase):
             backup = db.backup_to(root / "backup.sqlite3")
             restored = Database(backup)
             self.assertTrue(restored.is_healthy())
-            self.assertEqual(applied_versions(restored), [1])
+            self.assertEqual(applied_versions(restored), [1, 2])
             conn = restored.connect()
             try:
                 row = conn.execute("SELECT payload_json FROM canonical_events WHERE event_id='evt-1'").fetchone()
