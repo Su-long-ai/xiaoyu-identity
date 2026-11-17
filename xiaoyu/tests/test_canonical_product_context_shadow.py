@@ -13,6 +13,7 @@ from xiaoyu.runtime.product_context import (
     CanonicalDialogueProjector,
     CanonicalProductContextBuilder,
     CanonicalReadShadowEvaluator,
+    CanonicalReadShadowMonitor,
 )
 
 
@@ -306,6 +307,65 @@ class CanonicalProductContextShadowTests(unittest.TestCase):
             self.assertEqual(turns[0].event_id, current)
             self.assertEqual(turns[0].role, "user")
             self.assertNotIn("秘密地址", turns[0].content)
+
+
+    def test_shadow_monitor_requires_consecutive_success_and_resets_on_drift(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            fixture = self._legacy_fixture(root)
+            identity_id = fixture["identity_id"]
+            tea_event = fixture["tea_event"]
+            fixture["store"].close()
+            db = self._migrate(root, identity_id)
+
+            monitor = CanonicalReadShadowMonitor(
+                db,
+                root / "canonical-read-shadow.json",
+                required_consecutive=2,
+            )
+            first = monitor.observe(identity_id=identity_id)
+            self.assertEqual(first.consecutive_ready, 1)
+            self.assertFalse(first.candidate_ready)
+
+            second = monitor.observe(identity_id=identity_id)
+            self.assertEqual(second.consecutive_ready, 2)
+            self.assertTrue(second.candidate_ready)
+            self.assertEqual(second.last_blockers, ())
+
+            legacy = IdentityStore(root)
+            legacy.add_memory(
+                "新加入但尚未迁移的记忆",
+                category="shared",
+                priority=3,
+                source_event=tea_event,
+            )
+            legacy.close()
+
+            drifted = monitor.observe(identity_id=identity_id)
+            self.assertEqual(drifted.consecutive_ready, 0)
+            self.assertFalse(drifted.candidate_ready)
+            self.assertIn(
+                "ACTIVE_MEMORY_MISMATCH",
+                drifted.last_blockers,
+            )
+
+            self.assertTrue(
+                LegacyMemoryTemporalBackfill(db)
+                .run(identity_id)
+                .converged
+            )
+            repaired = monitor.observe(identity_id=identity_id)
+            self.assertEqual(repaired.consecutive_ready, 1)
+            self.assertFalse(repaired.candidate_ready)
+            self.assertEqual(repaired.last_blockers, ())
+
+            persisted = monitor.status()
+            self.assertIsNotNone(persisted)
+            self.assertEqual(
+                persisted.evidence_digest,
+                repaired.evidence_digest,
+            )
+
 
 
 if __name__ == "__main__":
