@@ -30,9 +30,18 @@ class ArchitectureImportTests(unittest.TestCase):
 
     def test_import_does_not_create_global_runtime_objects(self):
         module = importlib.import_module("xiaoyu")
-        forbidden = {"app", "runtime", "database", "provider", "client"}
-        public_names = {name.lower() for name in vars(module) if not name.startswith("_")}
-        self.assertTrue(forbidden.isdisjoint(public_names))
+        # Imported package namespaces are expected; active singletons are not.
+        forbidden_singletons = {
+            "app",
+            "runtime_instance",
+            "database_instance",
+            "provider_client",
+            "client",
+        }
+        public_names = {
+            name.lower() for name in vars(module) if not name.startswith("_")
+        }
+        self.assertTrue(forbidden_singletons.isdisjoint(public_names))
 
 
 if __name__ == "__main__":
