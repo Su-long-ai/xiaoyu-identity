@@ -244,7 +244,6 @@ class PrincipalExecutionRepository:
                    authentication_level=excluded.authentication_level,
                    context_digest=excluded.context_digest,
                    expires_at=excluded.expires_at,
-                   revoked_at=NULL,
                    updated_at=excluded.updated_at""",
             (
                 identity_id,
