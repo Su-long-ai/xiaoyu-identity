@@ -294,7 +294,10 @@ class PurposeRepository:
             """UPDATE purposes
                SET state='SCHEDULED',scheduled_wall_time=?,timezone=?,
                    resolved_utc_time=?,revision=revision+1,
-                   auto_reschedule_count=auto_reschedule_count+?,
+                   auto_reschedule_count=CASE
+                       WHEN ? THEN auto_reschedule_count+1
+                       ELSE 0
+                   END,
                    updated_at=?,last_evaluated_at=?
                WHERE purpose_id=? AND revision=?""",
             (
