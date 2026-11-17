@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
 from .db import Database
-from .migrations import v1_authority, v2_receipts_delivery, v3_purpose_runtime, v4_delivery_attempts, v5_temporal_shadow, v6_execution_authorization, v7_purpose_occurrence, v10_profile_relationship_promise
+from .migrations import v1_authority, v2_receipts_delivery, v3_purpose_runtime, v4_delivery_attempts, v5_temporal_shadow, v6_execution_authorization, v7_purpose_occurrence, v10_profile_relationship_promise, v11_memory_context
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ MIGRATIONS = (
     Migration(v6_execution_authorization.VERSION, v6_execution_authorization.NAME, v6_execution_authorization.apply, v6_execution_authorization.verify),
     Migration(v7_purpose_occurrence.VERSION, v7_purpose_occurrence.NAME, v7_purpose_occurrence.apply, v7_purpose_occurrence.verify),
     Migration(v10_profile_relationship_promise.VERSION, v10_profile_relationship_promise.NAME, v10_profile_relationship_promise.apply, v10_profile_relationship_promise.verify),
+    Migration(v11_memory_context.VERSION, v11_memory_context.NAME, v11_memory_context.apply, v11_memory_context.verify),
 )
 
 
