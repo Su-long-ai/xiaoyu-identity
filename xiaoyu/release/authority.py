@@ -113,12 +113,8 @@ class ReleaseAuthority:
         if old_current is not None and old_current != release_id:
             old = payload["releases"].get(old_current)
             if old is not None:
-                previous_lkg = payload.get("last_known_good_release_id")
-                if previous_lkg and previous_lkg != old_current:
-                    previous = payload["releases"].get(previous_lkg)
-                    if previous is not None and previous["state"] == ReleaseState.LAST_KNOWN_GOOD.value:
-                        previous["state"] = ReleaseState.REJECTED.value
-                        previous["blockers"] = ["SUPERSEDED_LAST_KNOWN_GOOD"]
+                # Older historical LKG releases stay LKG for audit history;
+                # the pointer below identifies the most recent recovery target.
                 old["state"] = ReleaseState.LAST_KNOWN_GOOD.value
                 payload["last_known_good_release_id"] = old_current
 
