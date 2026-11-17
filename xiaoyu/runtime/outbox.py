@@ -20,6 +20,7 @@ from xiaoyu.persistence.repositories.execution_auth import (
     DispatchAuthorizationDenied,
     ExecutionAuthorizationRepository,
 )
+from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
 
 
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
@@ -52,6 +53,7 @@ class OutboxDispatcher:
         delivery_repo=None,
         execution_auth_repo=None,
         max_attempts: int = 5,
+        resource_broker: Optional[ExecutionResourceBroker] = None,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
@@ -68,6 +70,7 @@ class OutboxDispatcher:
         if max_attempts < 1:
             raise ValueError("max_attempts must be >= 1")
         self.max_attempts = max_attempts
+        self.resource_broker = resource_broker
 
     def recover_inflight(self, now: Optional[datetime] = None) -> int:
         current = now or datetime.now(timezone.utc)
@@ -109,6 +112,7 @@ class OutboxDispatcher:
                     self.delivery_repo.mark_failed_final(
                         conn, row.effect_id, current
                     )
+                self._release_effect_resources(row.effect_id)
                 continue
 
             # This is the final authorization check immediately before the
@@ -179,6 +183,10 @@ class OutboxDispatcher:
                         self.delivery_repo.mark_failed_final(
                             conn, row.effect_id, current
                         )
+                if str(exc).startswith("PURPOSE_"):
+                    self._cancel_effect_resources(row.effect_id)
+                else:
+                    self._release_effect_resources(row.effect_id)
                 continue
 
             # Crossing the transaction above means dispatch may now happen.
@@ -206,13 +214,24 @@ class OutboxDispatcher:
             processed += 1
             if self.fault_hook:
                 self.fault_hook("after_dispatch", row)
-            self._persist_outcome(
-                row,
-                outcome,
-                current,
-                request_digest=transport_request_digest,
-            )
+            try:
+                self._persist_outcome(
+                    row,
+                    outcome,
+                    current,
+                    request_digest=transport_request_digest,
+                )
+            finally:
+                self._release_effect_resources(row.effect_id)
         return processed
+
+    def _release_effect_resources(self, effect_id: str) -> None:
+        if self.resource_broker is not None:
+            self.resource_broker.release_effect(effect_id)
+
+    def _cancel_effect_resources(self, effect_id: str) -> None:
+        if self.resource_broker is not None:
+            self.resource_broker.cancel_effect(effect_id)
 
     @staticmethod
     def _resolve_transport(row, entry):
