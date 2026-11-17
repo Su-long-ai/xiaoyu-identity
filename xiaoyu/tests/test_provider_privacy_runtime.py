@@ -289,6 +289,30 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertIn("provider_not_ready",result.reasons)
 
+    def test_stateful_provider_fails_closed_until_host_binds_real_session(self):
+        d=ProviderDescriptor(
+            provider_id="stateful-provider",
+            capability="chat.completion",
+            descriptor_digest="desc-stateful",
+            capability_digest="cap-stateful",
+            implementation_digest="impl-stateful",
+            endpoint_scope="REMOTE",
+            privacy_classes=(PrivacyClass.PUBLIC,PrivacyClass.OWNER_PRIVATE),
+            session_mode="STATEFUL",
+        )
+        result=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                privacy=PrivacyClass.OWNER_PRIVATE,
+            ),
+        )
+        self.assertFalse(result.allowed)
+        self.assertIn(
+            "stateful_provider_session_not_host_bound",
+            result.reasons,
+        )
+
     def test_session_namespace_isolates_every_required_boundary(self):
         d=descriptor()
         base=attempt_context(d)

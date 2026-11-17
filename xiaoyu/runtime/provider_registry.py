@@ -205,6 +205,11 @@ def evaluate_provider(
         reasons.append("attempt_capability_digest_mismatch")
     if descriptor.implementation_digest != context.provider_implementation_digest:
         reasons.append("attempt_implementation_digest_mismatch")
+    if str(descriptor.session_mode or "").upper() != "STATELESS":
+        # Current host intentionally carries no provider-side KV/session ID.
+        # Stateful providers remain ineligible until the host binds the
+        # computed namespace to the provider's actual session primitive.
+        reasons.append("stateful_provider_session_not_host_bound")
 
     privacy=_effective_privacy(context)
     if privacy not in descriptor.privacy_classes:

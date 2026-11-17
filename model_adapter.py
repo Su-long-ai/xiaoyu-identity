@@ -414,6 +414,11 @@ def _provider_descriptor(config):
         )
         else "REMOTE"
     )
+    session_mode=str(
+        config.get("session_mode")
+        or PROVIDERS.get(provider,{}).get("session_mode")
+        or "STATELESS"
+    ).upper()
     capability_digest=stable_digest({
         "provider":provider,
         "model":str(config.get("model") or ""),
@@ -431,6 +436,7 @@ def _provider_descriptor(config):
         "model":str(config.get("model") or ""),
         "privacy_classes":[x.value for x in privacy],
         "endpoint_scope":endpoint_scope,
+        "session_mode":session_mode,
         "capability_digest":capability_digest,
         "implementation_digest":implementation_digest,
         "policy_version":2,
@@ -443,7 +449,7 @@ def _provider_descriptor(config):
         implementation_digest=implementation_digest,
         endpoint_scope=endpoint_scope,
         privacy_classes=tuple(privacy),
-        session_mode="STATELESS",
+        session_mode=session_mode,
     )
 
 
