@@ -128,6 +128,17 @@ class LegacyShadowBackfill:
         scanned = 0
         confirmed = 0
         last = progress.last_processed_event_id
+        # A DB restore can roll canonical shadow rows back while leaving this
+        # sibling progress sidecar ahead. Detect that divergence and safely
+        # replay the prefix from zero; stable source keys make it idempotent.
+        scan_after = progress.last_processed_event_id
+        if (
+            scan_after > 0
+            and not self.converged(identity_id, scan_after)
+        ):
+            scan_after = 0
+            last = 0
+
         rows = []
         with self.db.transaction(immediate=True) as conn:
             rows = conn.execute(
@@ -137,7 +148,7 @@ class LegacyShadowBackfill:
                    ORDER BY event_id
                    LIMIT ?""",
                 (
-                    progress.last_processed_event_id,
+                    scan_after,
                     progress.snapshot_high_watermark,
                     max(1, min(int(limit), 5000)),
                 ),

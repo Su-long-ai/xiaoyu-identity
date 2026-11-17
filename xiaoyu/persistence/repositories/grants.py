@@ -35,6 +35,7 @@ class AuthorizationDecisionRepository:
         at = created_at or datetime.now(timezone.utc)
         audit_resource = {
             "resource": resource.to_dict(),
+            "action": action.to_dict(),
             "risk_tier": action.risk_tier.value,
             "surface": context.surface,
             "context_space": context.context_space,

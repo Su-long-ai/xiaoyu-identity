@@ -12,6 +12,7 @@ from identity_core import IdentityStore
 from product_memory_bridge import ProductMemoryBridge
 from send_guard import (
     FreshnessChanged,
+    capture_context_fence,
     capture_expectations,
     dual_guarded_chat,
 )
@@ -21,6 +22,7 @@ from xiaoyu.runtime.provider_registry import (
     ProviderAttemptContext,
     ProviderDescriptor,
     ProviderHealth,
+    apply_audience_reset,
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
@@ -55,6 +57,7 @@ def attempt_context(
     d,
     *,
     principal_id="owner",
+    owner_principal_id="owner",
     audience_scope="PRIVATE",
     context_space="PERSONAL",
     context_generation="gen-1",
@@ -65,6 +68,7 @@ def attempt_context(
     expected_approval_binding_digest=None,
     private_tool=False,
     authorization_digest="auth-v1",
+    routing_policy_digest=None,
     tool_result_digest=None,
     tool_implementation_digest=None,
     tool_schema_digest=None,
@@ -81,10 +85,12 @@ def attempt_context(
         provider_descriptor_digest=d.descriptor_digest,
         provider_capability_digest=d.capability_digest,
         provider_implementation_digest=d.implementation_digest,
+        owner_principal_id=owner_principal_id,
         expected_descriptor_digest=expected_descriptor_digest,
         expected_capability_digest=expected_capability_digest,
         expected_approval_binding_digest=expected_approval_binding_digest,
         authorization_digest=authorization_digest,
+        routing_policy_digest=routing_policy_digest,
         tool_result_digest=tool_result_digest,
         tool_implementation_digest=tool_implementation_digest,
         tool_schema_digest=tool_schema_digest,
@@ -154,6 +160,65 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
         self.assertFalse(result.allowed)
         self.assertIn("privacy_class_ineligible",result.reasons)
+
+    def test_local_only_private_tool_result_keeps_local_boundary_and_owner_scope(self):
+        remote=descriptor(
+            privacy=(PrivacyClass.PUBLIC,PrivacyClass.OWNER_PRIVATE),
+            endpoint_scope="REMOTE",
+        )
+        remote_result=evaluate_provider(
+            remote,
+            attempt_context(
+                remote,
+                privacy=PrivacyClass.LOCAL_ONLY,
+                private_tool=True,
+                tool_result_digest="tool-result-v1",
+            ),
+        )
+        self.assertFalse(remote_result.allowed)
+        self.assertIn("privacy_class_ineligible",remote_result.reasons)
+        self.assertIn("local_only_requires_local_provider",remote_result.reasons)
+
+        local=descriptor(
+            privacy=(PrivacyClass.PUBLIC,PrivacyClass.LOCAL_ONLY),
+            endpoint_scope="LOCAL",
+        )
+        guest_result=evaluate_provider(
+            local,
+            attempt_context(
+                local,
+                principal_id="guest",
+                owner_principal_id="owner",
+                privacy=PrivacyClass.LOCAL_ONLY,
+                private_tool=True,
+                tool_result_digest="tool-result-v1",
+            ),
+        )
+        self.assertFalse(guest_result.allowed)
+        self.assertIn("owner_private_principal_mismatch",guest_result.reasons)
+
+    def test_owner_private_uses_positive_owner_binding_not_principal_denylist(self):
+        d=descriptor()
+        member=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                principal_id="member-42",
+                owner_principal_id="owner",
+            ),
+        )
+        self.assertFalse(member.allowed)
+        self.assertIn("owner_private_principal_mismatch",member.reasons)
+
+        canonical_owner=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                principal_id="principal-abc",
+                owner_principal_id="principal-abc",
+            ),
+        )
+        self.assertTrue(canonical_owner.allowed)
 
     def test_capability_and_digest_changes_invalidate_eligibility(self):
         d=descriptor()
@@ -226,6 +291,30 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertIn("provider_not_ready",result.reasons)
 
+    def test_stateful_provider_fails_closed_until_host_binds_real_session(self):
+        d=ProviderDescriptor(
+            provider_id="stateful-provider",
+            capability="chat.completion",
+            descriptor_digest="desc-stateful",
+            capability_digest="cap-stateful",
+            implementation_digest="impl-stateful",
+            endpoint_scope="REMOTE",
+            privacy_classes=(PrivacyClass.PUBLIC,PrivacyClass.OWNER_PRIVATE),
+            session_mode="STATEFUL",
+        )
+        result=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                privacy=PrivacyClass.OWNER_PRIVATE,
+            ),
+        )
+        self.assertFalse(result.allowed)
+        self.assertIn(
+            "stateful_provider_session_not_host_bound",
+            result.reasons,
+        )
+
     def test_session_namespace_isolates_every_required_boundary(self):
         d=descriptor()
         base=attempt_context(d)
@@ -292,6 +381,47 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
             )
         self.assertFalse(audience_reset_decision(owner,owner).required)
 
+    def test_audience_reset_actually_removes_private_derived_behavior_state(self):
+        d=descriptor()
+        owner=attempt_context(d)
+        guest=attempt_context(
+            d,
+            principal_id="guest",
+            audience_scope="GUEST",
+            context_space="GUEST",
+            privacy=PrivacyClass.PUBLIC,
+        )
+        state={
+            "private_retrieval":{"facts":["favorite-private-topic"]},
+            "private_profile":{"tone":"owner-derived-style"},
+            "cached_context":{"recommendation_bias":"owner-history-derived"},
+            "provider_session_kv":{"hidden_state":"owner-private-derived"},
+            "tool_delegations":{"calendar":"owner-grant"},
+            "retained_messages":[{"role":"system","content":"owner-private"}],
+            "surface_state":{"last_private_surface":"desktop"},
+            "public_health":{"provider-a":"READY"},
+        }
+        decision=apply_audience_reset(state,owner,guest)
+        self.assertTrue(decision.required)
+        for key in AUDIENCE_RESET_COMPONENTS:
+            self.assertNotIn(key,state)
+        self.assertEqual(
+            state,
+            {"public_health":{"provider-a":"READY"}},
+        )
+
+    def test_same_scope_does_not_destroy_runtime_state(self):
+        d=descriptor()
+        owner=attempt_context(d)
+        state={
+            "cached_context":{"safe":"same-scope"},
+            "public_health":{"provider-a":"READY"},
+        }
+        before=dict(state)
+        decision=apply_audience_reset(state,owner,owner)
+        self.assertFalse(decision.required)
+        self.assertEqual(state,before)
+
     def test_model_switch_preserves_authority_but_never_session_namespace(self):
         first=descriptor(provider_id="provider-a")
         second=descriptor(provider_id="provider-b")
@@ -307,28 +437,23 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
 
 
-    def test_dispatch_callback_fires_before_socket_output_failure(self):
+    def test_partial_send_failure_is_uncertain_and_does_not_release_fence(self):
         events=[]
+        class FailingSocket:
+            def sendall(self,data):
+                raise TimeoutError("partial-send-timeout")
         conn=model_adapter._DispatchHTTPConnection(
-            "127.0.0.1",
+            "synthetic.local",
             on_dispatched=lambda:events.append("dispatched"),
         )
-        with patch.object(
-            http.client.HTTPConnection,
-            "_send_output",
-            side_effect=TimeoutError("partial-send-timeout"),
-        ):
-            with self.assertRaises(TimeoutError):
-                conn._send_output(b"PRIVATE_BODY")
-        self.assertEqual(events,["dispatched"])
-        with patch.object(
-            http.client.HTTPConnection,
-            "_send_output",
-            side_effect=TimeoutError("retry"),
-        ):
-            with self.assertRaises(TimeoutError):
-                conn._send_output(b"PRIVATE_BODY")
-        self.assertEqual(events,["dispatched"])
+        conn.connect=lambda:setattr(conn,"sock",FailingSocket())
+        with self.assertRaises(model_adapter.ProviderDispatchUncertain):
+            conn.request(
+                "POST","/v1/chat/completions",
+                body=b"PRIVATE_BODY",
+                headers={"Content-Type":"application/json"},
+            )
+        self.assertEqual(events,[])
 
 
 class ProviderFallbackIntegrationTests(unittest.TestCase):
@@ -417,6 +542,20 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
             finally:
                 bridge.close()
                 store.close()
+
+    def test_unclassified_direct_chat_never_crosses_provider_boundary(self):
+        config=model_adapter._fallback_config("deepseek_web")
+        config["fallbacks"]=["qwen","deepseek"]
+        calls=[]
+        def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+            calls.append(candidate["provider"])
+            raise RuntimeError("primary failed")
+        with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+            with self.assertRaises(RuntimeError):
+                model_adapter.chat(
+                    config,[{"role":"user","content":"unclassified"}]
+                )
+        self.assertEqual(calls,["deepseek_web"])
 
     def test_public_three_provider_chain_still_falls_back(self):
         config=model_adapter._fallback_config("deepseek_web")
@@ -617,6 +756,36 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                 bridge.close()
                 store.close()
 
+    def test_unselected_physical_delete_invalidates_full_prompt_fence(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            unselected=store.add_memory("UNSELECTED_PRIVATE_MEMORY")
+            fence=capture_context_fence(store)
+            generation_after_add=store.memory_generation()
+            with store.conn:
+                store.conn.execute(
+                    "DELETE FROM memories WHERE memory_id=?",(int(unselected),)
+                )
+            # Direct erasure can predate bridge tombstone reconciliation and
+            # need not advance the legacy generation setting; the full prompt
+            # fence must still notice it.
+            self.assertEqual(
+                store.memory_generation(),
+                generation_after_add,
+            )
+            self.assertNotEqual(capture_context_fence(store),fence)
+            try:
+                with self.assertRaises(FreshnessChanged):
+                    dual_guarded_chat(
+                        model_adapter.chat,config,messages,
+                        store.db_path,bridge.db_path,
+                        generation_after_add,[],
+                        expected_context_fence=fence,
+                    )
+            finally:
+                bridge.close()
+                store.close()
+
 
     def test_provider_health_transition_during_chain_skips_fallback(self):
         with tempfile.TemporaryDirectory() as td:
@@ -795,6 +964,189 @@ class ProviderFallbackIntegrationTests(unittest.TestCase):
                     finally:
                         bridge.close()
                         store.close()
+
+
+    def test_routing_policy_change_between_attempts_blocks_old_fallback_chain(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "routing_policy_digest":"route-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["routing_policy_digest"]="route-v2"
+                raise RuntimeError("primary failed")
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            routing_policy_digest="route-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_routing_policy_change_while_response_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={
+                "identity_id":"identity-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "routing_policy_digest":"route-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+            }
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["routing_policy_digest"]="route-v2"
+                return "stale-route-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            identity_id="identity-1",
+                            authorization_digest="auth-v1",
+                            routing_policy_digest="route-v1",
+                            context_state_provider=lambda:dict(state),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_provider_privacy_policy_change_while_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            old=model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek_web"]
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES[
+                    "deepseek_web"
+                ]=("PUBLIC",)
+                return "stale-policy-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaisesRegex(
+                        RuntimeError,"descriptor changed after dispatch"
+                    ):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                model_adapter.DEFAULT_ALLOWED_DATA_CLASSES["deepseek_web"]=old
+                bridge.close()
+                store.close()
+
+    def test_provider_health_change_while_inflight_rejects_response(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            state={"readiness":"READY"}
+            calls=[]
+            def health(descriptor):
+                value=state["readiness"]
+                return ProviderHealth(
+                    liveness="ALIVE",
+                    readiness=value,
+                    capability_health={"chat.completion":value},
+                    reason=None if value=="READY" else "health-changed",
+                    since=NOW,
+                    retry_after_ms=None,
+                    details={},
+                )
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                state["readiness"]="DEGRADED"
+                return "stale-health-response",{}
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaisesRegex(
+                        RuntimeError,"eligibility changed after dispatch"
+                    ):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                            provider_health=health,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+
+    def test_uncertain_partial_dispatch_never_attempts_fallback_provider(self):
+        with tempfile.TemporaryDirectory() as td:
+            store,bridge,mid,generation,expectations,config,messages=self._fixture(td)
+            calls=[]
+            def fake_once(candidate,attempt_messages,max_tokens,timeout,on_dispatched):
+                calls.append(candidate["provider"])
+                raise model_adapter.ProviderDispatchUncertain(
+                    "synthetic partial dispatch"
+                )
+            try:
+                with patch.object(model_adapter,"_chat_once",side_effect=fake_once):
+                    with self.assertRaises(model_adapter.ProviderDispatchUncertain):
+                        dual_guarded_chat(
+                            model_adapter.chat,config,messages,
+                            store.db_path,bridge.db_path,generation,expectations,
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
+    def test_successful_request_dispatch_callback_fires_after_full_body_send(self):
+        events=[]
+        sent=[]
+        class RecordingSocket:
+            def sendall(self,data):
+                sent.append(bytes(data))
+        conn=model_adapter._DispatchHTTPConnection(
+            "synthetic.local",
+            on_dispatched=lambda:events.append(("dispatched",len(sent))),
+        )
+        conn.connect=lambda:setattr(conn,"sock",RecordingSocket())
+        conn.request(
+            "POST","/v1/chat/completions",
+            body=b"PRIVATE_BODY",
+            headers={"Content-Type":"application/json"},
+        )
+        self.assertTrue(sent)
+        self.assertEqual(events,[("dispatched",len(sent))])
+        self.assertGreaterEqual(events[0][1],2)
 
 
 if __name__=="__main__":

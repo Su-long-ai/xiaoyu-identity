@@ -12,6 +12,7 @@ on:
       - "test_main06_v2_postdispatch_mutations.py"
       - "test_nonmemory_state_generation_bypass.py"
       - "test_main07_growth_manager_binding.py"
+      - "test_cross_model_vertical.py"
       - ".github/workflows/implementation-v1.yml"
   push:
     branches:
@@ -27,6 +28,7 @@ on:
       - "test_main06_v2_postdispatch_mutations.py"
       - "test_nonmemory_state_generation_bypass.py"
       - "test_main07_growth_manager_binding.py"
+      - "test_cross_model_vertical.py"
       - ".github/workflows/implementation-v1.yml"
 
 permissions:
@@ -65,3 +67,4 @@ jobs:
           python test_main06_v2_postdispatch_mutations.py
           python test_nonmemory_state_generation_bypass.py
           python test_main07_growth_manager_binding.py
+          python -m unittest -v test_cross_model_vertical
