@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, MutableMapping, Optional, Tuple
 
 from xiaoyu.contracts.capability import ProviderHealth
 
@@ -112,6 +112,24 @@ def audience_reset_decision(
             reasons=tuple(reasons),
         )
     return AudienceResetDecision(False,(),())
+
+
+def apply_audience_reset(
+    state: MutableMapping[str, Any],
+    previous: ProviderAttemptContext,
+    current: ProviderAttemptContext,
+) -> AudienceResetDecision:
+    """Clear every audience-derived runtime slot before the new scope is used.
+
+    The caller owns the state container; this helper deliberately clears only
+    audience-derived slots and leaves unrelated process state untouched.
+    """
+    decision=audience_reset_decision(previous,current)
+    if not decision.required:
+        return decision
+    for component in decision.clear_components:
+        state.pop(component,None)
+    return decision
 
 
 def stable_digest(value: Mapping[str, Any] | Dict[str, Any]) -> str:

@@ -21,6 +21,7 @@ from xiaoyu.runtime.provider_registry import (
     ProviderAttemptContext,
     ProviderDescriptor,
     ProviderHealth,
+    apply_audience_reset,
     audience_reset_decision,
     evaluate_provider,
     provider_session_namespace,
@@ -352,6 +353,47 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
                 set(AUDIENCE_RESET_COMPONENTS),
             )
         self.assertFalse(audience_reset_decision(owner,owner).required)
+
+    def test_audience_reset_actually_removes_private_derived_behavior_state(self):
+        d=descriptor()
+        owner=attempt_context(d)
+        guest=attempt_context(
+            d,
+            principal_id="guest",
+            audience_scope="GUEST",
+            context_space="GUEST",
+            privacy=PrivacyClass.PUBLIC,
+        )
+        state={
+            "private_retrieval":{"facts":["favorite-private-topic"]},
+            "private_profile":{"tone":"owner-derived-style"},
+            "cached_context":{"recommendation_bias":"owner-history-derived"},
+            "provider_session_kv":{"hidden_state":"owner-private-derived"},
+            "tool_delegations":{"calendar":"owner-grant"},
+            "retained_messages":[{"role":"system","content":"owner-private"}],
+            "surface_state":{"last_private_surface":"desktop"},
+            "public_health":{"provider-a":"READY"},
+        }
+        decision=apply_audience_reset(state,owner,guest)
+        self.assertTrue(decision.required)
+        for key in AUDIENCE_RESET_COMPONENTS:
+            self.assertNotIn(key,state)
+        self.assertEqual(
+            state,
+            {"public_health":{"provider-a":"READY"}},
+        )
+
+    def test_same_scope_does_not_destroy_runtime_state(self):
+        d=descriptor()
+        owner=attempt_context(d)
+        state={
+            "cached_context":{"safe":"same-scope"},
+            "public_health":{"provider-a":"READY"},
+        }
+        before=dict(state)
+        decision=apply_audience_reset(state,owner,owner)
+        self.assertFalse(decision.required)
+        self.assertEqual(state,before)
 
     def test_model_switch_preserves_authority_but_never_session_namespace(self):
         first=descriptor(provider_id="provider-a")
