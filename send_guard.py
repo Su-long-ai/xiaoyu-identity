@@ -125,11 +125,88 @@ def _close_lock(conn):
     finally:
         conn.close()
 
+class _FreshAttemptGuard:
+    """Revalidate protected context independently for one provider attempt."""
+    def __init__(
+        self,
+        identity_db_path,
+        r47_db_path,
+        expected_generation,
+        expectations,
+    ):
+        self.identity_db_path=identity_db_path
+        self.r47_db_path=r47_db_path
+        self.expected_generation=expected_generation
+        self.expectations=expectations
+        self.iconn=None
+        self.rconn=None
+        self.released=False
+
+    def __enter__(self):
+        try:
+            self.iconn=_open_locked(self.identity_db_path)
+            _validate_identity(
+                self.iconn,
+                self.expected_generation,
+                self.expectations,
+            )
+            if self.expectations:
+                self.rconn=_open_locked(self.r47_db_path)
+                _validate_r47(
+                    self.rconn,
+                    self.expectations,
+                )
+            return self
+        except Exception:
+            self.release()
+            raise
+
+    def release(self):
+        if self.released:
+            return
+        self.released=True
+        _close_lock(self.rconn)
+        self.rconn=None
+        _close_lock(self.iconn)
+        self.iconn=None
+
+    def on_dispatched(self):
+        self.release()
+
+    def __exit__(self,exc_type,exc,tb):
+        self.release()
+        return False
+
+
 def dual_guarded_chat(
     chat_fn,config,messages,identity_db_path,r47_db_path,
     expected_generation,expectations
 ):
-    """Revalidate and serialize both IdentityStore and selected R47 authority until dispatch."""
+    """Revalidate protected context at every concrete provider attempt."""
+    try:
+        parameters=inspect.signature(chat_fn).parameters
+    except (TypeError,ValueError):
+        parameters={}
+
+    # New adapter path: each primary/fallback attempt gets a fresh lock and
+    # validation window.  If authority changes after one provider dispatch,
+    # the next guard fails before any bytes are sent to another provider.
+    if "attempt_guard" in parameters:
+        def guard_factory(candidate):
+            return _FreshAttemptGuard(
+                identity_db_path,
+                r47_db_path,
+                expected_generation,
+                expectations,
+            )
+        kwargs={"attempt_guard":guard_factory}
+        if "required_data_class" in parameters:
+            kwargs["required_data_class"]="OWNER_PRIVATE"
+        return chat_fn(config,messages,**kwargs)
+
+    # Compatibility path for chat implementations that only expose the old
+    # single-dispatch callback.  They cannot safely support multiple guarded
+    # provider attempts, so validate/serialize exactly as before.
     iconn=rconn=None
     released=False
     def release():
@@ -145,11 +222,7 @@ def dual_guarded_chat(
         if expectations:
             rconn=_open_locked(r47_db_path)
             _validate_r47(rconn,expectations)
-        try:
-            dispatch_aware="on_dispatched" in inspect.signature(chat_fn).parameters
-        except (TypeError,ValueError):
-            dispatch_aware=False
-        if dispatch_aware:
+        if "on_dispatched" in parameters:
             return chat_fn(config,messages,on_dispatched=release)
         return chat_fn(config,messages)
     finally:
