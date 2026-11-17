@@ -22,6 +22,7 @@ from xiaoyu.core.temporal import TemporalFactService
 from xiaoyu.persistence import (
     Database,
     ExternalErasureFenceStore,
+    applied_versions,
     apply_migrations,
 )
 from xiaoyu.release.migration import (
@@ -63,6 +64,7 @@ class CanonicalWriteShadowStatus:
     blockers: tuple[str, ...]
     evidence_digest: str
     updated_at: str
+    schema_version: int = 0
 
 
 class CanonicalWriteShadowDrill:
@@ -165,8 +167,13 @@ class CanonicalWriteShadowDrill:
                 separators=(",", ":"),
             ).encode("utf-8")
         ).hexdigest()
+        schema_version = max(
+            applied_versions(self.source_db),
+            default=0,
+        )
         payload = {
             "version": self.VERSION,
+            "schema_version": schema_version,
             "identity_id": identity_id,
             "candidate_ready": evidence.ready,
             "blockers": list(evidence.blockers()),
@@ -202,6 +209,7 @@ class CanonicalWriteShadowDrill:
             blockers=evidence.blockers(),
             evidence_digest=digest,
             updated_at=payload["updated_at"],
+            schema_version=schema_version,
         )
 
     def run(
