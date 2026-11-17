@@ -151,7 +151,7 @@ class PurposeRepository:
             (identity_id,),
         ).fetchall()
 
-    def _dispatching_current_revision(
+    def _uncertain_current_revision(
         self,
         conn: sqlite3.Connection,
         purpose_id: str,
@@ -160,7 +160,9 @@ class PurposeRepository:
         row = conn.execute(
             """SELECT 1 FROM effects
                WHERE purpose_id=? AND purpose_revision=?
-                 AND dispatch_state='DISPATCHING'
+                 AND dispatch_state IN (
+                     'DISPATCHING','UNKNOWN','NEEDS_RECONCILIATION'
+                 )
                LIMIT 1""",
             (purpose_id, revision),
         ).fetchone()
@@ -188,7 +190,7 @@ class PurposeRepository:
         ):
             return False
         stamp = datetime_to_text(_utc(updated_at), "updated_at")
-        if self._dispatching_current_revision(conn, purpose_id, revision):
+        if self._uncertain_current_revision(conn, purpose_id, revision):
             conn.execute(
                 """UPDATE purposes
                    SET state='NEEDS_RECONCILIATION',updated_at=?,
