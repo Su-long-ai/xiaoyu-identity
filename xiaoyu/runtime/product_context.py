@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
+import os
+from pathlib import Path
 from typing import Any, Optional
 
 from xiaoyu.core.identity import SelfAuthorityService
@@ -601,3 +604,159 @@ class CanonicalReadShadowEvaluator:
             exact_invariants_present=exact_invariants_present,
             private_boundary_present=private_boundary_present,
         )
+
+
+
+@dataclass(frozen=True)
+class CanonicalReadShadowStatus:
+    identity_id: str
+    consecutive_ready: int
+    required_consecutive: int
+    candidate_ready: bool
+    last_blockers: tuple[str, ...]
+    evidence_digest: str
+    updated_at: str
+
+
+class CanonicalReadShadowMonitor:
+    """Persistent product-read shadow gate; never activates authority itself."""
+
+    VERSION = 1
+
+    def __init__(
+        self,
+        db: Database,
+        status_path,
+        *,
+        required_consecutive: int = 20,
+        evaluator=None,
+    ) -> None:
+        if int(required_consecutive) <= 0:
+            raise ValueError(
+                "required_consecutive must be positive"
+            )
+        self.db = db
+        self.path = Path(status_path)
+        self.required_consecutive = int(required_consecutive)
+        self.evaluator = evaluator or CanonicalReadShadowEvaluator(db)
+
+    def _read(self) -> dict:
+        if not self.path.exists():
+            return {}
+        try:
+            value = json.loads(
+                self.path.read_text(encoding="utf-8")
+            )
+        except Exception:
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def _write(self, payload: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        with tmp.open(
+            "w", encoding="utf-8", newline="\n"
+        ) as handle:
+            json.dump(
+                payload,
+                handle,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, self.path)
+
+    def observe(
+        self,
+        *,
+        identity_id: str,
+        principal_id: str = "owner",
+        history_limit: int = 16,
+        observed_at: Optional[datetime] = None,
+    ) -> CanonicalReadShadowStatus:
+        evidence = self.evaluator.evaluate(
+            identity_id=identity_id,
+            principal_id=principal_id,
+            history_limit=history_limit,
+        )
+        previous = self._read()
+        prior_count = (
+            int(previous.get("consecutive_ready") or 0)
+            if previous.get("identity_id") == identity_id
+            else 0
+        )
+        consecutive = (
+            prior_count + 1 if evidence.ready else 0
+        )
+        blockers = evidence.blockers()
+        stamp = (
+            observed_at or datetime.now(timezone.utc)
+        ).astimezone(timezone.utc).isoformat(
+            timespec="microseconds"
+        )
+        evidence_payload = asdict(evidence)
+        digest = "sha256:" + hashlib.sha256(
+            json.dumps(
+                evidence_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        candidate_ready = (
+            evidence.ready
+            and consecutive >= self.required_consecutive
+        )
+        payload = {
+            "version": self.VERSION,
+            "identity_id": identity_id,
+            "consecutive_ready": consecutive,
+            "required_consecutive": self.required_consecutive,
+            "candidate_ready": candidate_ready,
+            "last_blockers": list(blockers),
+            "evidence": evidence_payload,
+            "evidence_digest": digest,
+            "updated_at": stamp,
+        }
+        self._write(payload)
+        return CanonicalReadShadowStatus(
+            identity_id=identity_id,
+            consecutive_ready=consecutive,
+            required_consecutive=self.required_consecutive,
+            candidate_ready=candidate_ready,
+            last_blockers=blockers,
+            evidence_digest=digest,
+            updated_at=stamp,
+        )
+
+    def status(self) -> Optional[CanonicalReadShadowStatus]:
+        payload = self._read()
+        if not payload:
+            return None
+        try:
+            return CanonicalReadShadowStatus(
+                identity_id=str(payload["identity_id"]),
+                consecutive_ready=int(
+                    payload["consecutive_ready"]
+                ),
+                required_consecutive=int(
+                    payload["required_consecutive"]
+                ),
+                candidate_ready=bool(
+                    payload["candidate_ready"]
+                ),
+                last_blockers=tuple(
+                    str(value)
+                    for value in payload.get(
+                        "last_blockers", []
+                    )
+                ),
+                evidence_digest=str(
+                    payload["evidence_digest"]
+                ),
+                updated_at=str(payload["updated_at"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
