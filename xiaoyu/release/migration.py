@@ -118,12 +118,20 @@ class AuthorityCutoverController:
         )
 
     def writer_fence_installed(self) -> bool:
-        required = {
-            self._trigger_name(table, operation)
-            for table in LEGACY_AUTHORITY_TABLES
-            for operation in ("INSERT", "UPDATE", "DELETE")
-        }
         with self.db.transaction() as conn:
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table'"
+                ).fetchall()
+            }
+            required = {
+                self._trigger_name(table, operation)
+                for table in LEGACY_AUTHORITY_TABLES
+                if table in tables
+                for operation in ("INSERT", "UPDATE", "DELETE")
+            }
             present = {
                 str(row[0])
                 for row in conn.execute(
