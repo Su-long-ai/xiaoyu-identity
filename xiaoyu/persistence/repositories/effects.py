@@ -28,6 +28,10 @@ class ClaimedOutbox:
     purpose_revision: Optional[int]
     purpose_occurrence_id: Optional[str]
     provider_id: Optional[str]
+    provider_artifact_digest: Optional[str]
+    provider_interface_digest: Optional[str]
+    provider_tool_schema_digest: Optional[str]
+    provider_capability: Optional[str]
     authorized_request_digest: Optional[str]
 
 
@@ -145,7 +149,9 @@ class OutboxRepository:
                       o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
                       e.authorization_decision_id,e.request_json,e.purpose_id,
                       e.action_class,e.purpose_revision,e.purpose_occurrence_id,
-                      ea.actor_provider_id,ea.authorized_request_digest
+                      ea.actor_provider_id,ea.provider_artifact_digest,
+                      ea.provider_interface_digest,ea.provider_tool_schema_digest,
+                      ea.provider_capability,ea.authorized_request_digest
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
                JOIN execution_authorizations ea
@@ -184,6 +190,10 @@ class OutboxRepository:
                     purpose_revision=row["purpose_revision"],
                     purpose_occurrence_id=row["purpose_occurrence_id"],
                     provider_id=row["actor_provider_id"],
+                    provider_artifact_digest=row["provider_artifact_digest"],
+                    provider_interface_digest=row["provider_interface_digest"],
+                    provider_tool_schema_digest=row["provider_tool_schema_digest"],
+                    provider_capability=row["provider_capability"],
                     authorized_request_digest=row["authorized_request_digest"],
                 )
             )
