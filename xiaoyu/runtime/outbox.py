@@ -20,7 +20,7 @@ from xiaoyu.persistence.repositories.execution_auth import (
     DispatchAuthorizationDenied,
     ExecutionAuthorizationRepository,
 )
-from xiaoyu.runtime.resource_broker import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
 
 
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
