@@ -19,6 +19,14 @@ def _trigger_name(table: str, operation: str) -> str:
     return "xiaoyu_fence_%s_%s" % (table, operation.lower())
 
 
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return conn.execute(
+        """SELECT 1 FROM sqlite_master
+           WHERE type='table' AND name=?""",
+        (table,),
+    ).fetchone() is not None
+
+
 def apply(conn: sqlite3.Connection) -> None:
     conn.execute(
         """CREATE TABLE IF NOT EXISTS authority_cutover_state (
@@ -33,6 +41,8 @@ def apply(conn: sqlite3.Connection) -> None:
     )
 
     for table in LEGACY_AUTHORITY_TABLES:
+        if not _table_exists(conn, table):
+            continue
         for operation in ("INSERT", "UPDATE", "DELETE"):
             name = _trigger_name(table, operation)
             conn.execute(
@@ -71,6 +81,8 @@ def verify(conn: sqlite3.Connection) -> None:
         ).fetchall()
     }
     for table in LEGACY_AUTHORITY_TABLES:
+        if not _table_exists(conn, table):
+            continue
         for operation in ("INSERT", "UPDATE", "DELETE"):
             required = _trigger_name(table, operation)
             if required not in triggers:
