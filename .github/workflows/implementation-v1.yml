@@ -8,6 +8,10 @@ on:
       - "companion.py"
       - "model_adapter.py"
       - "send_guard.py"
+      - "test_main06_real_http_dispatch.py"
+      - "test_main06_v2_postdispatch_mutations.py"
+      - "test_nonmemory_state_generation_bypass.py"
+      - "test_main07_growth_manager_binding.py"
       - ".github/workflows/implementation-v1.yml"
   push:
     branches:
@@ -19,6 +23,10 @@ on:
       - "companion.py"
       - "model_adapter.py"
       - "send_guard.py"
+      - "test_main06_real_http_dispatch.py"
+      - "test_main06_v2_postdispatch_mutations.py"
+      - "test_nonmemory_state_generation_bypass.py"
+      - "test_main07_growth_manager_binding.py"
       - ".github/workflows/implementation-v1.yml"
 
 permissions:
