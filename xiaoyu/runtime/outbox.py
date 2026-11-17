@@ -244,7 +244,11 @@ class OutboxDispatcher:
 
     @staticmethod
     def _complete_purpose(conn, row, now: datetime) -> None:
-        if row.purpose_id is None or row.purpose_revision is None:
+        if (
+            row.purpose_id is None
+            or row.purpose_revision is None
+            or row.purpose_occurrence_id is None
+        ):
             return
         conn.execute(
             """UPDATE purposes
