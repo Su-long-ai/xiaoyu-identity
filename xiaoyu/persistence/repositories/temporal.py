@@ -214,14 +214,16 @@ class TemporalRepository:
         mutation_digest: str,
         expected_revision: int,
         result_revision: int,
+        request_json: str,
         created_at: datetime,
     ) -> None:
         conn.execute(
             """INSERT INTO fact_mutations(
                    mutation_id,identity_id,source_event_id,
                    source_ingest_revision,claim_id,fact_key,operation,
-                   mutation_digest,expected_revision,result_revision,created_at
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                   mutation_digest,expected_revision,result_revision,
+                   request_json,created_at
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 mutation_id,
                 identity_id,
@@ -233,9 +235,29 @@ class TemporalRepository:
                 mutation_digest,
                 expected_revision,
                 result_revision,
+                request_json,
                 datetime_to_text(created_at, "created_at"),
             ),
         )
+        conn.execute(
+            "INSERT INTO fact_mutation_order(mutation_id) VALUES(?)",
+            (mutation_id,),
+        )
+
+    def ordered_mutations(
+        self,
+        conn: sqlite3.Connection,
+        identity_id: str,
+    ):
+        return conn.execute(
+            """SELECT fm.*,fmo.mutation_sequence
+               FROM fact_mutations fm
+               JOIN fact_mutation_order fmo
+                 ON fmo.mutation_id=fm.mutation_id
+               WHERE fm.identity_id=?
+               ORDER BY fmo.mutation_sequence""",
+            (identity_id,),
+        ).fetchall()
 
     def latest_erasure_fence(
         self,
