@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
+import json
 from typing import Optional
 
 from xiaoyu.contracts import CapabilityDescriptor, ProviderHealth, ProviderLifecycle
@@ -96,6 +98,62 @@ class ProviderExecutionRegistry:
                 ),
             )
             return cur.rowcount == 1
+
+
+    def snapshot(
+        self,
+        provider_id: str,
+    ) -> Optional[tuple[CapabilityDescriptor, ProviderHealth]]:
+        """Return the current durable descriptor + health snapshot.
+
+        The mutable lifecycle column is authoritative over the descriptor JSON
+        captured at registration time.
+        """
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                """SELECT descriptor_json,lifecycle_state,health_state_json
+                   FROM provider_registry WHERE provider_id=?""",
+                (provider_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            descriptor = CapabilityDescriptor.from_dict(
+                json.loads(str(row["descriptor_json"]))
+            )
+            health = ProviderHealth.from_dict(
+                json.loads(str(row["health_state_json"]))
+            )
+            descriptor = replace(
+                descriptor,
+                lifecycle=ProviderLifecycle(
+                    str(row["lifecycle_state"])
+                ),
+            )
+        except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+            return None
+        return descriptor, health
+
+    def list_for_capability(
+        self,
+        capability: str,
+    ) -> list[tuple[CapabilityDescriptor, ProviderHealth]]:
+        with self.db.transaction() as conn:
+            provider_ids = [
+                str(row["provider_id"])
+                for row in conn.execute(
+                    """SELECT provider_id FROM provider_registry
+                       WHERE capability=?
+                       ORDER BY provider_id""",
+                    (capability,),
+                ).fetchall()
+            ]
+        result = []
+        for provider_id in provider_ids:
+            snapshot = self.snapshot(provider_id)
+            if snapshot is not None:
+                result.append(snapshot)
+        return result
 
     def authorization_compatible(
         self,
