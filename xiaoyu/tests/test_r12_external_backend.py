@@ -164,13 +164,19 @@ class R12ExternalBackendTests(unittest.TestCase):
                         raise RuntimeError("primary unavailable")
                     return "qwen-ok", {"backend": "external"}
 
-            answer, usage = model_adapter.chat(
-                primary,
-                [{"role": "user", "content": "hello"}],
-                runtime_host=host,
-                required_data_class="PUBLIC",
-                transport_backend=Backend(),
-            )
+            from unittest.mock import patch
+            with patch.object(
+                model_adapter,
+                "_provider_key",
+                return_value="synthetic-key",
+            ):
+                answer, usage = model_adapter.chat(
+                    primary,
+                    [{"role": "user", "content": "hello"}],
+                    runtime_host=host,
+                    required_data_class="PUBLIC",
+                    transport_backend=Backend(),
+                )
 
             self.assertEqual(answer, "qwen-ok")
             self.assertEqual(usage["backend"], "external")
