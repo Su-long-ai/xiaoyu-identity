@@ -456,3 +456,149 @@ Reopen an architecture decision only when a new external mechanism demonstrates 
 6. reproducible evidence that an existing XiaoYu decision is inferior.
 
 Otherwise classify the project as another provider/reference implementation.
+
+
+---
+
+# D21. Add Principal Resolution before private context
+
+Once XiaoYu operates through:
+
+- shared microphones
+- phones
+- smart glasses
+- cameras
+- household devices
+- guest/social sessions
+
+"someone is talking to XiaoYu" is no longer equivalent to "the owner is talking."
+
+Add a runtime principal context:
+
+```
+PrincipalContext
+  claimed_principal
+  authenticated_principal
+  authentication_level
+  confidence
+  evidence_classes
+  current_viewers
+  session_scope
+  expires_at
+```
+
+Possible evidence classes:
+
+```
+PAIRED_DEVICE
+ACCOUNT_SESSION
+LOCAL_OS_SESSION
+EXPLICIT_UNLOCK
+SPEAKER_MATCH
+FACE_MATCH
+PROXIMITY
+UNKNOWN
+```
+
+Rules:
+
+1. device/account/session evidence is stronger than probabilistic biometrics;
+2. speaker/face matching is supporting evidence, not sole authority for high-risk access;
+3. low-confidence identity resolves to Guest/Unknown;
+4. Guest/Unknown gets no owner-private memory by default;
+5. Guest/Unknown cannot inherit owner standing permissions;
+6. principal resolution happens before private context assembly;
+7. the result expires and is re-evaluated when device/session/viewer conditions change.
+
+This extends the existing rule:
+
+```
+Authorization before Context
+```
+
+into:
+
+```
+Principal Resolution
+→ Audience Authorization
+→ Context Assembly
+→ Action Authorization
+```
+
+Sherpa-ONNX already exposes speaker embedding extraction, enrollment, identification/search and verification, so XiaoYu does not need to invent a speaker-recognition model. The application must still calibrate thresholds and treat the result probabilistically.
+
+---
+
+# D22. Add Bystander Privacy for wearable/ambient sensing
+
+Owner authorization is insufficient when sensors capture other people.
+
+Wearable/camera/microphone surfaces need:
+
+- visible/otherwise perceptible capture indication where practical;
+- short default retention;
+- third-party/bystander tagging;
+- no automatic face identity enrollment;
+- no automatic long-term memory promotion for bystander content;
+- stricter cloud-disclosure policy;
+- easy capture disable/pause;
+- sensitive-location policy hooks.
+
+This is especially important for smart-glasses-like devices where capture may be difficult for nearby people to notice.
+
+---
+
+# D23. Separate Goals from Active Intentions
+
+OpenAlma reinforces a useful distinction:
+
+```
+Life / Long-term Goal
+≠
+Active Intention
+≠
+Scheduled Purpose
+```
+
+A long-term goal is background orientation, not an instruction to act every heartbeat.
+
+Recommended hierarchy:
+
+```
+Goal
+  long-lived desired direction
+
+Intention
+  currently selected bounded effort toward a goal
+
+Purpose/Event
+  concrete pending commitment/watch/reminder/task
+```
+
+Only intentions/purposes may become execution candidates.
+
+Goals can influence planning and reflection but do not grant permission or create external actions by themselves.
+
+---
+
+# D24. Dossier is a projection, not a new authority
+
+OpenAlma's episode/dossier/entity approach is useful for readability and retrieval.
+
+XiaoYu should support future dossier-like projections for:
+
+- people
+- projects
+- topics
+- places
+- recurring concerns
+
+but a dossier remains:
+
+```
+evidence-linked derived narrative
+```
+
+It does not replace raw events, temporal facts or the user profile authority.
+
+Manual merge/ignore/delete/attach operations should update the projection graph while preserving source lineage.
