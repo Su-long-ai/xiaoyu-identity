@@ -14,6 +14,10 @@ from xiaoyu.persistence.repositories.receipts import (
     ActionReceiptRepository,
     DeliveryRepository,
 )
+from xiaoyu.persistence.repositories.execution_auth import (
+    DispatchAuthorizationDenied,
+    ExecutionAuthorizationRepository,
+)
 
 
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
@@ -29,6 +33,7 @@ class OutboxDispatcher:
         fault_hook=None,
         receipt_repo=None,
         delivery_repo=None,
+        execution_auth_repo=None,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
@@ -37,6 +42,9 @@ class OutboxDispatcher:
         self.fault_hook = fault_hook
         self.receipt_repo = receipt_repo or ActionReceiptRepository()
         self.delivery_repo = delivery_repo or DeliveryRepository()
+        self.execution_auth_repo = (
+            execution_auth_repo or ExecutionAuthorizationRepository()
+        )
 
     def recover_inflight(self, now: Optional[datetime] = None) -> int:
         current = now or datetime.now(timezone.utc)
@@ -53,6 +61,32 @@ class OutboxDispatcher:
             claimed = self.outbox_repo.claim_due(conn, current, limit)
             ready = []
             for row in claimed:
+                try:
+                    self.execution_auth_repo.preflight(
+                        conn,
+                        authorization_decision_id=row.authorization_decision_id,
+                        identity_id=row.identity_id,
+                        actor_id=row.actor_id,
+                        action_class=row.action_class,
+                        purpose_id=row.purpose_id,
+                        destination=row.destination,
+                        request=row.payload,
+                        now=current,
+                    )
+                except DispatchAuthorizationDenied as exc:
+                    self.outbox_repo.mark(
+                        conn, row.outbox_id, "FAILED_FINAL", current
+                    )
+                    self.effect_repo.set_authorization_failed(
+                        conn,
+                        row.effect_id,
+                        str(exc),
+                        current,
+                    )
+                    self.delivery_repo.mark_failed_final(
+                        conn, row.effect_id, current
+                    )
+                    continue
                 if self._purpose_is_terminal(conn, row.purpose_id):
                     self.outbox_repo.mark(
                         conn, row.outbox_id, "FAILED_FINAL", current
