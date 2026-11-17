@@ -1,4 +1,5 @@
 """Runtime Host primitives."""
+from .litellm_backend import LiteLLMBackendUnavailable, LiteLLMCompletionBackend
 from .delivery import (
     DeliveryAttemptAlreadyActive,
     DeliveryCoordinator,
@@ -106,6 +107,8 @@ __all__ = [
     "ExecutionRecoveryQueue",
     "ExecutionResourceBroker",
     "ModeTransition",
+    "LiteLLMBackendUnavailable",
+    "LiteLLMCompletionBackend",
     "OutboxDispatcher",
     "CanonicalDialogueProjector",
     "CanonicalHistoryTurn",
