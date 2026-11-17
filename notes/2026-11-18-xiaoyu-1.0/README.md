@@ -56,8 +56,11 @@
 - [IMPLEMENTATION_SPEC_V0_2.md](IMPLEMENTATION_SPEC_V0_2.md)  
   实现级架构规格 v0.2：最终分层、目录结构、Contract、SQLite schema、事务边界、Principal/Actor/Delegation、Effect/Outbox、ResourceBroker、Power、Release Authority 等，历史实现规格 v0.2；已被 V1 合并，保留作演进记录。
 
+- [IMPLEMENTATION_RUNBOOK_V1.md](IMPLEMENTATION_RUNBOOK_V1.md)  
+  **当前施工 authority。** R0–R22 直接实施顺序，已合并 context compaction、Promise、Audience Reset、Portable Export、Ambient Presence、Onboarding/Offboarding 等最终增量。
+
 - [IMPLEMENTATION_RUNBOOK_V0_2.md](IMPLEMENTATION_RUNBOOK_V0_2.md)  
-  施工手册 v0.2：R0–R20 逐步实施顺序，每步列出要改的文件、接口、测试、退出门和回滚规则，供 coding agent 直接领取执行。
+  历史施工手册 v0.2；内容已被 V1 合并，保留作演进记录。
 
 - [SATURATION_REAUDIT_V0_3.md](SATURATION_REAUDIT_V0_3.md)  
   v0.3 反证式饱和复审历史增量：Promise Ledger、Memory Control Plane、Journal/Presence、Relationship Lifecycle、Offboarding、Audience Context Reset、多模态证据、Onboarding；内容已合并进 V1。
