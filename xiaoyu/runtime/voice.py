@@ -5,7 +5,7 @@ from datetime import datetime
 import hashlib
 import inspect
 import math
-from typing import Any, Awaitable, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from xiaoyu.contracts import (
     InputSourceEnvelope,
@@ -273,10 +273,43 @@ class PipecatUnavailable(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class PipecatPipelinePolicy:
+    audio_in_sample_rate: int = 16000
+    audio_out_sample_rate: int = 24000
+    enable_metrics: bool = True
+    enable_usage_metrics: bool = True
+    report_only_initial_ttfb: bool = False
+
+    def __post_init__(self) -> None:
+        if self.audio_in_sample_rate <= 0:
+            raise ValueError("audio_in_sample_rate must be positive")
+        if self.audio_out_sample_rate <= 0:
+            raise ValueError("audio_out_sample_rate must be positive")
+
+
+def build_pipecat_params(
+    policy: PipecatPipelinePolicy = PipecatPipelinePolicy(),
+):
+    try:
+        from pipecat.pipeline.worker import PipelineParams
+    except ImportError as exc:
+        raise PipecatUnavailable(
+            "Pipecat is not installed; voice runtime stays unavailable"
+        ) from exc
+    return PipelineParams(
+        audio_in_sample_rate=policy.audio_in_sample_rate,
+        audio_out_sample_rate=policy.audio_out_sample_rate,
+        enable_metrics=policy.enable_metrics,
+        enable_usage_metrics=policy.enable_usage_metrics,
+        report_only_initial_ttfb=policy.report_only_initial_ttfb,
+    )
+
+
 def pipecat_api_status() -> dict[str, Any]:
     """Probe the selected engine lazily; importing XiaoYu never requires Pipecat."""
     try:
-        from pipecat.pipeline.task import PipelineWorker, PipelineParams
+        from pipecat.pipeline.worker import PipelineWorker, PipelineParams
     except ImportError:
         return {
             "engine": VOICE_ENGINE,
