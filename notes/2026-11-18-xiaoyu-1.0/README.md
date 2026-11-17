@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [ECOSYSTEM_SATURATION_FINAL_VERDICT.md](ECOSYSTEM_SATURATION_FINAL_VERDICT.md)  
+  最终饱和裁决：项目版图、源码机制、架构状态类、关键增量、停止调查条件和下一阶段实测入口。
+
 - [SOURCE_LEVEL_REFERENCE_MINING.md](SOURCE_LEVEL_REFERENCE_MINING.md)  
   源码机制挖掘：V1rtual-Desk-Pet、N.E.K.O、AIRI、Sentient、MIRA、Tamanitomo、Nexus、IronClaw、Pipecat、Operit2 等真实实现边界。
 
