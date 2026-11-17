@@ -31,6 +31,9 @@ from xiaoyu.runtime.product_store import (
     CanonicalProductStore,
     PresentationStateStore,
 )
+from xiaoyu.runtime.product_readiness import (
+    CanonicalWriteShadowDrill,
+)
 
 
 UTC = timezone.utc
@@ -473,6 +476,177 @@ class CanonicalProductWriteShadowTests(unittest.TestCase):
                     identity_id
                 )
             )
+
+
+    def test_disposable_write_drill_is_ready_for_legacy_migrated_identity_without_touching_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            legacy = IdentityStore(root)
+            identity_id = str(legacy.persona()["id"])
+            event_id = legacy.record(
+                "conversation.user",
+                "user",
+                "legacy write-drill seed",
+                {
+                    "principal_id": "owner",
+                    "surface": "desktop",
+                    "source_type": "text",
+                    "audience_scope": "PRIVATE",
+                    "context_space": "PERSONAL",
+                },
+            )
+            legacy.add_memory(
+                "legacy write-drill seed",
+                category="shared",
+                priority=3,
+                source_event=event_id,
+            )
+            legacy.close()
+
+            db = Database(root / "identity" / "identity.sqlite3")
+            apply_migrations(db)
+            backfill = LegacyShadowBackfill(db)
+            self.assertTrue(
+                backfill.run_batch(
+                    identity_id,
+                    limit=1000,
+                ).converged
+            )
+            LegacySelfBackfill(db).run()
+            self.assertTrue(
+                LegacyMemoryTemporalBackfill(db)
+                .run(identity_id)
+                .converged
+            )
+
+            with db.transaction() as conn:
+                source_events_before = conn.execute(
+                    "SELECT COUNT(*) FROM canonical_events"
+                ).fetchone()[0]
+                source_mutations_before = conn.execute(
+                    "SELECT COUNT(*) FROM fact_mutations"
+                ).fetchone()[0]
+                source_persona_before = conn.execute(
+                    """SELECT current_persona_revision
+                       FROM self_identity
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+
+            status = CanonicalWriteShadowDrill(
+                db,
+                root / "write-readiness.json",
+            ).run(
+                identity_id=identity_id,
+                observed_at=T0,
+            )
+            self.assertTrue(
+                status.candidate_ready,
+                status.blockers,
+            )
+            self.assertEqual(status.blockers, ())
+
+            with db.transaction() as conn:
+                source_events_after = conn.execute(
+                    "SELECT COUNT(*) FROM canonical_events"
+                ).fetchone()[0]
+                source_mutations_after = conn.execute(
+                    "SELECT COUNT(*) FROM fact_mutations"
+                ).fetchone()[0]
+                source_persona_after = conn.execute(
+                    """SELECT current_persona_revision
+                       FROM self_identity
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+                drill_rows = conn.execute(
+                    """SELECT COUNT(*) FROM canonical_events
+                       WHERE source_event_key LIKE '__write_drill%'"""
+                ).fetchone()[0]
+                cutover_rows = conn.execute(
+                    """SELECT COUNT(*) FROM authority_cutover_state
+                       WHERE mode='CANONICAL'"""
+                ).fetchone()[0]
+            self.assertEqual(
+                source_events_after,
+                source_events_before,
+            )
+            self.assertEqual(
+                source_mutations_after,
+                source_mutations_before,
+            )
+            self.assertEqual(
+                source_persona_after,
+                source_persona_before,
+            )
+            self.assertEqual(drill_rows, 0)
+            self.assertEqual(cutover_rows, 0)
+
+    def test_disposable_write_drill_supports_fresh_canonical_only_identity(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = Database(root / "fresh.sqlite3")
+            apply_migrations(db)
+            identity_id = "fish-fresh-canonical"
+            SelfAuthorityService(db).initialize(
+                identity_id=identity_id,
+                persona={
+                    "name": "小鱼",
+                    "identity_commitments": ["诚实"],
+                    "style": {"language": "zh-CN"},
+                    "growth_notes": [],
+                    "bond_description": "fresh",
+                },
+                created_at=T0,
+                reason="fresh-install",
+            )
+
+            with db.transaction() as conn:
+                legacy_tables = {
+                    row[0]
+                    for row in conn.execute(
+                        """SELECT name FROM sqlite_master
+                           WHERE type='table'"""
+                    ).fetchall()
+                }.intersection(
+                    {
+                        "events",
+                        "memories",
+                        "memory_proposals",
+                        "persona_versions",
+                        "settings",
+                    }
+                )
+            self.assertEqual(legacy_tables, set())
+
+            status = CanonicalWriteShadowDrill(
+                db,
+                root / "fresh-write-readiness.json",
+            ).run(
+                identity_id=identity_id,
+                observed_at=T0,
+            )
+            self.assertTrue(
+                status.candidate_ready,
+                status.blockers,
+            )
+
+            with db.transaction() as conn:
+                self.assertEqual(
+                    conn.execute(
+                        """SELECT COUNT(*) FROM canonical_events
+                           WHERE source_event_key LIKE '__write_drill%'"""
+                    ).fetchone()[0],
+                    0,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        """SELECT COUNT(*) FROM authority_cutover_state
+                           WHERE mode='CANONICAL'"""
+                    ).fetchone()[0],
+                    0,
+                )
+
 
 
 if __name__ == "__main__":
