@@ -117,7 +117,7 @@ class IdentityShadowIntegrationTests(unittest.TestCase):
                         "SELECT version FROM schema_migrations ORDER BY version"
                     ).fetchall()
                 ]
-                self.assertEqual(versions, [1])
+                self.assertEqual(versions, [1, 2])
             finally:
                 second.close()
 
