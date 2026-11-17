@@ -658,14 +658,38 @@ class RecoveryManager:
             if identities and identity_id not in identities:
                 raise RestoreInvariantError("identity continuity smoke failed")
             for tombstone in fence_identity.get("tombstones", []):
-                resurrected = conn.execute(
-                    """SELECT 1 FROM temporal_facts
-                       WHERE identity_id=? AND fact_key=? AND status!='DELETED'
-                       LIMIT 1""",
-                    (identity_id, str(tombstone["target_id"])),
+                fact_key = str(tombstone["target_id"])
+                authority = conn.execute(
+                    """SELECT last_source_ingest_revision,erasure_generation
+                       FROM fact_authority_revisions
+                       WHERE identity_id=? AND fact_key=?""",
+                    (identity_id, fact_key),
                 ).fetchone()
-                if resurrected is not None:
-                    raise RestoreInvariantError("erasure fence was not applied")
+                tombstone_generation = int(tombstone["erasure_generation"])
+                tombstone_source = int(
+                    tombstone.get("source_ingest_revision") or 0
+                )
+                if authority is None:
+                    raise RestoreInvariantError(
+                        "erasure fence authority revision is missing"
+                    )
+                if int(authority["erasure_generation"]) < tombstone_generation:
+                    raise RestoreInvariantError(
+                        "erasure generation is behind trusted fence"
+                    )
+                # Active state is valid only when the DB has already processed
+                # this erasure generation and then consumed a newer source.
+                if int(authority["last_source_ingest_revision"]) <= tombstone_source:
+                    resurrected = conn.execute(
+                        """SELECT 1 FROM temporal_facts
+                           WHERE identity_id=? AND fact_key=? AND status!='DELETED'
+                           LIMIT 1""",
+                        (identity_id, fact_key),
+                    ).fetchone()
+                    if resurrected is not None:
+                        raise RestoreInvariantError(
+                            "erasure fence was not applied"
+                        )
         RecoveryManager._verify_no_replayable_restore_work(db, identity_id)
 
     @staticmethod
