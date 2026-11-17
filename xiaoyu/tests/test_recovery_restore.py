@@ -162,6 +162,55 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self.assertEqual(row[0], "DELETED")
             self.assertEqual(tombstone[0], 1)
 
+    def test_restore_rebuilds_projection_from_canonical_fact_not_old_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            active = self._db(root / "identity.sqlite3")
+            self._seed_fact(active)
+            ExternalErasureFenceStore(active.path).ensure_identity("fish-1")
+            with active.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO projections(
+                           identity_id,projection_key,projection_type,value_json,
+                           source_fact_ids_json,builder_version,built_at,
+                           source_revision,erasure_generation
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "fish-1",
+                        "poisoned-summary",
+                        "PROFILE_SUMMARY",
+                        '{"secret_pref":"WRONG"}',
+                        "[]",
+                        "old-summary",
+                        STAMP,
+                        0,
+                        0,
+                    ),
+                )
+            snapshot = active.backup_to(root / "old.sqlite3")
+
+            report = RecoveryManager.restore(
+                candidate_path=snapshot,
+                target_path=active.path,
+                identity_id="fish-1",
+                mode=RestoreMode.MANAGED,
+            )
+            self.assertEqual(report.cleared_projections, 1)
+            self.assertEqual(report.rebuilt_projections, 1)
+
+            restored = Database(active.path)
+            with restored.transaction() as conn:
+                rows = conn.execute(
+                    """SELECT projection_key,projection_type,value_json,
+                              builder_version,source_revision,erasure_generation
+                       FROM projections WHERE identity_id='fish-1'"""
+                ).fetchall()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["projection_key"], "fact:secret")
+            self.assertEqual(rows[0]["projection_type"], "CURRENT_FACT")
+            self.assertEqual(rows[0]["builder_version"], "recovery-current-fact-v1")
+            self.assertEqual(json.loads(rows[0]["value_json"])["values"], ["A"])
+
     def test_managed_restore_without_trusted_watermark_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
