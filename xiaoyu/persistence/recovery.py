@@ -186,10 +186,8 @@ class RecoveryManager:
         RecoveryManager.validate_backup_manifest(
             candidate_path, expected_identity_id=identity_id
         )
-        candidate = Database(candidate_path)
-        RecoveryManager._require_healthy(candidate, "candidate")
-        apply_migrations(candidate)
-        verify_schema(candidate)
+        source_candidate = Database(candidate_path)
+        RecoveryManager._require_healthy(source_candidate, "candidate")
 
         fence_store, fence_identity = RecoveryManager._trusted_fence(
             candidate_path=candidate_path,
@@ -202,41 +200,55 @@ class RecoveryManager:
             timezone.utc
         ).isoformat(timespec="microseconds")
 
-        counts = RecoveryManager._prepare_candidate(
-            candidate,
-            identity_id=identity_id,
-            fence_identity=fence_identity,
-            restored_at=stamp,
-        )
-        RecoveryManager._verify_candidate(candidate, identity_id, fence_identity)
-
+        work_path = target_path.with_name(target_path.name + ".restore-work")
         stage_path = target_path.with_name(target_path.name + ".restore-stage")
-        for suffix in ("", "-wal", "-shm"):
-            p = Path(str(stage_path) + suffix)
-            if p.exists():
-                p.unlink()
-        candidate.backup_to(stage_path)
-        stage = Database(stage_path)
-        RecoveryManager._require_healthy(stage, "staged restore")
+        RecoveryManager._cleanup_sqlite_artifact(work_path)
+        RecoveryManager._cleanup_sqlite_artifact(stage_path)
+        try:
+            # Restore candidates are immutable evidence. All migration,
+            # tombstone replay, and quarantine changes happen on a working copy.
+            source_candidate.backup_to(work_path)
+            candidate = Database(work_path)
+            RecoveryManager._require_healthy(candidate, "candidate working copy")
+            apply_migrations(candidate)
+            verify_schema(candidate)
 
-        if target_path.exists():
-            RecoveryManager._checkpoint(target_path)
-        for suffix in ("-wal", "-shm"):
-            p = Path(str(target_path) + suffix)
-            if p.exists():
-                p.unlink()
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(stage_path, target_path)
+            counts = RecoveryManager._prepare_candidate(
+                candidate,
+                identity_id=identity_id,
+                fence_identity=fence_identity,
+                restored_at=stamp,
+            )
+            RecoveryManager._verify_candidate(candidate, identity_id, fence_identity)
 
-        target_fence = ExternalErasureFenceStore(target_path)
-        payload = fence_store.load()
-        if payload is None:
-            raise MissingErasureWatermark("trusted erasure watermark disappeared")
-        target_fence._write(payload)
+            # Materialize committed WAL state into a clean activation image.
+            candidate.backup_to(stage_path)
+            stage = Database(stage_path)
+            RecoveryManager._require_healthy(stage, "staged restore")
 
-        RecoveryQuarantineStore(target_path).activate(
-            identity_id=identity_id, mode=mode, created_at=stamp
-        )
+            if target_path.exists():
+                RecoveryManager._checkpoint(target_path)
+            for suffix in ("-wal", "-shm"):
+                p = Path(str(target_path) + suffix)
+                if p.exists():
+                    p.unlink()
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(stage_path, target_path)
+
+            target_fence = ExternalErasureFenceStore(target_path)
+            payload = fence_store.load()
+            if payload is None:
+                raise MissingErasureWatermark(
+                    "trusted erasure watermark disappeared"
+                )
+            target_fence._write(payload)
+
+            RecoveryQuarantineStore(target_path).activate(
+                identity_id=identity_id, mode=mode, created_at=stamp
+            )
+        finally:
+            RecoveryManager._cleanup_sqlite_artifact(work_path)
+            RecoveryManager._cleanup_sqlite_artifact(stage_path)
         return RestoreReport(
             mode=mode,
             identity_id=identity_id,
@@ -374,6 +386,11 @@ class RecoveryManager:
                        WHERE identity_id=? AND fact_key=? AND status!='DELETED'""",
                     (identity_id, fact_key),
                 )
+                RecoveryManager._propagate_restored_erasure(
+                    conn,
+                    identity_id=identity_id,
+                    fact_key=fact_key,
+                )
                 conn.execute(
                     """INSERT INTO fact_authority_revisions(
                            identity_id,fact_key,current_revision,
@@ -493,6 +510,49 @@ class RecoveryManager:
                 conn, identity_id=identity_id, built_at=restored_at
             )
         return counts
+
+    @staticmethod
+    def _propagate_restored_erasure(
+        conn,
+        *,
+        identity_id: str,
+        fact_key: str,
+    ) -> None:
+        rows = conn.execute(
+            """SELECT fact_id,claim_id FROM temporal_facts
+               WHERE identity_id=? AND fact_key=?""",
+            (identity_id, fact_key),
+        ).fetchall()
+        fact_ids = {str(row["fact_id"]) for row in rows}
+        claim_ids = {str(row["claim_id"]) for row in rows}
+        if claim_ids:
+            placeholders = ",".join("?" for _ in claim_ids)
+            conn.execute(
+                """UPDATE claims SET status='ERASED'
+                   WHERE identity_id=? AND claim_id IN (%s)
+                     AND status!='ERASED'""" % placeholders,
+                (identity_id, *sorted(claim_ids)),
+            )
+        if fact_ids:
+            relationships = conn.execute(
+                """SELECT principal_id,source_fact_ids_json
+                   FROM relationship_state WHERE identity_id=?""",
+                (identity_id,),
+            ).fetchall()
+            for row in relationships:
+                try:
+                    sources = {
+                        str(value)
+                        for value in json.loads(str(row["source_fact_ids_json"]))
+                    }
+                except (TypeError, ValueError):
+                    sources = fact_ids
+                if sources & fact_ids:
+                    conn.execute(
+                        """DELETE FROM relationship_state
+                           WHERE identity_id=? AND principal_id=?""",
+                        (identity_id, str(row["principal_id"])),
+                    )
 
     @staticmethod
     def _rebuild_projections(conn, *, identity_id: str, built_at: str) -> int:
@@ -616,6 +676,13 @@ class RecoveryManager:
             ) from exc
         if not healthy:
             raise RestoreInvariantError("%s integrity_check failed" % label)
+
+    @staticmethod
+    def _cleanup_sqlite_artifact(path: Path) -> None:
+        for suffix in ("", "-wal", "-shm"):
+            candidate = Path(str(path) + suffix)
+            if candidate.exists():
+                candidate.unlink()
 
     @staticmethod
     def _checkpoint(path: Path) -> None:
