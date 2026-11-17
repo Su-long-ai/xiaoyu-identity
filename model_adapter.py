@@ -11,6 +11,11 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from xiaoyu.contracts import (
+    CapabilityDescriptor,
+    IsolationMode,
+    ProviderLifecycle,
+)
 from xiaoyu.runtime.provider_registry import (
     PrivacyClass,
     ProviderDescriptor,
@@ -447,6 +452,63 @@ def _provider_descriptor(config):
     )
 
 
+
+def capability_descriptor_for_config(config):
+    """Bridge the legacy adapter config into the public capability contract."""
+    runtime_descriptor=_provider_descriptor(config)
+    interface_digest=stable_digest({
+        "contract":"openai.chat.completions",
+        "request":{
+            "messages":"list",
+            "max_tokens":"int",
+            "stream":False,
+        },
+        "response":{
+            "choices.message.content":"str",
+            "usage":"object",
+        },
+        "adapter_policy_version":1,
+    })
+    isolation=(
+        IsolationMode.SIDECAR
+        if runtime_descriptor.endpoint_scope=="LOCAL"
+        else IsolationMode.REMOTE
+    )
+    return CapabilityDescriptor(
+        provider_id=runtime_descriptor.provider_id,
+        capability=runtime_descriptor.capability,
+        implementation_version="model-adapter-v1",
+        contract_name="openai.chat.completions",
+        contract_min_version="1.0",
+        contract_max_exclusive="2.0",
+        artifact_digest=ADAPTER_ARTIFACT_DIGEST,
+        descriptor_digest=runtime_descriptor.descriptor_digest,
+        interface_digest=interface_digest,
+        tool_schema_digest=None,
+        isolation=isolation,
+        features={
+            "capability_digest":runtime_descriptor.capability_digest,
+            "implementation_digest":
+                runtime_descriptor.implementation_digest,
+            "endpoint_scope":runtime_descriptor.endpoint_scope,
+            "model":str(config.get("model") or ""),
+            "fallback_capable":True,
+        },
+        data_classes=tuple(
+            value.value
+            for value in runtime_descriptor.privacy_classes
+        ),
+        permissions_required=(
+            ("network",)
+            if runtime_descriptor.endpoint_scope!="LOCAL"
+            else ()
+        ),
+        fallback_group="chat.completion",
+        lifecycle=ProviderLifecycle.ACTIVE,
+        resource_profile={},
+    )
+
+
 def chat(
     config,
     messages,
@@ -457,6 +519,8 @@ def chat(
     required_data_class=None,
     attempt_audit=None,
     provider_health=None,
+    runtime_host=None,
+    required_features=(),
 ):
     """OpenAI-compatible messages with ordered provider fallback.
 
@@ -500,6 +564,20 @@ def chat(
                 provider_health(descriptor)
                 if provider_health is not None else None
             )
+            if runtime_host is not None:
+                admission=runtime_host.admit_provider(
+                    descriptor,
+                    required_data_class=required_data_class,
+                    required_features=tuple(required_features or ()),
+                    live_health=health,
+                )
+                if not admission.allowed:
+                    errors.append((
+                        name,
+                        "runtime host rejected provider: "
+                        + ",".join(admission.reasons),
+                    ))
+                    continue
             context_builder=getattr(guard,"provider_attempt_context",None)
             if context_builder is not None:
                 attempt_context=context_builder(descriptor,required_data_class)
