@@ -48,6 +48,10 @@ class RestoreReport:
     quarantined_delivery_attempts: int
     revoked_delegations: int
     degraded_providers: int
+    invalidated_execution_authorizations: int
+    quarantined_purposes: int
+    quarantined_occurrences: int
+    quarantined_deliveries: int
     cleared_projections: int
     rebuilt_projections: int
 
@@ -242,6 +246,10 @@ class RecoveryManager:
             quarantined_delivery_attempts=counts["attempts"],
             revoked_delegations=counts["delegations"],
             degraded_providers=counts["providers"],
+            invalidated_execution_authorizations=counts["execution_auth"],
+            quarantined_purposes=counts["purposes"],
+            quarantined_occurrences=counts["occurrences"],
+            quarantined_deliveries=counts["deliveries"],
             cleared_projections=counts["projections"],
             rebuilt_projections=counts["rebuilt_projections"],
         )
@@ -319,6 +327,10 @@ class RecoveryManager:
             "attempts": 0,
             "delegations": 0,
             "providers": 0,
+            "execution_auth": 0,
+            "purposes": 0,
+            "occurrences": 0,
+            "deliveries": 0,
             "projections": 0,
             "rebuilt_projections": 0,
         }
@@ -439,6 +451,35 @@ class RecoveryManager:
             )
             counts["delegations"] = int(cur.rowcount)
             cur = conn.execute(
+                "DELETE FROM execution_authorizations WHERE identity_id=?",
+                (identity_id,),
+            )
+            counts["execution_auth"] = int(cur.rowcount)
+            cur = conn.execute(
+                """UPDATE purposes
+                   SET state='NEEDS_RECONCILIATION',updated_at=?,
+                       last_evaluated_at=?
+                   WHERE identity_id=? AND state IN
+                     ('SCHEDULED','ACTIVE','WAITING')""",
+                (restored_at, restored_at, identity_id),
+            )
+            counts["purposes"] = int(cur.rowcount)
+            if "purpose_occurrences" in tables:
+                cur = conn.execute(
+                    """UPDATE purpose_occurrences
+                       SET state='NEEDS_RECONCILIATION',updated_at=?
+                       WHERE identity_id=? AND state IN ('READY','CLAIMED')""",
+                    (restored_at, identity_id),
+                )
+                counts["occurrences"] = int(cur.rowcount)
+            cur = conn.execute(
+                """UPDATE deliveries
+                   SET state='NEEDS_RECONCILIATION',updated_at=?
+                   WHERE identity_id=? AND state IN ('PENDING','FAILED')""",
+                (restored_at, identity_id),
+            )
+            counts["deliveries"] = int(cur.rowcount)
+            cur = conn.execute(
                 """UPDATE provider_registry SET lifecycle_state='DEGRADED',updated_at=?
                    WHERE lifecycle_state NOT IN ('DISABLED','SHUTDOWN')""",
                 (restored_at,),
@@ -550,6 +591,20 @@ class RecoveryManager:
             ).fetchone()
             if row is not None:
                 raise RestoreInvariantError("restored executable outbox work remains")
+            purpose = conn.execute(
+                """SELECT 1 FROM purposes WHERE identity_id=? AND state IN
+                   ('SCHEDULED','ACTIVE','WAITING') LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if purpose is not None:
+                raise RestoreInvariantError("restored executable purpose remains")
+            auth = conn.execute(
+                """SELECT 1 FROM execution_authorizations
+                   WHERE identity_id=? LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if auth is not None:
+                raise RestoreInvariantError("restored execution authorization remains reusable")
 
     @staticmethod
     def _require_healthy(db: Database, label: str) -> None:
