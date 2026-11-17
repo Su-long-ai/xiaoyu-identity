@@ -55,6 +55,7 @@ def attempt_context(
     d,
     *,
     principal_id="owner",
+    owner_principal_id="owner",
     audience_scope="PRIVATE",
     context_space="PERSONAL",
     context_generation="gen-1",
@@ -81,6 +82,7 @@ def attempt_context(
         provider_descriptor_digest=d.descriptor_digest,
         provider_capability_digest=d.capability_digest,
         provider_implementation_digest=d.implementation_digest,
+        owner_principal_id=owner_principal_id,
         expected_descriptor_digest=expected_descriptor_digest,
         expected_capability_digest=expected_capability_digest,
         expected_approval_binding_digest=expected_approval_binding_digest,
@@ -154,6 +156,65 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
         self.assertFalse(result.allowed)
         self.assertIn("privacy_class_ineligible",result.reasons)
+
+    def test_local_only_private_tool_result_keeps_local_boundary_and_owner_scope(self):
+        remote=descriptor(
+            privacy=(PrivacyClass.PUBLIC,PrivacyClass.OWNER_PRIVATE),
+            endpoint_scope="REMOTE",
+        )
+        remote_result=evaluate_provider(
+            remote,
+            attempt_context(
+                remote,
+                privacy=PrivacyClass.LOCAL_ONLY,
+                private_tool=True,
+                tool_result_digest="tool-result-v1",
+            ),
+        )
+        self.assertFalse(remote_result.allowed)
+        self.assertIn("privacy_class_ineligible",remote_result.reasons)
+        self.assertIn("local_only_requires_local_provider",remote_result.reasons)
+
+        local=descriptor(
+            privacy=(PrivacyClass.PUBLIC,PrivacyClass.LOCAL_ONLY),
+            endpoint_scope="LOCAL",
+        )
+        guest_result=evaluate_provider(
+            local,
+            attempt_context(
+                local,
+                principal_id="guest",
+                owner_principal_id="owner",
+                privacy=PrivacyClass.LOCAL_ONLY,
+                private_tool=True,
+                tool_result_digest="tool-result-v1",
+            ),
+        )
+        self.assertFalse(guest_result.allowed)
+        self.assertIn("owner_private_principal_mismatch",guest_result.reasons)
+
+    def test_owner_private_uses_positive_owner_binding_not_principal_denylist(self):
+        d=descriptor()
+        member=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                principal_id="member-42",
+                owner_principal_id="owner",
+            ),
+        )
+        self.assertFalse(member.allowed)
+        self.assertIn("owner_private_principal_mismatch",member.reasons)
+
+        canonical_owner=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                principal_id="principal-abc",
+                owner_principal_id="principal-abc",
+            ),
+        )
+        self.assertTrue(canonical_owner.allowed)
 
     def test_capability_and_digest_changes_invalidate_eligibility(self):
         d=descriptor()

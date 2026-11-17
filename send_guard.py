@@ -199,6 +199,7 @@ class _FreshAttemptGuard:
         expected_context_fence,
         identity_id,
         principal_id,
+        owner_principal_id,
         audience_scope,
         context_space,
         required_privacy_class,
@@ -218,6 +219,9 @@ class _FreshAttemptGuard:
         self.expected_context_fence=expected_context_fence
         self.identity_id=str(identity_id)
         self.principal_id=str(principal_id)
+        self.owner_principal_id=(
+            None if owner_principal_id is None else str(owner_principal_id)
+        )
         self.audience_scope=str(audience_scope)
         self.context_space=str(context_space)
         self.required_privacy_class=str(required_privacy_class or "PUBLIC").upper()
@@ -303,6 +307,7 @@ class _FreshAttemptGuard:
             provider_descriptor_digest=descriptor.descriptor_digest,
             provider_capability_digest=descriptor.capability_digest,
             provider_implementation_digest=descriptor.implementation_digest,
+            owner_principal_id=self.owner_principal_id,
             expected_descriptor_digest=approved.get("descriptor_digest"),
             expected_capability_digest=approved.get("capability_digest"),
             expected_approval_binding_digest=approved.get("approval_binding_digest"),
@@ -345,6 +350,7 @@ def dual_guarded_chat(
     expected_context_fence=None,
     identity_id="xiaoyu",
     principal_id="owner",
+    owner_principal_id="owner",
     audience_scope="PRIVATE",
     context_space="PERSONAL",
     required_privacy_class="OWNER_PRIVATE",
@@ -376,6 +382,7 @@ def dual_guarded_chat(
                 expected_context_fence,
                 identity_id,
                 principal_id,
+                owner_principal_id,
                 audience_scope,
                 context_space,
                 required_privacy_class,
