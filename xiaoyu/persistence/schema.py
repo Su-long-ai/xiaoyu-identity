@@ -26,6 +26,46 @@ MIGRATIONS = (
     Migration(v7_purpose_occurrence.VERSION, v7_purpose_occurrence.NAME, v7_purpose_occurrence.apply, v7_purpose_occurrence.verify),
 )
 
+LATEST_SCHEMA_VERSION = max(migration.version for migration in MIGRATIONS)
+
+
+class UnsupportedSchemaVersion(RuntimeError):
+    pass
+
+
+def _recorded_versions(conn) -> List[int]:
+    present = conn.execute(
+        """SELECT 1 FROM sqlite_master
+           WHERE type='table' AND name='schema_migrations'"""
+    ).fetchone()
+    if present is None:
+        return []
+    return [
+        int(row[0])
+        for row in conn.execute(
+            "SELECT version FROM schema_migrations ORDER BY version"
+        ).fetchall()
+    ]
+
+
+def assert_schema_compatible(
+    db: Database,
+    max_supported_version: Optional[int] = None,
+) -> None:
+    supported = (
+        LATEST_SCHEMA_VERSION
+        if max_supported_version is None
+        else int(max_supported_version)
+    )
+    with db.transaction() as conn:
+        versions = _recorded_versions(conn)
+    future = [version for version in versions if version > supported]
+    if future:
+        raise UnsupportedSchemaVersion(
+            "database schema version %d is newer than supported %d"
+            % (max(future), supported)
+        )
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="microseconds")
@@ -50,6 +90,7 @@ def applied_versions(db: Database) -> List[int]:
 
 
 def apply_migrations(db: Database, target_version: Optional[int] = None) -> List[int]:
+    assert_schema_compatible(db)
     applied_now: List[int] = []
     for migration in MIGRATIONS:
         if target_version is not None and migration.version > target_version:
@@ -73,6 +114,7 @@ def apply_migrations(db: Database, target_version: Optional[int] = None) -> List
 
 
 def verify_schema(db: Database) -> None:
+    assert_schema_compatible(db)
     with db.transaction() as conn:
         _ensure_migration_table(conn)
         versions = {
