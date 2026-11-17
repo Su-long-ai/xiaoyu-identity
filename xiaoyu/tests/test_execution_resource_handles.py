@@ -3,12 +3,12 @@ from __future__ import annotations
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
-from xiaoyu.runtime.execution_resources import ExecutionResourceBroker
+from xiaoyu.runtime.execution_resources import ExecutionResourceHandles
 
 
 class ExecutionResourceHandleTests(unittest.TestCase):
     def test_cancel_releases_resource_once_and_is_idempotent(self):
-        broker = ExecutionResourceBroker()
+        broker = ExecutionResourceHandles()
         calls = []
 
         broker.acquire(
@@ -27,7 +27,7 @@ class ExecutionResourceHandleTests(unittest.TestCase):
         self.assertEqual(calls, ["cancel", "release"])
 
     def test_cancel_failure_still_releases_local_resource(self):
-        broker = ExecutionResourceBroker()
+        broker = ExecutionResourceHandles()
         calls = []
 
         def fail_cancel():
@@ -48,7 +48,7 @@ class ExecutionResourceHandleTests(unittest.TestCase):
         self.assertEqual(calls, ["cancel", "release"])
 
     def test_release_failure_is_visible_and_retryable(self):
-        broker = ExecutionResourceBroker()
+        broker = ExecutionResourceHandles()
         attempts = []
 
         def flaky_release():
@@ -73,7 +73,7 @@ class ExecutionResourceHandleTests(unittest.TestCase):
         self.assertEqual(len(attempts), 2)
 
     def test_concurrent_cancel_releases_once(self):
-        broker = ExecutionResourceBroker()
+        broker = ExecutionResourceHandles()
         calls = []
         broker.acquire(
             lease_id="lease-1",
@@ -95,7 +95,7 @@ class ExecutionResourceHandleTests(unittest.TestCase):
         self.assertEqual(calls, ["cancel", "release"])
 
     def test_lease_id_cannot_be_rebound_to_another_effect(self):
-        broker = ExecutionResourceBroker()
+        broker = ExecutionResourceHandles()
         broker.acquire(
             lease_id="lease-1",
             effect_id="effect-1",
