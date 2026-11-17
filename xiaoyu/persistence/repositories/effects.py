@@ -23,6 +23,7 @@ class ClaimedOutbox:
     actor_id: str
     authorization_decision_id: str
     request: Dict[str, Any]
+    purpose_id: Optional[str]
 
 
 class EffectRepository:
@@ -114,7 +115,7 @@ class OutboxRepository:
         rows = conn.execute(
             """SELECT o.outbox_id,o.identity_id,o.effect_id,o.destination,o.payload_json,
                       o.attempt_count,e.replayable,e.idempotency_key,e.actor_id,
-                      e.authorization_decision_id,e.request_json
+                      e.authorization_decision_id,e.request_json,e.purpose_id
                FROM outbox o
                JOIN effects e ON e.effect_id=o.effect_id
                WHERE o.state IN ('PENDING','FAILED_RETRYABLE')
@@ -146,6 +147,7 @@ class OutboxRepository:
                     actor_id=str(row["actor_id"]),
                     authorization_decision_id=str(row["authorization_decision_id"]),
                     request=json.loads(row["request_json"]),
+                    purpose_id=row["purpose_id"],
                 )
             )
         return claimed

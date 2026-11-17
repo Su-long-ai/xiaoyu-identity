@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - "feat/implementation-v1-*"
+      - "fix/redteam-*"
     paths:
       - "xiaoyu/**"
       - "identity_core.py"
@@ -36,15 +37,8 @@ jobs:
       - name: Compile XiaoYu package
         run: python -m compileall -q xiaoyu
 
-      - name: Run R1-R8 and legacy identity regression
-        run: |
-          python -m unittest -v \
-            xiaoyu.tests.test_architecture_imports \
-            xiaoyu.tests.test_contracts \
-            xiaoyu.tests.test_persistence_migrations \
-            xiaoyu.tests.test_canonical_events \
-            xiaoyu.tests.test_identity_shadow \
-            xiaoyu.tests.test_authorization_policy \
-            xiaoyu.tests.test_effect_outbox \
-            test_identity \
-            test_identity_v2
+      - name: Discover all XiaoYu implementation tests
+        run: python -m unittest discover -v -s xiaoyu/tests -p "test_*.py"
+
+      - name: Run legacy identity regression
+        run: python -m unittest -v test_identity test_identity_v2

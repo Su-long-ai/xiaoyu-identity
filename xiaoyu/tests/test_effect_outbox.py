@@ -21,6 +21,7 @@ from xiaoyu.core.effects import (
     DispatchOutcome,
     DispatchStatus,
     EffectCoordinator,
+    EffectBindingError,
     EffectNotAuthorized,
 )
 from xiaoyu.persistence import Database, apply_migrations
@@ -157,6 +158,44 @@ class EffectOutboxTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0], 0
+                )
+            finally:
+                conn.close()
+
+    def test_payload_must_match_effect_request(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            coordinator = EffectCoordinator(db)
+            with self.assertRaises(EffectBindingError):
+                coordinator.enqueue_authorized(
+                    decision_id="auth-bind",
+                    outbox_id="outbox-bind",
+                    identity_id="fish-1",
+                    principal=principal(),
+                    actor=actor(),
+                    delegation=delegation(),
+                    action=action(),
+                    resource=resource(),
+                    context=context(),
+                    auth_result=AuthorizationResult(
+                        AuthorizationDecision.ALLOW,
+                        "VALID_DELEGATION",
+                        "del-1",
+                    ),
+                    effect=effect(),
+                    destination="qq",
+                    payload={"recipient": "outsider", "text": "done"},
+                    created_at=NOW,
+                )
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM effects").fetchone()[0],
+                    0,
+                )
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0],
+                    0,
                 )
             finally:
                 conn.close()

@@ -14,7 +14,7 @@ from xiaoyu.contracts import (
     PrincipalContext,
     ResourceRef,
 )
-from xiaoyu.contracts.common import StringEnum
+from xiaoyu.contracts.common import StringEnum, canonical_json
 from xiaoyu.core.authorization import AuthorizationResult
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.repositories.grants import AuthorizationDecisionRepository
@@ -48,6 +48,10 @@ class EffectNotAuthorized(RuntimeError):
     pass
 
 
+class EffectBindingError(ValueError):
+    pass
+
+
 class EffectCoordinator:
     """Atomically persists authorization + effect + outbox commitment."""
 
@@ -58,6 +62,84 @@ class EffectCoordinator:
         self.auth_repo = auth_repo or AuthorizationDecisionRepository()
         self.effect_repo = effect_repo or EffectRepository()
         self.outbox_repo = outbox_repo or OutboxRepository()
+
+    @staticmethod
+    def _validate_binding(
+        actor: ActorContext,
+        delegation: Optional[Delegation],
+        action: ActionRequest,
+        effect: EffectIntent,
+        payload: Dict[str, Any],
+    ) -> None:
+        if effect.actor_id != actor.actor_id:
+            raise EffectBindingError("effect actor does not match authorized actor")
+        if effect.action_class != action.action_class:
+            raise EffectBindingError("effect action does not match authorized action")
+        if effect.replayable != action.replayable:
+            raise EffectBindingError("effect replayability does not match authorized action")
+        if effect.idempotency_key != action.idempotency_key:
+            raise EffectBindingError("effect idempotency key does not match authorized action")
+        if (
+            delegation is not None
+            and delegation.purpose_id is not None
+            and effect.purpose_id != delegation.purpose_id
+        ):
+            raise EffectBindingError("effect purpose does not match delegation purpose")
+        if canonical_json(payload) != canonical_json(effect.request):
+            raise EffectBindingError("outbox payload must equal effect request")
+
+    def enqueue_authorized_in_transaction(
+        self,
+        conn,
+        *,
+        decision_id: str,
+        outbox_id: str,
+        identity_id: str,
+        principal: PrincipalContext,
+        actor: ActorContext,
+        delegation: Optional[Delegation],
+        action: ActionRequest,
+        resource: ResourceRef,
+        context: AuthorizationContext,
+        auth_result: AuthorizationResult,
+        effect: EffectIntent,
+        destination: str,
+        payload: Dict[str, Any],
+        created_at: datetime,
+    ) -> None:
+        if auth_result.decision != AuthorizationDecision.ALLOW:
+            raise EffectNotAuthorized("effect enqueue requires ALLOW decision")
+        self._validate_binding(actor, delegation, action, effect, payload)
+        self.auth_repo.record(
+            conn=conn,
+            decision_id=decision_id,
+            identity_id=identity_id,
+            principal=principal,
+            actor=actor,
+            delegation=delegation,
+            action=action,
+            resource=resource,
+            context=context,
+            result=auth_result,
+            created_at=created_at,
+        )
+        self.effect_repo.insert(
+            conn,
+            identity_id,
+            effect,
+            state="QUEUED",
+            updated_at=created_at,
+            authorization_decision_id=decision_id,
+        )
+        self.outbox_repo.enqueue(
+            conn,
+            outbox_id=outbox_id,
+            identity_id=identity_id,
+            effect_id=effect.effect_id,
+            destination=destination,
+            payload=payload,
+            created_at=created_at,
+        )
 
     def enqueue_authorized(
         self,
@@ -77,13 +159,12 @@ class EffectCoordinator:
         payload: Dict[str, Any],
         created_at: Optional[datetime] = None,
     ) -> None:
-        if auth_result.decision != AuthorizationDecision.ALLOW:
-            raise EffectNotAuthorized("effect enqueue requires ALLOW decision")
         at = created_at or datetime.now(timezone.utc)
         with self.db.transaction(immediate=True) as conn:
-            self.auth_repo.record(
-                conn=conn,
+            self.enqueue_authorized_in_transaction(
+                conn,
                 decision_id=decision_id,
+                outbox_id=outbox_id,
                 identity_id=identity_id,
                 principal=principal,
                 actor=actor,
@@ -91,18 +172,8 @@ class EffectCoordinator:
                 action=action,
                 resource=resource,
                 context=context,
-                result=auth_result,
-                created_at=at,
-            )
-            self.effect_repo.insert(
-                conn, identity_id, effect, state="QUEUED", updated_at=at,
-                authorization_decision_id=decision_id,
-            )
-            self.outbox_repo.enqueue(
-                conn,
-                outbox_id=outbox_id,
-                identity_id=identity_id,
-                effect_id=effect.effect_id,
+                auth_result=auth_result,
+                effect=effect,
                 destination=destination,
                 payload=payload,
                 created_at=at,
