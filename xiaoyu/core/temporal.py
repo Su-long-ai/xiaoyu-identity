@@ -16,7 +16,7 @@ from xiaoyu.contracts.common import (
 from xiaoyu.core.claims import (
     OwnerMutationAdmissionPolicy,
 )
-from xiaoyu.persistence import Database
+from xiaoyu.persistence import Database, apply_migrations
 from xiaoyu.persistence.repositories.claims import ClaimRepository
 from xiaoyu.persistence.repositories.events import CanonicalEventRepository
 from xiaoyu.persistence.repositories.temporal import TemporalRepository
@@ -105,6 +105,70 @@ class FactMutationRequest:
             require_aware(self.valid_from, "valid_from")
         if self.valid_to is not None:
             require_aware(self.valid_to, "valid_to")
+
+    def to_dict(self) -> dict:
+        return {
+            "mutation_id": self.mutation_id,
+            "source_event_id": self.source_event_id,
+            "authenticated_principal_id":
+                self.authenticated_principal_id,
+            "subject": self.subject,
+            "predicate": self.predicate,
+            "operation": self.operation.value,
+            "expected_revision": self.expected_revision,
+            "value": self.value,
+            "cardinality": self.cardinality.value,
+            "valid_from": None
+            if self.valid_from is None
+            else datetime_to_text(
+                self.valid_from.astimezone(timezone.utc),
+                "valid_from",
+            ),
+            "valid_to": None
+            if self.valid_to is None
+            else datetime_to_text(
+                self.valid_to.astimezone(timezone.utc),
+                "valid_to",
+            ),
+            "principal_scope": self.principal_scope,
+            "target_fact_id": self.target_fact_id,
+            "claim_id": self.claim_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FactMutationRequest":
+        return cls(
+            mutation_id=str(data["mutation_id"]),
+            source_event_id=str(data["source_event_id"]),
+            authenticated_principal_id=str(
+                data["authenticated_principal_id"]
+            ),
+            subject=str(data["subject"]),
+            predicate=str(data["predicate"]),
+            operation=FactMutationOperation(
+                data["operation"]
+            ),
+            expected_revision=int(
+                data["expected_revision"]
+            ),
+            value=data.get("value"),
+            cardinality=FactCardinality(
+                data.get("cardinality", "SINGLE")
+            ),
+            valid_from=None
+            if data.get("valid_from") is None
+            else datetime_from_text(
+                data["valid_from"], "valid_from"
+            ),
+            valid_to=None
+            if data.get("valid_to") is None
+            else datetime_from_text(
+                data["valid_to"], "valid_to"
+            ),
+            principal_scope=data.get("principal_scope"),
+            target_fact_id=data.get("target_fact_id"),
+            claim_id=data.get("claim_id"),
+        )
 
 
 @dataclass(frozen=True)
@@ -390,6 +454,7 @@ class TemporalFactService:
                 mutation_digest=mutation_digest,
                 expected_revision=request.expected_revision,
                 result_revision=revision,
+                request_json=canonical_json(request.to_dict()),
                 created_at=at,
             )
             self.temporal_repo.invalidate_projection(
@@ -649,6 +714,118 @@ class TemporalFactService:
                 query_time,
             )
             return [dict(row) for row in rows]
+
+    def rebuild_into(
+        self,
+        target_db: Database,
+        *,
+        identity_id: str,
+    ) -> dict:
+        if target_db.path.resolve() == self.db.path.resolve():
+            raise ValueError("rebuild target must be a different database")
+        apply_migrations(target_db)
+
+        with self.db.transaction() as source_conn:
+            events = self.event_repo.list_ingest_order(
+                source_conn, identity_id
+            )
+            mutations = self.temporal_repo.ordered_mutations(
+                source_conn, identity_id
+            )
+
+        target_event_repo = CanonicalEventRepository()
+        with target_db.transaction(immediate=True) as target_conn:
+            for event in events:
+                target_event_repo.append_or_get(
+                    target_conn, event
+                )
+
+        target_service = TemporalFactService(target_db)
+        replayed = 0
+        for row in mutations:
+            request_json = row["request_json"]
+            if request_json is None:
+                raise FactMutationError(
+                    "mutation %s lacks replay request"
+                    % row["mutation_id"]
+                )
+            request = FactMutationRequest.from_dict(
+                json.loads(request_json)
+            )
+            target_service.apply(
+                request,
+                created_at=datetime_from_text(
+                    str(row["created_at"]),
+                    "created_at",
+                ),
+            )
+            replayed += 1
+
+        return {
+            "events": len(events),
+            "mutations": replayed,
+            "snapshot": target_service.authority_snapshot(
+                identity_id=identity_id
+            ),
+        }
+
+    def authority_snapshot(
+        self,
+        *,
+        identity_id: str,
+    ) -> dict:
+        with self.db.transaction() as conn:
+            facts = [
+                dict(row)
+                for row in conn.execute(
+                    """SELECT fact_id,fact_key,value_json,valid_from,valid_to,
+                              status,supersedes_fact_id,revision,mutation_id
+                       FROM temporal_facts
+                       WHERE identity_id=?
+                       ORDER BY fact_key,revision,fact_id""",
+                    (identity_id,),
+                ).fetchall()
+            ]
+            revisions = [
+                dict(row)
+                for row in conn.execute(
+                    """SELECT fact_key,current_revision,
+                              last_source_ingest_revision,
+                              erasure_generation
+                       FROM fact_authority_revisions
+                       WHERE identity_id=?
+                       ORDER BY fact_key""",
+                    (identity_id,),
+                ).fetchall()
+            ]
+            fences = [
+                dict(row)
+                for row in conn.execute(
+                    """SELECT target_id,erasure_generation,
+                              source_ingest_revision,mutation_id
+                       FROM erasure_tombstones
+                       WHERE identity_id=? AND target_type='fact_key'
+                       ORDER BY erasure_generation,target_id""",
+                    (identity_id,),
+                ).fetchall()
+            ]
+            invalidations = [
+                dict(row)
+                for row in conn.execute(
+                    """SELECT fact_key,source_revision,
+                              erasure_generation,mutation_id
+                       FROM projection_invalidations
+                       WHERE identity_id=?
+                       ORDER BY fact_key,source_revision""",
+                    (identity_id,),
+                ).fetchall()
+            ]
+        return {
+            "facts": facts,
+            "revisions": revisions,
+            "fences": fences,
+            "invalidations": invalidations,
+        }
 
     def freshness(
         self,
