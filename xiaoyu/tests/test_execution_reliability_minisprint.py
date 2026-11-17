@@ -52,6 +52,7 @@ from xiaoyu.runtime import (
     OutboxDispatcher,
     PurposeScheduler,
 )
+from xiaoyu.runtime.outbox import TransportBinding
 from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
 
 
@@ -230,6 +231,20 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             NOW,
         )
         return registry
+
+    @staticmethod
+    def _bound_transport(send, **overrides):
+        values = {
+            "provider_id": "napcat",
+            "actor_implementation_digest": "sha256:tool-v1",
+            "actor_authorization_digest": "sha256:auth-v1",
+            "artifact_digest": "sha256:provider-v1",
+            "interface_digest": "sha256:interface-v1",
+            "tool_schema_digest": "sha256:schema-v1",
+            "capability": "message.send",
+        }
+        values.update(overrides)
+        return TransportBinding(send=send, **values)
 
     def _enqueue(self, db, *, eff=None, act=None):
         eff = eff or effect()
@@ -455,9 +470,11 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
@@ -798,9 +815,11 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
@@ -824,14 +843,111 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             processed = OutboxDispatcher(
                 db,
                 {
-                    "qq": lambda payload, idem: (
-                        calls.append(payload)
-                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        )
                     )
                 },
             ).dispatch_once(now=NOW + timedelta(seconds=2))
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
+
+    def test_versioned_provider_requires_bound_transport(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "FAILED_FINAL",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+            finally:
+                conn.close()
+
+    def test_transport_implementation_digest_change_is_blocked(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                        ),
+                        actor_implementation_digest="sha256:tool-v2",
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+    def test_exact_transport_binding_can_dispatch_versioned_provider(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._register_provider(db)
+            self._enqueue(db)
+            calls = []
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": self._bound_transport(
+                        lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(
+                                DispatchStatus.SUCCEEDED,
+                                external_ref="msg-versioned",
+                            )
+                        )
+                    )
+                },
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 1)
+            self.assertEqual(len(calls), 1)
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+            finally:
+                conn.close()
 
     def test_receipt_commit_failure_recovers_to_reconciliation(self):
         class BrokenReceiptRepository:
