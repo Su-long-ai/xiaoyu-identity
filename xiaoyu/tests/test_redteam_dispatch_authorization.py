@@ -34,7 +34,7 @@ from xiaoyu.runtime import OutboxDispatcher
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
 
 
-def principal():
+def principal(expires_at=None):
     return PrincipalContext(
         principal_id="owner",
         authentication_level="OWNER_AUTHENTICATED",
@@ -42,7 +42,7 @@ def principal():
         evidence_classes=("LOCAL_OS_SESSION",),
         viewer_set=("owner",),
         session_scope="desktop",
-        expires_at=NOW + timedelta(minutes=5),
+        expires_at=expires_at or NOW + timedelta(minutes=5),
     )
 
 
@@ -123,14 +123,18 @@ class DispatchAuthorizationRedTeamTests(unittest.TestCase):
         apply_migrations(db)
         return db
 
-    def _enqueue(self, db, current_actor=None, current_delegation=None):
+    def _enqueue(
+        self, db, current_actor=None, current_delegation=None,
+        current_principal=None,
+    ):
         current_actor = current_actor or actor()
         current_delegation = current_delegation or delegation()
+        current_principal = current_principal or principal()
         EffectCoordinator(db).enqueue_authorized(
             decision_id="auth-decision",
             outbox_id="outbox-auth",
             identity_id="fish-1",
-            principal=principal(),
+            principal=current_principal,
             actor=current_actor,
             delegation=current_delegation,
             action=action(),
@@ -165,7 +169,12 @@ class DispatchAuthorizationRedTeamTests(unittest.TestCase):
     def test_expired_delegation_blocks_transport(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
-            self._enqueue(db)
+            self._enqueue(
+                db,
+                current_principal=principal(
+                    NOW + timedelta(hours=1)
+                ),
+            )
             processed, calls = self._dispatch(
                 db, NOW + timedelta(minutes=11)
             )
