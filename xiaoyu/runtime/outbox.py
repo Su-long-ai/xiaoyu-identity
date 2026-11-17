@@ -277,14 +277,17 @@ class OutboxDispatcher:
                     receipt_id=str(uuid.uuid4()),
                     effect_id=row.effect_id,
                     actor_id=row.actor_id,
-                    provider_id=row.destination,
+                    provider_id=row.provider_id,
                     authorization_decision_id=row.authorization_decision_id,
                     request_digest=request_digest,
                     result_class=outcome.status.value,
                     result_digest=result_digest,
                     external_ref=outcome.external_ref,
                     observed_at=now,
-                    metadata={"attempt_count": row.attempt_count},
+                    metadata={
+                        "attempt_count": row.attempt_count,
+                        "authorized_request_digest": row.authorized_request_digest,
+                    },
                 )
                 self.receipt_repo.insert(
                     conn, row.identity_id, receipt
