@@ -1,0 +1,155 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+import hashlib
+import json
+from typing import Any, Dict, Mapping, Optional, Tuple
+
+from xiaoyu.contracts.capability import ProviderHealth
+
+
+class PrivacyClass(str, Enum):
+    PUBLIC = "PUBLIC"
+    OWNER_PRIVATE = "OWNER_PRIVATE"
+    LOCAL_ONLY = "LOCAL_ONLY"
+    SHARED = "SHARED"
+
+
+@dataclass(frozen=True)
+class ProviderDescriptor:
+    provider_id: str
+    capability: str
+    descriptor_digest: str
+    capability_digest: str
+    implementation_digest: str
+    endpoint_scope: str
+    privacy_classes: Tuple[PrivacyClass, ...]
+    session_mode: str = "STATELESS"
+
+
+@dataclass(frozen=True)
+class ProviderAttemptContext:
+    identity_id: str
+    principal_id: str
+    audience_scope: str
+    context_space: str
+    context_generation: str
+    provider_id: str
+    required_capability: str
+    required_privacy_class: PrivacyClass
+    expected_descriptor_digest: Optional[str] = None
+    expected_capability_digest: Optional[str] = None
+    authorization_digest: Optional[str] = None
+    tool_result_digest: Optional[str] = None
+    source_contains_private_tool_result: bool = False
+
+
+@dataclass(frozen=True)
+class ProviderEligibility:
+    allowed: bool
+    reasons: Tuple[str, ...]
+    provider_id: str
+    session_namespace: str
+    descriptor_digest: str
+    capability_digest: str
+
+
+@dataclass(frozen=True)
+class ProviderFallbackAudit:
+    provider_id: str
+    allowed: bool
+    reasons: Tuple[str, ...]
+    session_namespace: str
+    context_generation: str
+    descriptor_digest: str
+    capability_digest: str
+
+
+def stable_digest(value: Mapping[str, Any] | Dict[str, Any]) -> str:
+    payload=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+    return "sha256:"+hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def provider_session_namespace(context: ProviderAttemptContext) -> str:
+    return stable_digest({
+        "identity_id":context.identity_id,
+        "principal_id":context.principal_id,
+        "audience_scope":context.audience_scope,
+        "context_space":context.context_space,
+        "context_generation":context.context_generation,
+        "provider_id":context.provider_id,
+    })
+
+
+def _effective_privacy(context: ProviderAttemptContext) -> PrivacyClass:
+    if context.source_contains_private_tool_result:
+        return PrivacyClass.OWNER_PRIVATE
+    return context.required_privacy_class
+
+
+def evaluate_provider(
+    descriptor: ProviderDescriptor,
+    context: ProviderAttemptContext,
+    health: Optional[ProviderHealth]=None,
+) -> ProviderEligibility:
+    reasons=[]
+    if descriptor.provider_id != context.provider_id:
+        reasons.append("provider_id_mismatch")
+    if descriptor.capability != context.required_capability:
+        reasons.append("capability_mismatch")
+
+    privacy=_effective_privacy(context)
+    if privacy not in descriptor.privacy_classes:
+        reasons.append("privacy_class_ineligible")
+    if privacy is PrivacyClass.LOCAL_ONLY and descriptor.endpoint_scope != "LOCAL":
+        reasons.append("local_only_requires_local_provider")
+
+    audience=str(context.audience_scope or "").upper()
+    principal=str(context.principal_id or "").lower()
+    context_space=str(context.context_space or "").upper()
+    if privacy is PrivacyClass.OWNER_PRIVATE:
+        if audience not in {"PRIVATE","OWNER_PRIVATE"}:
+            reasons.append("owner_private_audience_mismatch")
+        if principal in {"guest","unknown","group","shared"}:
+            reasons.append("owner_private_principal_mismatch")
+        if context_space in {"SHARED","GROUP","GUEST"}:
+            reasons.append("owner_private_context_space_mismatch")
+
+    if (
+        context.expected_descriptor_digest is not None
+        and context.expected_descriptor_digest != descriptor.descriptor_digest
+    ):
+        reasons.append("descriptor_digest_changed")
+    if (
+        context.expected_capability_digest is not None
+        and context.expected_capability_digest != descriptor.capability_digest
+    ):
+        reasons.append("capability_digest_changed")
+
+    if health is not None and str(health.readiness).upper() != "READY":
+        reasons.append("provider_not_ready")
+
+    return ProviderEligibility(
+        allowed=not reasons,
+        reasons=tuple(reasons),
+        provider_id=descriptor.provider_id,
+        session_namespace=provider_session_namespace(context),
+        descriptor_digest=descriptor.descriptor_digest,
+        capability_digest=descriptor.capability_digest,
+    )
+
+
+def fallback_audit(
+    context: ProviderAttemptContext,
+    eligibility: ProviderEligibility,
+) -> ProviderFallbackAudit:
+    return ProviderFallbackAudit(
+        provider_id=eligibility.provider_id,
+        allowed=eligibility.allowed,
+        reasons=eligibility.reasons,
+        session_namespace=eligibility.session_namespace,
+        context_generation=context.context_generation,
+        descriptor_digest=eligibility.descriptor_digest,
+        capability_digest=eligibility.capability_digest,
+    )
