@@ -1,0 +1,42 @@
+name: XiaoYu implementation v1 contracts
+
+on:
+  pull_request:
+    paths:
+      - "xiaoyu/**"
+      - ".github/workflows/implementation-v1.yml"
+  push:
+    branches:
+      - "feat/implementation-v1-*"
+    paths:
+      - "xiaoyu/**"
+      - ".github/workflows/implementation-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-and-migrations:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile XiaoYu package
+        run: python -m compileall -q xiaoyu
+
+      - name: Run R1-R3 regression
+        run: |
+          python -m unittest -v \
+            xiaoyu.tests.test_architecture_imports \
+            xiaoyu.tests.test_contracts \
+            xiaoyu.tests.test_persistence_migrations
