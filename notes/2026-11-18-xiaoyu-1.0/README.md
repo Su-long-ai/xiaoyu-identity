@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [LONG_TERM_HARDENING_AND_OPERATIONS.md](LONG_TERM_HARDENING_AND_OPERATIONS.md)  
+  长期工程化：密钥、加密、备份、迁移、更新验签、供应链、故障恢复、资源预算和隐私运维。
+
 - [IMPLEMENTATION_SELECTION_MATRIX.md](IMPLEMENTATION_SELECTION_MATRIX.md)  
   实现选型矩阵：逐模块决定现在采用什么、1.x 候选、为什么不采用其它重型方案。
 
