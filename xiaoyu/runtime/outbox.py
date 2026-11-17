@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import uuid
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Union
 
 from xiaoyu.contracts import ActionReceipt
 from xiaoyu.contracts.common import canonical_json
@@ -24,11 +25,26 @@ from xiaoyu.persistence.repositories.execution_auth import (
 Transport = Callable[[dict, Optional[str]], DispatchOutcome]
 
 
+@dataclass(frozen=True)
+class TransportBinding:
+    send: Transport
+    provider_id: Optional[str]
+    actor_implementation_digest: Optional[str]
+    actor_authorization_digest: Optional[str]
+    artifact_digest: Optional[str]
+    interface_digest: Optional[str]
+    tool_schema_digest: Optional[str]
+    capability: Optional[str]
+
+
+TransportEntry = Union[Transport, TransportBinding]
+
+
 class OutboxDispatcher:
     def __init__(
         self,
         db: Database,
-        transports: Dict[str, Transport],
+        transports: Dict[str, TransportEntry],
         effect_repo=None,
         outbox_repo=None,
         fault_hook=None,
@@ -68,6 +84,26 @@ class OutboxDispatcher:
         for row in claimed:
             if self.fault_hook:
                 self.fault_hook("after_claim", row)
+
+            transport, binding_error = self._resolve_transport(
+                row,
+                self.transports.get(row.destination),
+            )
+            if binding_error is not None:
+                with self.db.transaction(immediate=True) as conn:
+                    self.outbox_repo.mark(
+                        conn, row.outbox_id, "FAILED_FINAL", current
+                    )
+                    self.effect_repo.set_authorization_failed(
+                        conn,
+                        row.effect_id,
+                        binding_error,
+                        current,
+                    )
+                    self.delivery_repo.mark_failed_final(
+                        conn, row.effect_id, current
+                    )
+                continue
 
             # This is the final authorization check immediately before the
             # transport boundary.  No enqueue-time ALLOW is trusted forever.
@@ -148,26 +184,19 @@ class OutboxDispatcher:
             transport_request_digest = "sha256:" + hashlib.sha256(
                 canonical_json(transport_payload).encode("utf-8")
             ).hexdigest()
-            transport = self.transports.get(row.destination)
-            if transport is None:
-                outcome = DispatchOutcome(
-                    DispatchStatus.FAILED_FINAL,
-                    result={"error": "unknown_destination"},
+            try:
+                outcome = transport(
+                    transport_payload,
+                    row.idempotency_key,
                 )
-            else:
-                try:
-                    outcome = transport(
-                        transport_payload,
-                        row.idempotency_key,
-                    )
-                except Exception as exc:
-                    outcome = DispatchOutcome(
-                        DispatchStatus.UNKNOWN,
-                        result={
-                            "error_type": type(exc).__name__,
-                            "error": str(exc),
-                        },
-                    )
+            except Exception as exc:
+                outcome = DispatchOutcome(
+                    DispatchStatus.UNKNOWN,
+                    result={
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
             processed += 1
             if self.fault_hook:
                 self.fault_hook("after_dispatch", row)
@@ -178,6 +207,51 @@ class OutboxDispatcher:
                 request_digest=transport_request_digest,
             )
         return processed
+
+    @staticmethod
+    def _resolve_transport(row, entry):
+        if entry is None:
+            return None, "TRANSPORT_DESTINATION_MISSING"
+
+        versioned = any(
+            value is not None
+            for value in (
+                row.provider_artifact_digest,
+                row.provider_interface_digest,
+                row.provider_tool_schema_digest,
+                row.provider_capability,
+            )
+        )
+        if isinstance(entry, TransportBinding):
+            comparisons = (
+                ("provider_id", row.provider_id, entry.provider_id),
+                (
+                    "actor_implementation_digest",
+                    row.actor_implementation_digest,
+                    entry.actor_implementation_digest,
+                ),
+                (
+                    "actor_authorization_digest",
+                    row.actor_authorization_digest,
+                    entry.actor_authorization_digest,
+                ),
+                ("artifact_digest", row.provider_artifact_digest, entry.artifact_digest),
+                ("interface_digest", row.provider_interface_digest, entry.interface_digest),
+                (
+                    "tool_schema_digest",
+                    row.provider_tool_schema_digest,
+                    entry.tool_schema_digest,
+                ),
+                ("capability", row.provider_capability, entry.capability),
+            )
+            for name, expected, actual in comparisons:
+                if expected is not None and expected != actual:
+                    return None, "TRANSPORT_BINDING_%s_CHANGED" % name.upper()
+            return entry.send, None
+
+        if versioned:
+            return None, "TRANSPORT_BINDING_REQUIRED_FOR_VERSIONED_PROVIDER"
+        return entry, None
 
     @staticmethod
     def _purpose_invalid_reason(conn, row) -> Optional[str]:
