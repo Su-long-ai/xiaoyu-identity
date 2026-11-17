@@ -70,6 +70,40 @@ class ClaimProposalService:
         self.event_repo = event_repo or CanonicalEventRepository()
         self.claim_repo = claim_repo or ClaimRepository()
 
+    def propose_in_transaction(
+        self,
+        conn,
+        *,
+        claim_id: str,
+        source_event_id: str,
+        subject: str,
+        predicate: str,
+        value: Any,
+        confidence: float,
+        created_at: datetime,
+    ) -> str:
+        if not 0.0 <= float(confidence) <= 1.0:
+            raise ValueError("confidence must be between 0 and 1")
+        event = self.event_repo.get(conn, source_event_id)
+        if event is None:
+            raise KeyError(
+                "unknown source_event_id %s" % source_event_id
+            )
+        self.claim_repo.insert(
+            conn,
+            claim_id=claim_id,
+            event=event,
+            subject=subject,
+            predicate=predicate,
+            value=value,
+            confidence=confidence,
+            status="CANDIDATE",
+            created_at=created_at,
+            principal_scope=event.principal_id,
+            decision_reason="PROPOSAL_ONLY",
+        )
+        return claim_id
+
     def propose(
         self,
         *,
@@ -81,26 +115,15 @@ class ClaimProposalService:
         confidence: float,
         created_at: Optional[datetime] = None,
     ) -> str:
-        if not 0.0 <= float(confidence) <= 1.0:
-            raise ValueError("confidence must be between 0 and 1")
         at = created_at or datetime.now(timezone.utc)
         with self.db.transaction(immediate=True) as conn:
-            event = self.event_repo.get(conn, source_event_id)
-            if event is None:
-                raise KeyError(
-                    "unknown source_event_id %s" % source_event_id
-                )
-            self.claim_repo.insert(
+            return self.propose_in_transaction(
                 conn,
                 claim_id=claim_id,
-                event=event,
+                source_event_id=source_event_id,
                 subject=subject,
                 predicate=predicate,
                 value=value,
                 confidence=confidence,
-                status="CANDIDATE",
                 created_at=at,
-                principal_scope=event.principal_id,
-                decision_reason="PROPOSAL_ONLY",
             )
-        return claim_id
