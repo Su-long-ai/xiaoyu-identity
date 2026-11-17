@@ -88,16 +88,54 @@ class NativeCanonicalExporter:
                        ORDER BY erasure_generation,target_type,target_id""",
                     (identity_id,),
                 ),
+                "self_identity": self._rows(
+                    conn,
+                    """SELECT * FROM self_identity
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ),
+                "self_persona_versions": self._rows(
+                    conn,
+                    """SELECT * FROM self_persona_versions
+                       WHERE identity_id=? ORDER BY revision""",
+                    (identity_id,),
+                ),
+                "relationship_transitions": self._rows(
+                    conn,
+                    """SELECT * FROM relationship_transitions
+                       WHERE identity_id=?
+                       ORDER BY transition_sequence""",
+                    (identity_id,),
+                ),
                 "relationship_state": self._rows(
                     conn,
                     """SELECT * FROM relationship_state
                        WHERE identity_id=? ORDER BY principal_id""",
                     (identity_id,),
                 ),
+                "promise_candidates": self._rows(
+                    conn,
+                    """SELECT * FROM promise_candidates
+                       WHERE identity_id=? ORDER BY created_at,candidate_id""",
+                    (identity_id,),
+                ),
+                "promise_transitions": self._rows(
+                    conn,
+                    """SELECT * FROM promise_transitions
+                       WHERE identity_id=?
+                       ORDER BY transition_sequence""",
+                    (identity_id,),
+                ),
                 "promises": self._rows(
                     conn,
                     """SELECT * FROM promises
                        WHERE identity_id=? ORDER BY promise_id""",
+                    (identity_id,),
+                ),
+                "memory_proposal_decisions": self._rows(
+                    conn,
+                    """SELECT * FROM memory_proposal_decisions
+                       WHERE identity_id=? ORDER BY created_at,claim_id""",
                     (identity_id,),
                 ),
                 "purposes": self._rows(
