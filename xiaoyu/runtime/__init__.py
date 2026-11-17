@@ -49,6 +49,20 @@ from .resource_broker import (
     ResourceUnavailable,
 )
 from .scheduler import PurposeDecision, PurposeScheduler
+from .voice import (
+    OptionalVoiceDependencyUnavailable,
+    PipecatFrameAdapter,
+    PipecatFrameTypes,
+    VoiceControl,
+    VoiceFrameResult,
+    VoiceLatencyGate,
+    VoiceLatencySample,
+    VoiceRuntimeLease,
+    VoiceSessionState,
+    VoiceTranscript,
+    VoiceTurnBridge,
+    load_pipecat_frame_types,
+)
 from .vision import (
     CapturedVisionFrame,
     MssScreenCapture,
@@ -103,7 +117,18 @@ __all__ = [
     "RuntimeAdmission",
     "RuntimeHost",
     "STATE_RECOVERY_PATHS",
+    "OptionalVoiceDependencyUnavailable",
+    "PipecatFrameAdapter",
+    "PipecatFrameTypes",
     "SidecarProcessSupervisor",
+    "VoiceControl",
+    "VoiceFrameResult",
+    "VoiceLatencyGate",
+    "VoiceLatencySample",
+    "VoiceRuntimeLease",
+    "VoiceSessionState",
+    "VoiceTranscript",
+    "VoiceTurnBridge",
     "VisionAnalysis",
     "VisionObservation",
     "VisionSensorState",
@@ -113,4 +138,5 @@ __all__ = [
     "evaluate_provider",
     "provider_session_namespace",
     "standing_approval_binding_digest",
+    "load_pipecat_frame_types",
 ]
