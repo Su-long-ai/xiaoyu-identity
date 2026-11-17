@@ -189,10 +189,7 @@ def legacy_event_to_envelope(
     metadata = dict(extra or {})
     observed_at = datetime_from_text(at, "legacy_event.at")
 
-    explicit_trust = metadata.get("trust_class")
-    if explicit_trust:
-        trust = TrustClass(str(explicit_trust))
-    elif actor == "user":
+    if actor == "user":
         trust = TrustClass.OWNER_DIRECT
     elif actor == "assistant":
         trust = TrustClass.MODEL_DERIVED
