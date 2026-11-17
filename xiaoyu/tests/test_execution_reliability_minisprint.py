@@ -12,9 +12,13 @@ from xiaoyu.contracts import (
     ActorContext,
     AuthorizationContext,
     AuthorizationDecision,
+    CapabilityDescriptor,
     Delegation,
     EffectIntent,
+    IsolationMode,
     PrincipalContext,
+    ProviderHealth,
+    ProviderLifecycle,
     ResourceRef,
     RiskTier,
 )
@@ -43,6 +47,7 @@ from xiaoyu.runtime import (
     DeliveryCoordinator,
     DeliveryLedger,
     OutboxDispatcher,
+    ProviderRegistry,
     PurposeScheduler,
 )
 
@@ -186,6 +191,42 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 ),
                 NOW,
             )
+
+
+    def _register_provider(self, db):
+        registry = ProviderRegistry(db)
+        registry.register(
+            CapabilityDescriptor(
+                provider_id="napcat",
+                capability="message.send",
+                implementation_version="1.0",
+                contract_name="message.send",
+                contract_min_version="1",
+                contract_max_exclusive="2",
+                artifact_digest="sha256:provider-v1",
+                descriptor_digest="sha256:descriptor-v1",
+                interface_digest="sha256:interface-v1",
+                tool_schema_digest="sha256:schema-v1",
+                isolation=IsolationMode.SIDECAR,
+                features={},
+                data_classes=("message",),
+                permissions_required=("message.send",),
+                fallback_group=None,
+                lifecycle=ProviderLifecycle.ACTIVE,
+                resource_profile={},
+            ),
+            ProviderHealth(
+                liveness="UP",
+                readiness="READY",
+                capability_health={"message.send": "READY"},
+                reason=None,
+                since=NOW,
+                retry_after_ms=None,
+                details={},
+            ),
+            NOW,
+        )
+        return registry
 
     def _enqueue(self, db, *, eff=None, act=None):
         eff = eff or effect()
@@ -685,6 +726,64 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                     changed,
                     NOW + timedelta(seconds=1),
                 )
+            calls = []
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+    def test_provider_health_change_blocks_queued_effect(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            registry = self._register_provider(db)
+            self._enqueue(db)
+            registry.update_health(
+                "napcat",
+                ProviderHealth(
+                    liveness="UP",
+                    readiness="NOT_READY",
+                    capability_health={"message.send": "NOT_READY"},
+                    reason="maintenance",
+                    since=NOW + timedelta(seconds=1),
+                    retry_after_ms=1000,
+                    details={},
+                ),
+                NOW + timedelta(seconds=1),
+            )
+            calls = []
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+    def test_provider_lifecycle_change_blocks_standing_approval(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            registry = self._register_provider(db)
+            self._enqueue(db)
+            self.assertTrue(
+                registry.set_lifecycle(
+                    "napcat",
+                    ProviderLifecycle.DISABLED,
+                    NOW + timedelta(seconds=1),
+                )
+            )
             calls = []
             processed = OutboxDispatcher(
                 db,
