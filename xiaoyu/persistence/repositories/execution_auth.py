@@ -26,6 +26,8 @@ def _authorized_request_digest(
     *,
     identity_id: str,
     principal_id: str,
+    principal_session_scope,
+    principal_context_digest,
     actor_id: str,
     actor_implementation_digest,
     actor_authorization_digest,
@@ -51,6 +53,8 @@ def _authorized_request_digest(
         {
             "identity_id": identity_id,
             "principal_id": principal_id,
+            "principal_session_scope": principal_session_scope,
+            "principal_context_digest": principal_context_digest,
             "actor_id": actor_id,
             "actor_implementation_digest": actor_implementation_digest,
             "actor_authorization_digest": actor_authorization_digest,
@@ -220,6 +224,68 @@ class ActorRegistryRepository:
         )
 
 
+class PrincipalExecutionRepository:
+    def register(
+        self,
+        conn: sqlite3.Connection,
+        identity_id: str,
+        principal: PrincipalContext,
+        updated_at: datetime,
+    ) -> str:
+        context_digest = _digest(principal.to_dict())
+        conn.execute(
+            """INSERT INTO execution_principals(
+                   identity_id,principal_id,session_scope,
+                   authentication_level,context_digest,expires_at,
+                   revoked_at,updated_at
+               ) VALUES(?,?,?,?,?,?,NULL,?)
+               ON CONFLICT(identity_id,principal_id,session_scope)
+               DO UPDATE SET
+                   authentication_level=excluded.authentication_level,
+                   context_digest=excluded.context_digest,
+                   expires_at=excluded.expires_at,
+                   revoked_at=NULL,
+                   updated_at=excluded.updated_at""",
+            (
+                identity_id,
+                principal.principal_id,
+                principal.session_scope,
+                principal.authentication_level,
+                context_digest,
+                None
+                if principal.expires_at is None
+                else datetime_to_text(
+                    principal.expires_at, "principal_expires_at"
+                ),
+                datetime_to_text(updated_at, "updated_at"),
+            ),
+        )
+        return context_digest
+
+    def revoke(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        identity_id: str,
+        principal_id: str,
+        session_scope: str,
+        revoked_at: datetime,
+    ) -> bool:
+        cur = conn.execute(
+            """UPDATE execution_principals SET revoked_at=?,updated_at=?
+               WHERE identity_id=? AND principal_id=? AND session_scope=?
+                 AND revoked_at IS NULL""",
+            (
+                datetime_to_text(revoked_at, "revoked_at"),
+                datetime_to_text(revoked_at, "updated_at"),
+                identity_id,
+                principal_id,
+                session_scope,
+            ),
+        )
+        return cur.rowcount == 1
+
+
 class ExecutionAuthorizationRepository:
     @staticmethod
     def _provider_snapshot(conn: sqlite3.Connection, provider_id):
@@ -252,6 +318,7 @@ class ExecutionAuthorizationRepository:
         purpose_revision: Optional[int] = None,
         purpose_occurrence_id: Optional[str] = None,
     ) -> None:
+        principal_context_digest = _digest(principal.to_dict())
         action_digest = _digest(action.to_dict())
         resource_digest = _digest(resource.to_dict())
         context_digest = _digest(context.to_dict())
@@ -266,6 +333,8 @@ class ExecutionAuthorizationRepository:
         authorized_digest = _authorized_request_digest(
             identity_id=identity_id,
             principal_id=principal.principal_id,
+            principal_session_scope=principal.session_scope,
+            principal_context_digest=principal_context_digest,
             actor_id=actor.actor_id,
             actor_implementation_digest=actor.implementation_digest,
             actor_authorization_digest=actor.authorization_digest,
@@ -290,7 +359,8 @@ class ExecutionAuthorizationRepository:
         conn.execute(
             """INSERT INTO execution_authorizations(
                    authorization_decision_id,identity_id,principal_id,
-                   principal_expires_at,actor_id,actor_implementation_digest,
+                   principal_expires_at,principal_session_scope,
+                   principal_context_digest,actor_id,actor_implementation_digest,
                    actor_authorization_digest,delegation_id,purpose_id,
                    action_class,action_digest,resource_digest,context_digest,
                    request_digest,destination,audience_scope,context_space,
@@ -299,7 +369,7 @@ class ExecutionAuthorizationRepository:
                    provider_descriptor_digest,provider_interface_digest,
                    provider_tool_schema_digest,provider_capability,
                    provider_lifecycle_state,authorized_request_digest
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 decision_id,
                 identity_id,
@@ -310,6 +380,8 @@ class ExecutionAuthorizationRepository:
                     principal.expires_at,
                     "principal_expires_at",
                 ),
+                principal.session_scope,
+                principal_context_digest,
                 actor.actor_id,
                 actor.implementation_digest,
                 actor.authorization_digest,
@@ -413,6 +485,46 @@ class ExecutionAuthorizationRepository:
             raise DispatchAuthorizationDenied(
                 "principal session authorization expired"
             )
+
+        principal_context_digest = row["principal_context_digest"]
+        if principal_context_digest is not None:
+            principal = conn.execute(
+                """SELECT authentication_level,context_digest,expires_at,
+                          revoked_at
+                   FROM execution_principals
+                   WHERE identity_id=? AND principal_id=? AND session_scope=?""",
+                (
+                    identity_id,
+                    row["principal_id"],
+                    row["principal_session_scope"],
+                ),
+            ).fetchone()
+            if principal is None:
+                raise DispatchAuthorizationDenied(
+                    "principal session is no longer registered"
+                )
+            if principal["context_digest"] != principal_context_digest:
+                raise DispatchAuthorizationDenied(
+                    "principal session context changed"
+                )
+            revoked = principal["revoked_at"]
+            if (
+                revoked is not None
+                and now >= datetime_from_text(str(revoked), "revoked_at")
+            ):
+                raise DispatchAuthorizationDenied(
+                    "principal session revoked"
+                )
+            current_expires = principal["expires_at"]
+            if (
+                current_expires is not None
+                and now >= datetime_from_text(
+                    str(current_expires), "principal_expires_at"
+                )
+            ):
+                raise DispatchAuthorizationDenied(
+                    "principal session expired"
+                )
 
         actor = conn.execute(
             """SELECT implementation_digest,authorization_digest,provider_id
@@ -528,6 +640,8 @@ class ExecutionAuthorizationRepository:
         expected = _authorized_request_digest(
             identity_id=identity_id,
             principal_id=str(row["principal_id"]),
+            principal_session_scope=row["principal_session_scope"],
+            principal_context_digest=row["principal_context_digest"],
             actor_id=actor_id,
             actor_implementation_digest=actor["implementation_digest"],
             actor_authorization_digest=actor["authorization_digest"],
