@@ -135,6 +135,78 @@ class AuthorizationPolicyTests(unittest.TestCase):
             self.assertEqual(result.decision, AuthorizationDecision.ASK)
             self.assertTrue(result.reason_code.startswith("DELEGATION_INVALID_"))
 
+    def test_private_resource_is_denied_for_group_or_guest_viewer(self):
+        grouped = AuthorizationContext(
+            context_space="PERSONAL",
+            audience_scope="GROUP",
+            surface="qq",
+            metadata={},
+        )
+        result = self.policy.evaluate(
+            principal(),
+            actor(),
+            delegation(),
+            action(RiskTier.T3_EXTERNAL_OR_IRREVERSIBLE),
+            resource(private=True),
+            grouped,
+            NOW,
+        )
+        self.assertEqual(result.decision, AuthorizationDecision.DENY)
+
+        guest_visible = PrincipalContext(
+            principal_id="owner",
+            authentication_level="OWNER_AUTHENTICATED",
+            confidence=1.0,
+            evidence_classes=("LOCAL_OS_SESSION",),
+            viewer_set=("owner", "guest"),
+            session_scope="desktop",
+            expires_at=NOW + timedelta(hours=1),
+        )
+        result = self.policy.evaluate(
+            guest_visible,
+            actor(),
+            delegation(),
+            action(RiskTier.T3_EXTERNAL_OR_IRREVERSIBLE),
+            resource(private=True),
+            context(),
+            NOW,
+        )
+        self.assertEqual(result.decision, AuthorizationDecision.DENY)
+
+    def test_numeric_limit_type_confusion_and_nonfinite_are_not_allowed(self):
+        bad_values = ("1000", float("nan"), float("inf"), True)
+        for value in bad_values:
+            bad = ActionRequest(
+                action_class="message.send",
+                risk_tier=RiskTier.T3_EXTERNAL_OR_IRREVERSIBLE,
+                parameters={"messages": value},
+                replayable=True,
+                idempotency_key="idem-1",
+            )
+            result = self.policy.evaluate(
+                principal(),
+                actor(),
+                delegation(),
+                bad,
+                resource(),
+                context(),
+                NOW,
+            )
+            self.assertNotEqual(result.decision, AuthorizationDecision.ALLOW)
+
+    def test_revoked_delegation_is_not_allowed(self):
+        result = self.policy.evaluate(
+            principal(),
+            actor(),
+            delegation(revoked_at=NOW),
+            action(RiskTier.T3_EXTERNAL_OR_IRREVERSIBLE),
+            resource(),
+            context(),
+            NOW,
+        )
+        self.assertNotEqual(result.decision, AuthorizationDecision.ALLOW)
+        self.assertIn("REVOKED", result.reason_code)
+
     def test_expired_principal_is_denied_even_for_observe(self):
         result = self.evaluate(p=principal(expires=NOW))
         self.assertEqual(result.decision, AuthorizationDecision.DENY)
