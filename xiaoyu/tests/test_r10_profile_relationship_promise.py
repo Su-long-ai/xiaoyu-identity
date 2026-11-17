@@ -136,13 +136,17 @@ class R10ProfileRelationshipPromiseTests(unittest.TestCase):
         with db.transaction(immediate=True) as conn:
             PurposeRepository().insert(conn, purpose, T1)
 
-    def test_v10_migration_is_registered_without_consuming_v8_v9(self):
+    def test_v10_migration_is_registered_after_execution_v8_v9(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
             self.assertEqual(applied_versions(db), EXPECTED_VERSIONS)
+            self.assertIn(8, EXPECTED_VERSIONS)
+            self.assertIn(9, EXPECTED_VERSIONS)
             self.assertIn(10, EXPECTED_VERSIONS)
-            self.assertNotIn(8, EXPECTED_VERSIONS)
-            self.assertNotIn(9, EXPECTED_VERSIONS)
+            self.assertLess(
+                EXPECTED_VERSIONS.index(9),
+                EXPECTED_VERSIONS.index(10),
+            )
 
     def test_profile_shock_marks_old_projection_stale_then_rebuilds(self):
         with tempfile.TemporaryDirectory() as td:
