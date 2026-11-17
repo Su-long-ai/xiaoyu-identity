@@ -166,6 +166,7 @@ class EffectCoordinator:
                 conn,
                 identity_id,
                 delegation,
+                actor,
             )
         self.actor_registry_repo.register(
             conn,
