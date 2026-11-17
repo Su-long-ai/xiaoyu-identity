@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -33,7 +35,12 @@ from xiaoyu.core.purpose import (
 from xiaoyu.persistence import Database, apply_migrations
 from xiaoyu.persistence.repositories.execution_auth import DelegationRepository
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
-from xiaoyu.runtime import OutboxDispatcher
+from xiaoyu.runtime import (
+    DeliveryCoordinator,
+    DeliveryLedger,
+    OutboxDispatcher,
+    PurposeScheduler,
+)
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -386,6 +393,209 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
             ).dispatch_once(now=NOW + timedelta(seconds=2))
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
+
+    def test_cancel_after_claim_before_transport_blocks_send(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            self._enqueue(db)
+            calls = []
+
+            def fault(stage, row):
+                if stage == "after_claim":
+                    with db.transaction(immediate=True) as conn:
+                        self.assertTrue(
+                            PurposeRepository().cancel(
+                                conn,
+                                "purpose-1",
+                                NOW + timedelta(seconds=1),
+                            )
+                        )
+
+            processed = OutboxDispatcher(
+                db,
+                {
+                    "qq": lambda payload, idem: (
+                        calls.append(payload)
+                        or DispatchOutcome(DispatchStatus.SUCCEEDED)
+                    )
+                },
+                fault_hook=fault,
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    tuple(
+                        conn.execute(
+                            "SELECT state,revision FROM purposes"
+                        ).fetchone()
+                    ),
+                    ("CANCELLED", 2),
+                )
+            finally:
+                conn.close()
+
+    def test_missed_reschedule_has_durable_limit(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            first_due = NOW - timedelta(minutes=2)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',
+                           scheduled_wall_time=?,
+                           timezone='UTC',
+                           resolved_utc_time=?,
+                           miss_policy='RESCHEDULE',
+                           payload_json=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        first_due.isoformat(timespec="microseconds"),
+                        first_due.isoformat(timespec="microseconds"),
+                        '{"max_auto_reschedules":1,"reschedule_seconds":30}',
+                    ),
+                )
+
+            first = PurposeScheduler(db, "fish-1").reconcile_due(NOW)
+            self.assertEqual(first[0].reason, "MISSED_RESCHEDULED")
+            conn = db.connect()
+            try:
+                row = conn.execute(
+                    """SELECT state,revision,auto_reschedule_count
+                       FROM purposes WHERE purpose_id='purpose-1'"""
+                ).fetchone()
+                self.assertEqual(tuple(row), ("SCHEDULED", 2, 1))
+            finally:
+                conn.close()
+
+            second = PurposeScheduler(db, "fish-1").reconcile_due(
+                NOW + timedelta(minutes=2)
+            )
+            self.assertEqual(second[0].reason, "RESCHEDULE_LIMIT_REACHED")
+            self.assertEqual(
+                second[0].new_state,
+                PurposeState.NEEDS_RECONCILIATION,
+            )
+
+    def test_full_execution_e2e_reaches_terminal_purpose_and_receipt(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(seconds=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',scheduled_wall_time=?,
+                           timezone='UTC',resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                scheduled = PurposeRepository().get(conn, "purpose-1")
+                occurrence_id = PurposeRepository().activate_occurrence(
+                    conn,
+                    scheduled,
+                    NOW,
+                )
+
+            DeliveryLedger(db).create(
+                delivery_id="delivery-1",
+                identity_id="fish-1",
+                logical_notification_id="notice-1",
+                purpose_id="purpose-1",
+                preferred_surface="qq",
+                created_at=NOW,
+            )
+            eff = replace(
+                effect(),
+                purpose_occurrence_id=occurrence_id,
+            )
+            DeliveryCoordinator(db).enqueue_attempt(
+                attempt_id="attempt-1",
+                delivery_id="delivery-1",
+                logical_notification_id="notice-1",
+                decision_id="auth-1",
+                outbox_id="outbox-1",
+                identity_id="fish-1",
+                principal=principal(),
+                actor=actor(),
+                delegation=delegation(),
+                action=action(),
+                resource=resource(),
+                context=context(),
+                auth_result=AuthorizationResult(
+                    AuthorizationDecision.ALLOW,
+                    "VALID_DELEGATION",
+                    "del-1",
+                ),
+                effect=eff,
+                surface="qq",
+                created_at=NOW,
+            )
+
+            calls = []
+            self.assertEqual(
+                OutboxDispatcher(
+                    db,
+                    {
+                        "qq": lambda payload, idem: (
+                            calls.append(payload)
+                            or DispatchOutcome(
+                                DispatchStatus.SUCCEEDED,
+                                external_ref="msg-1",
+                                result={"ok": True},
+                            )
+                        )
+                    },
+                ).dispatch_once(now=NOW + timedelta(seconds=1)),
+                1,
+            )
+            self.assertEqual(calls, [eff.request])
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purposes WHERE purpose_id='purpose-1'"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM purpose_occurrences"
+                    ).fetchone()[0],
+                    "COMPLETED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "SUCCEEDED",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM outbox").fetchone()[0],
+                    "SENT",
+                )
+                self.assertEqual(
+                    conn.execute("SELECT state FROM deliveries").fetchone()[0],
+                    "DELIVERED",
+                )
+                receipt = conn.execute(
+                    "SELECT request_digest FROM action_receipts"
+                ).fetchone()[0]
+                expected = "sha256:" + hashlib.sha256(
+                    (
+                        '{"recipient":"owner","text":"hello"}'
+                    ).encode("utf-8")
+                ).hexdigest()
+                self.assertEqual(receipt, expected)
+            finally:
+                conn.close()
 
 
 if __name__ == "__main__":
