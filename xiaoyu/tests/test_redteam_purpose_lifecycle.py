@@ -105,17 +105,27 @@ class PurposeLifecycleRedTeamTests(unittest.TestCase):
             )
 
     def _enqueue_bound_effect(self, db, purpose_revision=1):
+        current_principal = replace(
+            principal(),
+            expires_at=NOW + timedelta(hours=2),
+        )
+        current_delegation = replace(
+            delegation(),
+            valid_from=NOW - timedelta(minutes=1),
+            expires_at=NOW + timedelta(hours=2),
+        )
         eff = replace(
             effect(),
+            created_at=NOW,
             purpose_revision=purpose_revision,
         )
         EffectCoordinator(db).enqueue_authorized(
             decision_id="auth-purpose",
             outbox_id="outbox-purpose",
             identity_id="fish-1",
-            principal=principal(),
+            principal=current_principal,
             actor=actor(),
-            delegation=delegation(),
+            delegation=current_delegation,
             action=action(),
             resource=resource(),
             context=context(),
