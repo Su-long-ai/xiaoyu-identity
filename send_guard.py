@@ -157,6 +157,36 @@ def capture_context_fence(store_or_conn):
     return _context_fence(conn)
 
 
+def _validate_context_state_snapshot(
+    provider,
+    *,
+    identity_id,
+    principal_id,
+    audience_scope,
+    context_space,
+    authorization_digest,
+    tool_result_digest,
+    tool_implementation_digest,
+    tool_schema_digest,
+):
+    if provider is None:
+        return
+    current=dict(provider() or {})
+    expected={
+        "identity_id":str(identity_id),
+        "principal_id":str(principal_id),
+        "audience_scope":str(audience_scope),
+        "context_space":str(context_space),
+        "authorization_digest":authorization_digest,
+        "tool_result_digest":tool_result_digest,
+        "tool_implementation_digest":tool_implementation_digest,
+        "tool_schema_digest":tool_schema_digest,
+    }
+    for key,value in expected.items():
+        if current.get(key) != value:
+            raise FreshnessChanged("attempt_context_changed:"+key)
+
+
 class _FreshAttemptGuard:
     """Revalidate protected context independently for one provider attempt."""
     def __init__(
@@ -203,22 +233,17 @@ class _FreshAttemptGuard:
         self.released=False
 
     def _validate_context_state(self):
-        if self.context_state_provider is None:
-            return
-        current=dict(self.context_state_provider() or {})
-        expected={
-            "identity_id":self.identity_id,
-            "principal_id":self.principal_id,
-            "audience_scope":self.audience_scope,
-            "context_space":self.context_space,
-            "authorization_digest":self.authorization_digest,
-            "tool_result_digest":self.tool_result_digest,
-            "tool_implementation_digest":self.tool_implementation_digest,
-            "tool_schema_digest":self.tool_schema_digest,
-        }
-        for key,value in expected.items():
-            if current.get(key) != value:
-                raise FreshnessChanged("attempt_context_changed:"+key)
+        _validate_context_state_snapshot(
+            self.context_state_provider,
+            identity_id=self.identity_id,
+            principal_id=self.principal_id,
+            audience_scope=self.audience_scope,
+            context_space=self.context_space,
+            authorization_digest=self.authorization_digest,
+            tool_result_digest=self.tool_result_digest,
+            tool_implementation_digest=self.tool_implementation_digest,
+            tool_schema_digest=self.tool_schema_digest,
+        )
 
     def __enter__(self):
         try:
@@ -373,6 +398,39 @@ def dual_guarded_chat(
 
     if config.get("fallbacks") and str(required_privacy_class).upper()!="PUBLIC":
         raise FreshnessChanged("private_fallback_requires_attempt_guard")
+    if source_contains_private_tool_result and not tool_result_digest:
+        raise FreshnessChanged("private_tool_result_requires_fresh_digest")
+
+    def validate_live_scope():
+        _validate_context_state_snapshot(
+            context_state_provider,
+            identity_id=identity_id,
+            principal_id=principal_id,
+            audience_scope=audience_scope,
+            context_space=context_space,
+            authorization_digest=authorization_digest,
+            tool_result_digest=tool_result_digest,
+            tool_implementation_digest=tool_implementation_digest,
+            tool_schema_digest=tool_schema_digest,
+        )
+
+    def validate_locked_state():
+        post_i=post_r=None
+        try:
+            validate_live_scope()
+            post_i=_open_locked(identity_db_path)
+            _validate_identity(post_i,expected_generation,expectations)
+            if (
+                expected_context_fence is not None
+                and _context_fence(post_i) != expected_context_fence
+            ):
+                raise FreshnessChanged("identity_context_fence_changed")
+            if expectations:
+                post_r=_open_locked(r47_db_path)
+                _validate_r47(post_r,expectations)
+        finally:
+            _close_lock(post_r)
+            _close_lock(post_i)
 
     iconn=rconn=None
     released=False
@@ -384,8 +442,14 @@ def dual_guarded_chat(
         _close_lock(rconn); rconn=None
         _close_lock(iconn); iconn=None
     try:
+        validate_live_scope()
         iconn=_open_locked(identity_db_path)
         _validate_identity(iconn,expected_generation,expectations)
+        if (
+            expected_context_fence is not None
+            and _context_fence(iconn) != expected_context_fence
+        ):
+            raise FreshnessChanged("identity_context_fence_changed")
         if expectations:
             rconn=_open_locked(r47_db_path)
             _validate_r47(rconn,expectations)
@@ -394,9 +458,18 @@ def dual_guarded_chat(
             kwargs["max_tokens"]=max_tokens
         if "timeout" in parameters:
             kwargs["timeout"]=timeout
+        if "required_data_class" in parameters:
+            kwargs["required_data_class"]=required_privacy_class
         if "on_dispatched" in parameters:
             kwargs["on_dispatched"]=release
-        return chat_fn(config,messages,**kwargs)
+        result=chat_fn(
+            config,
+            json.loads(json.dumps(messages,ensure_ascii=False)),
+            **kwargs,
+        )
+        release()
+        validate_locked_state()
+        return result
     finally:
         release()
 
