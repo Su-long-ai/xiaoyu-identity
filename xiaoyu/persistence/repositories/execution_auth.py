@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from datetime import datetime
 from typing import Optional
@@ -48,6 +49,7 @@ def _authorized_request_digest(
     provider_interface_digest,
     provider_tool_schema_digest,
     provider_capability,
+    provider_lifecycle_state,
 ) -> str:
     return _digest(
         {
@@ -75,6 +77,7 @@ def _authorized_request_digest(
             "provider_interface_digest": provider_interface_digest,
             "provider_tool_schema_digest": provider_tool_schema_digest,
             "provider_capability": provider_capability,
+            "provider_lifecycle_state": provider_lifecycle_state,
         }
     )
 
@@ -292,7 +295,8 @@ class ExecutionAuthorizationRepository:
             return None
         return conn.execute(
             """SELECT provider_id,capability,artifact_digest,descriptor_digest,
-                      interface_digest,tool_schema_digest,lifecycle_state
+                      interface_digest,tool_schema_digest,lifecycle_state,
+                      health_state_json
                FROM provider_registry WHERE provider_id=?""",
             (provider_id,),
         ).fetchone()
@@ -368,6 +372,7 @@ class ExecutionAuthorizationRepository:
             provider_interface_digest=provider_interface_digest,
             provider_tool_schema_digest=provider_tool_schema_digest,
             provider_capability=provider_capability,
+            provider_lifecycle_state=provider_lifecycle_state,
         )
         conn.execute(
             """INSERT INTO execution_authorizations(
@@ -649,6 +654,22 @@ class ExecutionAuthorizationRepository:
                 raise DispatchAuthorizationDenied(
                     "standing approval was not granted to ACTIVE provider"
                 )
+            try:
+                health = json.loads(str(provider["health_state_json"]))
+            except (TypeError, ValueError):
+                raise DispatchAuthorizationDenied(
+                    "provider health is malformed"
+                )
+            if str(health.get("readiness", "")).upper() != "READY":
+                raise DispatchAuthorizationDenied(
+                    "provider is not ready"
+                )
+            if str(health.get("liveness", "")).upper() in {
+                "DOWN", "DEAD", "UNAVAILABLE",
+            }:
+                raise DispatchAuthorizationDenied(
+                    "provider is not live"
+                )
 
         expected = _authorized_request_digest(
             identity_id=identity_id,
@@ -675,6 +696,7 @@ class ExecutionAuthorizationRepository:
             provider_interface_digest=row["provider_interface_digest"],
             provider_tool_schema_digest=row["provider_tool_schema_digest"],
             provider_capability=row["provider_capability"],
+            provider_lifecycle_state=row["provider_lifecycle_state"],
         )
         if str(row["authorized_request_digest"]) != expected:
             raise DispatchAuthorizationDenied(
