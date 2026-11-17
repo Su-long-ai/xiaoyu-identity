@@ -1,12 +1,35 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Tuple
+import hashlib
+import json
+from typing import Optional, Tuple
+
+from xiaoyu.contracts.common import canonical_json, datetime_to_text
+from xiaoyu.persistence import Database
+from xiaoyu.persistence.backfill import LegacyShadowBackfill
+from xiaoyu.persistence.migrations.v12_authority_cutover import (
+    LEGACY_AUTHORITY_TABLES,
+)
 
 
 class MigrationRollbackPolicy(str, Enum):
     FORWARD_ONLY = "FORWARD_ONLY"
+
+
+class AuthorityMode(str, Enum):
+    SHADOW = "SHADOW"
+    CANONICAL = "CANONICAL"
+
+
+class AuthorityCutoverBlocked(RuntimeError):
+    pass
+
+
+class AuthorityRollbackForbidden(RuntimeError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -18,6 +41,8 @@ class AuthorityCutoverEvidence:
     erasure_generation_shadow: int
     source_order_ok: bool
     old_writer_fenced: bool
+    canonical_read_path_ready: bool = False
+    canonical_write_path_ready: bool = False
 
 
 @dataclass(frozen=True)
@@ -27,13 +52,19 @@ class AuthorityCutoverDecision:
     rollback_policy: MigrationRollbackPolicy = MigrationRollbackPolicy.FORWARD_ONLY
 
 
-class AuthorityCutoverGate:
-    """Pure gate for the future single-read-authority switch.
+@dataclass(frozen=True)
+class AuthorityCutoverState:
+    identity_id: str
+    mode: AuthorityMode
+    activated_at: Optional[str]
+    activation_digest: Optional[str]
+    legacy_event_high_watermark: int
+    legacy_memory_change_seq: int
+    forward_only: bool
 
-    This intentionally does not flip a production read path. Until a durable
-    one-way switch and old-writer fence are wired into the compatibility
-    facade, migration remains shadow-only and forward-fix only.
-    """
+
+class AuthorityCutoverGate:
+    """Deterministic gate for the single-authority switch."""
 
     @staticmethod
     def evaluate(evidence: AuthorityCutoverEvidence) -> AuthorityCutoverDecision:
@@ -52,7 +83,228 @@ class AuthorityCutoverGate:
             blockers.append("SOURCE_ORDER_MISMATCH")
         if not evidence.old_writer_fenced:
             blockers.append("OLD_WRITER_NOT_FENCED")
+        if not evidence.canonical_read_path_ready:
+            blockers.append("CANONICAL_READ_PATH_NOT_READY")
+        if not evidence.canonical_write_path_ready:
+            blockers.append("CANONICAL_WRITE_PATH_NOT_READY")
         return AuthorityCutoverDecision(
             ready=not blockers,
             blockers=tuple(blockers),
+        )
+
+
+class AuthorityCutoverController:
+    """Durable, one-way authority switch.
+
+    The controller never fabricates product-readiness evidence. It verifies the
+    database-level writer-fence mechanism itself, but callers must explicitly
+    prove that canonical product reads and writes are ready before activation.
+    """
+
+    def __init__(
+        self,
+        db: Database,
+        *,
+        backfill: Optional[LegacyShadowBackfill] = None,
+    ) -> None:
+        self.db = db
+        self.backfill = backfill or LegacyShadowBackfill(db)
+
+    @staticmethod
+    def _trigger_name(table: str, operation: str) -> str:
+        return "xiaoyu_fence_%s_%s" % (
+            table,
+            operation.lower(),
+        )
+
+    def writer_fence_installed(self) -> bool:
+        with self.db.transaction() as conn:
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table'"
+                ).fetchall()
+            }
+            required = {
+                self._trigger_name(table, operation)
+                for table in LEGACY_AUTHORITY_TABLES
+                if table in tables
+                for operation in ("INSERT", "UPDATE", "DELETE")
+            }
+            present = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='trigger'"
+                ).fetchall()
+            }
+        return required.issubset(present)
+
+    def state(self, identity_id: str) -> AuthorityCutoverState:
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                """SELECT identity_id,mode,activated_at,
+                          activation_digest,
+                          legacy_event_high_watermark,
+                          legacy_memory_change_seq,forward_only
+                   FROM authority_cutover_state
+                   WHERE identity_id=?""",
+                (identity_id,),
+            ).fetchone()
+        if row is None:
+            return AuthorityCutoverState(
+                identity_id=identity_id,
+                mode=AuthorityMode.SHADOW,
+                activated_at=None,
+                activation_digest=None,
+                legacy_event_high_watermark=0,
+                legacy_memory_change_seq=0,
+                forward_only=True,
+            )
+        return AuthorityCutoverState(
+            identity_id=str(row["identity_id"]),
+            mode=AuthorityMode(str(row["mode"])),
+            activated_at=row["activated_at"],
+            activation_digest=row["activation_digest"],
+            legacy_event_high_watermark=int(
+                row["legacy_event_high_watermark"]
+            ),
+            legacy_memory_change_seq=int(
+                row["legacy_memory_change_seq"]
+            ),
+            forward_only=bool(row["forward_only"]),
+        )
+
+    @staticmethod
+    def _memory_change_seq(conn) -> int:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key='memory_change_seq'"
+        ).fetchone()
+        if row is not None:
+            try:
+                return int(json.loads(str(row[0])))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        row = conn.execute(
+            "SELECT COALESCE(MAX(change_seq),0) FROM memories"
+        ).fetchone()
+        return int(row[0] or 0)
+
+    def activate(
+        self,
+        *,
+        identity_id: str,
+        evidence: AuthorityCutoverEvidence,
+        activated_at: Optional[datetime] = None,
+    ) -> AuthorityCutoverState:
+        existing = self.state(identity_id)
+        if existing.mode is AuthorityMode.CANONICAL:
+            return existing
+
+        # Backfill/source-order is checked from live data rather than trusting
+        # the caller's boolean alone.
+        self.backfill.require_cutover_ready(identity_id)
+
+        effective = replace(
+            evidence,
+            old_writer_fenced=self.writer_fence_installed(),
+        )
+        decision = AuthorityCutoverGate.evaluate(effective)
+        if not decision.ready:
+            raise AuthorityCutoverBlocked(
+                ",".join(decision.blockers)
+            )
+
+        stamp = datetime_to_text(
+            (activated_at or datetime.now(timezone.utc))
+            .astimezone(timezone.utc),
+            "activated_at",
+        )
+
+        with self.db.transaction(immediate=True) as conn:
+            other = conn.execute(
+                """SELECT identity_id FROM authority_cutover_state
+                   WHERE mode='CANONICAL' AND identity_id!=?
+                   LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if other is not None:
+                raise AuthorityCutoverBlocked(
+                    "ANOTHER_IDENTITY_ALREADY_CANONICAL"
+                )
+
+            event_high = int(
+                conn.execute(
+                    "SELECT COALESCE(MAX(event_id),0) FROM events"
+                ).fetchone()[0]
+            )
+            memory_seq = self._memory_change_seq(conn)
+            activation_payload = {
+                "identity_id": identity_id,
+                "activated_at": stamp,
+                "legacy_event_high_watermark": event_high,
+                "legacy_memory_change_seq": memory_seq,
+                "evidence": asdict(effective),
+                "rollback_policy":
+                    MigrationRollbackPolicy.FORWARD_ONLY.value,
+            }
+            digest = "sha256:" + hashlib.sha256(
+                canonical_json(activation_payload).encode("utf-8")
+            ).hexdigest()
+
+            conn.execute(
+                """INSERT INTO authority_cutover_state(
+                       identity_id,mode,activated_at,activation_digest,
+                       legacy_event_high_watermark,
+                       legacy_memory_change_seq,forward_only
+                   ) VALUES(?, 'CANONICAL', ?, ?, ?, ?, 1)
+                   ON CONFLICT(identity_id) DO UPDATE SET
+                       mode='CANONICAL',
+                       activated_at=excluded.activated_at,
+                       activation_digest=excluded.activation_digest,
+                       legacy_event_high_watermark=
+                           excluded.legacy_event_high_watermark,
+                       legacy_memory_change_seq=
+                           excluded.legacy_memory_change_seq,
+                       forward_only=1""",
+                (
+                    identity_id,
+                    stamp,
+                    digest,
+                    event_high,
+                    memory_seq,
+                ),
+            )
+
+        return self.state(identity_id)
+
+    def verify_legacy_writer_frozen(
+        self,
+        identity_id: str,
+    ) -> bool:
+        state = self.state(identity_id)
+        if state.mode is not AuthorityMode.CANONICAL:
+            return False
+        with self.db.transaction() as conn:
+            event_high = int(
+                conn.execute(
+                    "SELECT COALESCE(MAX(event_id),0) FROM events"
+                ).fetchone()[0]
+            )
+            memory_seq = self._memory_change_seq(conn)
+        return (
+            event_high == state.legacy_event_high_watermark
+            and memory_seq == state.legacy_memory_change_seq
+            and self.writer_fence_installed()
+        )
+
+    def rollback_to_shadow(self, identity_id: str) -> None:
+        state = self.state(identity_id)
+        if state.mode is AuthorityMode.CANONICAL:
+            raise AuthorityRollbackForbidden(
+                "canonical authority cutover is forward-only"
+            )
+        raise AuthorityRollbackForbidden(
+            "no rollback transition exists; remain in SHADOW"
         )

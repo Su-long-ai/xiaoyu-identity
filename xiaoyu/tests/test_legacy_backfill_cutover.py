@@ -221,6 +221,8 @@ class AuthorityCutoverGateTests(unittest.TestCase):
             erasure_generation_shadow=7,
             source_order_ok=True,
             old_writer_fenced=True,
+            canonical_read_path_ready=True,
+            canonical_write_path_ready=True,
         )
         decision = AuthorityCutoverGate.evaluate(good)
         self.assertTrue(decision.ready)
@@ -238,6 +240,8 @@ class AuthorityCutoverGateTests(unittest.TestCase):
                 erasure_generation_shadow=7,
                 source_order_ok=False,
                 old_writer_fenced=False,
+                canonical_read_path_ready=False,
+                canonical_write_path_ready=False,
             )
         )
         self.assertFalse(blocked.ready)
@@ -250,6 +254,8 @@ class AuthorityCutoverGateTests(unittest.TestCase):
                 "ERASURE_GENERATION_MISMATCH",
                 "SOURCE_ORDER_MISMATCH",
                 "OLD_WRITER_NOT_FENCED",
+                "CANONICAL_READ_PATH_NOT_READY",
+                "CANONICAL_WRITE_PATH_NOT_READY",
             },
         )
         self.assertEqual(

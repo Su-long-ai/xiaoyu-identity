@@ -23,6 +23,10 @@ SCHEMA_VERSION = 3
 NAMESPACE = "portable-companion-identity"
 USER_MEMORY_SOURCE_KINDS = {"conversation.user", "memory.saved", "memory.corrected"}
 
+class LegacyAuthorityFenced(RuntimeError):
+    """Legacy IdentityStore cannot open after canonical cutover."""
+
+
 def now():
     return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
@@ -74,6 +78,7 @@ class IdentityStore:
             self.conn.row_factory = sqlite3.Row
             self.conn.execute("PRAGMA foreign_keys=ON")
             self.conn.execute("PRAGMA journal_mode=WAL")
+            self._assert_legacy_authority_open()
             self._schema()
             self._bootstrap_once()
             self._upgrade_schema()
@@ -83,6 +88,23 @@ class IdentityStore:
         except Exception:
             self.conn.close()
             raise
+
+    def _assert_legacy_authority_open(self):
+        present = self.conn.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table'
+                 AND name='authority_cutover_state'"""
+        ).fetchone()
+        if present is None:
+            return
+        active = self.conn.execute(
+            """SELECT identity_id FROM authority_cutover_state
+               WHERE mode='CANONICAL' LIMIT 1"""
+        ).fetchone()
+        if active is not None:
+            raise LegacyAuthorityFenced(
+                "canonical authority is active; legacy IdentityStore is fenced"
+            )
 
     def _schema(self):
         with self.conn:
