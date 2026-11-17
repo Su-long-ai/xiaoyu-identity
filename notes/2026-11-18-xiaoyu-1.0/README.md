@@ -26,6 +26,9 @@
 - [EXTERNAL_SURVEY.md](EXTERNAL_SURVEY.md)  
   外部调查：SurfCore、dsh-see-now、Open-LLM-VTuber、Letta、LoCoMo、MemoryAgentBench、OSWorld，以及它们对 XiaoYu 的直接启示。
 
+- [EXECUTION_BACKLOG.md](EXECUTION_BACKLOG.md)  
+  执行 backlog：按依赖排序的 1.0 / 1.x / 2.0 任务，明确阻塞项、验收和停止条件。
+
 - [GITHUB_SNAPSHOT_GAP_MAP.md](GITHUB_SNAPSHOT_GAP_MAP.md)  
   GitHub 快照差距图：基于现有 IdentityStore / ProductMemoryBridge 结构，给出最小增量演进路线；不把旧 GitHub 快照冒充本地最新状态。
 
