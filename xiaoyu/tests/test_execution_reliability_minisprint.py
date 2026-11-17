@@ -45,14 +45,14 @@ from xiaoyu.persistence.repositories.execution_auth import (
     PrincipalExecutionRepository,
 )
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
+from xiaoyu.persistence.repositories.provider_execution import ProviderExecutionRegistry
 from xiaoyu.runtime import (
     DeliveryCoordinator,
     DeliveryLedger,
-    ExecutionRecoveryQueue,
     OutboxDispatcher,
-    ProviderRegistry,
     PurposeScheduler,
 )
+from xiaoyu.runtime.recovery import ExecutionRecoveryQueue
 
 
 NOW = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
@@ -197,7 +197,7 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
 
 
     def _register_provider(self, db):
-        registry = ProviderRegistry(db)
+        registry = ProviderExecutionRegistry(db)
         registry.register(
             CapabilityDescriptor(
                 provider_id="napcat",
