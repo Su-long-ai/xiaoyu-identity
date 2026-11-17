@@ -98,6 +98,25 @@ class ExternalErasureFenceStore:
         self._write(payload)
         return dict(payload["identities"][identity_id])
 
+    def generation_for_delete(
+        self,
+        *,
+        identity_id: str,
+        mutation_id: str,
+        minimum_generation: int,
+    ) -> int:
+        payload = self.load() or {"version": self.VERSION, "identities": {}}
+        identity = payload["identities"].get(
+            identity_id, {"erasure_generation": 0, "tombstones": []}
+        )
+        for item in identity.get("tombstones", []):
+            if str(item.get("mutation_id")) == mutation_id:
+                return int(item["erasure_generation"])
+        return max(
+            int(minimum_generation),
+            int(identity.get("erasure_generation", 0)) + 1,
+        )
+
     def record_fact_delete(
         self,
         *,
@@ -115,9 +134,25 @@ class ExternalErasureFenceStore:
             identity_id, {"erasure_generation": 0, "tombstones": []}
         )
         current_generation = int(identity.get("erasure_generation", 0))
-        if int(generation) < current_generation:
+        existing = next(
+            (
+                value
+                for value in identity.get("tombstones", [])
+                if str(value.get("mutation_id")) == mutation_id
+            ),
+            None,
+        )
+        if existing is not None:
+            if (
+                str(existing.get("target_id")) != fact_key
+                or int(existing.get("erasure_generation")) != int(generation)
+            ):
+                raise ErasureWatermarkError(
+                    "erasure mutation reused with different target or generation"
+                )
+        elif int(generation) <= current_generation:
             raise ErasureWatermarkError(
-                "erasure generation cannot move backwards"
+                "new erasure generation must advance external watermark"
             )
         item = {
             "erasure_id": "erasure:" + mutation_id,
