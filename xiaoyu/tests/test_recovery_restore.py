@@ -368,8 +368,12 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                     """SELECT erasure_generation FROM erasure_tombstones
                        WHERE identity_id='fish-1' AND target_id='fact:secret'"""
                 ).fetchone()
+                claim = conn.execute(
+                    "SELECT status FROM claims WHERE claim_id='claim-secret'"
+                ).fetchone()
             self.assertEqual(row[0], "DELETED")
             self.assertEqual(tombstone[0], 1)
+            self.assertEqual(claim[0], "ERASED")
 
     def test_restore_rebuilds_projection_from_canonical_fact_not_old_summary(self):
         with tempfile.TemporaryDirectory() as td:
@@ -419,6 +423,41 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self.assertEqual(rows[0]["projection_type"], "CURRENT_FACT")
             self.assertEqual(rows[0]["builder_version"], "recovery-current-fact-v1")
             self.assertEqual(json.loads(rows[0]["value_json"])["values"], ["A"])
+
+    def test_restore_does_not_mutate_managed_backup_candidate(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = self._db(root / "identity.sqlite3")
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
+            backup = RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root / "managed.sqlite3",
+                identity_id="fish-1",
+                release_version="test",
+                release_digest="sha256:test",
+            )
+            before_db = backup.read_bytes()
+            before_manifest = Path(
+                str(backup) + ".manifest.json"
+            ).read_bytes()
+
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=root / "portable-home.sqlite3",
+                identity_id="fish-1",
+                mode=RestoreMode.PORTABLE_IMPORT,
+            )
+
+            self.assertEqual(backup.read_bytes(), before_db)
+            self.assertEqual(
+                Path(str(backup) + ".manifest.json").read_bytes(),
+                before_manifest,
+            )
+            self.assertIsNotNone(
+                RecoveryManager.validate_backup_manifest(
+                    backup, expected_identity_id="fish-1"
+                )
+            )
 
     def test_portable_import_migrates_old_v5_snapshot_before_activation(self):
         with tempfile.TemporaryDirectory() as td:
