@@ -6,6 +6,9 @@ from .execution_auth import ActorRegistryRepository, DelegationRepository, Dispa
 from .grants import AuthorizationDecisionRepository
 from .receipts import ActionReceiptRepository, DeliveryRepository
 from .purposes import PurposeRepository
+from .profile import ProfileRepository
+from .promise import PromiseRepository
+from .relationship import RelationshipRepository
 from .temporal import TemporalRepository
 
 __all__ = [
@@ -24,5 +27,8 @@ __all__ = [
     "LegacyEventShadowWriter",
     "OutboxRepository",
     "PurposeRepository",
+    "ProfileRepository",
+    "PromiseRepository",
+    "RelationshipRepository",
     "TemporalRepository",
 ]
