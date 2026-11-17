@@ -28,7 +28,6 @@ def apply(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             legacy_persona_version INTEGER,
             PRIMARY KEY(identity_id,revision),
-            UNIQUE(identity_id,persona_digest),
             FOREIGN KEY(identity_id)
                 REFERENCES self_identity(identity_id)
         )"""
