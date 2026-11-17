@@ -78,7 +78,7 @@ class OutboxDispatcher:
         delivery_repo=None,
         execution_auth_repo=None,
         max_attempts: int = 5,
-        resource_broker: Optional[ExecutionResourceHandles] = None,
+        resource_handles: Optional[ExecutionResourceHandles] = None,
     ) -> None:
         self.db = db
         self.transports = dict(transports)
@@ -95,7 +95,7 @@ class OutboxDispatcher:
         if max_attempts < 1:
             raise ValueError("max_attempts must be >= 1")
         self.max_attempts = max_attempts
-        self.resource_broker = resource_broker
+        self.resource_handles = resource_handles
 
     def recover_inflight(self, now: Optional[datetime] = None) -> int:
         current = now or datetime.now(timezone.utc)
@@ -255,12 +255,12 @@ class OutboxDispatcher:
         return processed
 
     def _release_effect_resources(self, effect_id: str) -> None:
-        if self.resource_broker is not None:
-            self.resource_broker.release_effect(effect_id)
+        if self.resource_handles is not None:
+            self.resource_handles.release_effect(effect_id)
 
     def _cancel_effect_resources(self, effect_id: str) -> None:
-        if self.resource_broker is not None:
-            self.resource_broker.cancel_effect(effect_id)
+        if self.resource_handles is not None:
+            self.resource_handles.cancel_effect(effect_id)
 
     @staticmethod
     def _resolve_transport(row, entry):
