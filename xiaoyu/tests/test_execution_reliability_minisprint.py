@@ -571,6 +571,47 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 PurposeState.NEEDS_RECONCILIATION,
             )
 
+    def test_manual_reschedule_starts_fresh_auto_reschedule_budget(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            self._insert_purpose(db)
+            due = NOW - timedelta(minutes=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',
+                           scheduled_wall_time=?,
+                           timezone='UTC',
+                           resolved_utc_time=?,
+                           auto_reschedule_count=1
+                       WHERE purpose_id='purpose-1'""",
+                    (
+                        due.isoformat(timespec="microseconds"),
+                        due.isoformat(timespec="microseconds"),
+                    ),
+                )
+                self.assertTrue(
+                    PurposeRepository().reschedule(
+                        conn,
+                        "purpose-1",
+                        (NOW + timedelta(hours=1)).isoformat(
+                            timespec="minutes"
+                        ),
+                        "UTC",
+                        NOW + timedelta(hours=1),
+                        NOW,
+                    )
+                )
+            conn = db.connect()
+            try:
+                row = conn.execute(
+                    """SELECT revision,auto_reschedule_count,state
+                       FROM purposes WHERE purpose_id='purpose-1'"""
+                ).fetchone()
+                self.assertEqual(tuple(row), (2, 0, "SCHEDULED"))
+            finally:
+                conn.close()
+
     def test_full_execution_e2e_reaches_terminal_purpose_and_receipt(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
