@@ -1348,7 +1348,6 @@ class ExecutionReliabilityMiniSprintRedTeamTests(unittest.TestCase):
                 effect=replace(
                     effect(),
                     effect_id="effect-crash",
-                    idempotency_key="idem-crash",
                 ),
                 surface="qq",
                 created_at=NOW,
