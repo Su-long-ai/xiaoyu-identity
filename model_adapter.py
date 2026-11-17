@@ -511,6 +511,10 @@ def chat(
     Every concrete provider attempt gets a fresh eligibility decision, fresh
     message object, and (when supplied) a fresh authority/freshness guard.
     """
+    if not str(required_data_class or "").strip():
+        raise ProviderConfigError(
+            "required_data_class must be explicit for every provider attempt"
+        )
     fired=False
     def dispatch_once():
         nonlocal fired
