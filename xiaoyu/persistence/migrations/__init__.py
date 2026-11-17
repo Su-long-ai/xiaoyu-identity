@@ -1,1 +1,1 @@
-"""XiaoYu package namespace."""
+"""Forward-only XiaoYu schema migrations."""
