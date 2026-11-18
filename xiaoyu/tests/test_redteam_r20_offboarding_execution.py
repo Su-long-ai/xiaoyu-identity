@@ -166,6 +166,78 @@ class R20OffboardingExecutionRedTeamTests(unittest.TestCase):
             self.assertEqual(processed, 0)
             self.assertEqual(calls, [])
 
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects "
+                        "WHERE effect_id='effect-r20-offboard'"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM outbox "
+                        "WHERE outbox_id='outbox-r20-offboard'"
+                    ).fetchone()[0],
+                    "FAILED_FINAL",
+                )
+            finally:
+                conn.close()
+
+    def test_offboarding_does_not_claim_pause_when_effect_already_dispatching(self):
+        with tempfile.TemporaryDirectory() as td:
+            db, store = self._product(td)
+            self._enqueue_purpose_free_effect(db)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE effects
+                       SET dispatch_state='DISPATCHING'
+                       WHERE effect_id='effect-r20-offboard'"""
+                )
+                conn.execute(
+                    """UPDATE outbox SET state='CLAIMED'
+                       WHERE outbox_id='outbox-r20-offboard'"""
+                )
+
+            report = ProductOffboardingService(
+                store,
+                resource_broker=ResourceBroker(
+                    mode=ResourceMode.BALANCED
+                ),
+            ).execute(
+                source_event_key="offboard-inflight",
+                created_at=NOW + timedelta(seconds=1),
+            )
+
+            self.assertFalse(report.ok)
+            self.assertFalse(report.paused)
+            self.assertTrue(
+                any(
+                    "effect-r20-offboard" in blocker
+                    and "reconciliation" in blocker
+                    for blocker in report.blockers
+                ),
+                report.blockers,
+            )
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "DISPATCHING",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM outbox"
+                    ).fetchone()[0],
+                    "CLAIMED",
+                )
+            finally:
+                conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()
