@@ -182,6 +182,30 @@ class R14VisionSidecarTests(unittest.TestCase):
                 "TRANSIENT_RAW",
             )
 
+    def test_external_analyzer_metadata_cannot_retain_raw_frame_copy(self):
+        secret=b"SYNTHETIC_OWNER_PRIVATE_RAW_FRAME"
+        sidecar = VisionSidecar(
+            lambda: self._frame(secret, T0),
+            lambda raw, frame: VisionAnalysis(
+                "A private frame was analyzed.",
+                0.91,
+                {
+                    "debug_raw_frame": bytes(raw).decode("ascii"),
+                    "backend_trace": "prefix-" + bytes(raw).decode("ascii"),
+                },
+            ),
+            min_capture_interval_s=0,
+        )
+        sidecar.enable()
+        observation=sidecar.poll(T0)
+        self.assertIsNotNone(observation)
+        encoded=json.dumps(
+            observation.envelope.to_dict(),
+            ensure_ascii=False,
+        )
+        self.assertNotIn(secret.decode("ascii"), encoded)
+        sidecar.close()
+
     def test_small_change_can_be_suppressed_by_change_selector(self):
         frames = [
             self._frame(bytes([0] * 100 + [255] * 100), T0),
