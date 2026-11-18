@@ -142,6 +142,37 @@ async def _run(args: argparse.Namespace) -> int:
         user_id = str(login.get("user_id") or "").strip()
         login_status = await client.get_login_status()
 
+        result["self_send_receipt_requested"] = bool(args.self_send_receipt)
+        result["self_send_receipt_pass"] = None
+        if args.self_send_receipt:
+            result["safe_self_target_available"] = True
+            result["self_send_target"] = "login_self"
+            result["self_send_actions"] = ["send_private_msg", "get_msg", "delete_msg"]
+            probe_text = "[XiaoYu E2E 自测] QQ 本机回执验证，可忽略。"
+            message_id = await client.send_message(user_id, probe_text)
+            result["self_send_receipt"] = bool(message_id)
+            result["self_send_get_msg_ok"] = False
+            result["self_send_content_match"] = False
+            result["self_send_recalled"] = False
+            if message_id:
+                sent = await client.get_msg(message_id)
+                result["self_send_get_msg_ok"] = bool(sent)
+                raw = sent.get("raw_message") or sent.get("message") or ""
+                if isinstance(raw, list):
+                    raw = json.dumps(raw, ensure_ascii=False)
+                result["self_send_content_match"] = "XiaoYu E2E 自测" in str(raw)
+                await client.delete_msg(message_id)
+                result["self_send_recalled"] = True
+            result["self_send_receipt_pass"] = all(
+                [
+                    result["self_send_receipt"],
+                    result["self_send_get_msg_ok"],
+                    result["self_send_content_match"],
+                    result["self_send_recalled"],
+                ]
+            )
+            result["message_sent"] = True
+
         result.update(
             {
                 "status_online": bool(status.get("online")),
@@ -164,6 +195,9 @@ async def _run(args: argparse.Namespace) -> int:
                 result["login_identity_matches_saved_config"],
                 result["client_cached_online"],
                 result["client_cached_identity_present"],
+                (result["self_send_receipt_pass"] is True)
+                if args.self_send_receipt
+                else True,
             ]
         )
         result["verdict"] = "PASS" if ok else "FAIL"
@@ -195,6 +229,11 @@ def main() -> int:
         default="54acf36bf978edad4757e5fffc743c5618360700",
     )
     ap.add_argument("--evidence", type=Path)
+    ap.add_argument(
+        "--self-send-receipt",
+        action="store_true",
+        help="send one message to the logged-in QQ account itself, verify receipt/content, then recall it",
+    )
     args = ap.parse_args()
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
