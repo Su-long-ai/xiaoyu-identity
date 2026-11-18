@@ -233,6 +233,23 @@ class R15VoicePipecatTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone(late)
 
+    def test_pipecat_barge_in_invalidates_previous_asr_turn(self):
+        controller = VoiceSessionController(
+            principal_hint="owner",
+            audience_scope="PRIVATE",
+            context_space="PERSONAL",
+        )
+        old = controller.begin_user_turn(T0)
+        binding = PipecatVoiceBinding(controller)
+
+        binding.on_user_started_speaking()
+        late = controller.final_transcript(
+            old,
+            "SYNTHETIC_PRIVATE_STALE_BARGE_IN_TRANSCRIPT",
+            T0 + timedelta(seconds=1),
+        )
+        self.assertIsNone(late)
+
     def test_pipecat_binding_rejects_wrong_worker_shape(self):
         binding = PipecatVoiceBinding(
             VoiceSessionController()
