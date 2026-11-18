@@ -374,7 +374,10 @@ class VisionSidecar:
                 "evidence": evidence.to_dict(),
                 "analysis": {
                     "confidence": float(analysis.confidence),
-                    "metadata": dict(analysis.metadata),
+                    # External analyzer metadata is transient implementation
+                    # detail and may contain raw-frame/debug copies. It must
+                    # never cross into a persistable semantic envelope.
+                    "metadata": {},
                 },
             },
         )
