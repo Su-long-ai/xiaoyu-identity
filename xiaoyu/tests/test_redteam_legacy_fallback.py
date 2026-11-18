@@ -20,13 +20,17 @@ _raw_dual_guarded_chat = dual_guarded_chat
 
 def dual_guarded_chat(*args, **kwargs):
     audience = str(kwargs.get("audience_scope", "PRIVATE")).upper()
-    if (
-        audience in {"PRIVATE", "OWNER_PRIVATE"}
-        and "viewer_principal_ids" not in kwargs
-    ):
-        kwargs["viewer_principal_ids"] = (
-            str(kwargs.get("owner_principal_id", "owner")),
-        )
+    if audience in {"PRIVATE", "OWNER_PRIVATE"}:
+        owner = str(kwargs.get("owner_principal_id", "owner"))
+        if "viewer_principal_ids" not in kwargs:
+            kwargs["viewer_principal_ids"] = (owner,)
+        provider = kwargs.get("context_state_provider")
+        if provider is not None:
+            def bound_state_provider(provider=provider, owner=owner):
+                state = dict(provider())
+                state.setdefault("viewer_principal_ids", (owner,))
+                return state
+            kwargs["context_state_provider"] = bound_state_provider
     return _raw_dual_guarded_chat(*args, **kwargs)
 
 
