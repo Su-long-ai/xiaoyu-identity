@@ -1,5 +1,21 @@
 # XiaoYu Implementation Runbook V1
 
+## 2026-11-18 upstream replacement hold
+
+The product architecture is under a N.E.K.O-first replacement spike. See
+`NEKO_FIRST_REPLACEMENT_AUDIT_20261118.md`.
+
+Until that spike is resolved:
+
+- continue correctness/privacy/recovery blocker fixes on the current XiaoYu frontier;
+- do **not** create new R-number product architecture merely to continue this runbook;
+- do not add another identity or memory authority;
+- prefer N.E.K.O plugin/adapter/hooks for capabilities the upstream already owns;
+- any permanent XiaoYu code added for the replacement path must be limited to a demonstrated upstream gap.
+
+This hold does not authorize a big-bang migration or deletion of the current authority. The current implementation remains the fallback/control arm until the replacement acceptance suite passes.
+
+
 **Date:** 2026-11-18  
 **Authority:** execute `IMPLEMENTATION_SPEC_V1.md`.  
 **Rule:** smallest reversible step -> tests -> product E2E -> freeze.
