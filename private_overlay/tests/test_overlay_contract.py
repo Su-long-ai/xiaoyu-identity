@@ -65,6 +65,24 @@ class OverlayContractTests(unittest.TestCase):
             "Do not keep a private XiaoYu runtime plugin without a concrete acceptance gap",
         )
 
+    def test_startup_delegates_directly_to_neko_launcher(self):
+        script = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "setup_local.ps1",
+            "-VerifyOnly",
+            "run_checks.ps1",
+            "NEKO_STORAGE_SELECTED_ROOT",
+            "NEKO_STORAGE_ANCHOR_ROOT",
+            "NEKO_RUNTIME_STATE_DIR",
+            "launcher.py",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+        self.assertNotIn("plugins\\xiaoyu_private", script)
+        self.assertNotIn("start_plugin", script)
+
 
 if __name__ == "__main__":
     unittest.main()
