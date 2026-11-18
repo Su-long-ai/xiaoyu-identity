@@ -72,6 +72,7 @@ class OverlayContractTests(unittest.TestCase):
         required = {
             "setup_local.ps1",
             "-VerifyOnly",
+            "ensure_neko_storage_policy.py",
             "run_checks.ps1",
             "NEKO_STORAGE_SELECTED_ROOT",
             "NEKO_STORAGE_ANCHOR_ROOT",

@@ -1,0 +1,64 @@
+{
+    "schema_version":  1,
+    "date":  "2026-11-18",
+    "verdict":  "PASS_LIVE_RUNTIME_SERVICES_INTERACTIVE_SURFACE_E2E_PENDING",
+    "neko_commit":  "402695cd115323440dfd4e6860c25a32c10dda43",
+    "launch_path":  {
+                        "original_neko_launcher":  true,
+                        "launcher":  "launcher.py",
+                        "private_runtime_plugin":  false,
+                        "core_patch_count":  0,
+                        "storage_root":  "D:\\xiaoyu_private_overlay_state\\neko-sandbox"
+                    },
+    "storage":  {
+                    "native_policy_api":  "utils.storage.policy.save_storage_policy",
+                    "first_run_completed":  true,
+                    "selection_required":  false,
+                    "blocking_reason":  "",
+                    "cloudsave_strategy":  "fixed_anchor",
+                    "current_root":  "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+                    "anchor_root":  "D:\\xiaoyu_private_overlay_state\\neko-sandbox"
+                },
+    "startup":  {
+                    "memory_runtime_initialized":  true,
+                    "main_server_started":  true,
+                    "agent_server_started":  true,
+                    "xiaoyu_character_present":  true,
+                    "xiaoyu_sync_connector_started":  true,
+                    "cloudsave_bootstrap_mode":  "normal"
+                },
+    "health":  {
+                   "same_instance":  true,
+                   "main":  {
+                                "port":  48911,
+                                "status_code":  200,
+                                "status":  "ok"
+                            },
+                   "memory":  {
+                                  "port":  48912,
+                                  "status_code":  200,
+                                  "status":  "ok"
+                              },
+                   "agent":  {
+                                 "port":  48915,
+                                 "status_code":  200,
+                                 "status":  "ok"
+                             }
+               },
+    "shutdown":  {
+                     "smoke_process_tree_terminated_intentionally":  true,
+                     "kept_running":  false
+                 },
+    "reuse":  {
+                  "memory_authority":  "neko_native",
+                  "persona_storage_authority":  "neko_native",
+                  "evolution_authority":  "neko_native",
+                  "task_authority":  "neko_native",
+                  "qq_surface":  "external_pinned_plugin"
+              },
+    "caveats":  [
+                    "This proves the original N.E.K.O runtime boots against the dedicated XiaoYu root and all three core services become healthy; it is not yet a human-driven desktop voice/vision/QQ/tools session.",
+                    "Steamworks was unavailable in the source audit checkout and N.E.K.O degraded by skipping Steam functionality; local XiaoYu runtime health was unaffected.",
+                    "The audit checkout needed launcher_core added to its sparse-checkout set from the same pinned N.E.K.O commit; no source patch was made."
+                ]
+}

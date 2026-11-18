@@ -21,7 +21,7 @@ Development layout:
 
 Startup:
 - Run tools/setup_local.ps1 after changing pinned external components.
-- Use tools/start_xiaoyu.ps1 for private XiaoYu use. It verifies local pins, runs the privacy/authority preflight, sets the isolated XiaoYu storage root, then launches N.E.K.O directly.
+- Use tools/start_xiaoyu.ps1 for private XiaoYu use. It verifies local pins, completes N.E.K.O's native first-run storage selection when needed, runs the privacy/authority preflight, sets the isolated XiaoYu storage root, then launches N.E.K.O directly.
 - Use tools/start_xiaoyu.ps1 -PreflightOnly to validate the launch path without starting the UI.
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.

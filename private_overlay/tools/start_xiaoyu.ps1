@@ -25,6 +25,10 @@ Write-Host "== Verify pinned external components =="
 & (Join-Path $ToolsRoot "setup_local.ps1") -NekoRoot $NekoRoot -VerifyOnly
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== Ensure native N.E.K.O storage selection =="
+& $Python (Join-Path $ToolsRoot "ensure_neko_storage_policy.py") --neko-root $NekoRoot --storage-root $ResolvedStorage
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== XiaoYu private startup preflight =="
 & (Join-Path $ToolsRoot "run_checks.ps1") -NekoRoot $NekoRoot -StorageRoot $StorageRoot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

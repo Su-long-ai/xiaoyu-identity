@@ -69,14 +69,14 @@
     {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "native_surface_components_pass_integrated_live_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-native-product-surfaces.json"
+      "status": "live_runtime_services_pass_interactive_surface_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-live-xiaoyu-runtime-startup.json"
     },
     {
       "id": "legacy_migration",
       "goal": "legacy canonical XiaoYu persona can be staged deterministically into N.E.K.O without importing bootstrap/test memories or widening scope",
-      "status": "isolated_commit_pass_product_cutover_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
+      "status": "dedicated_product_root_live_launch_pass",
+      "evidence": "evals/evidence/2026-11-18-live-xiaoyu-runtime-startup.json"
     }
   ]
 }
