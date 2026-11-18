@@ -763,14 +763,14 @@ class RecoveryManager:
                 """UPDATE outbox SET state='NEEDS_RECONCILIATION',next_attempt_at=NULL,
                                      updated_at=?
                    WHERE identity_id=? AND state IN
-                     ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING')""",
+                     ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING','UNKNOWN')""",
                 (restored_at, identity_id),
             )
             counts["outbox"] = int(cur.rowcount)
             cur = conn.execute(
                 """UPDATE effects SET dispatch_state='NEEDS_RECONCILIATION',updated_at=?
                    WHERE identity_id=? AND dispatch_state IN
-                     ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING','FAILED_RETRYABLE')""",
+                     ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING','FAILED_RETRYABLE','UNKNOWN')""",
                 (restored_at, identity_id),
             )
             counts["effects"] = int(cur.rowcount)
@@ -1008,11 +1008,21 @@ class RecoveryManager:
         with db.transaction() as conn:
             row = conn.execute(
                 """SELECT 1 FROM outbox WHERE identity_id=? AND state IN
-                   ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING') LIMIT 1""",
+                   ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING','UNKNOWN') LIMIT 1""",
                 (identity_id,),
             ).fetchone()
             if row is not None:
                 raise RestoreInvariantError("restored executable outbox work remains")
+            effect = conn.execute(
+                """SELECT 1 FROM effects WHERE identity_id=? AND dispatch_state IN
+                   ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING',
+                    'FAILED_RETRYABLE','UNKNOWN') LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if effect is not None:
+                raise RestoreInvariantError(
+                    "restored uncertain/non-terminal effect remains"
+                )
             purpose = conn.execute(
                 """SELECT 1 FROM purposes WHERE identity_id=? AND state IN
                    ('SCHEDULED','ACTIVE','WAITING') LIMIT 1""",
