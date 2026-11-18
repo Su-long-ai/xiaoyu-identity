@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/zhaijiunknow/n.e.k.o_plugin_qq_auto_reply.git",
+  "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+  "tested_branch": "main",
+  "tested_version": "0.16.0",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "role": "external_qq_surface",
+  "vendored_into_overlay": false,
+  "core_patch_required": false
+}

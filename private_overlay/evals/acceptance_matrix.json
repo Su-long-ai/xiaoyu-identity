@@ -16,7 +16,8 @@
     {
       "id": "desktop_qq_continuity",
       "goal": "desktop and QQ share one continuing identity",
-      "status": "pending"
+      "status": "external_plugin_authority_pass_live_napcat_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-desktop-qq-continuity.json"
     },
     {
       "id": "private_group_isolation",
@@ -33,7 +34,8 @@
     {
       "id": "correction",
       "goal": "owner correction stops obsolete facts/persona from being current",
-      "status": "pending"
+      "status": "native_evidence_pass_product_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-correction-native.json"
     },
     {
       "id": "erasure_closure",
@@ -56,7 +58,8 @@
     {
       "id": "commitment_restart",
       "goal": "commitments survive restart without duplicate proactive delivery",
-      "status": "pending"
+      "status": "isolated_restart_dedup_pass_product_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-commitment-restart.json"
     },
     {
       "id": "uncertain_effect",

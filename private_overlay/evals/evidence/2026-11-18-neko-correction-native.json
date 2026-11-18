@@ -1,0 +1,26 @@
+{
+    "schema_version":  1,
+    "date":  "2026-11-18",
+    "neko_commit":  "402695cd115323440dfd4e6860c25a32c10dda43",
+    "verdict":  "PASS_NATIVE_EVIDENCE_PRODUCT_E2E_PENDING",
+    "results":  [
+                    {
+                        "command_group":  "tests/unit/test_fact_extraction_correction_rule.py + tests/unit/test_persona_refine_apply.py",
+                        "passed":  61,
+                        "failed":  0,
+                        "seconds":  10.68
+                    }
+                ],
+    "acceptance_support":  {
+                               "correction":  {
+                                                  "level":  "strong_native_evidence",
+                                                  "examples":  [
+                                                                   "test_correction_fact_is_paired_with_and_replaces_the_stale_one",
+                                                                   "test_modify_keeps_id_appends_version_history",
+                                                                   "test_discard_removes_entry",
+                                                                   "test_merge_consumes_sources_and_produces_new_entry"
+                                                               ]
+                                              }
+                           },
+    "caveat":  "Native N.E.K.O correction/persona mutation tests pass. A final live XiaoYu conversation correction is still product-E2E pending."
+}
