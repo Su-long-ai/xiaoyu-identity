@@ -526,10 +526,27 @@ class PetApp:
             for assembly_attempt in range(2):
                 growth_fence_before=capture_context_fence(FISH)
                 ev=FISH.recent_events(50)
-                real=[
-                    e for e in ev
-                    if e["kind"].startswith(("conversation.","pet."))
-                ]
+                # Reflection is another provider disclosure path. Conversation
+                # evidence must reuse the lifecycle-aware model projection so
+                # invalidated private text and assistant echoes cannot bypass
+                # the normal prompt fence.
+                projected_history={
+                    int(item["event_id"]):item
+                    for item in project_history(FISH,50)
+                    if item.get("event_id") is not None
+                }
+                real=[]
+                for e in ev:
+                    kind=str(e.get("kind",""))
+                    if kind.startswith("conversation."):
+                        projected=projected_history.get(int(e["event_id"]))
+                        if projected is None:
+                            continue
+                        safe=dict(e)
+                        safe["content"]=str(projected.get("content",""))
+                        real.append(safe)
+                    elif kind.startswith("pet."):
+                        real.append(e)
                 evidence,evidence_ids=growth_evidence_batch(real,12)
                 growth_generation=FISH.memory_generation()
                 growth_fence=capture_context_fence(FISH)
