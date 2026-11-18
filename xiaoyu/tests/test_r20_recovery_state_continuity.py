@@ -314,5 +314,62 @@ class R20RecoveryStateContinuityTests(unittest.TestCase):
                 )
 
 
+    def test_disaster_backup_cannot_capture_control_event_before_mutation_commit(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db,store,controls,item=self._seed(root)
+
+            # Reproduce the R20 event->mutation transaction gap explicitly:
+            # the owner control event is durable, but the memory revision has
+            # not committed yet.
+            event=store.record_owner_control(
+                source_event_key="gap-mute",
+                event_type="memory.control_state",
+                payload={
+                    "memory_id":"drink",
+                    "control_state":MemoryControlState.MUTED.value,
+                },
+                observed_at=T0+timedelta(minutes=1),
+            )
+            gap_backup=self._backup(
+                db,root,"control-gap.sqlite3"
+            )
+            changed=store.memory.set_control_state(
+                memory_id="drink",
+                mutation_id="memory-control:gap-mute",
+                source_event_id=event.event_id,
+                principal_id="owner",
+                expected_revision=item.revision,
+                control_state=MemoryControlState.MUTED,
+                created_at=T0+timedelta(minutes=2),
+            )
+            self.assertEqual(
+                changed.control_state,MemoryControlState.MUTED
+            )
+
+            trusted=root/"gap-latest-fence.json"
+            ExternalErasureFenceStore(db.path).copy_to(
+                ExternalErasureFenceStore(
+                    root/"lost.sqlite3",path=trusted
+                )
+            )
+            recovered=root/"gap-recovered.sqlite3"
+            with self.assertRaises(
+                RestoreInvariantError,
+                msg=(
+                    "backup captured a control generation before its "
+                    "authoritative mutation and was later accepted"
+                ),
+            ):
+                RecoveryManager.restore(
+                    candidate_path=gap_backup,
+                    target_path=recovered,
+                    identity_id="fish-r20-recovery",
+                    mode=RestoreMode.DISASTER_RECOVERY,
+                    watermark_path=trusted,
+                    activated_at=T0+timedelta(minutes=3),
+                )
+
+
 if __name__=="__main__":
     unittest.main()
