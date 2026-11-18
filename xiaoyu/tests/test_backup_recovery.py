@@ -70,6 +70,7 @@ class BackupDurabilityTests(unittest.TestCase):
                     "migration_version",
                     "erasure_generation",
                     "source_revision_watermark",
+                    "fact_mutation_watermark",
                     "creation_time",
                     "release_version",
                     "release_digest",

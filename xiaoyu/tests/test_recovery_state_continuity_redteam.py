@@ -360,13 +360,17 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 "test requires mutation to advance without a new source event",
             )
 
-            RecoveryManager.restore(
-                candidate_path=backup,
-                target_path=db.path,
-                identity_id="fish-state",
-                mode=RestoreMode.MANAGED,
-                activated_at=T0+timedelta(minutes=3),
-            )
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "predates active fact authority",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=db.path,
+                    identity_id="fish-state",
+                    mode=RestoreMode.MANAGED,
+                    activated_at=T0+timedelta(minutes=3),
+                )
             current=CanonicalMemoryService(Database(db.path)).get("txn-gap")
             self.assertEqual(
                 current.text,

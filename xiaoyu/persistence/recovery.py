@@ -135,6 +135,14 @@ class RecoveryManager:
                        FROM canonical_event_ingest WHERE identity_id=?""",
                     (identity_id,),
                 ).fetchone()[0]
+                fact_mutation_watermark = conn.execute(
+                    """SELECT COALESCE(MAX(fmo.mutation_sequence),0)
+                       FROM fact_mutation_order fmo
+                       JOIN fact_mutations fm
+                         ON fm.mutation_id=fmo.mutation_id
+                       WHERE fm.identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
             versions = applied_versions(source)
             now = (created_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
             manifest = {
@@ -144,6 +152,7 @@ class RecoveryManager:
                 "migration_version": max(versions, default=0),
                 "erasure_generation": int(identity_fence["erasure_generation"]),
                 "source_revision_watermark": int(source_revision),
+                "fact_mutation_watermark": int(fact_mutation_watermark),
                 "creation_time": now.isoformat(timespec="microseconds"),
                 "release_version": release_version,
                 "release_digest": release_digest,
@@ -336,6 +345,33 @@ class RecoveryManager:
         return int(row[0] or 0)
 
     @staticmethod
+    def _fact_mutation_watermark(
+        db: Database,
+        identity_id: str,
+    ) -> int:
+        with db.transaction() as conn:
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if (
+                "fact_mutations" not in tables
+                or "fact_mutation_order" not in tables
+            ):
+                return 0
+            row = conn.execute(
+                """SELECT COALESCE(MAX(fmo.mutation_sequence),0)
+                   FROM fact_mutation_order fmo
+                   JOIN fact_mutations fm
+                     ON fm.mutation_id=fmo.mutation_id
+                   WHERE fm.identity_id=?""",
+                (identity_id,),
+            ).fetchone()
+        return int(row[0] or 0)
+
+    @staticmethod
     def _reject_stale_authority_restore(
         *,
         target_path: Path,
@@ -393,6 +429,29 @@ class RecoveryManager:
                 "restore candidate predates active authority "
                 "(candidate source revision %d, active %d)"
                 % (candidate_revision, active_revision)
+            )
+
+        try:
+            candidate_mutation = int(
+                manifest["fact_mutation_watermark"]
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "managed backup lacks fact mutation watermark; "
+                "use explicit migration/compatibility handling"
+            ) from exc
+        if candidate_mutation < 0:
+            raise BackupError(
+                "backup fact mutation watermark is invalid"
+            )
+        active_mutation = RecoveryManager._fact_mutation_watermark(
+            target, identity_id
+        )
+        if active_mutation > candidate_mutation:
+            raise RestoreInvariantError(
+                "restore candidate predates active fact authority "
+                "(candidate mutation %d, active %d)"
+                % (candidate_mutation, active_mutation)
             )
 
     @staticmethod
