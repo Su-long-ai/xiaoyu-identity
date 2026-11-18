@@ -504,22 +504,19 @@ class RecoveryManager:
                 "managed backup lacks canonical authority digest; "
                 "use explicit migration/compatibility handling"
             )
-        # When the active DB has consumed the same number of source events,
-        # any canonical-authority difference is a post-backup mutation in the
-        # event->authority transaction gap (SELF, Relationship, Promise,
-        # Purpose, proposal decisions, activities, or future authority added
-        # to NativeCanonicalExporter). Never silently roll it back.
-        if active_revision == candidate_revision:
-            active_authority_digest = (
-                RecoveryManager._canonical_authority_digest(
-                    target, identity_id
-                )
+        # A healthy active authority is never overwritten by a divergent
+        # canonical branch merely because that branch has a higher event
+        # watermark. Restore is not replication/merge. Any authority
+        # divergence requires explicit migration/reconciliation.
+        active_authority_digest = (
+            RecoveryManager._canonical_authority_digest(
+                target, identity_id
             )
-            if active_authority_digest != candidate_authority_digest:
-                raise RestoreInvariantError(
-                    "restore candidate conflicts with current canonical authority "
-                    "at the same source revision"
-                )
+        )
+        if active_authority_digest != candidate_authority_digest:
+            raise RestoreInvariantError(
+                "restore candidate conflicts with current canonical authority"
+            )
 
     @staticmethod
     def _trusted_fence(

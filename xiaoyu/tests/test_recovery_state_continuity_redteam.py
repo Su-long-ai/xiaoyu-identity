@@ -570,13 +570,17 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 created_at=T0+timedelta(minutes=4),
             )
 
-            RecoveryManager.restore(
-                candidate_path=backup,
-                target_path=active.path,
-                identity_id="fish-diverge",
-                mode=RestoreMode.MANAGED,
-                activated_at=T0+timedelta(minutes=5),
-            )
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "conflicts with current canonical authority",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=active.path,
+                    identity_id="fish-diverge",
+                    mode=RestoreMode.MANAGED,
+                    activated_at=T0+timedelta(minutes=5),
+                )
             current=CanonicalProductStore(
                 Database(active.path),identity_id="fish-diverge"
             ).self_authority.get("fish-diverge")
