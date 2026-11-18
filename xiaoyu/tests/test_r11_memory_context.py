@@ -211,7 +211,7 @@ class R11MemoryContextTests(unittest.TestCase):
         audience="PRIVATE",
         explicit=False,
         continuation=False,
-        viewer=(),
+        viewer=("owner",),
     ):
         return ContextRequest(
             identity_id="fish-1",

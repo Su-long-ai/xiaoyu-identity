@@ -201,16 +201,15 @@ def _validate_context_state_snapshot(
     viewers=tuple(sorted(
         str(value) for value in viewer_principal_ids if str(value)
     ))
-    if viewers:
-        current_viewers=tuple(sorted(
-            str(value)
-            for value in current.get("viewer_principal_ids", ())
-            if str(value)
-        ))
-        if current_viewers != viewers:
-            raise FreshnessChanged(
-                "attempt_context_changed:viewer_principal_ids"
-            )
+    current_viewers=tuple(sorted(
+        str(value)
+        for value in current.get("viewer_principal_ids", ())
+        if str(value)
+    ))
+    if current_viewers != viewers:
+        raise FreshnessChanged(
+            "attempt_context_changed:viewer_principal_ids"
+        )
     for key,value in expected.items():
         if current.get(key) != value:
             raise FreshnessChanged("attempt_context_changed:"+key)
@@ -409,6 +408,21 @@ def dual_guarded_chat(
     viewers=tuple(sorted(
         str(value) for value in viewer_principal_ids if str(value)
     ))
+    privacy_value=str(required_privacy_class).upper()
+    if (
+        privacy_value == "OWNER_PRIVATE"
+        or source_contains_private_tool_result
+    ):
+        owner=str(owner_principal_id or "").strip().lower()
+        normalized_viewers={
+            str(value).strip().lower()
+            for value in viewers
+            if str(value).strip()
+        }
+        if not owner or normalized_viewers != {owner}:
+            raise FreshnessChanged(
+                "owner_private_viewer_principal_set_required"
+            )
     if (
         str(audience_scope).upper() in {
             "GROUP", "GROUP_SHARED", "SHARED",

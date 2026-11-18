@@ -358,6 +358,40 @@ class R16AudienceGuestIsolationTests(unittest.TestCase):
             ):
                 self.assertNotIn(secret, encoded)
 
+    def test_private_context_rejects_mixed_or_missing_viewer_set_before_assembly(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "viewer_principal_ids",
+        ):
+            ContextRequest(
+                identity_id="fish-1",
+                principal_id="owner",
+                audience_scope="PRIVATE",
+                context_space="PERSONAL",
+                viewer_principal_ids=("owner", "guest-1"),
+                turn_text="hello",
+                identity_block={
+                    "identity_id": "fish-1",
+                    "private_persona": "OWNER_ONLY_PERSONA",
+                },
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            "viewer_principal_ids",
+        ):
+            ContextRequest(
+                identity_id="fish-1",
+                principal_id="owner",
+                audience_scope="PRIVATE",
+                context_space="PERSONAL",
+                viewer_principal_ids=(),
+                turn_text="hello",
+                identity_block={
+                    "identity_id": "fish-1",
+                    "private_persona": "OWNER_ONLY_PERSONA",
+                },
+            )
+
     def test_private_context_does_not_inherit_group_bound_execution_state(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)

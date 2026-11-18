@@ -33,6 +33,10 @@ DELETED_HISTORY_LABEL = (
     "【历史用户原话：这条原话关联的部分长期事实已被物理删除；"
     "为避免已删除内容重新进入模型，仅投影仍有效的权威记忆】"
 )
+INVALIDATED_ASSISTANT_LABEL = (
+    "【历史助手回复：同一轮用户上下文后来被更正、静音、归档、撤回或删除；"
+    "为避免旧信息回流，本条不参与模型上下文】"
+)
 
 
 @dataclass(frozen=True)
@@ -186,7 +190,7 @@ class CanonicalDialogueProjector:
             rows = conn.execute(
                 """SELECT ce.event_id,ce.event_type,ce.principal_id,
                           ce.audience_scope,ce.context_space,ce.payload_json,
-                          cei.ingest_revision
+                          ce.correlation_id,cei.ingest_revision
                    FROM canonical_events ce
                    JOIN canonical_event_ingest cei
                      ON cei.event_id=ce.event_id
@@ -215,6 +219,29 @@ class CanonicalDialogueProjector:
             ).fetchall()
             states = self._memory_source_states(conn, identity_id)
             deleted_sources = self._deleted_sources(conn, identity_id)
+            invalid_source_ids = set(deleted_sources)
+            invalid_source_ids.update(
+                event_id
+                for event_id, state in states.items()
+                if int(state.get("inactive", 0)) > 0
+            )
+            invalid_correlations = set()
+            if invalid_source_ids:
+                placeholders = ",".join(
+                    "?" for _ in invalid_source_ids
+                )
+                correlation_rows = conn.execute(
+                    """SELECT correlation_id
+                       FROM canonical_events
+                       WHERE identity_id=?
+                         AND event_id IN (%s)""" % placeholders,
+                    (identity_id, *sorted(invalid_source_ids)),
+                ).fetchall()
+                invalid_correlations = {
+                    str(row["correlation_id"])
+                    for row in correlation_rows
+                    if row["correlation_id"] is not None
+                }
 
         rows = list(reversed(rows))
         if fail_closed_current_event_id is not None:
@@ -263,7 +290,15 @@ class CanonicalDialogueProjector:
                         if active
                         else STALE_HISTORY_LABEL
                     )
-                    content = label + "\n" + content
+                    content = label
+                    if active:
+                        content += "\n" + "\n".join(active)[:1200]
+            elif (
+                role == "assistant"
+                and str(row["correlation_id"]) in invalid_correlations
+            ):
+                annotation = "source_turn_invalidated"
+                content = INVALIDATED_ASSISTANT_LABEL
 
             out.append(
                 CanonicalHistoryTurn(

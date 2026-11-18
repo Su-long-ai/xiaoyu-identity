@@ -229,6 +229,13 @@ class VoiceSessionController:
         self._current_token = None
         return VoiceTurn(token, text, envelope)
 
+    def cancel_user_turn(self) -> bool:
+        """Invalidate the current ASR turn so late transcripts are stale."""
+        if self._current_token is None:
+            return False
+        self._current_token = None
+        return True
+
     def begin_tts(
         self,
         presentation_id: str,
@@ -352,6 +359,11 @@ class PipecatVoiceBinding:
         )
 
     async def cancel(self) -> bool:
+        # Session cancellation is also a semantic freshness boundary: any ASR
+        # result already in flight belongs to the cancelled turn and must not
+        # become a new canonical observation afterwards.
+        self.controller.cancel_user_turn()
+        self.controller.interrupt_output()
         worker = self._worker
         if worker is None:
             return False
@@ -364,8 +376,10 @@ class PipecatVoiceBinding:
         return True
 
     def on_user_started_speaking(self) -> bool:
-        """Pipecat turn-start interruption also clears XiaoYu TTS presentation."""
-        return self.controller.interrupt_output()
+        """Fence the prior semantic turn before the new speech is processed."""
+        invalidated = self.controller.cancel_user_turn()
+        interrupted = self.controller.interrupt_output()
+        return invalidated or interrupted
 
 
 class VoiceRuntimeLease:

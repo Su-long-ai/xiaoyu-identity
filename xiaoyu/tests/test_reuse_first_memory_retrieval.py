@@ -54,6 +54,23 @@ class BrokenRanker:
         raise RetrievalRankerError("synthetic semantic outage")
 
 
+class MutingRanker:
+    def __init__(self, repository, ids):
+        self.repository = repository
+        self.ids = list(ids)
+
+    def rank(self, documents, query, *, limit):
+        current = dict(self.repository.rows[0])
+        current["value_json"] = (
+            '{"memory_id":"coffee","text":"private old value",'
+            '"category":"preference","priority":4,'
+            '"control_state":"MUTED","archived":false}'
+        )
+        current["revision"] = int(current["revision"]) + 1
+        self.repository.rows = [current]
+        return self.ids[:limit]
+
+
 class FakeEmbeddingModel:
     def passage_embed(self, texts):
         for text in texts:
@@ -233,6 +250,42 @@ class ReuseFirstMemoryRetrievalTests(unittest.TestCase):
                 ["group-safe"],
             )
 
+    def test_memory_muted_during_external_ranking_is_not_returned(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            repository = FakeRepository(
+                [
+                    row(
+                        "memory-current",
+                        subject="memory:coffee",
+                        predicate="remembered_item",
+                        value_json=(
+                            '{"memory_id":"coffee","text":"private old value",'
+                            '"category":"preference","priority":4,'
+                            '"control_state":"NORMAL","archived":false}'
+                        ),
+                        revision=4,
+                    )
+                ]
+            )
+            semantic = MutingRanker(repository, ["memory-current"])
+            retriever = MemoryRetriever(
+                db,
+                repository=repository,
+                lexical_ranker=FixedRanker([]),
+                semantic_ranker=semantic,
+            )
+            result = retriever.retrieve(
+                identity_id="fish-r20",
+                principal_scope="owner",
+                context_space="PERSONAL",
+                allowed_audiences=("PRIVATE",),
+                query="private old value",
+                limit=5,
+            )
+            self.assertEqual(result, [])
+            self.assertGreaterEqual(len(repository.calls), 2)
+
     def test_semantic_failure_degrades_to_fts5_not_to_broader_scope(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
@@ -310,7 +363,13 @@ class ReuseFirstMemoryRetrievalTests(unittest.TestCase):
                         "owner",
                         "PERSONAL",
                         ("PRIVATE",),
-                    )
+                    ),
+                    (
+                        "fish-1",
+                        "owner",
+                        "PERSONAL",
+                        ("PRIVATE",),
+                    ),
                 ],
             )
 

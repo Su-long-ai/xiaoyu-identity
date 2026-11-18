@@ -9,7 +9,9 @@ from typing import Any, Optional
 from xiaoyu.contracts.common import canonical_json
 from xiaoyu.core.memory import (
     AdaptiveMemoryUseGate,
+    CANONICAL_MEMORY_PREDICATE,
     FidelityClass,
+    MemoryControlState,
     MemoryRetriever,
     MemoryUseDecision,
 )
@@ -47,7 +49,18 @@ class ContextRequest:
 
     def __post_init__(self) -> None:
         audience = self.audience_scope.upper()
-        if (
+        viewers = {
+            str(value).strip().lower()
+            for value in self.viewer_principal_ids
+            if str(value).strip()
+        }
+        if audience in {"PRIVATE", "OWNER_PRIVATE"}:
+            principal = str(self.principal_id).strip().lower()
+            if not principal or viewers != {principal}:
+                raise ValueError(
+                    "viewer_principal_ids must prove exactly the private principal"
+                )
+        elif (
             audience in {
                 "GROUP",
                 "GROUP_SHARED",
@@ -55,7 +68,7 @@ class ContextRequest:
                 "SHARED_ACTIVITY",
                 "GUEST",
             }
-            and not self.viewer_principal_ids
+            and not viewers
         ):
             raise ValueError(
                 "non-private context requires viewer_principal_ids"
@@ -456,23 +469,43 @@ class ContextAssembler:
             )
 
         if corrections:
-            blocks.append(
-                self._block(
-                    "CURRENT_CORRECTIONS",
-                    FidelityClass.NEVER_LOSSY,
-                    [
-                        {
-                            "fact_id": str(row["fact_id"]),
-                            "predicate": str(row["predicate"]),
-                            "value": json.loads(row["value_json"]),
-                            "revision": int(row["revision"]),
-                            "mutation_id": str(row["mutation_id"]),
-                        }
-                        for row in corrections
-                    ],
-                    tuple(str(row["fact_id"]) for row in corrections),
+            correction_payload = []
+            correction_source_ids = []
+            for row in corrections:
+                value = json.loads(row["value_json"])
+                if str(row["predicate"]) == CANONICAL_MEMORY_PREDICATE:
+                    control_state = MemoryControlState(
+                        value.get(
+                            "control_state",
+                            MemoryControlState.NORMAL.value,
+                        )
+                    )
+                    if (
+                        control_state is MemoryControlState.MUTED
+                        or bool(value.get("archived", False))
+                    ):
+                        continue
+                correction_payload.append(
+                    {
+                        "fact_id": str(row["fact_id"]),
+                        "predicate": str(row["predicate"]),
+                        "value": value,
+                        "revision": int(row["revision"]),
+                        "mutation_id": str(row["mutation_id"]),
+                    }
                 )
-            )
+                correction_source_ids.append(
+                    str(row["fact_id"])
+                )
+            if correction_payload:
+                blocks.append(
+                    self._block(
+                        "CURRENT_CORRECTIONS",
+                        FidelityClass.NEVER_LOSSY,
+                        correction_payload,
+                        tuple(correction_source_ids),
+                    )
+                )
 
         if unresolved:
             effect_payload = []
