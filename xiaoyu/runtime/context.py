@@ -49,7 +49,18 @@ class ContextRequest:
 
     def __post_init__(self) -> None:
         audience = self.audience_scope.upper()
-        if (
+        viewers = {
+            str(value).strip().lower()
+            for value in self.viewer_principal_ids
+            if str(value).strip()
+        }
+        if audience in {"PRIVATE", "OWNER_PRIVATE"}:
+            principal = str(self.principal_id).strip().lower()
+            if not principal or viewers != {principal}:
+                raise ValueError(
+                    "viewer_principal_ids must prove exactly the private principal"
+                )
+        elif (
             audience in {
                 "GROUP",
                 "GROUP_SHARED",
@@ -57,7 +68,7 @@ class ContextRequest:
                 "SHARED_ACTIVITY",
                 "GUEST",
             }
-            and not self.viewer_principal_ids
+            and not viewers
         ):
             raise ValueError(
                 "non-private context requires viewer_principal_ids"
