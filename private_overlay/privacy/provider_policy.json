@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "policy": "explicit_direct_provider_allowlist",
+  "fail_closed_unknown_hosts": true,
+  "allow_localhost": true,
+  "allowed_host_suffixes": [
+    "dashscope.aliyuncs.com",
+    "dashscope-intl.aliyuncs.com",
+    "dashscope-us.aliyuncs.com",
+    "api.deepseek.com",
+    "api.openai.com",
+    "api.anthropic.com",
+    "generativelanguage.googleapis.com",
+    "open.bigmodel.cn",
+    "api.stepfun.com",
+    "api.moonshot.cn",
+    "api.minimaxi.com",
+    "api.minimax.io",
+    "api.x.ai",
+    "ark.cn-beijing.volces.com",
+    "api.xiaomimimo.com",
+    "token-plan-cn.xiaomimimo.com",
+    "token-plan-sgp.xiaomimimo.com",
+    "token-plan-ams.xiaomimimo.com"
+  ],
+  "explicitly_denied_host_suffixes": [
+    "lanlan.tech",
+    "lanlan.app",
+    "openrouter.ai",
+    "orcarouter.ai",
+    "requesty.ai",
+    "opper.ai",
+    "atlascloud.ai"
+  ],
+  "notes": [
+    "This is a XiaoYu private-policy default, not a claim that every first-party vendor has identical privacy terms.",
+    "Changing the allowlist is a private owner decision; unknown hosts fail closed.",
+    "The gate checks resolved model endpoints, not only UI provider labels."
+  ]
+}

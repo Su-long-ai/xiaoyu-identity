@@ -27,7 +27,8 @@
     {
       "id": "provider_privacy",
       "goal": "private context cannot be sent to a privacy-ineligible provider",
-      "status": "pending"
+      "status": "config_preflight_pass_runtime_hot_swap_pending",
+      "evidence": "evals/evidence/2026-11-18-provider-privacy-preflight.json"
     },
     {
       "id": "correction",

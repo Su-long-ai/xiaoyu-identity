@@ -1,5 +1,6 @@
-﻿param(
+param(
     [string]$NekoRoot = "D:\xiaoyu_external_audit\N.E.K.O",
+    [string]$StorageRoot = "D:\xiaoyu_private_overlay_state\neko-sandbox",
     [switch]$HostSmoke
 )
 
@@ -18,6 +19,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "== XiaoYu/N.E.K.O authority contract =="
 $env:NEKO_ROOT = $NekoRoot
 python (Join-Path $OverlayRoot "tools\check_overlay.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "== XiaoYu provider privacy preflight =="
+python (Join-Path $OverlayRoot "tools\check_provider_privacy.py") --neko-root $NekoRoot --storage-root $StorageRoot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== N.E.K.O official plugin check =="

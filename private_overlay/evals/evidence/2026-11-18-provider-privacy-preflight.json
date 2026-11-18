@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_CONFIG_PREFLIGHT_RUNTIME_HOT_SWAP_PENDING",
+  "source_audit": {
+    "chat_factory": "utils/llm_client/factory.py constructs one client from one resolved model/base_url/api_key tuple",
+    "sdk_retries": "OpenAI/Anthropic max_retries are attached to that same client; no error-driven cross-provider failover was found in the shared factory",
+    "config_resolution": "ConfigManager resolves each tier to one concrete endpoint before request creation",
+    "caveat": "N.E.K.O supports runtime configuration changes, so preflight alone does not yet prove an in-flight hot switch cannot race a request."
+  },
+  "policy": {
+    "file": "privacy/provider_policy.json",
+    "mode": "explicit_direct_provider_allowlist",
+    "unknown_hosts": "fail_closed",
+    "localhost": "allowed",
+    "relay_router_examples_denied": [
+      "lanlan.tech",
+      "openrouter.ai",
+      "orcarouter.ai",
+      "requesty.ai",
+      "opper.ai",
+      "atlascloud.ai"
+    ]
+  },
+  "positive_probe": {
+    "storage_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+    "resolved_provider": "qwen",
+    "checked_tiers": 12,
+    "failed_tiers": [],
+    "common_host": "dashscope.aliyuncs.com",
+    "verdict": "PASS"
+  },
+  "negative_probe": {
+    "mutation": "temporary isolated core_config with assistApi=free and coreApi=free",
+    "restored_after_probe": true,
+    "checked_tiers": 12,
+    "failed_tiers": [
+      "conversation",
+      "summary",
+      "correction",
+      "emotion",
+      "vision",
+      "agent",
+      "realtime",
+      "tts_default",
+      "tts_custom",
+      "game_main",
+      "game_summary"
+    ],
+    "resolved_host": "www.lanlan.tech",
+    "expected_exit_code": 4,
+    "observed_exit_code": 4,
+    "verdict": "FAIL_CLOSED_AS_EXPECTED"
+  },
+  "acceptance_support": {
+    "provider_privacy": "resolved endpoint allowlist preflight is implemented and catches N.E.K.O free-relay fallback across all enabled model tiers"
+  },
+  "caveats": [
+    "The allowlist is a XiaoYu owner policy, not a claim that all listed first-party vendors have identical privacy terms.",
+    "The current gate protects configuration/startup validation. Runtime provider hot-switch race closure remains pending.",
+    "No N.E.K.O core patch is introduced by this gate."
+  ]
+}
