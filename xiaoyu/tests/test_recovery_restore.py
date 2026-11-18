@@ -366,14 +366,20 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                     "UPDATE temporal_facts SET status='DELETED' WHERE fact_key='fact:secret'"
                 )
 
+            # Simulate loss of the active SQLite authority while the external
+            # erasure watermark survives independently.
+            trusted_watermark = root / "trusted-erasure-watermark.json"
+            shutil.copy2(fence.path, trusted_watermark)
+            recovered_path = root / "recovered.sqlite3"
             RecoveryManager.restore(
                 candidate_path=snapshot,
-                target_path=active.path,
+                target_path=recovered_path,
                 identity_id="fish-1",
-                mode=RestoreMode.MANAGED,
+                mode=RestoreMode.DISASTER_RECOVERY,
+                watermark_path=trusted_watermark,
             )
 
-            restored = Database(active.path)
+            restored = Database(recovered_path)
             with restored.transaction() as conn:
                 row = conn.execute(
                     "SELECT status FROM temporal_facts WHERE fact_key='fact:secret'"

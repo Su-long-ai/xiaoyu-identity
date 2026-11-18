@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -357,19 +358,33 @@ class RecoveryManager:
         db: Database,
         identity_id: str,
     ) -> str:
-        # Reuse the native authority inventory instead of maintaining a
-        # second recovery-specific list of durable truth tables.
+        """Digest canonical authority without mutating active sidecars.
+
+        NativeCanonicalExporter is the project's central authority inventory,
+        so recovery reuses it. Export build synchronizes an erasure sidecar;
+        run it only on an isolated SQLite Online Backup copy and hash its
+        canonical data section, leaving the active external fence untouched.
+        """
+        from xiaoyu.contracts.common import canonical_json
         from xiaoyu.core.export import NativeCanonicalExporter
 
-        bundle = NativeCanonicalExporter(db).build(
-            identity_id=identity_id
-        )
-        digest = str(bundle.get("bundle_digest") or "")
-        if not digest.startswith("sha256:"):
-            raise BackupError(
-                "native canonical authority digest is invalid"
+        with tempfile.TemporaryDirectory(
+            prefix="xiaoyu-authority-digest-"
+        ) as td:
+            snapshot_path = Path(td) / "authority.sqlite3"
+            db.backup_to(snapshot_path)
+            snapshot = Database(snapshot_path)
+            bundle = NativeCanonicalExporter(snapshot).build(
+                identity_id=identity_id
             )
-        return digest
+            payload = {
+                "format": "xiaoyu.canonical.authority-state.v1",
+                "identity_id": identity_id,
+                "data": bundle["data"],
+            }
+            return "sha256:" + hashlib.sha256(
+                canonical_json(payload).encode("utf-8")
+            ).hexdigest()
 
     @staticmethod
     def _fact_mutation_watermark(
