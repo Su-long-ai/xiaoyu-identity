@@ -53,6 +53,10 @@ class NativeCanonicalExportTests(unittest.TestCase):
             self.assertNotIn(b"provider-secret", first.read_bytes())
 
             bundle = exporter.build(identity_id="fish-1")
+            self.assertIn(
+                "authority_cutover_state",
+                bundle["data"],
+            )
             portable = adapt_native_export(bundle, _FactOnlyAdapter())
             self.assertEqual(portable["adapter_id"], "test.fact-only")
             self.assertEqual(

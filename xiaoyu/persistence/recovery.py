@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -128,22 +129,49 @@ class RecoveryManager:
             RecoveryManager._require_healthy(backup_db, "backup")
             backup_fence = ExternalErasureFenceStore(stage)
             fence.copy_to(backup_fence)
+            backup_fence_identity = backup_fence.identity(identity_id)
+            if backup_fence_identity is None:
+                raise BackupError(
+                    "backup erasure fence lost identity during snapshot"
+                )
 
-            with source.transaction() as conn:
+            # Manifest continuity markers must describe the committed SQLite
+            # snapshot, never a live source that may advance after backup_to().
+            with backup_db.transaction() as conn:
                 source_revision = conn.execute(
                     """SELECT COALESCE(MAX(ingest_revision),0)
                        FROM canonical_event_ingest WHERE identity_id=?""",
                     (identity_id,),
                 ).fetchone()[0]
-            versions = applied_versions(source)
+                fact_mutation_watermark = conn.execute(
+                    """SELECT COALESCE(MAX(fmo.mutation_sequence),0)
+                       FROM fact_mutation_order fmo
+                       JOIN fact_mutations fm
+                         ON fm.mutation_id=fmo.mutation_id
+                       WHERE fm.identity_id=?""",
+                    (identity_id,),
+                ).fetchone()[0]
+            canonical_authority_digest = (
+                RecoveryManager._canonical_authority_digest(
+                    backup_db, identity_id
+                )
+            )
+            versions = applied_versions(backup_db)
             now = (created_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
             manifest = {
                 "version": 1,
                 "identity_id": identity_id,
                 "schema_version": max(versions, default=0),
                 "migration_version": max(versions, default=0),
-                "erasure_generation": int(identity_fence["erasure_generation"]),
+                "erasure_generation": int(
+                    backup_fence_identity["erasure_generation"]
+                ),
+                "control_generation": int(
+                    backup_fence_identity.get("control_generation", 0)
+                ),
                 "source_revision_watermark": int(source_revision),
+                "fact_mutation_watermark": int(fact_mutation_watermark),
+                "canonical_authority_digest": canonical_authority_digest,
                 "creation_time": now.isoformat(timespec="microseconds"),
                 "release_version": release_version,
                 "release_digest": release_digest,
@@ -183,11 +211,26 @@ class RecoveryManager:
         if candidate_path.resolve() == target_path.resolve():
             raise ValueError("restore candidate must differ from active target")
 
-        RecoveryManager.validate_backup_manifest(
+        manifest = RecoveryManager.validate_backup_manifest(
             candidate_path, expected_identity_id=identity_id
         )
+        if (
+            mode in (RestoreMode.MANAGED, RestoreMode.ROLLBACK)
+            and manifest is None
+        ):
+            raise BackupError(
+                "managed/rollback restore requires a XiaoYu backup manifest; "
+                "use explicit disaster recovery or migration for raw snapshots"
+            )
         source_candidate = Database(candidate_path)
         RecoveryManager._require_healthy(source_candidate, "candidate")
+
+        RecoveryManager._reject_stale_authority_restore(
+            target_path=target_path,
+            identity_id=identity_id,
+            mode=mode,
+            manifest=manifest,
+        )
 
         fence_store, fence_identity = RecoveryManager._trusted_fence(
             candidate_path=candidate_path,
@@ -195,6 +238,10 @@ class RecoveryManager:
             identity_id=identity_id,
             mode=mode,
             watermark_path=watermark_path,
+        )
+        RecoveryManager._validate_control_continuity(
+            manifest=manifest,
+            fence_identity=fence_identity,
         )
         stamp = (activated_at or datetime.now(timezone.utc)).astimezone(
             timezone.utc
@@ -226,6 +273,23 @@ class RecoveryManager:
             stage = Database(stage_path)
             RecoveryManager._require_healthy(stage, "staged restore")
 
+            # Sidecars are safety barriers, not post-activation metadata.
+            # Publish them before the DB image so any failure leaves either:
+            #   old DB + stricter fence/quarantine, or
+            #   new DB + already-active fence/quarantine.
+            # Never report restore failure after silently activating a new DB.
+            payload = fence_store.load()
+            if payload is None:
+                raise MissingErasureWatermark(
+                    "trusted erasure watermark disappeared"
+                )
+            quarantine = RecoveryQuarantineStore(target_path)
+            quarantine.activate(
+                identity_id=identity_id, mode=mode, created_at=stamp
+            )
+            target_fence = ExternalErasureFenceStore(target_path)
+            target_fence._write(payload)
+
             if target_path.exists():
                 RecoveryManager._checkpoint(target_path)
             for suffix in ("-wal", "-shm"):
@@ -234,18 +298,6 @@ class RecoveryManager:
                     p.unlink()
             target_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(stage_path, target_path)
-
-            target_fence = ExternalErasureFenceStore(target_path)
-            payload = fence_store.load()
-            if payload is None:
-                raise MissingErasureWatermark(
-                    "trusted erasure watermark disappeared"
-                )
-            target_fence._write(payload)
-
-            RecoveryQuarantineStore(target_path).activate(
-                identity_id=identity_id, mode=mode, created_at=stamp
-            )
         finally:
             RecoveryManager._cleanup_sqlite_artifact(work_path)
             RecoveryManager._cleanup_sqlite_artifact(stage_path)
@@ -298,7 +350,309 @@ class RecoveryManager:
         expected_digest = str(payload.get("db_sha256") or "")
         if not expected_digest or expected_digest != RecoveryManager._sha256(candidate):
             raise BackupError("backup manifest digest mismatch")
+
+        # "Manifest valid" is also the product-facing backup/status check.
+        # Make it mean restorable evidence, not merely JSON + DB sha.
+        db = Database(candidate)
+        RecoveryManager._require_healthy(db, "backup candidate")
+        identity_id = str(payload.get("identity_id") or "")
+        if not identity_id:
+            raise BackupError("backup manifest identity_id is missing")
+        RecoveryManager._validate_manifest_continuity(
+            db,
+            candidate_path=candidate,
+            identity_id=identity_id,
+            manifest=payload,
+        )
         return payload
+
+    @staticmethod
+    def _validate_manifest_continuity(
+        db: Database,
+        *,
+        candidate_path: Path,
+        identity_id: str,
+        manifest: dict,
+    ) -> None:
+        """Recompute continuity claims from backup evidence itself."""
+        versions = applied_versions(db)
+        actual_schema = max(versions, default=0)
+        try:
+            manifest_schema = int(manifest["schema_version"])
+            manifest_migration = int(manifest["migration_version"])
+            manifest_source = int(manifest["source_revision_watermark"])
+            manifest_mutation = int(manifest["fact_mutation_watermark"])
+            manifest_erasure = int(manifest["erasure_generation"])
+            manifest_control = int(manifest["control_generation"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "backup manifest continuity fields are missing or invalid"
+            ) from exc
+        if manifest_schema != actual_schema:
+            raise BackupError(
+                "backup manifest schema_version does not match candidate"
+            )
+        if manifest_migration != actual_schema:
+            raise BackupError(
+                "backup manifest migration_version does not match candidate"
+            )
+
+        actual_source = RecoveryManager._source_revision_watermark(
+            db, identity_id
+        )
+        if manifest_source != actual_source:
+            raise BackupError(
+                "backup manifest source revision does not match candidate"
+            )
+        actual_mutation = RecoveryManager._fact_mutation_watermark(
+            db, identity_id
+        )
+        if manifest_mutation != actual_mutation:
+            raise BackupError(
+                "backup manifest fact mutation watermark does not match candidate"
+            )
+        actual_authority = RecoveryManager._canonical_authority_digest(
+            db, identity_id
+        )
+        if str(manifest.get("canonical_authority_digest") or "") != actual_authority:
+            raise BackupError(
+                "backup manifest canonical authority digest does not match candidate"
+            )
+
+        fence_identity = ExternalErasureFenceStore(
+            candidate_path
+        ).identity(identity_id)
+        if fence_identity is None:
+            raise BackupError(
+                "managed backup erasure fence identity is missing"
+            )
+        if int(fence_identity["erasure_generation"]) != manifest_erasure:
+            raise BackupError(
+                "backup manifest erasure generation does not match candidate fence"
+            )
+        if int(
+            fence_identity.get("control_generation", 0)
+        ) != manifest_control:
+            raise BackupError(
+                "backup manifest control generation does not match candidate fence"
+            )
+
+        if not str(manifest.get("release_version") or "").strip():
+            raise BackupError("backup release_version is missing")
+        release_digest = str(manifest.get("release_digest") or "")
+        if not release_digest.startswith("sha256:") or len(release_digest) <= 7:
+            raise BackupError("backup release_digest is invalid")
+
+    @staticmethod
+    def _source_revision_watermark(
+        db: Database,
+        identity_id: str,
+    ) -> int:
+        with db.transaction() as conn:
+            table = conn.execute(
+                """SELECT 1 FROM sqlite_master
+                   WHERE type='table' AND name='canonical_event_ingest'"""
+            ).fetchone()
+            if table is None:
+                return 0
+            row = conn.execute(
+                """SELECT COALESCE(MAX(ingest_revision),0)
+                   FROM canonical_event_ingest
+                   WHERE identity_id=?""",
+                (identity_id,),
+            ).fetchone()
+        return int(row[0] or 0)
+
+    @staticmethod
+    def _canonical_authority_digest(
+        db: Database,
+        identity_id: str,
+    ) -> str:
+        """Digest canonical authority without mutating active sidecars.
+
+        NativeCanonicalExporter is the project's central authority inventory,
+        so recovery reuses it. Export build synchronizes an erasure sidecar;
+        run it only on an isolated SQLite Online Backup copy and hash its
+        canonical data section, leaving the active external fence untouched.
+        """
+        from xiaoyu.contracts.common import canonical_json
+        from xiaoyu.core.export import NativeCanonicalExporter
+
+        with tempfile.TemporaryDirectory(
+            prefix="xiaoyu-authority-digest-"
+        ) as td:
+            snapshot_path = Path(td) / "authority.sqlite3"
+            db.backup_to(snapshot_path)
+            snapshot = Database(snapshot_path)
+            bundle = NativeCanonicalExporter(snapshot).build(
+                identity_id=identity_id
+            )
+            payload = {
+                "format": "xiaoyu.canonical.authority-state.v1",
+                "identity_id": identity_id,
+                "data": bundle["data"],
+            }
+            return "sha256:" + hashlib.sha256(
+                canonical_json(payload).encode("utf-8")
+            ).hexdigest()
+
+    @staticmethod
+    def _fact_mutation_watermark(
+        db: Database,
+        identity_id: str,
+    ) -> int:
+        with db.transaction() as conn:
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if (
+                "fact_mutations" not in tables
+                or "fact_mutation_order" not in tables
+            ):
+                return 0
+            row = conn.execute(
+                """SELECT COALESCE(MAX(fmo.mutation_sequence),0)
+                   FROM fact_mutation_order fmo
+                   JOIN fact_mutations fm
+                     ON fm.mutation_id=fmo.mutation_id
+                   WHERE fm.identity_id=?""",
+                (identity_id,),
+            ).fetchone()
+        return int(row[0] or 0)
+
+    @staticmethod
+    def _validate_control_continuity(
+        *,
+        manifest: Optional[dict],
+        fence_identity: dict,
+    ) -> None:
+        trusted = int(fence_identity.get("control_generation", 0))
+        if manifest is None:
+            if trusted != 0:
+                raise RestoreInvariantError(
+                    "raw restore candidate cannot prove latest owner-control generation"
+                )
+            return
+        try:
+            candidate = int(manifest["control_generation"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "managed backup lacks control generation; "
+                "use explicit compatibility migration"
+            ) from exc
+        if candidate != trusted:
+            raise RestoreInvariantError(
+                "restore candidate owner-control generation does not match trusted latest fence "
+                "(candidate %d, trusted %d)" % (candidate, trusted)
+            )
+
+    @staticmethod
+    def _reject_stale_authority_restore(
+        *,
+        target_path: Path,
+        identity_id: str,
+        mode: RestoreMode,
+        manifest: Optional[dict],
+    ) -> None:
+        """Never let an older snapshot replace newer healthy authority.
+
+        Delete continuity has the external erasure fence because deletion must
+        survive even disaster recovery. Other authoritative edits remain in
+        the single SQLite authority, so managed/rollback restore must fail
+        closed instead of copying those edits into a second journal.
+        """
+        if mode == RestoreMode.PORTABLE_IMPORT or not target_path.exists():
+            return
+
+        target = Database(target_path)
+        try:
+            healthy = target.is_healthy()
+        except sqlite3.DatabaseError:
+            healthy = False
+
+        if not healthy:
+            if mode in (RestoreMode.MANAGED, RestoreMode.ROLLBACK):
+                raise RestoreInvariantError(
+                    "managed/rollback restore requires a healthy active target; "
+                    "use explicit disaster recovery for a corrupt target"
+                )
+            return
+
+        if manifest is None:
+            # Only explicit disaster-recovery paths may reach this point.
+            # They do not claim managed backup provenance.
+            return
+
+        try:
+            candidate_revision = int(
+                manifest["source_revision_watermark"]
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "backup manifest source revision watermark is missing or invalid"
+            ) from exc
+        if candidate_revision < 0:
+            raise BackupError(
+                "backup manifest source revision watermark is invalid"
+            )
+
+        active_revision = RecoveryManager._source_revision_watermark(
+            target, identity_id
+        )
+        if active_revision > candidate_revision:
+            raise RestoreInvariantError(
+                "restore candidate predates active authority "
+                "(candidate source revision %d, active %d)"
+                % (candidate_revision, active_revision)
+            )
+
+        try:
+            candidate_mutation = int(
+                manifest["fact_mutation_watermark"]
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "managed backup lacks fact mutation watermark; "
+                "use explicit migration/compatibility handling"
+            ) from exc
+        if candidate_mutation < 0:
+            raise BackupError(
+                "backup fact mutation watermark is invalid"
+            )
+        active_mutation = RecoveryManager._fact_mutation_watermark(
+            target, identity_id
+        )
+        if active_mutation > candidate_mutation:
+            raise RestoreInvariantError(
+                "restore candidate predates active fact authority "
+                "(candidate mutation %d, active %d)"
+                % (candidate_mutation, active_mutation)
+            )
+
+        candidate_authority_digest = str(
+            manifest.get("canonical_authority_digest") or ""
+        )
+        if not candidate_authority_digest.startswith("sha256:"):
+            raise BackupError(
+                "managed backup lacks canonical authority digest; "
+                "use explicit migration/compatibility handling"
+            )
+        # A healthy active authority is never overwritten by a divergent
+        # canonical branch merely because that branch has a higher event
+        # watermark. Restore is not replication/merge. Any authority
+        # divergence requires explicit migration/reconciliation.
+        active_authority_digest = (
+            RecoveryManager._canonical_authority_digest(
+                target, identity_id
+            )
+        )
+        if active_authority_digest != candidate_authority_digest:
+            raise RestoreInvariantError(
+                "restore candidate conflicts with current canonical authority"
+            )
 
     @staticmethod
     def _trusted_fence(
@@ -461,14 +815,14 @@ class RecoveryManager:
                 """UPDATE outbox SET state='NEEDS_RECONCILIATION',next_attempt_at=NULL,
                                      updated_at=?
                    WHERE identity_id=? AND state IN
-                     ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING')""",
+                     ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING','UNKNOWN')""",
                 (restored_at, identity_id),
             )
             counts["outbox"] = int(cur.rowcount)
             cur = conn.execute(
                 """UPDATE effects SET dispatch_state='NEEDS_RECONCILIATION',updated_at=?
                    WHERE identity_id=? AND dispatch_state IN
-                     ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING','FAILED_RETRYABLE')""",
+                     ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING','FAILED_RETRYABLE','UNKNOWN')""",
                 (restored_at, identity_id),
             )
             counts["effects"] = int(cur.rowcount)
@@ -519,7 +873,8 @@ class RecoveryManager:
             cur = conn.execute(
                 """UPDATE deliveries
                    SET state='NEEDS_RECONCILIATION',updated_at=?
-                   WHERE identity_id=? AND state IN ('PENDING','FAILED')""",
+                   WHERE identity_id=?
+                     AND state IN ('PENDING','ATTEMPTING','FAILED')""",
                 (restored_at, identity_id),
             )
             counts["deliveries"] = int(cur.rowcount)
@@ -533,6 +888,14 @@ class RecoveryManager:
                 "DELETE FROM projections WHERE identity_id=?", (identity_id,)
             )
             counts["projections"] = int(cur.rowcount)
+            # R11 context summaries are lossy/rebuildable derived context.
+            # Never preserve their plaintext across restore; fresh summaries
+            # must be rebuilt from canonical events/current authority.
+            if "context_summaries" in tables:
+                conn.execute(
+                    "DELETE FROM context_summaries WHERE identity_id=?",
+                    (identity_id,),
+                )
             counts["rebuilt_projections"] = RecoveryManager._rebuild_projections(
                 conn, identity_id=identity_id, built_at=restored_at
             )
@@ -697,11 +1060,21 @@ class RecoveryManager:
         with db.transaction() as conn:
             row = conn.execute(
                 """SELECT 1 FROM outbox WHERE identity_id=? AND state IN
-                   ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING') LIMIT 1""",
+                   ('PENDING','CLAIMED','FAILED_RETRYABLE','DISPATCHING','UNKNOWN') LIMIT 1""",
                 (identity_id,),
             ).fetchone()
             if row is not None:
                 raise RestoreInvariantError("restored executable outbox work remains")
+            effect = conn.execute(
+                """SELECT 1 FROM effects WHERE identity_id=? AND dispatch_state IN
+                   ('PROPOSED','AUTHORIZED','QUEUED','DISPATCHING',
+                    'FAILED_RETRYABLE','UNKNOWN') LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if effect is not None:
+                raise RestoreInvariantError(
+                    "restored uncertain/non-terminal effect remains"
+                )
             purpose = conn.execute(
                 """SELECT 1 FROM purposes WHERE identity_id=? AND state IN
                    ('SCHEDULED','ACTIVE','WAITING') LIMIT 1""",
@@ -716,6 +1089,38 @@ class RecoveryManager:
             ).fetchone()
             if auth is not None:
                 raise RestoreInvariantError("restored execution authorization remains reusable")
+            delivery = conn.execute(
+                """SELECT 1 FROM deliveries
+                   WHERE identity_id=?
+                     AND state IN ('PENDING','ATTEMPTING','FAILED')
+                   LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if delivery is not None:
+                raise RestoreInvariantError(
+                    "restored non-terminal delivery remains executable/ambiguous"
+                )
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "delivery_attempts" in tables:
+                attempt = conn.execute(
+                    """SELECT 1 FROM delivery_attempts
+                       WHERE identity_id=?
+                         AND state IN (
+                           'QUEUED','CLAIMED','DISPATCHING',
+                           'UNKNOWN','FAILED_RETRYABLE'
+                         )
+                       LIMIT 1""",
+                    (identity_id,),
+                ).fetchone()
+                if attempt is not None:
+                    raise RestoreInvariantError(
+                        "restored non-terminal delivery attempt remains"
+                    )
 
     @staticmethod
     def _require_healthy(db: Database, label: str) -> None:

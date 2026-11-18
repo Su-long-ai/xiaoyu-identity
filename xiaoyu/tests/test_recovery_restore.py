@@ -30,6 +30,17 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
         apply_migrations(db)
         return db
 
+    def _managed_backup(self, db: Database, path: Path) -> Path:
+        ExternalErasureFenceStore(db.path).ensure_identity("fish-1")
+        return RecoveryManager.create_backup(
+            source_path=db.path,
+            backup_path=path,
+            identity_id="fish-1",
+            release_version="test-recovery",
+            release_digest="sha256:test-recovery",
+            created_at=NOW,
+        )
+
     def _seed_pending_nonreplayable_effect(self, db: Database) -> None:
         with db.transaction(immediate=True) as conn:
             conn.execute(
@@ -258,7 +269,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self._seed_pending_nonreplayable_effect(active)
             ExternalErasureFenceStore(active.path).ensure_identity("fish-1")
 
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
 
             # Original database has already consumed the effect.
             with active.transaction(immediate=True) as conn:
@@ -292,7 +303,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             active = self._db(root / "identity.sqlite3")
             self._seed_runtime_context(active)
             ExternalErasureFenceStore(active.path).ensure_identity("fish-1")
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
 
             report = RecoveryManager.restore(
                 candidate_path=snapshot,
@@ -339,7 +350,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             self._seed_fact(active)
             fence = ExternalErasureFenceStore(active.path)
             fence.ensure_identity("fish-1")
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
 
             fence.record_fact_delete(
                 identity_id="fish-1",
@@ -355,14 +366,20 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                     "UPDATE temporal_facts SET status='DELETED' WHERE fact_key='fact:secret'"
                 )
 
+            # Simulate loss of the active SQLite authority while the external
+            # erasure watermark survives independently.
+            trusted_watermark = root / "trusted-erasure-watermark.json"
+            shutil.copy2(fence.path, trusted_watermark)
+            recovered_path = root / "recovered.sqlite3"
             RecoveryManager.restore(
                 candidate_path=snapshot,
-                target_path=active.path,
+                target_path=recovered_path,
                 identity_id="fish-1",
-                mode=RestoreMode.MANAGED,
+                mode=RestoreMode.DISASTER_RECOVERY,
+                watermark_path=trusted_watermark,
             )
 
-            restored = Database(active.path)
+            restored = Database(recovered_path)
             with restored.transaction() as conn:
                 row = conn.execute(
                     "SELECT status FROM temporal_facts WHERE fact_key='fact:secret'"
@@ -472,7 +489,9 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                     ),
                 )
 
-            snapshot = active.backup_to(root / "post-reintroduce.sqlite3")
+            snapshot = self._managed_backup(
+                active, root / "post-reintroduce.sqlite3"
+            )
             RecoveryManager.restore(
                 candidate_path=snapshot,
                 target_path=active.path,
@@ -519,7 +538,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
                         0,
                     ),
                 )
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
 
             report = RecoveryManager.restore(
                 candidate_path=snapshot,
@@ -606,7 +625,7 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             active = self._db(root / "identity.sqlite3")
             fence = ExternalErasureFenceStore(active.path)
             fence.ensure_identity("fish-1")
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
             fence.path.write_text("{not-json", encoding="utf-8")
 
             with self.assertRaises(ErasureWatermarkError):
@@ -622,7 +641,9 @@ class RecoveryRestoreRegressionTests(unittest.TestCase):
             root = Path(td)
             active = self._db(root / "identity.sqlite3")
             self._seed_fact(active)
-            snapshot = active.backup_to(root / "old.sqlite3")
+            snapshot = self._managed_backup(active, root / "old.sqlite3")
+            fence = ExternalErasureFenceStore(active.path)
+            fence.path.unlink()
 
             with self.assertRaises(MissingErasureWatermark):
                 RecoveryManager.restore(

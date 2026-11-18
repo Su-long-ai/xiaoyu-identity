@@ -70,6 +70,8 @@ class BackupDurabilityTests(unittest.TestCase):
                     "migration_version",
                     "erasure_generation",
                     "source_revision_watermark",
+                    "fact_mutation_watermark",
+                    "canonical_authority_digest",
                     "creation_time",
                     "release_version",
                     "release_digest",
@@ -176,6 +178,7 @@ class BackupDurabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = self._db(root / "identity.sqlite3")
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             good = source.backup_to(root / "good.sqlite3")
             truncated = root / "truncated.sqlite3"
             data = good.read_bytes()
@@ -186,7 +189,7 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=truncated,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
                 )
 
     def test_corrupt_btree_page_is_rejected_by_integrity_check(self):
@@ -202,6 +205,7 @@ class BackupDurabilityTests(unittest.TestCase):
                         "INSERT INTO backup_probe(value) VALUES(?)",
                         (("row-%03d-" % i) + ("x" * 1200),),
                     )
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             corrupt = source.backup_to(root / "page-corrupt.sqlite3")
             probe = Database(corrupt)
             with probe.transaction() as conn:
@@ -223,13 +227,14 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=corrupt,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
                 )
 
     def test_corrupt_header_is_rejected_before_activation(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = self._db(root / "identity.sqlite3")
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             corrupt = source.backup_to(root / "corrupt.sqlite3")
             data = bytearray(corrupt.read_bytes())
             data[:16] = b"not-a-sqlite-db!"
@@ -240,7 +245,115 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=corrupt,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
+                )
+
+
+    def test_manifest_continuity_claims_are_recomputed_from_backup_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=self._db(root/"identity.sqlite3")
+            backup=RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root/"managed.sqlite3",
+                identity_id="fish-1",
+                release_version="test-release",
+                release_digest="sha256:test-release",
+            )
+            manifest_path=Path(str(backup)+".manifest.json")
+            original=json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            tampered=[
+                (
+                    "source_revision_watermark",
+                    int(original["source_revision_watermark"])+1,
+                ),
+                (
+                    "fact_mutation_watermark",
+                    int(original["fact_mutation_watermark"])+1,
+                ),
+                (
+                    "canonical_authority_digest",
+                    "sha256:"+"0"*64,
+                ),
+                (
+                    "schema_version",
+                    int(original["schema_version"])+1,
+                ),
+                (
+                    "erasure_generation",
+                    int(original["erasure_generation"])+1,
+                ),
+            ]
+            for field,value in tampered:
+                with self.subTest(field=field):
+                    payload=dict(original)
+                    payload[field]=value
+                    manifest_path.write_text(
+                        json.dumps(
+                            payload,
+                            sort_keys=True,
+                            separators=(",",":"),
+                        )+"\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(
+                        BackupError,
+                        msg=(
+                            "restore trusted tampered manifest field "
+                            +field
+                        ),
+                    ):
+                        RecoveryManager.restore(
+                            candidate_path=backup,
+                            target_path=source.path,
+                            identity_id="fish-1",
+                            mode=RestoreMode.MANAGED,
+                        )
+            manifest_path.write_text(
+                json.dumps(
+                    original,
+                    sort_keys=True,
+                    separators=(",",":"),
+                )+"\n",
+                encoding="utf-8",
+            )
+
+
+    def test_validate_backup_manifest_rejects_tampered_continuity_not_just_db_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=self._db(root/"identity.sqlite3")
+            backup=RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root/"managed.sqlite3",
+                identity_id="fish-1",
+                release_version="test-release",
+                release_digest="sha256:test-release",
+            )
+            manifest_path=Path(str(backup)+".manifest.json")
+            manifest=json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            manifest["control_generation"]=(
+                int(manifest["control_generation"])+1
+            )
+            manifest_path.write_text(
+                json.dumps(
+                    manifest,sort_keys=True,separators=(",",":")
+                )+"\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(
+                BackupError,
+                msg=(
+                    "backup status validator accepted continuity metadata "
+                    "that restore itself would reject"
+                ),
+            ):
+                RecoveryManager.validate_backup_manifest(
+                    backup,expected_identity_id="fish-1"
                 )
 
 

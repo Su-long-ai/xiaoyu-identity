@@ -46,12 +46,20 @@ class ExternalErasureFenceStore:
                 )
             try:
                 generation = int(identity.get("erasure_generation", -1))
+                control_generation = int(
+                    identity.get("control_generation", 0)
+                )
             except (TypeError, ValueError) as exc:
                 raise ErasureWatermarkError(
-                    "invalid erasure generation"
+                    "invalid erasure/control generation"
                 ) from exc
             if generation < 0:
                 raise ErasureWatermarkError("invalid erasure generation")
+            if control_generation < 0:
+                raise ErasureWatermarkError("invalid control generation")
+            # Version-1 fences predate R20 control continuity. Treat the
+            # missing scalar as generation zero and preserve it on next write.
+            identity["control_generation"] = control_generation
             tombstones = identity.get("tombstones", [])
             if not isinstance(tombstones, list):
                 raise ErasureWatermarkError("invalid erasure tombstone list")
@@ -132,7 +140,7 @@ class ExternalErasureFenceStore:
         }
         payload = self.load() or {"version": self.VERSION, "identities": {}}
         existing = payload["identities"].get(
-            identity_id, {"erasure_generation": 0, "tombstones": []}
+            identity_id, {"erasure_generation": 0, "control_generation": 0, "tombstones": []}
         )
         by_key = {
             (int(item["erasure_generation"]), str(item["target_id"])): dict(item)
@@ -146,12 +154,39 @@ class ExternalErasureFenceStore:
             generation = max(generation, int(row["erasure_generation"]))
         payload["identities"][identity_id] = {
             "erasure_generation": generation,
+            "control_generation": int(
+                existing.get("control_generation", 0)
+            ),
             "tombstones": [
                 by_key[key] for key in sorted(by_key)
             ],
         }
         self._write(payload)
         return dict(payload["identities"][identity_id])
+
+    def advance_control_generation(
+        self,
+        *,
+        identity_id: str,
+    ) -> int:
+        """Advance only a fail-closed freshness watermark.
+
+        No business value is copied here. The scalar proves that backups from
+        an earlier owner-control epoch are stale after total DB loss.
+        """
+        payload = self.load() or {"version": self.VERSION, "identities": {}}
+        identity = payload["identities"].setdefault(
+            identity_id,
+            {
+                "erasure_generation": 0,
+                "control_generation": 0,
+                "tombstones": [],
+            },
+        )
+        value = int(identity.get("control_generation", 0)) + 1
+        identity["control_generation"] = value
+        self._write(payload)
+        return value
 
     def generation_for_delete(
         self,
@@ -162,7 +197,7 @@ class ExternalErasureFenceStore:
     ) -> int:
         payload = self.load() or {"version": self.VERSION, "identities": {}}
         identity = payload["identities"].get(
-            identity_id, {"erasure_generation": 0, "tombstones": []}
+            identity_id, {"erasure_generation": 0, "control_generation": 0, "tombstones": []}
         )
         for item in identity.get("tombstones", []):
             if str(item.get("mutation_id")) == mutation_id:
@@ -186,7 +221,7 @@ class ExternalErasureFenceStore:
     ) -> None:
         payload = self.load() or {"version": self.VERSION, "identities": {}}
         identity = payload["identities"].setdefault(
-            identity_id, {"erasure_generation": 0, "tombstones": []}
+            identity_id, {"erasure_generation": 0, "control_generation": 0, "tombstones": []}
         )
         current_generation = int(identity.get("erasure_generation", 0))
         existing = next(

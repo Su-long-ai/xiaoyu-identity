@@ -25,6 +25,7 @@ from xiaoyu.core.memory import (
 )
 from xiaoyu.core.purpose import Purpose
 from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.repositories.events import (
     CanonicalEventRepository,
 )
@@ -567,6 +568,15 @@ class CanonicalProductStore:
         observed_at: Optional[datetime] = None,
     ) -> CanonicalEvent:
         at = observed_at or datetime.now(timezone.utc)
+        # Publish the recovery freshness barrier before committing the
+        # user-control event. If the DB mutation later fails, disaster restore
+        # may become conservatively unavailable until the next backup, but an
+        # old backup can never silently undo a committed control.
+        ExternalErasureFenceStore(
+            self.db.path
+        ).advance_control_generation(
+            identity_id=self.identity_id
+        )
         return self._record(
             source_namespace="product-control:" + surface,
             source_event_key=source_event_key,
