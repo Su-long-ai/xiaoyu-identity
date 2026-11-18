@@ -1,5 +1,6 @@
 param(
-    [string]$NekoRoot = "D:\xiaoyu_external_audit\N.E.K.O"
+    [string]$NekoRoot = "D:\xiaoyu_external_audit\N.E.K.O",
+    [switch]$HostSmoke
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,4 +22,13 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== N.E.K.O official plugin check =="
 uv run --project $NekoRoot neko-plugin check $PluginRoot
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+if ($HostSmoke) {
+    Write-Host "== N.E.K.O live host smoke =="
+    $NekoPython = Join-Path $NekoRoot ".venv\Scripts\python.exe"
+    & $NekoPython (Join-Path $OverlayRoot "tools\host_smoke.py")
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+exit 0
