@@ -745,8 +745,17 @@ def chat(
                 # but the complete request was not confirmed dispatched.
                 # Never replay the same private context to another provider.
                 raise
-            except (ProviderConfigError,RuntimeError) as exc:
+            except ProviderConfigError as exc:
                 errors.append((name,str(exc)))
+                continue
+            except RuntimeError as exc:
+                # External SDK/backend exception text is untrusted: it may
+                # include Authorization headers, request payloads or secrets.
+                # Preserve the concrete provider identity, never raw text.
+                if transport_backend is not None:
+                    errors.append((name,"external transport backend failed"))
+                else:
+                    errors.append((name,str(exc)))
                 continue
 
             on_response=getattr(guard,"on_response",None)
