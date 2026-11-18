@@ -379,5 +379,67 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
 
 
+    def test_restore_cannot_lose_self_revision_committed_after_backup_with_preexisting_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            store=CanonicalProductStore(db,identity_id="fish-self")
+            initial=store.self_authority.initialize(
+                identity_id="fish-self",
+                persona={
+                    "name":"小鱼",
+                    "identity_commitments":["诚实"],
+                    "style":{"tone":"warm"},
+                    "growth_notes":[],
+                    "bond_description":"start",
+                },
+                created_at=T0,
+                reason="bootstrap",
+            )
+            evidence=store.record_user_turn(
+                source_event_key="self-revise-evidence",
+                text="以后表达更直接一点",
+                observed_at=T0+timedelta(minutes=1),
+            )
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"self-gap-old.sqlite3",
+                identity_id="fish-self",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(minutes=1,seconds=1),
+            )
+            revised=store.revise_persona(
+                expected_revision=initial.persona_revision,
+                persona={
+                    **initial.persona,
+                    "style":{"tone":"direct"},
+                },
+                reason="owner-approved",
+                source_event_ids=(evidence.event_id,),
+                principal_id="owner",
+                created_at=T0+timedelta(minutes=2),
+            )
+            self.assertEqual(revised.persona_revision,2)
+            self.assertEqual(revised.persona["style"]["tone"],"direct")
+
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-self",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=3),
+            )
+            current=CanonicalProductStore(
+                Database(db.path),identity_id="fish-self"
+            ).self_authority.get("fish-self")
+            self.assertEqual(
+                current.persona_revision,
+                2,
+                "restore rolled SELF authority back across a preexisting-evidence transaction gap",
+            )
+            self.assertEqual(current.persona["style"]["tone"],"direct")
+
+
 if __name__=="__main__":
     unittest.main()
