@@ -244,7 +244,12 @@ class OutboxRepository:
             if str(row["dispatch_state"]) == "QUEUED":
                 conn.execute(
                     """UPDATE outbox
-                       SET state='PENDING',updated_at=?
+                       SET state='PENDING',
+                           attempt_count=CASE
+                               WHEN attempt_count>0 THEN attempt_count-1
+                               ELSE 0
+                           END,
+                           updated_at=?
                        WHERE outbox_id=? AND state='CLAIMED'""",
                     (timestamp, row["outbox_id"]),
                 )
