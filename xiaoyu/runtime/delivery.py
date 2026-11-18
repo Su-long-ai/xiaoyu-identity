@@ -89,6 +89,11 @@ class DeliveryCoordinator:
         surface: str,
         created_at: Optional[datetime] = None,
     ) -> None:
+        payload_logical_id = effect.request.get("logical_notification_id")
+        if payload_logical_id != logical_notification_id:
+            raise ValueError(
+                "effect logical_notification_id does not match delivery identity"
+            )
         current = created_at or datetime.now(timezone.utc)
         with self.db.transaction(immediate=True) as conn:
             if not self.delivery_repo.reserve_attempt(
@@ -98,6 +103,7 @@ class DeliveryCoordinator:
                 identity_id=identity_id,
                 logical_notification_id=logical_notification_id,
                 effect_id=effect.effect_id,
+                purpose_id=effect.purpose_id,
                 surface=surface,
                 created_at=current,
             ):
