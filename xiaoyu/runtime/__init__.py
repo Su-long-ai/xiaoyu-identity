@@ -1,4 +1,5 @@
 """Runtime Host primitives."""
+from .litellm_backend import LiteLLMBackendUnavailable, LiteLLMCompletionBackend
 from .delivery import (
     DeliveryAttemptAlreadyActive,
     DeliveryCoordinator,
@@ -57,8 +58,13 @@ from .recovery import (
     STATE_RECOVERY_PATHS,
 )
 from .resource_broker import (
+    CompositeTelemetrySampler,
     ExecutionResourceBroker,
+    HostResourceSnapshot,
     ModeTransition,
+    NvmlTelemetrySampler,
+    OptionalResourceTelemetryUnavailable,
+    PsutilTelemetrySampler,
     ResourceBroker,
     ResourceBudget,
     ResourceLease,
@@ -88,6 +94,8 @@ from .voice import (
 )
 from .vision import (
     CapturedVisionFrame,
+    MssScreenCapture,
+    OptionalVisionDependencyUnavailable,
     SidecarProcessSupervisor,
     VisionAnalysis,
     VisionObservation,
@@ -103,9 +111,17 @@ __all__ = [
     "DeliveryAttemptAlreadyActive",
     "DeliveryCoordinator",
     "DeliveryLedger",
+    "CompositeTelemetrySampler",
     "ExecutionRecoveryQueue",
     "ExecutionResourceBroker",
+    "HostResourceSnapshot",
     "ModeTransition",
+    "LiteLLMBackendUnavailable",
+    "LiteLLMCompletionBackend",
+    "MssScreenCapture",
+    "NvmlTelemetrySampler",
+    "OptionalResourceTelemetryUnavailable",
+    "OptionalVisionDependencyUnavailable",
     "OutboxDispatcher",
     "CanonicalDialogueProjector",
     "CanonicalHistoryTurn",
@@ -130,6 +146,7 @@ __all__ = [
     "PresenceFrame",
     "PresenceState",
     "PrivacyClass",
+    "PsutilTelemetrySampler",
     "ProviderAttemptContext",
     "ProviderDescriptor",
     "ProviderEligibility",

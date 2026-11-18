@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from threading import RLock
 import math
-from typing import Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from xiaoyu.contracts import CapabilityDescriptor
 
@@ -33,6 +33,124 @@ class ResourceBudget:
         ):
             if not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0:
                 raise ValueError("%s must be finite and between 0 and 1" % name)
+
+
+@dataclass(frozen=True)
+class HostResourceSnapshot:
+    cpu_fraction: Optional[float] = None
+    ram_available_mb: Optional[float] = None
+    battery_percent: Optional[float] = None
+    power_plugged: Optional[bool] = None
+    gpu_fraction: Optional[float] = None
+    vram_available_mb: Optional[float] = None
+    gpu_power_w: Optional[float] = None
+
+
+class OptionalResourceTelemetryUnavailable(RuntimeError):
+    pass
+
+
+class PsutilTelemetrySampler:
+    """Thin adapter over psutil for host CPU/RAM/battery telemetry."""
+
+    def __init__(self, module=None) -> None:
+        if module is None:
+            try:
+                import psutil as module  # type: ignore
+            except ImportError as exc:
+                raise OptionalResourceTelemetryUnavailable(
+                    "psutil is not installed"
+                ) from exc
+        self.psutil = module
+
+    def sample(self) -> HostResourceSnapshot:
+        memory = self.psutil.virtual_memory()
+        battery_fn = getattr(self.psutil, "sensors_battery", None)
+        battery = battery_fn() if callable(battery_fn) else None
+        return HostResourceSnapshot(
+            cpu_fraction=float(
+                self.psutil.cpu_percent(interval=None)
+            ) / 100.0,
+            ram_available_mb=float(memory.available)
+            / (1024.0 * 1024.0),
+            battery_percent=(
+                None if battery is None else float(battery.percent)
+            ),
+            power_plugged=(
+                None
+                if battery is None or battery.power_plugged is None
+                else bool(battery.power_plugged)
+            ),
+        )
+
+
+class NvmlTelemetrySampler:
+    """Thin adapter over NVIDIA's nvidia-ml-py (pynvml) binding."""
+
+    def __init__(self, module=None, *, device_index: int = 0) -> None:
+        if module is None:
+            try:
+                import pynvml as module  # type: ignore
+            except ImportError as exc:
+                raise OptionalResourceTelemetryUnavailable(
+                    "nvidia-ml-py is not installed"
+                ) from exc
+        self.nvml = module
+        self.device_index = int(device_index)
+        self._initialized = False
+
+    def _handle(self):
+        if not self._initialized:
+            self.nvml.nvmlInit()
+            self._initialized = True
+        return self.nvml.nvmlDeviceGetHandleByIndex(
+            self.device_index
+        )
+
+    def sample(self) -> HostResourceSnapshot:
+        handle = self._handle()
+        utilization = self.nvml.nvmlDeviceGetUtilizationRates(handle)
+        memory = self.nvml.nvmlDeviceGetMemoryInfo(handle)
+        power = None
+        try:
+            power = self.nvml.nvmlDeviceGetPowerUsage(handle)
+        except Exception:
+            power = None
+        return HostResourceSnapshot(
+            gpu_fraction=float(utilization.gpu) / 100.0,
+            vram_available_mb=float(memory.total - memory.used)
+            / (1024.0 * 1024.0),
+            gpu_power_w=(
+                None if power is None else float(power) / 1000.0
+            ),
+        )
+
+    def close(self) -> None:
+        if not self._initialized:
+            return
+        try:
+            self.nvml.nvmlShutdown()
+        finally:
+            self._initialized = False
+
+
+class CompositeTelemetrySampler:
+    def __init__(self, *samplers) -> None:
+        self.samplers = tuple(samplers)
+
+    def sample(self) -> HostResourceSnapshot:
+        values: Dict[str, Any] = {}
+        for sampler in self.samplers:
+            snapshot = sampler.sample()
+            if not isinstance(snapshot, HostResourceSnapshot):
+                raise TypeError(
+                    "resource telemetry sampler must return HostResourceSnapshot"
+                )
+            for name in HostResourceSnapshot.__dataclass_fields__:
+                value = getattr(snapshot, name)
+                if value is not None:
+                    values[name] = value
+        return HostResourceSnapshot(**values)
 
 
 @dataclass(frozen=True)
@@ -96,8 +214,10 @@ class ResourceBroker:
         *,
         mode: ResourceMode = ResourceMode.BALANCED,
         budgets: Optional[Mapping[ResourceMode, ResourceBudget]] = None,
+        telemetry_sampler=None,
     ) -> None:
         self.mode = ResourceMode(mode)
+        self.telemetry_sampler = telemetry_sampler
         self.budgets = dict(budgets or self.DEFAULT_BUDGETS)
         missing = set(ResourceMode) - set(self.budgets)
         if missing:
@@ -175,7 +295,39 @@ class ResourceBroker:
         )
 
     def can_reserve(self, request: ResourceRequest) -> bool:
-        return self._fits(self.used(), request, self.budget())
+        if not self._fits(self.used(), request, self.budget()):
+            return False
+        if self.telemetry_sampler is None:
+            return True
+        snapshot = self.telemetry_sampler.sample()
+        if not isinstance(snapshot, HostResourceSnapshot):
+            raise TypeError(
+                "resource telemetry sampler must return HostResourceSnapshot"
+            )
+        budget = self.budget()
+        if (
+            snapshot.ram_available_mb is not None
+            and request.ram_mb > snapshot.ram_available_mb
+        ):
+            return False
+        if (
+            snapshot.vram_available_mb is not None
+            and request.vram_mb > snapshot.vram_available_mb
+        ):
+            return False
+        if (
+            snapshot.cpu_fraction is not None
+            and snapshot.cpu_fraction + request.cpu_fraction
+                > budget.cpu_fraction + 1e-12
+        ):
+            return False
+        if (
+            snapshot.gpu_fraction is not None
+            and snapshot.gpu_fraction + request.gpu_fraction
+                > budget.gpu_fraction + 1e-12
+        ):
+            return False
+        return True
 
     def reserve(
         self,
