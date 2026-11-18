@@ -202,6 +202,33 @@
       "security_review": "Production admission requires fresh package/advisory/dependency review; join does not query the web."
     },
     {
+      "id": "fastembed_091_bge_small_zh_v15",
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "qdrant/fastembed + BAAI/bge-small-zh-v1.5"
+      },
+      "version": "fastembed 0.9.1; BAAI/bge-small-zh-v1.5",
+      "license": "Apache-2.0 package; MIT model",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "shadow_only",
+      "decision_ref": "ADR-005-concrete-semantic-retrieval-components",
+      "evidence": [
+        "Qdrant FastEmbed 0.9.1 official model registry",
+        "plans/FASTEMBED_ZH_SHADOW_SMOKE_20261118.md"
+      ],
+      "health_note": "90MB Chinese BGE model. Real local smoke ranked 4/4 Chinese memory queries correctly at rank 1; 100-document warm median was 99.07 ms without a vector cache. Paired retrieval evaluation is still required before default promotion.",
+      "kind": "embedding",
+      "covers": [
+        "local Chinese semantic embeddings",
+        "query/passage semantic ranking"
+      ],
+      "health_status": "shadow_trial_pending_paired_eval",
+      "security_review": "Production promotion requires a fixed-version package/advisory review; inference must remain local after model acquisition."
+    },
+    {
       "id": "lancedb_cognee_local_0390",
       "lifecycle": "trial",
       "owner": "xiaoyu-lead",
@@ -1005,6 +1032,7 @@
         "deepseek_semantic_projector",
         "strict_response_validator",
         "fastembed_cognee_080_bge_small_en_v15",
+        "fastembed_091_bge_small_zh_v15",
         "lancedb_cognee_local_0390",
         "retrieval_admissibility_reference",
         "memderive_benchmark"

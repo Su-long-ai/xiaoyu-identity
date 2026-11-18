@@ -52,6 +52,11 @@ from .provider_registry import (
     provider_session_namespace,
     standing_approval_binding_digest,
 )
+from .retrieval import (
+    FastEmbedSemanticRanker,
+    FastEmbedUnavailable,
+    build_fastembed_memory_retriever,
+)
 from .recovery import (
     ExecutionRecoveryQueue,
     RecoveryItem,
@@ -114,6 +119,8 @@ __all__ = [
     "CompositeTelemetrySampler",
     "ExecutionRecoveryQueue",
     "ExecutionResourceBroker",
+    "FastEmbedUnavailable",
+    "FastEmbedSemanticRanker",
     "HostResourceSnapshot",
     "ModeTransition",
     "LiteLLMBackendUnavailable",
@@ -184,6 +191,7 @@ __all__ = [
     "VoiceSessionController",
     "VoiceTurn",
     "VoiceTurnToken",
+    "build_fastembed_memory_retriever",
     "build_pipecat_params",
     "evaluate_voice_gate",
     "pipecat_api_status",
