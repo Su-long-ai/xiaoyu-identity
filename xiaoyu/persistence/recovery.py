@@ -166,6 +166,9 @@ class RecoveryManager:
                 "erasure_generation": int(
                     backup_fence_identity["erasure_generation"]
                 ),
+                "control_generation": int(
+                    backup_fence_identity.get("control_generation", 0)
+                ),
                 "source_revision_watermark": int(source_revision),
                 "fact_mutation_watermark": int(fact_mutation_watermark),
                 "canonical_authority_digest": canonical_authority_digest,
@@ -242,6 +245,10 @@ class RecoveryManager:
             identity_id=identity_id,
             mode=mode,
             watermark_path=watermark_path,
+        )
+        RecoveryManager._validate_control_continuity(
+            manifest=manifest,
+            fence_identity=fence_identity,
         )
         stamp = (activated_at or datetime.now(timezone.utc)).astimezone(
             timezone.utc
@@ -369,6 +376,7 @@ class RecoveryManager:
             manifest_source = int(manifest["source_revision_watermark"])
             manifest_mutation = int(manifest["fact_mutation_watermark"])
             manifest_erasure = int(manifest["erasure_generation"])
+            manifest_control = int(manifest["control_generation"])
         except (KeyError, TypeError, ValueError) as exc:
             raise BackupError(
                 "backup manifest continuity fields are missing or invalid"
@@ -414,6 +422,12 @@ class RecoveryManager:
         if int(fence_identity["erasure_generation"]) != manifest_erasure:
             raise BackupError(
                 "backup manifest erasure generation does not match candidate fence"
+            )
+        if int(
+            fence_identity.get("control_generation", 0)
+        ) != manifest_control:
+            raise BackupError(
+                "backup manifest control generation does not match candidate fence"
             )
 
         if not str(manifest.get("release_version") or "").strip():
@@ -501,6 +515,32 @@ class RecoveryManager:
                 (identity_id,),
             ).fetchone()
         return int(row[0] or 0)
+
+    @staticmethod
+    def _validate_control_continuity(
+        *,
+        manifest: Optional[dict],
+        fence_identity: dict,
+    ) -> None:
+        trusted = int(fence_identity.get("control_generation", 0))
+        if manifest is None:
+            if trusted != 0:
+                raise RestoreInvariantError(
+                    "raw restore candidate cannot prove latest owner-control generation"
+                )
+            return
+        try:
+            candidate = int(manifest["control_generation"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "managed backup lacks control generation; "
+                "use explicit compatibility migration"
+            ) from exc
+        if candidate != trusted:
+            raise RestoreInvariantError(
+                "restore candidate owner-control generation does not match trusted latest fence "
+                "(candidate %d, trusted %d)" % (candidate, trusted)
+            )
 
     @staticmethod
     def _reject_stale_authority_restore(

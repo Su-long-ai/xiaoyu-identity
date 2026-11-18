@@ -177,22 +177,21 @@ class R20RecoveryStateContinuityTests(unittest.TestCase):
                 )
             )
             recovered=root/"recovered.sqlite3"
-            RecoveryManager.restore(
-                candidate_path=backup,
-                target_path=recovered,
-                identity_id="fish-r20-recovery",
-                mode=RestoreMode.DISASTER_RECOVERY,
-                watermark_path=trusted,
-                activated_at=T0+timedelta(minutes=2),
-            )
-            recovered_item=CanonicalProductStore(
-                Database(recovered),
-                identity_id="fish-r20-recovery",
-            ).memory.get("drink")
-            self.assertEqual(
-                recovered_item.control_state,
-                MemoryControlState.MUTED,
-                "old disaster snapshot resurrected MUTED memory as NORMAL",
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "owner-control generation does not match",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=recovered,
+                    identity_id="fish-r20-recovery",
+                    mode=RestoreMode.DISASTER_RECOVERY,
+                    watermark_path=trusted,
+                    activated_at=T0+timedelta(minutes=2),
+                )
+            self.assertFalse(
+                recovered.exists(),
+                "stale disaster snapshot must not be activated",
             )
             self.assertFalse(store.memory.get("drink").archived)
 
