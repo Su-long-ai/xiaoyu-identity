@@ -43,6 +43,20 @@ class R20MemoryContextRedTeamTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_archived_memory_assistant_echo_does_not_remain_in_prompt_history(self):
+        with tempfile.TemporaryDirectory() as td:
+            store, memory_id = self._store_with_sourced_memory(td)
+            try:
+                store.record(
+                    "conversation.assistant",
+                    "assistant",
+                    "I remember: " + self.SECRET,
+                )
+                self.assertTrue(store.archive_memory(memory_id))
+                self._assert_secret_not_projected(store)
+            finally:
+                store.close()
+
     def test_retracted_memory_source_text_does_not_remain_in_prompt_history(self):
         with tempfile.TemporaryDirectory() as td:
             store, memory_id = self._store_with_sourced_memory(td)
