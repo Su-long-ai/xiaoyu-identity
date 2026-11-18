@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "source_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+  "work_root": "D:\\xiaoyu_private_overlay_state\\erasure-e2e",
+  "source_product_data_touched": false,
+  "synthetic_canary_only": true,
+  "canary_text_recorded_in_evidence": false,
+  "official_forget_route": "/internal/memory/{lanlan_name}/scoped_forget",
+  "verdict": "PASS",
+  "persona_add_result": "added",
+  "archive_roundtrip": {
+    "facts_archived": 1,
+    "fact_archive_required_for_this_probe": false,
+    "fact_active_seeded": true,
+    "reflection_archived": true,
+    "persona_archived": true,
+    "restore_before_forget": {
+      "facts": 1,
+      "reflections": 1,
+      "persona_entries": 1
+    },
+    "pre_forget_restore_visible": true,
+    "native_cold_store_evidence": "evals/evidence/2026-11-18-neko-erasure-native.json",
+    "pass": true
+  },
+  "forget_receipt_present": true,
+  "forget_epoch": 1,
+  "post_forget": {
+    "canary_visible": false,
+    "snapshot": {
+      "fact_has_canary": false,
+      "reflection_has_canary": false,
+      "persona_has_canary": false,
+      "render_has_canary": false
+    }
+  },
+  "restore_after_forget": {
+    "facts": 0,
+    "reflections": 0,
+    "persona_entries": 0
+  },
+  "post_restore": {
+    "canary_visible": false,
+    "snapshot": {
+      "fact_has_canary": false,
+      "reflection_has_canary": false,
+      "persona_has_canary": false,
+      "render_has_canary": false
+    }
+  },
+  "same_process_pass": true,
+  "fresh_process": {
+    "exit_code": 0,
+    "pass": true,
+    "forget_epoch_after_restart": 1,
+    "restored_after_restart": {
+      "facts": 0,
+      "reflections": 0,
+      "persona_entries": 0
+    },
+    "canary_visible_after_restart": false
+  },
+  "cleanup_deferred_due_to_open_log": true,
+  "work_root_cleaned": true,
+  "cleanup_completed_after_process_exit": true
+}

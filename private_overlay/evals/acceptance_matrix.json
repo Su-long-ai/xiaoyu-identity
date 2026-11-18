@@ -40,14 +40,14 @@
     {
       "id": "erasure_closure",
       "goal": "scoped forget clears active/archive/cold/index/derived state",
-      "status": "native_evidence_pass_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+      "status": "isolated_live_archive_forget_pass",
+      "evidence": "evals/evidence/2026-11-18-live-erasure.json"
     },
     {
       "id": "no_resurrection",
       "goal": "old restore cannot revive erased material",
-      "status": "native_evidence_pass_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+      "status": "isolated_live_restore_restart_block_pass",
+      "evidence": "evals/evidence/2026-11-18-live-erasure.json"
     },
     {
       "id": "erase_race",
