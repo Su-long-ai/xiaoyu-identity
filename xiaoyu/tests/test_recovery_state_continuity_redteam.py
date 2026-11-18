@@ -503,5 +503,90 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
 
 
+    def test_higher_event_watermark_does_not_authorize_divergent_backup_over_current_truth(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            active=Database(root/"active.sqlite3")
+            store=CanonicalProductStore(active,identity_id="fish-diverge")
+            initial=store.self_authority.initialize(
+                identity_id="fish-diverge",
+                persona={
+                    "name":"小鱼",
+                    "identity_commitments":["诚实"],
+                    "style":{"tone":"warm"},
+                    "growth_notes":[],
+                    "bond_description":"start",
+                },
+                created_at=T0,
+                reason="bootstrap",
+            )
+            evidence=store.record_user_turn(
+                source_event_key="diverge-persona-evidence",
+                text="以后更直接一点",
+                observed_at=T0+timedelta(minutes=1),
+            )
+            ExternalErasureFenceStore(active.path).ensure_identity(
+                "fish-diverge"
+            )
+
+            # Fork candidate before the persona mutation commits.
+            candidate_db=Database(
+                active.backup_to(root/"candidate-branch.sqlite3")
+            )
+            ExternalErasureFenceStore(candidate_db.path).ensure_identity(
+                "fish-diverge"
+            )
+            candidate_store=CanonicalProductStore(
+                candidate_db,identity_id="fish-diverge"
+            )
+
+            # Active truth advances without a new event.
+            revised=store.revise_persona(
+                expected_revision=initial.persona_revision,
+                persona={
+                    **initial.persona,
+                    "style":{"tone":"direct"},
+                },
+                reason="owner-approved",
+                source_event_ids=(evidence.event_id,),
+                principal_id="owner",
+                created_at=T0+timedelta(minutes=2),
+            )
+            self.assertEqual(revised.persona_revision,2)
+
+            # Candidate branch gets a newer unrelated event, so its event
+            # watermark is numerically higher despite missing the persona edit.
+            candidate_store.record_user_turn(
+                source_event_key="candidate-unrelated-newer-event",
+                text="无关的新事件",
+                observed_at=T0+timedelta(minutes=3),
+            )
+            backup=RecoveryManager.create_backup(
+                source_path=candidate_db.path,
+                backup_path=root/"divergent-newer.sqlite3",
+                identity_id="fish-diverge",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(minutes=4),
+            )
+
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=active.path,
+                identity_id="fish-diverge",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=5),
+            )
+            current=CanonicalProductStore(
+                Database(active.path),identity_id="fish-diverge"
+            ).self_authority.get("fish-diverge")
+            self.assertEqual(
+                current.persona_revision,
+                2,
+                "a higher event watermark overwrote divergent current authority",
+            )
+            self.assertEqual(current.persona["style"]["tone"],"direct")
+
+
 if __name__=="__main__":
     unittest.main()
