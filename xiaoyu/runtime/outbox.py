@@ -84,12 +84,12 @@ class OutboxDispatcher:
     def dispatch_once(self, limit: int = 20, now: Optional[datetime] = None) -> int:
         if RecoveryQuarantineStore(self.db.path).is_active():
             return 0
-        current = now or datetime.now(timezone.utc)
+        claim_time = now or datetime.now(timezone.utc)
 
         # Claim is deliberately separate from the dispatch linearization point.
         # A crash here is provably pre-transport and can be safely re-queued.
         with self.db.transaction(immediate=True) as conn:
-            claimed = self.outbox_repo.claim_due(conn, current, limit)
+            claimed = self.outbox_repo.claim_due(conn, claim_time, limit)
 
         processed = 0
         for row in claimed:
@@ -103,22 +103,25 @@ class OutboxDispatcher:
             if binding_error is not None:
                 with self.db.transaction(immediate=True) as conn:
                     self.outbox_repo.mark(
-                        conn, row.outbox_id, "FAILED_FINAL", current
+                        conn, row.outbox_id, "FAILED_FINAL", claim_time
                     )
                     self.effect_repo.set_authorization_failed(
                         conn,
                         row.effect_id,
                         binding_error,
-                        current,
+                        claim_time,
                     )
                     self.delivery_repo.mark_failed_final(
-                        conn, row.effect_id, current
+                        conn, row.effect_id, claim_time
                     )
                 self._release_effect_resources(row.effect_id)
                 continue
 
             # This is the final authorization check immediately before the
             # transport boundary.  No enqueue-time ALLOW is trusted forever.
+            # Production dispatch samples time again per claimed effect because
+            # earlier rows may delay this one past principal/delegation expiry.
+            dispatch_time = now or datetime.now(timezone.utc)
             try:
                 with self.db.transaction(immediate=True) as conn:
                     self.execution_auth_repo.preflight(
@@ -131,7 +134,7 @@ class OutboxDispatcher:
                         destination=row.destination,
                         request=row.payload,
                         effect_request=row.request,
-                        now=current,
+                        now=dispatch_time,
                         purpose_revision=row.purpose_revision,
                         purpose_occurrence_id=row.purpose_occurrence_id,
                     )
@@ -140,7 +143,7 @@ class OutboxDispatcher:
                         raise DispatchAuthorizationDenied(purpose_invalid)
 
                     self.effect_repo.set_state(
-                        conn, row.effect_id, "DISPATCHING", current
+                        conn, row.effect_id, "DISPATCHING", dispatch_time
                     )
                     if row.purpose_occurrence_id is not None:
                         cur = conn.execute(
@@ -151,7 +154,7 @@ class OutboxDispatcher:
                                  AND state IN ('READY','CLAIMED')""",
                             (
                                 row.effect_id,
-                                current.astimezone(timezone.utc).isoformat(
+                                dispatch_time.astimezone(timezone.utc).isoformat(
                                     timespec="microseconds"
                                 ),
                                 row.purpose_occurrence_id,
@@ -164,26 +167,26 @@ class OutboxDispatcher:
                                 "PURPOSE_OCCURRENCE_CLAIM_RACE"
                             )
                     self.delivery_repo.mark_dispatching(
-                        conn, row.effect_id, current
+                        conn, row.effect_id, dispatch_time
                     )
             except DispatchAuthorizationDenied as exc:
                 with self.db.transaction(immediate=True) as conn:
                     self.outbox_repo.mark(
-                        conn, row.outbox_id, "FAILED_FINAL", current
+                        conn, row.outbox_id, "FAILED_FINAL", dispatch_time
                     )
                     self.effect_repo.set_authorization_failed(
                         conn,
                         row.effect_id,
                         str(exc),
-                        current,
+                        dispatch_time,
                     )
                     if str(exc).startswith("PURPOSE_"):
                         self.delivery_repo.mark_cancelled(
-                            conn, row.effect_id, current
+                            conn, row.effect_id, dispatch_time
                         )
                     else:
                         self.delivery_repo.mark_failed_final(
-                            conn, row.effect_id, current
+                            conn, row.effect_id, dispatch_time
                         )
                 if str(exc).startswith("PURPOSE_"):
                     self._cancel_effect_resources(row.effect_id)
@@ -216,11 +219,12 @@ class OutboxDispatcher:
             processed += 1
             if self.fault_hook:
                 self.fault_hook("after_dispatch", row)
+            outcome_time = now or datetime.now(timezone.utc)
             try:
                 self._persist_outcome(
                     row,
                     outcome,
-                    current,
+                    outcome_time,
                     request_digest=transport_request_digest,
                 )
             finally:
