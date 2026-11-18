@@ -238,7 +238,8 @@ class EffectCoordinator:
                 )
             if effect.purpose_occurrence_id is not None:
                 occurrence = conn.execute(
-                    """SELECT state,purpose_revision FROM purpose_occurrences
+                    """SELECT state,purpose_revision,effect_id
+                       FROM purpose_occurrences
                        WHERE occurrence_id=? AND purpose_id=?""",
                     (
                         effect.purpose_occurrence_id,
@@ -255,6 +256,36 @@ class EffectCoordinator:
                     raise EffectBindingError(
                         "effect purpose occurrence is not executable"
                     )
+                occurrence_owner = occurrence["effect_id"]
+                if (
+                    occurrence_owner is not None
+                    and str(occurrence_owner) != effect.effect_id
+                ):
+                    raise EffectBindingError(
+                        "purpose occurrence is already bound to another effect"
+                    )
+                if str(occurrence["state"]) == "READY":
+                    cur = conn.execute(
+                        """UPDATE purpose_occurrences
+                           SET effect_id=?,updated_at=?
+                           WHERE occurrence_id=? AND purpose_id=?
+                             AND purpose_revision=? AND state='READY'
+                             AND (effect_id IS NULL OR effect_id=?)""",
+                        (
+                            effect.effect_id,
+                            created_at.astimezone(timezone.utc).isoformat(
+                                timespec="microseconds"
+                            ),
+                            effect.purpose_occurrence_id,
+                            effect.purpose_id,
+                            effect.purpose_revision,
+                            effect.effect_id,
+                        ),
+                    )
+                    if cur.rowcount != 1:
+                        raise EffectBindingError(
+                            "purpose occurrence binding changed during enqueue"
+                        )
         self.auth_repo.record(
             conn=conn,
             decision_id=decision_id,
