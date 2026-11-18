@@ -67,7 +67,7 @@ def attempt_context(
     expected_capability_digest=None,
     expected_approval_binding_digest=None,
     private_tool=False,
-    viewer_principal_ids=("owner",),
+    viewer_principal_ids=None,
     authorization_digest="auth-v1",
     routing_policy_digest=None,
     tool_result_digest=None,
@@ -96,7 +96,11 @@ def attempt_context(
         tool_implementation_digest=tool_implementation_digest,
         tool_schema_digest=tool_schema_digest,
         source_contains_private_tool_result=private_tool,
-        viewer_principal_ids=tuple(viewer_principal_ids),
+        viewer_principal_ids=tuple(
+            (owner_principal_id,)
+            if viewer_principal_ids is None
+            else viewer_principal_ids
+        ),
     )
 
 
