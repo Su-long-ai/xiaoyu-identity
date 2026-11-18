@@ -814,5 +814,70 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             self.assertEqual(report.quarantined_outbox,1)
 
 
+    def test_restore_sidecar_write_failure_cannot_partially_activate_new_db(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=Database(root/"candidate.sqlite3")
+            active=Database(root/"active.sqlite3")
+            apply_migrations(source)
+            apply_migrations(active)
+            with source.transaction(immediate=True) as conn:
+                conn.execute(
+                    "CREATE TABLE recovery_probe(value TEXT NOT NULL)"
+                )
+                conn.execute(
+                    "INSERT INTO recovery_probe(value) VALUES('candidate')"
+                )
+            with active.transaction(immediate=True) as conn:
+                conn.execute(
+                    "CREATE TABLE recovery_probe(value TEXT NOT NULL)"
+                )
+                conn.execute(
+                    "INSERT INTO recovery_probe(value) VALUES('active')"
+                )
+
+            source_fence=ExternalErasureFenceStore(source.path)
+            source_fence.ensure_identity("fish-power")
+            trusted=root/"trusted-erasure.json"
+            source_fence.copy_to(
+                ExternalErasureFenceStore(active.path,path=trusted)
+            )
+            raw=source.backup_to(root/"candidate-raw.sqlite3")
+
+            original_write=ExternalErasureFenceStore._write
+            def fail_target_write(store,payload):
+                if Path(store.path)==Path(str(active.path)+".erasure-watermark.json"):
+                    raise OSError("synthetic fence write failure")
+                return original_write(store,payload)
+
+            with mock.patch.object(
+                ExternalErasureFenceStore,
+                "_write",
+                fail_target_write,
+            ):
+                with self.assertRaises(OSError):
+                    RecoveryManager.restore(
+                        candidate_path=raw,
+                        target_path=active.path,
+                        identity_id="fish-power",
+                        mode=RestoreMode.DISASTER_RECOVERY,
+                        watermark_path=trusted,
+                        activated_at=T0+timedelta(minutes=20),
+                    )
+
+            after=Database(active.path)
+            with after.transaction() as conn:
+                value=str(
+                    conn.execute(
+                        "SELECT value FROM recovery_probe"
+                    ).fetchone()[0]
+                )
+            self.assertEqual(
+                value,
+                "active",
+                "restore reported failure after already replacing the active DB",
+            )
+
+
 if __name__=="__main__":
     unittest.main()
