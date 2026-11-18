@@ -96,16 +96,21 @@ class DeliveryRepository:
         identity_id: str,
         logical_notification_id: str,
         effect_id: str,
+        purpose_id: Optional[str],
         surface: str,
         created_at: datetime,
     ) -> bool:
         delivery = conn.execute(
-            """SELECT state FROM deliveries
+            """SELECT state,purpose_id FROM deliveries
                WHERE delivery_id=? AND identity_id=? AND logical_notification_id=?""",
             (delivery_id, identity_id, logical_notification_id),
         ).fetchone()
         if delivery is None:
             raise KeyError("logical delivery not found: %s" % delivery_id)
+        if delivery["purpose_id"] != purpose_id:
+            raise ValueError(
+                "delivery purpose does not match effect purpose"
+            )
         if str(delivery["state"]) not in ("PENDING", "FAILED"):
             return False
 
