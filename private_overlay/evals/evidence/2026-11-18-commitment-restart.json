@@ -1,11 +1,14 @@
 {
   "verdict": "PASS",
   "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
-  "fresh_processes": 4,
+  "fresh_processes": 5,
   "synthetic_only": true,
   "product_data_touched": false,
   "seed_active_count": 1,
   "restart_due_visible": true,
+  "native_proactive_prompt_nonempty": true,
+  "native_proactive_prompt_contains_commitment": true,
+  "native_proactive_prompt_sha256": "f63b8310e9da3afa649727f2ddb459d792deb05079fb14f891e8a5383dd37680",
   "surface_written": true,
   "second_restart_duplicate_offer_suppressed": true
 }

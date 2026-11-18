@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -50,6 +50,29 @@ def _phase(args) -> int:
     if args.phase == "read":
         print(json.dumps({"due": due}, ensure_ascii=False))
         return 0 if due and due["text"] == TEXT else 3
+    if args.phase == "render":
+        if not due:
+            return 8
+        from main_logic.topic.hooks import build_topic_hook_prompt
+
+        commitment = {
+            "id": due["id"],
+            "text": due["text"],
+            "due": "soon",
+        }
+        prompt = build_topic_hook_prompt("zh", commitment=commitment)
+        result = {
+            "prompt_nonempty": bool(prompt.strip()),
+            "prompt_contains_commitment": TEXT in prompt,
+            "prompt_sha256": __import__("hashlib").sha256(
+                prompt.encode("utf-8")
+            ).hexdigest(),
+        }
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if all([
+            result["prompt_nonempty"],
+            result["prompt_contains_commitment"],
+        ]) else 9
     if args.phase == "surface":
         if not due:
             return 4
@@ -83,22 +106,30 @@ def _parent(args) -> int:
         script = Path(__file__).resolve()
         seed = _child(script, root, args.neko_root, "seed")
         read = _child(script, root, args.neko_root, "read")
+        render = _child(script, root, args.neko_root, "render")
         surface = _child(script, root, args.neko_root, "surface")
         after = _child(script, root, args.neko_root, "after")
         result = {
             "verdict": "PASS",
             "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
-            "fresh_processes": 4,
+            "fresh_processes": 5,
             "synthetic_only": True,
             "product_data_touched": False,
             "seed_active_count": len(seed.get("active") or []),
             "restart_due_visible": bool(read.get("due")),
+            "native_proactive_prompt_nonempty": bool(render.get("prompt_nonempty")),
+            "native_proactive_prompt_contains_commitment": bool(
+                render.get("prompt_contains_commitment")
+            ),
+            "native_proactive_prompt_sha256": render.get("prompt_sha256"),
             "surface_written": bool(surface.get("written")),
             "second_restart_duplicate_offer_suppressed": after.get("due_after_surface") is None,
         }
         if not all([
             result["seed_active_count"] == 1,
             result["restart_due_visible"],
+            result["native_proactive_prompt_nonempty"],
+            result["native_proactive_prompt_contains_commitment"],
             result["surface_written"],
             result["second_restart_duplicate_offer_suppressed"],
         ]):
@@ -115,7 +146,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--neko-root", type=Path, default=DEFAULT_NEKO)
     ap.add_argument("--root", type=Path)
-    ap.add_argument("--phase", choices=["seed", "read", "surface", "after"])
+    ap.add_argument("--phase", choices=["seed", "read", "render", "surface", "after"])
     ap.add_argument("--evidence", type=Path)
     args = ap.parse_args()
     if args.phase:

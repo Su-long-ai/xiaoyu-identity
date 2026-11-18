@@ -58,7 +58,7 @@
     {
       "id": "commitment_restart",
       "goal": "commitments survive restart without duplicate proactive delivery",
-      "status": "isolated_restart_dedup_pass_product_e2e_pending",
+      "status": "native_proactive_prompt_restart_dedup_pass_live_delivery_pending",
       "evidence": "evals/evidence/2026-11-18-commitment-restart.json"
     },
     {
