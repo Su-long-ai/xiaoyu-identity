@@ -3,13 +3,17 @@ from __future__ import annotations
 import json
 import companion
 
+RETRACTED_SECRET="SYNTHETIC_GROWTH_RETRACTED_PRIVATE_SECRET"
+
 def build_events():
-    return [
+    rows=[
         {"event_id":i,
          "kind":"conversation.user" if i%2==0 else "conversation.assistant",
          "content":("event-%02d-"%i)+("evidence"*35)}
         for i in range(2,52)
     ]
+    rows[-12]["content"]=RETRACTED_SECRET
+    return rows
 
 class FakeFish:
     def __init__(self):
@@ -71,6 +75,7 @@ def fake_dual_guarded_chat(
 
 orig={
  "FISH":companion.FISH,"load_provider":companion.load_provider,"chat":companion.chat,
+ "project_history":companion.project_history,
  "dual_guarded_chat":companion.dual_guarded_chat,
  "capture_context_fence":companion.capture_context_fence,
  "Thread":companion.threading.Thread,"Toplevel":companion.tk.Toplevel,
@@ -81,6 +86,17 @@ try:
     companion.FISH=fake
     companion.load_provider=lambda home:{"provider":"synthetic"}
     companion.chat=fake_chat
+    companion.project_history=lambda fish,limit:[
+        {
+            "role":"user" if row["kind"]=="conversation.user" else "assistant",
+            "event_id":row["event_id"],
+            "content":(
+                "【已撤回上下文，不参与反思证据】"
+                if row["content"]==RETRACTED_SECRET else row["content"]
+            ),
+        }
+        for row in build_events()[-limit:]
+    ]
     companion.dual_guarded_chat=fake_dual_guarded_chat
     companion.capture_context_fence=lambda fish:"stable-growth-fence"
     companion.threading.Thread=InlineThread
@@ -99,6 +115,7 @@ try:
     payload=json.loads(captured["messages"][1]["content"])
     visible=[int(x["id"]) for x in payload]
     assert visible==list(range(40,52)),visible
+    assert RETRACTED_SECRET not in json.dumps(payload,ensure_ascii=False),payload
     assert captured["guard"]["required_privacy_class"]=="OWNER_PRIVATE",captured
     assert captured["guard"]["expected_context_fence"]=="stable-growth-fence",captured
     assert captured["max_tokens"]==350,captured
@@ -113,6 +130,7 @@ finally:
     companion.FISH=orig["FISH"]
     companion.load_provider=orig["load_provider"]
     companion.chat=orig["chat"]
+    companion.project_history=orig["project_history"]
     companion.dual_guarded_chat=orig["dual_guarded_chat"]
     companion.capture_context_fence=orig["capture_context_fence"]
     companion.threading.Thread=orig["Thread"]
