@@ -1,5 +1,4 @@
 import json
-import tomllib
 import unittest
 from pathlib import Path
 
@@ -11,6 +10,7 @@ class OverlayContractTests(unittest.TestCase):
         lock = json.loads(
             (ROOT / "NEKO_UPSTREAM.lock.json").read_text(encoding="utf-8-sig")
         )
+        self.assertEqual(lock["integration_mode"], "private_data_policy_overlay")
         self.assertEqual(lock["memory_authority"], "neko_native")
         self.assertEqual(lock["persona_storage_authority"], "neko_native")
         self.assertEqual(lock["evolution_authority"], "neko_native")
@@ -56,18 +56,14 @@ class OverlayContractTests(unittest.TestCase):
             "XiaoYu overlay must not grow a second persona/evolution runtime",
         )
 
-    def test_plugin_manifest_is_thin_external_overlay(self):
-        manifest_path = ROOT / "plugins" / "xiaoyu_private" / "plugin.toml"
-        with manifest_path.open("rb") as fh:
-            manifest = tomllib.load(fh)
-        self.assertEqual(manifest["plugin"]["id"], "xiaoyu_private")
-        self.assertEqual(manifest["plugin"]["type"], "plugin")
+    def test_no_private_runtime_plugin_is_required_by_default(self):
+        plugins_dir = ROOT / "plugins"
+        runtime_files = list(plugins_dir.rglob("*.py")) if plugins_dir.exists() else []
         self.assertEqual(
-            manifest["plugin"]["entry"],
-            "plugin.plugins.xiaoyu_private:XiaoYuPrivatePlugin",
+            runtime_files,
+            [],
+            "Do not keep a private XiaoYu runtime plugin without a concrete acceptance gap",
         )
-        self.assertFalse(manifest["plugin_runtime"]["auto_start"])
-        self.assertIn("sdk", manifest["plugin"])
 
 
 if __name__ == "__main__":

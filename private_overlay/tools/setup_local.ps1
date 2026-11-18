@@ -4,13 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OverlayRoot = Split-Path -Parent $PSScriptRoot
-$env:NEKO_ROOT = $NekoRoot
-$NekoPython = Join-Path $NekoRoot ".venv\Scripts\python.exe"
 $QQLockPath = Join-Path $OverlayRoot "QQ_PLUGIN_UPSTREAM.lock.json"
-
-if (-not (Test-Path $NekoPython)) {
-    throw "N.E.K.O virtual environment is missing: $NekoPython"
-}
 
 if (Test-Path $QQLockPath) {
     Write-Host "== Sync pinned external QQ plugin =="
@@ -41,10 +35,5 @@ if (Test-Path $QQLockPath) {
     }
 }
 
-Write-Host "== Register XiaoYu private project in N.E.K.O Workbench =="
-& $NekoPython (Join-Path $PSScriptRoot "register_workbench.py")
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-Write-Host "== Validate live N.E.K.O plugin host path =="
-& $NekoPython (Join-Path $PSScriptRoot "host_smoke.py")
-exit $LASTEXITCODE
+Write-Host "PASS: external dependencies are pinned; no private XiaoYu runtime plugin is required"
+exit 0
