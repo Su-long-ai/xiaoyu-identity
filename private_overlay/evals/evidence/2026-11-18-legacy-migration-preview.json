@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "legacy_source": "D:\\dsh-fish\\identity\\identity.sqlite3",
+  "legacy_source_sha256": "d44dbc61627d00d2510e0501426ac25490d64253cc0cbce8ca7d18d8e2023571",
+  "source_summary": {
+    "persona_versions": 1,
+    "memory_rows_total": 4,
+    "memory_rows_selected": 0,
+    "memory_rows_excluded": 4,
+    "excluded_reason": "all four legacy memory rows are bootstrap/bootstrap, not current confirmed memory",
+    "events_preserved_in_legacy_only": 15,
+    "product_bridge_claims": 0,
+    "product_index_memories": 0
+  },
+  "migration_mapping": {
+    "SOUL.md": "current canonical XiaoYu persona only",
+    "MEMORY.md": "not generated because no active/confirmed legacy memories were found",
+    "legacy_events": "preserved read-only; not auto-promoted to long-term facts"
+  },
+  "neko_preview": {
+    "tested_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+    "source_format": "openclaw",
+    "files": [
+      "SOUL.md"
+    ],
+    "candidate_count": 9,
+    "persona_candidates": 9,
+    "fact_candidates": 0,
+    "neko_persona_candidates": 9,
+    "master_persona_candidates": 0,
+    "warning_count": 0,
+    "writes_performed": 0,
+    "isolated_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox"
+  },
+  "verdict": "PASS_PREVIEW_COMMIT_PENDING",
+  "caveat": "No production or sandbox import commit has been executed yet. Persona commit/fusion will be tested only against an isolated N.E.K.O storage root before product cutover."
+}

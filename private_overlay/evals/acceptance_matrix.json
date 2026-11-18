@@ -64,6 +64,12 @@
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
       "status": "pending"
+    },
+    {
+      "id": "legacy_migration",
+      "goal": "legacy canonical XiaoYu persona can be staged deterministically into N.E.K.O without importing bootstrap/test memories or widening scope",
+      "status": "native_preview_pass_commit_pending",
+      "evidence": "evals/evidence/2026-11-18-legacy-migration-preview.json"
     }
   ]
 }
