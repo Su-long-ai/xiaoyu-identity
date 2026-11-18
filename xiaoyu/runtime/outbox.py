@@ -305,7 +305,8 @@ class OutboxDispatcher:
             return "PURPOSE_REVISION_STALE"
         if row.purpose_occurrence_id is not None:
             occurrence = conn.execute(
-                """SELECT state,purpose_revision FROM purpose_occurrences
+                """SELECT state,purpose_revision,effect_id
+                   FROM purpose_occurrences
                    WHERE occurrence_id=? AND purpose_id=?""",
                 (
                     row.purpose_occurrence_id,
@@ -318,8 +319,21 @@ class OutboxDispatcher:
                 row.purpose_revision
             ):
                 return "PURPOSE_OCCURRENCE_STALE"
-            if str(occurrence["state"]) not in ("READY", "CLAIMED"):
+            occurrence_state = str(occurrence["state"])
+            if occurrence_state not in ("READY", "CLAIMED"):
                 return "PURPOSE_OCCURRENCE_NOT_EXECUTABLE"
+            occurrence_owner = occurrence["effect_id"]
+            if occurrence_state == "READY":
+                if (
+                    occurrence_owner is not None
+                    and str(occurrence_owner) != row.effect_id
+                ):
+                    return "PURPOSE_OCCURRENCE_OWNED_BY_OTHER_EFFECT"
+            elif (
+                occurrence_owner is None
+                or str(occurrence_owner) != row.effect_id
+            ):
+                return "PURPOSE_OCCURRENCE_OWNED_BY_OTHER_EFFECT"
         return None
 
     @staticmethod
