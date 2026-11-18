@@ -104,6 +104,40 @@ class ReuseFirstCredentialTests(unittest.TestCase):
                     "legacy-secret",
                 )
 
+    def test_external_transport_exception_cannot_expose_provider_secret(self):
+        sentinel = "SYNTHETIC_KEYRING_SECRET_DO_NOT_LEAK"
+
+        class LeakyBackend:
+            def complete(
+                self,
+                config,
+                messages,
+                max_tokens,
+                timeout,
+                on_dispatched=None,
+                *,
+                api_key="",
+            ):
+                raise RuntimeError(
+                    "SDK failure Authorization: Bearer " + api_key
+                )
+
+        config = model_adapter._fallback_config("qwen")
+        config["fallbacks"] = []
+        with patch.object(
+            model_adapter,
+            "_provider_key",
+            return_value=sentinel,
+        ):
+            with self.assertRaises(RuntimeError) as raised:
+                model_adapter.chat(
+                    config,
+                    [{"role": "user", "content": "hello"}],
+                    required_data_class="PUBLIC",
+                    transport_backend=LeakyBackend(),
+                )
+        self.assertNotIn(sentinel, str(raised.exception))
+
     def test_provider_config_preserves_explicit_keyring_reference(self):
         with tempfile.TemporaryDirectory() as td:
             home = Path(td)
