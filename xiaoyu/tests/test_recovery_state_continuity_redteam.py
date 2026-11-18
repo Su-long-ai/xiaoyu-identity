@@ -739,5 +739,80 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
 
 
+    def test_restore_quarantines_legacy_unknown_effect_and_outbox_states(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            apply_migrations(db)
+            stamp=T0.isoformat(timespec="microseconds")
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO effects(
+                           effect_id,identity_id,intent_id,purpose_id,actor_id,
+                           action_class,idempotency_key,replayable,dispatch_state,
+                           request_json,receipt_id,verifier_state,created_at,
+                           updated_at,authorization_decision_id,purpose_revision,
+                           purpose_occurrence_id
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "effect-unknown","fish-unknown","intent-unknown",None,
+                        "actor-1","notify",None,0,"UNKNOWN",
+                        '{"text":"maybe-sent"}',None,None,stamp,stamp,
+                        "auth-unknown",None,None,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO outbox(
+                           outbox_id,identity_id,effect_id,destination,
+                           payload_json,state,attempt_count,next_attempt_at,
+                           created_at,updated_at
+                       ) VALUES(?,?,?,?,?,'UNKNOWN',1,NULL,?,?)""",
+                    (
+                        "outbox-unknown","fish-unknown","effect-unknown",
+                        "desktop",'{"text":"maybe-sent"}',stamp,stamp,
+                    ),
+                )
+            ExternalErasureFenceStore(db.path).ensure_identity(
+                "fish-unknown"
+            )
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"unknown.sqlite3",
+                identity_id="fish-unknown",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(seconds=1),
+            )
+            report=RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-unknown",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=1),
+            )
+            restored=Database(db.path)
+            with restored.transaction() as conn:
+                effect=conn.execute(
+                    """SELECT dispatch_state FROM effects
+                       WHERE effect_id='effect-unknown'"""
+                ).fetchone()[0]
+                outbox=conn.execute(
+                    """SELECT state FROM outbox
+                       WHERE outbox_id='outbox-unknown'"""
+                ).fetchone()[0]
+            self.assertEqual(
+                effect,
+                "NEEDS_RECONCILIATION",
+                "legacy UNKNOWN effect bypassed restore quarantine",
+            )
+            self.assertEqual(
+                outbox,
+                "NEEDS_RECONCILIATION",
+                "legacy UNKNOWN outbox bypassed restore quarantine",
+            )
+            self.assertEqual(report.quarantined_effects,1)
+            self.assertEqual(report.quarantined_outbox,1)
+
+
 if __name__=="__main__":
     unittest.main()
