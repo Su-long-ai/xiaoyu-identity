@@ -90,7 +90,10 @@ class DeliveryCoordinator:
         created_at: Optional[datetime] = None,
     ) -> None:
         payload_logical_id = effect.request.get("logical_notification_id")
-        if payload_logical_id != logical_notification_id:
+        if (
+            payload_logical_id is not None
+            and payload_logical_id != logical_notification_id
+        ):
             raise ValueError(
                 "effect logical_notification_id does not match delivery identity"
             )
