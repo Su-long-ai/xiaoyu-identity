@@ -25,6 +25,7 @@ from xiaoyu.persistence import (
     applied_versions,
     apply_migrations,
 )
+from xiaoyu.persistence.backfill import LegacyShadowBackfill
 from xiaoyu.release.migration import (
     AuthorityCutoverController,
     AuthorityCutoverEvidence,
@@ -240,6 +241,30 @@ class CanonicalWriteShadowDrill:
             self.source_db.backup_to(copy_path)
             db = Database(copy_path)
             apply_migrations(db)
+
+            # The backfill progress sidecar is intentionally not authority and
+            # is not part of a SQLite backup. Rebuild that operational progress
+            # from the copied legacy rows before exercising the real cutover
+            # gate. Stable legacy source keys make the replay idempotent.
+            with db.transaction() as conn:
+                has_legacy_events = self._table_exists(conn, "events")
+            if has_legacy_events:
+                backfill = LegacyShadowBackfill(db)
+                while True:
+                    report = backfill.run_batch(
+                        identity_id,
+                        limit=5000,
+                    )
+                    if (
+                        report.progress.state == "CAUGHT_UP"
+                        and report.converged
+                    ):
+                        break
+                    if report.progress.state != "RUNNING":
+                        raise RuntimeError(
+                            "disposable legacy shadow backfill did not converge: "
+                            + report.progress.state
+                        )
 
             # SELF must already be a real canonical authority on the source.
             current_self = SelfAuthorityService(db).get(
