@@ -214,6 +214,25 @@ class R15VoicePipecatTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(binding.running)
         self.assertFalse(await binding.cancel())
 
+    async def test_pipecat_cancel_invalidates_active_asr_turn(self):
+        controller = VoiceSessionController(
+            principal_hint="owner",
+            audience_scope="PRIVATE",
+            context_space="PERSONAL",
+        )
+        token = controller.begin_user_turn(T0)
+        binding = PipecatVoiceBinding(controller)
+        worker = FakeWorker()
+        binding.attach_worker(worker)
+
+        self.assertTrue(await binding.cancel())
+        late = controller.final_transcript(
+            token,
+            "SYNTHETIC_PRIVATE_LATE_TRANSCRIPT",
+            T0 + timedelta(seconds=2),
+        )
+        self.assertIsNone(late)
+
     def test_pipecat_binding_rejects_wrong_worker_shape(self):
         binding = PipecatVoiceBinding(
             VoiceSessionController()
