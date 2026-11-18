@@ -176,6 +176,7 @@ class BackupDurabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = self._db(root / "identity.sqlite3")
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             good = source.backup_to(root / "good.sqlite3")
             truncated = root / "truncated.sqlite3"
             data = good.read_bytes()
@@ -186,7 +187,7 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=truncated,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
                 )
 
     def test_corrupt_btree_page_is_rejected_by_integrity_check(self):
@@ -202,6 +203,7 @@ class BackupDurabilityTests(unittest.TestCase):
                         "INSERT INTO backup_probe(value) VALUES(?)",
                         (("row-%03d-" % i) + ("x" * 1200),),
                     )
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             corrupt = source.backup_to(root / "page-corrupt.sqlite3")
             probe = Database(corrupt)
             with probe.transaction() as conn:
@@ -223,13 +225,14 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=corrupt,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
                 )
 
     def test_corrupt_header_is_rejected_before_activation(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = self._db(root / "identity.sqlite3")
+            ExternalErasureFenceStore(source.path).ensure_identity("fish-1")
             corrupt = source.backup_to(root / "corrupt.sqlite3")
             data = bytearray(corrupt.read_bytes())
             data[:16] = b"not-a-sqlite-db!"
@@ -240,7 +243,7 @@ class BackupDurabilityTests(unittest.TestCase):
                     candidate_path=corrupt,
                     target_path=source.path,
                     identity_id="fish-1",
-                    mode=RestoreMode.MANAGED,
+                    mode=RestoreMode.DISASTER_RECOVERY,
                 )
 
 

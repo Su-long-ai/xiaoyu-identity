@@ -186,6 +186,14 @@ class RecoveryManager:
         manifest = RecoveryManager.validate_backup_manifest(
             candidate_path, expected_identity_id=identity_id
         )
+        if (
+            mode in (RestoreMode.MANAGED, RestoreMode.ROLLBACK)
+            and manifest is None
+        ):
+            raise BackupError(
+                "managed/rollback restore requires a XiaoYu backup manifest; "
+                "use explicit disaster recovery or migration for raw snapshots"
+            )
         source_candidate = Database(candidate_path)
         RecoveryManager._require_healthy(source_candidate, "candidate")
 
@@ -360,9 +368,8 @@ class RecoveryManager:
             return
 
         if manifest is None:
-            # Legacy raw snapshots remain readable for now, but they cannot
-            # prove a source-revision relation. A later compatibility gate
-            # handles their explicit migration path.
+            # Only explicit disaster-recovery paths may reach this point.
+            # They do not claim managed backup provenance.
             return
 
         try:
