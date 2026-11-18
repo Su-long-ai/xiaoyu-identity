@@ -302,6 +302,18 @@ class MemoryRetriever:
         documents: list[MemorySearchDocument] = []
         for row in rows:
             value = json.loads(row["value_json"])
+            if str(row["predicate"]) == CANONICAL_MEMORY_PREDICATE:
+                control_state = MemoryControlState(
+                    value.get(
+                        "control_state",
+                        MemoryControlState.NORMAL.value,
+                    )
+                )
+                if (
+                    control_state is MemoryControlState.MUTED
+                    or bool(value.get("archived", False))
+                ):
+                    continue
             fact_id = str(row["fact_id"])
             searchable = " ".join(
                 (
@@ -403,6 +415,13 @@ class MemoryRetriever:
 CANONICAL_MEMORY_PREDICATE = "remembered_item"
 
 
+class MemoryControlState(StringEnum):
+    PINNED = "PINNED"
+    NORMAL = "NORMAL"
+    LOW = "LOW"
+    MUTED = "MUTED"
+
+
 @dataclass(frozen=True)
 class CanonicalMemoryItem:
     memory_id: str
@@ -413,6 +432,8 @@ class CanonicalMemoryItem:
     category: str
     priority: int
     source_event_id: str
+    control_state: MemoryControlState = MemoryControlState.NORMAL
+    archived: bool = False
 
 
 class CanonicalMemoryService:
@@ -452,6 +473,8 @@ class CanonicalMemoryService:
         text: str,
         category: str,
         priority: int,
+        control_state: MemoryControlState = MemoryControlState.NORMAL,
+        archived: bool = False,
     ) -> dict:
         clean = str(text).strip()
         if not 2 <= len(clean) <= 1500:
@@ -469,6 +492,8 @@ class CanonicalMemoryService:
             "text": clean,
             "category": normalized_category,
             "priority": p,
+            "control_state": MemoryControlState(control_state).value,
+            "archived": bool(archived),
         }
 
     def _mutate(
@@ -509,6 +534,8 @@ class CanonicalMemoryService:
         text: str,
         category: str = "shared",
         priority: int = 3,
+        control_state: MemoryControlState = MemoryControlState.NORMAL,
+        archived: bool = False,
         created_at: Optional[datetime] = None,
     ) -> CanonicalMemoryItem:
         value = self._value(
@@ -516,6 +543,8 @@ class CanonicalMemoryService:
             text=text,
             category=category,
             priority=priority,
+            control_state=control_state,
+            archived=archived,
         )
         result = self._mutate(
             memory_id=memory_id,
@@ -540,13 +569,26 @@ class CanonicalMemoryService:
         text: str,
         category: str,
         priority: int,
+        control_state: Optional[MemoryControlState] = None,
+        archived: Optional[bool] = None,
         created_at: Optional[datetime] = None,
     ) -> CanonicalMemoryItem:
+        current = self.get(memory_id)
         value = self._value(
             memory_id=memory_id,
             text=text,
             category=category,
             priority=priority,
+            control_state=(
+                current.control_state
+                if control_state is None
+                else MemoryControlState(control_state)
+            ),
+            archived=(
+                current.archived
+                if archived is None
+                else bool(archived)
+            ),
         )
         result = self._mutate(
             memory_id=memory_id,
@@ -645,6 +687,62 @@ class CanonicalMemoryService:
             category=str(value["category"]),
             priority=int(value["priority"]),
             source_event_id=str(row["source_event_id"]),
+            control_state=MemoryControlState(
+                value.get("control_state", MemoryControlState.NORMAL.value)
+            ),
+            archived=bool(value.get("archived", False)),
+        )
+
+    def set_control_state(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        expected_revision: int,
+        control_state: MemoryControlState,
+        created_at: Optional[datetime] = None,
+    ) -> CanonicalMemoryItem:
+        current = self.get(memory_id)
+        return self.correct(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            expected_revision=expected_revision,
+            text=current.text,
+            category=current.category,
+            priority=current.priority,
+            control_state=MemoryControlState(control_state),
+            archived=current.archived,
+            created_at=created_at,
+        )
+
+    def archive(
+        self,
+        *,
+        memory_id: str,
+        mutation_id: str,
+        source_event_id: str,
+        principal_id: str,
+        expected_revision: int,
+        archived: bool = True,
+        created_at: Optional[datetime] = None,
+    ) -> CanonicalMemoryItem:
+        current = self.get(memory_id)
+        return self.correct(
+            memory_id=memory_id,
+            mutation_id=mutation_id,
+            source_event_id=source_event_id,
+            principal_id=principal_id,
+            expected_revision=expected_revision,
+            text=current.text,
+            category=current.category,
+            priority=current.priority,
+            control_state=current.control_state,
+            archived=bool(archived),
+            created_at=created_at,
         )
 
     def list_current(
