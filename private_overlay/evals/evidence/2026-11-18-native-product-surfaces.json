@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_NATIVE_SURFACES_INTEGRATED_LIVE_E2E_PENDING",
+  "groups": {
+    "voice": {
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "test_character_runtime_voice_identity.py",
+        "test_voice_admission_integration.py",
+        "test_voice_activation_delivery_acceptance.py"
+      ]
+    },
+    "vision": {
+      "passed": 87,
+      "failed": 0,
+      "skipped": 2,
+      "skip_reasons": [
+        "POSIX AppImage PATH is Linux-only",
+        "POSIX PATH and AppImage paths are Linux-only"
+      ],
+      "files": [
+        "test_desktop_capture.py",
+        "test_request_fresh_screenshot.py",
+        "test_vision_model_endpoint_switch.py"
+      ]
+    },
+    "tools": {
+      "passed": 183,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "test_plugin_llm_tool_sdk.py",
+        "test_tool_calling.py",
+        "test_tool_cancellation_boundaries.py"
+      ]
+    }
+  },
+  "total": {
+    "passed": 337,
+    "failed": 0,
+    "skipped": 2
+  },
+  "environment_recovery": {
+    "initial_result": "332 passed, 2 skipped, 5 environment-blocked before product assertions",
+    "blocker": "sparse audit checkout omitted upstream static/ directory; importing app.main_server failed in Starlette StaticFiles",
+    "resolution": "added upstream static/ to sparse checkout at the same pinned commit; no source patch",
+    "rerun": "test_character_runtime_voice_identity.py 5/5 PASS"
+  },
+  "scope": [
+    "voice identity binding and admission/delivery lifecycle",
+    "desktop capture and fresh screenshot boundaries",
+    "vision endpoint switching",
+    "plugin LLM tool SDK",
+    "tool call protocol and leak filtering",
+    "tool cancellation boundaries"
+  ],
+  "caveat": "This is strong native component evidence, not the final Desktop + live voice/vision + real QQ + tools integrated XiaoYu E2E. No microphone, camera, real QQ message, or external model call was made."
+}

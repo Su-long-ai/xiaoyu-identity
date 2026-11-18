@@ -69,7 +69,8 @@
     {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "pending"
+      "status": "native_surface_components_pass_integrated_live_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-native-product-surfaces.json"
     },
     {
       "id": "legacy_migration",
