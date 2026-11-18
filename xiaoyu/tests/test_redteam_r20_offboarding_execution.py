@@ -185,6 +185,63 @@ class R20OffboardingExecutionRedTeamTests(unittest.TestCase):
             finally:
                 conn.close()
 
+    def test_offboarding_after_claim_before_preflight_blocks_transport(self):
+        with tempfile.TemporaryDirectory() as td:
+            db, store = self._product(td)
+            self._enqueue_purpose_free_effect(db)
+
+            broker = ResourceBroker(mode=ResourceMode.BALANCED)
+            reports = []
+            calls = []
+
+            def fault(stage, row):
+                if stage == "after_claim":
+                    reports.append(
+                        ProductOffboardingService(
+                            store,
+                            resource_broker=broker,
+                        ).execute(
+                            source_event_key="offboard-after-claim",
+                            created_at=NOW + timedelta(seconds=1),
+                        )
+                    )
+
+            def transport(payload, idem):
+                calls.append((payload, idem))
+                return DispatchOutcome(
+                    DispatchStatus.SUCCEEDED,
+                    external_ref="must-not-exist",
+                )
+
+            processed = OutboxDispatcher(
+                db,
+                {"qq": transport},
+                fault_hook=fault,
+            ).dispatch_once(now=NOW + timedelta(seconds=2))
+
+            self.assertEqual(len(reports), 1)
+            self.assertTrue(reports[0].ok, reports[0].blockers)
+            self.assertTrue(reports[0].paused)
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+
+            conn = db.connect()
+            try:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT dispatch_state FROM effects"
+                    ).fetchone()[0],
+                    "FAILED",
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT state FROM outbox"
+                    ).fetchone()[0],
+                    "FAILED_FINAL",
+                )
+            finally:
+                conn.close()
+
     def test_offboarding_does_not_claim_pause_when_effect_already_dispatching(self):
         with tempfile.TemporaryDirectory() as td:
             db, store = self._product(td)
