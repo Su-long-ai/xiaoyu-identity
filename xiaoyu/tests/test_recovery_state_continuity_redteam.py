@@ -14,6 +14,11 @@ from xiaoyu.persistence.recovery import (
     RestoreInvariantError,
     RestoreMode,
 )
+from xiaoyu.release.migration import (
+    AuthorityCutoverController,
+    AuthorityCutoverEvidence,
+    AuthorityMode,
+)
 from xiaoyu.runtime.product_store import CanonicalProductStore
 
 
@@ -443,6 +448,55 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 "restore rolled SELF authority back across a preexisting-evidence transaction gap",
             )
             self.assertEqual(current.persona["style"]["tone"],"direct")
+
+
+    def test_old_snapshot_cannot_roll_canonical_cutover_back_to_shadow(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            apply_migrations(db)
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"pre-cutover.sqlite3",
+                identity_id="fish-cutover",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0,
+            )
+            controller=AuthorityCutoverController(db)
+            ready=AuthorityCutoverEvidence(
+                shadow_caught_up=True,
+                rebuild_equal=True,
+                unresolved_conflicts=0,
+                erasure_generation_source=0,
+                erasure_generation_shadow=0,
+                source_order_ok=True,
+                old_writer_fenced=False,
+                canonical_read_path_ready=True,
+                canonical_write_path_ready=True,
+            )
+            activated=controller.activate(
+                identity_id="fish-cutover",
+                evidence=ready,
+                activated_at=T0+timedelta(minutes=1),
+            )
+            self.assertEqual(activated.mode,AuthorityMode.CANONICAL)
+
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-cutover",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=2),
+            )
+            current=AuthorityCutoverController(
+                Database(db.path)
+            ).state("fish-cutover")
+            self.assertEqual(
+                current.mode,
+                AuthorityMode.CANONICAL,
+                "restore crossed the forward-only cutover boundary back to SHADOW",
+            )
 
 
 if __name__=="__main__":
