@@ -6,10 +6,9 @@ from datetime import timedelta
 
 from xiaoyu.core.effects import DispatchOutcome, DispatchStatus
 from xiaoyu.runtime import OutboxDispatcher
-from xiaoyu.tests.test_execution_reliability_minisprint import (
-    ExecutionReliabilityMiniSprintRedTeamTests,
-    NOW,
-)
+from xiaoyu.tests import test_execution_reliability_minisprint as fixture_module
+
+NOW = fixture_module.NOW
 
 
 class ClaimCrashRetryBudgetRedTeamTests(unittest.TestCase):
@@ -17,7 +16,7 @@ class ClaimCrashRetryBudgetRedTeamTests(unittest.TestCase):
         class SimulatedCrash(BaseException):
             pass
 
-        fixture = ExecutionReliabilityMiniSprintRedTeamTests()
+        fixture = fixture_module.ExecutionReliabilityMiniSprintRedTeamTests()
         with tempfile.TemporaryDirectory() as td:
             db = fixture._db(td)
             fixture._insert_purpose(db)
