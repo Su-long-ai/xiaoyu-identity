@@ -183,11 +183,18 @@ class RecoveryManager:
         if candidate_path.resolve() == target_path.resolve():
             raise ValueError("restore candidate must differ from active target")
 
-        RecoveryManager.validate_backup_manifest(
+        manifest = RecoveryManager.validate_backup_manifest(
             candidate_path, expected_identity_id=identity_id
         )
         source_candidate = Database(candidate_path)
         RecoveryManager._require_healthy(source_candidate, "candidate")
+
+        RecoveryManager._reject_stale_authority_restore(
+            target_path=target_path,
+            identity_id=identity_id,
+            mode=mode,
+            manifest=manifest,
+        )
 
         fence_store, fence_identity = RecoveryManager._trusted_fence(
             candidate_path=candidate_path,
@@ -299,6 +306,87 @@ class RecoveryManager:
         if not expected_digest or expected_digest != RecoveryManager._sha256(candidate):
             raise BackupError("backup manifest digest mismatch")
         return payload
+
+    @staticmethod
+    def _source_revision_watermark(
+        db: Database,
+        identity_id: str,
+    ) -> int:
+        with db.transaction() as conn:
+            table = conn.execute(
+                """SELECT 1 FROM sqlite_master
+                   WHERE type='table' AND name='canonical_event_ingest'"""
+            ).fetchone()
+            if table is None:
+                return 0
+            row = conn.execute(
+                """SELECT COALESCE(MAX(ingest_revision),0)
+                   FROM canonical_event_ingest
+                   WHERE identity_id=?""",
+                (identity_id,),
+            ).fetchone()
+        return int(row[0] or 0)
+
+    @staticmethod
+    def _reject_stale_authority_restore(
+        *,
+        target_path: Path,
+        identity_id: str,
+        mode: RestoreMode,
+        manifest: Optional[dict],
+    ) -> None:
+        """Never let an older snapshot replace newer healthy authority.
+
+        Delete continuity has the external erasure fence because deletion must
+        survive even disaster recovery. Other authoritative edits remain in
+        the single SQLite authority, so managed/rollback restore must fail
+        closed instead of copying those edits into a second journal.
+        """
+        if mode == RestoreMode.PORTABLE_IMPORT or not target_path.exists():
+            return
+
+        target = Database(target_path)
+        try:
+            healthy = target.is_healthy()
+        except sqlite3.DatabaseError:
+            healthy = False
+
+        if not healthy:
+            if mode in (RestoreMode.MANAGED, RestoreMode.ROLLBACK):
+                raise RestoreInvariantError(
+                    "managed/rollback restore requires a healthy active target; "
+                    "use explicit disaster recovery for a corrupt target"
+                )
+            return
+
+        if manifest is None:
+            # Legacy raw snapshots remain readable for now, but they cannot
+            # prove a source-revision relation. A later compatibility gate
+            # handles their explicit migration path.
+            return
+
+        try:
+            candidate_revision = int(
+                manifest["source_revision_watermark"]
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "backup manifest source revision watermark is missing or invalid"
+            ) from exc
+        if candidate_revision < 0:
+            raise BackupError(
+                "backup manifest source revision watermark is invalid"
+            )
+
+        active_revision = RecoveryManager._source_revision_watermark(
+            target, identity_id
+        )
+        if active_revision > candidate_revision:
+            raise RestoreInvariantError(
+                "restore candidate predates active authority "
+                "(candidate source revision %d, active %d)"
+                % (candidate_revision, active_revision)
+            )
 
     @staticmethod
     def _trusted_fence(

@@ -7,7 +7,11 @@ from pathlib import Path
 
 from xiaoyu.core.memory import CanonicalMemoryService
 from xiaoyu.persistence import Database
-from xiaoyu.persistence.recovery import RecoveryManager, RestoreMode
+from xiaoyu.persistence.recovery import (
+    RecoveryManager,
+    RestoreInvariantError,
+    RestoreMode,
+)
 from xiaoyu.runtime.product_store import CanonicalProductStore
 
 
@@ -45,14 +49,18 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
         )
         return db,store,item,backup
 
-    def _restore_old(self, db: Database, backup: Path):
-        RecoveryManager.restore(
-            candidate_path=backup,
-            target_path=db.path,
-            identity_id="fish-state",
-            mode=RestoreMode.MANAGED,
-            activated_at=T0+timedelta(minutes=10),
-        )
+    def _reject_old_restore(self, db: Database, backup: Path):
+        with self.assertRaisesRegex(
+            RestoreInvariantError,
+            "predates active authority",
+        ):
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-state",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=10),
+            )
         return CanonicalMemoryService(Database(db.path))
 
     def test_old_managed_snapshot_cannot_overwrite_newer_correction(self):
@@ -77,7 +85,7 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
             self.assertEqual(corrected.text,"我现在喜欢咖啡")
 
-            restored=self._restore_old(db,backup)
+            restored=self._reject_old_restore(db,backup)
             current=restored.get("drink")
             self.assertEqual(
                 current.text,
@@ -106,7 +114,7 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             with self.assertRaises(KeyError):
                 store.memory.get("drink")
 
-            restored=self._restore_old(db,backup)
+            restored=self._reject_old_restore(db,backup)
             with self.assertRaises(
                 KeyError,
                 msg="restore reactivated memory that had been retracted after snapshot",
@@ -135,7 +143,7 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
             self.assertEqual(changed.priority,1)
 
-            restored=self._restore_old(db,backup)
+            restored=self._reject_old_restore(db,backup)
             current=restored.get("drink")
             self.assertEqual(
                 current.priority,
