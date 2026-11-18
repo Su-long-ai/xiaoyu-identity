@@ -9,7 +9,12 @@ from pathlib import Path
 
 from xiaoyu.contracts import AuthorizationDecision
 from xiaoyu.core.authorization import AuthorizationResult
-from xiaoyu.core.effects import DispatchOutcome, DispatchStatus, EffectCoordinator
+from xiaoyu.core.effects import (
+    DispatchOutcome,
+    DispatchStatus,
+    EffectBindingError,
+    EffectCoordinator,
+)
 from xiaoyu.core.purpose import (
     MissPolicy,
     Purpose,
@@ -129,11 +134,52 @@ class OccurrenceEffectExclusivityRedTeamTests(unittest.TestCase):
             created_at=NOW,
         )
 
+    def test_second_effect_cannot_bind_same_ready_occurrence(self):
+        with tempfile.TemporaryDirectory() as td:
+            db, occurrence_id = self._db(td)
+            self._enqueue(db, occurrence_id, "a")
+            with self.assertRaises(EffectBindingError):
+                self._enqueue(db, occurrence_id, "b")
+
+            conn = db.connect()
+            try:
+                owner = conn.execute(
+                    """SELECT state,effect_id FROM purpose_occurrences
+                       WHERE occurrence_id=?""",
+                    (occurrence_id,),
+                ).fetchone()
+                self.assertEqual(tuple(owner), ("READY", "effect-a"))
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM effects").fetchone()[0],
+                    1,
+                )
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0],
+                    1,
+                )
+            finally:
+                conn.close()
+
     def test_two_workers_cannot_cross_transport_for_same_occurrence(self):
         with tempfile.TemporaryDirectory() as td:
             db, occurrence_id = self._db(td)
             self._enqueue(db, occurrence_id, "a")
+
+            # Simulate a pre-fix/legacy database where queued effects existed
+            # before occurrence ownership was persisted.
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purpose_occurrences SET effect_id=NULL
+                       WHERE occurrence_id=?""",
+                    (occurrence_id,),
+                )
             self._enqueue(db, occurrence_id, "b")
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purpose_occurrences SET effect_id=NULL
+                       WHERE occurrence_id=?""",
+                    (occurrence_id,),
+                )
 
             first_linearized = threading.Event()
             release_first = threading.Event()
