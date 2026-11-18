@@ -12,6 +12,7 @@ from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
     BackupError,
     RecoveryManager,
+    RecoveryQuarantineStore,
     RestoreInvariantError,
     RestoreMode,
 )
@@ -876,6 +877,10 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 value,
                 "active",
                 "restore reported failure after already replacing the active DB",
+            )
+            self.assertTrue(
+                RecoveryQuarantineStore(active.path).is_active(),
+                "failed restore must leave execution quarantine fail-closed",
             )
 
 

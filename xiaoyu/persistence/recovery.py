@@ -273,6 +273,23 @@ class RecoveryManager:
             stage = Database(stage_path)
             RecoveryManager._require_healthy(stage, "staged restore")
 
+            # Sidecars are safety barriers, not post-activation metadata.
+            # Publish them before the DB image so any failure leaves either:
+            #   old DB + stricter fence/quarantine, or
+            #   new DB + already-active fence/quarantine.
+            # Never report restore failure after silently activating a new DB.
+            payload = fence_store.load()
+            if payload is None:
+                raise MissingErasureWatermark(
+                    "trusted erasure watermark disappeared"
+                )
+            quarantine = RecoveryQuarantineStore(target_path)
+            quarantine.activate(
+                identity_id=identity_id, mode=mode, created_at=stamp
+            )
+            target_fence = ExternalErasureFenceStore(target_path)
+            target_fence._write(payload)
+
             if target_path.exists():
                 RecoveryManager._checkpoint(target_path)
             for suffix in ("-wal", "-shm"):
@@ -281,18 +298,6 @@ class RecoveryManager:
                     p.unlink()
             target_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(stage_path, target_path)
-
-            target_fence = ExternalErasureFenceStore(target_path)
-            payload = fence_store.load()
-            if payload is None:
-                raise MissingErasureWatermark(
-                    "trusted erasure watermark disappeared"
-                )
-            target_fence._write(payload)
-
-            RecoveryQuarantineStore(target_path).activate(
-                identity_id=identity_id, mode=mode, created_at=stamp
-            )
         finally:
             RecoveryManager._cleanup_sqlite_artifact(work_path)
             RecoveryManager._cleanup_sqlite_artifact(stage_path)
