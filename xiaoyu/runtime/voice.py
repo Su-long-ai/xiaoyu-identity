@@ -376,8 +376,10 @@ class PipecatVoiceBinding:
         return True
 
     def on_user_started_speaking(self) -> bool:
-        """Pipecat turn-start interruption also clears XiaoYu TTS presentation."""
-        return self.controller.interrupt_output()
+        """Fence the prior semantic turn before the new speech is processed."""
+        invalidated = self.controller.cancel_user_turn()
+        interrupted = self.controller.interrupt_output()
+        return invalidated or interrupted
 
 
 class VoiceRuntimeLease:
