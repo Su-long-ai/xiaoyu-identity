@@ -321,5 +321,41 @@ class BackupDurabilityTests(unittest.TestCase):
             )
 
 
+    def test_validate_backup_manifest_rejects_tampered_continuity_not_just_db_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=self._db(root/"identity.sqlite3")
+            backup=RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root/"managed.sqlite3",
+                identity_id="fish-1",
+                release_version="test-release",
+                release_digest="sha256:test-release",
+            )
+            manifest_path=Path(str(backup)+".manifest.json")
+            manifest=json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            manifest["control_generation"]=(
+                int(manifest["control_generation"])+1
+            )
+            manifest_path.write_text(
+                json.dumps(
+                    manifest,sort_keys=True,separators=(",",":")
+                )+"\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(
+                BackupError,
+                msg=(
+                    "backup status validator accepted continuity metadata "
+                    "that restore itself would reject"
+                ),
+            ):
+                RecoveryManager.validate_backup_manifest(
+                    backup,expected_identity_id="fish-1"
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
