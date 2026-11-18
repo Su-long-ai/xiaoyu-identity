@@ -1,0 +1,9 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[xiaoyu]
+profile = "private"
+memory_authority = "neko_native"
+task_authority = "neko_native"
+core_patches_enabled = false

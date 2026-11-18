@@ -1,0 +1,18 @@
+[plugin]
+id = "xiaoyu_private"
+name = "XiaoYu Private"
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.xiaoyu_private:XiaoYuPrivatePlugin"
+description = "Private XiaoYu identity, personal-policy and conformance integration layer. It does not own memory or task state."
+short_description = "Private XiaoYu identity/policy overlay for a local N.E.K.O installation."
+keywords = ["xiaoyu", "小鱼", "identity", "private"]
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+startup_failure = "warn"

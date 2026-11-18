@@ -1,0 +1,5 @@
+{
+  "format_version": 1,
+  "patches": [],
+  "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep this list empty until a concrete private feature proves the extension surface insufficient."
+}
