@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 from xiaoyu.core.memory import CanonicalMemoryService
 from xiaoyu.persistence import Database, apply_migrations
@@ -590,6 +591,88 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 "a higher event watermark overwrote divergent current authority",
             )
             self.assertEqual(current.persona["style"]["tone"],"direct")
+
+
+    def test_backup_manifest_describes_snapshot_not_live_source_that_advances_after_copy(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            store=CanonicalProductStore(db,identity_id="fish-backup-race")
+            first=store.record_user_turn(
+                source_event_key="backup-race-first",
+                text="first",
+                observed_at=T0,
+            )
+            store.save_memory(
+                memory_id="race-memory",
+                mutation_id="backup-race-save",
+                source_event_id=first.event_id,
+                principal_id="owner",
+                text="first",
+                category="other",
+                priority=3,
+                created_at=T0,
+            )
+            original=Database.backup_to
+            injected={"done":False}
+
+            def backup_then_advance(instance,destination):
+                result=original(instance,destination)
+                if (
+                    not injected["done"]
+                    and Path(instance.path)==Path(db.path)
+                ):
+                    injected["done"]=True
+                    store.record_user_turn(
+                        source_event_key="backup-race-late",
+                        text="late live write",
+                        observed_at=T0+timedelta(minutes=1),
+                    )
+                return result
+
+            with mock.patch.object(
+                Database,"backup_to",backup_then_advance
+            ):
+                backup=RecoveryManager.create_backup(
+                    source_path=db.path,
+                    backup_path=root/"race.sqlite3",
+                    identity_id="fish-backup-race",
+                    release_version="r20-redteam",
+                    release_digest="sha256:r20-redteam",
+                    created_at=T0+timedelta(minutes=2),
+                )
+            self.assertTrue(injected["done"])
+            manifest=RecoveryManager.validate_backup_manifest(
+                backup,expected_identity_id="fish-backup-race"
+            )
+            backup_db=Database(backup)
+            with backup_db.transaction() as conn:
+                snap_revision=int(
+                    conn.execute(
+                        """SELECT COALESCE(MAX(ingest_revision),0)
+                           FROM canonical_event_ingest
+                           WHERE identity_id='fish-backup-race'"""
+                    ).fetchone()[0]
+                )
+            with db.transaction() as conn:
+                live_revision=int(
+                    conn.execute(
+                        """SELECT COALESCE(MAX(ingest_revision),0)
+                           FROM canonical_event_ingest
+                           WHERE identity_id='fish-backup-race'"""
+                    ).fetchone()[0]
+                )
+            self.assertGreater(live_revision,snap_revision)
+            self.assertEqual(
+                int(manifest["source_revision_watermark"]),
+                snap_revision,
+            )
+            self.assertEqual(
+                manifest["canonical_authority_digest"],
+                RecoveryManager._canonical_authority_digest(
+                    backup_db,"fish-backup-race"
+                ),
+            )
 
 
 if __name__=="__main__":
