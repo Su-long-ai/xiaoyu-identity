@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -881,6 +882,75 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             self.assertTrue(
                 RecoveryQuarantineStore(active.path).is_active(),
                 "failed restore must leave execution quarantine fail-closed",
+            )
+
+
+    def test_final_db_replace_failure_leaves_old_db_and_active_safety_barriers(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=Database(root/"candidate.sqlite3")
+            active=Database(root/"active.sqlite3")
+            apply_migrations(source)
+            apply_migrations(active)
+            with source.transaction(immediate=True) as conn:
+                conn.execute(
+                    "CREATE TABLE recovery_probe(value TEXT NOT NULL)"
+                )
+                conn.execute(
+                    "INSERT INTO recovery_probe(value) VALUES('candidate')"
+                )
+            with active.transaction(immediate=True) as conn:
+                conn.execute(
+                    "CREATE TABLE recovery_probe(value TEXT NOT NULL)"
+                )
+                conn.execute(
+                    "INSERT INTO recovery_probe(value) VALUES('active')"
+                )
+            source_fence=ExternalErasureFenceStore(source.path)
+            source_fence.ensure_identity("fish-replace")
+            trusted=root/"trusted-erasure.json"
+            source_fence.copy_to(
+                ExternalErasureFenceStore(active.path,path=trusted)
+            )
+            raw=source.backup_to(root/"candidate-raw.sqlite3")
+
+            original_replace=os.replace
+            def fail_only_db_activation(src,dst):
+                if (
+                    str(src).endswith(".restore-stage")
+                    and Path(dst)==Path(active.path)
+                ):
+                    raise OSError("synthetic final replace failure")
+                return original_replace(src,dst)
+
+            with mock.patch(
+                "xiaoyu.persistence.recovery.os.replace",
+                side_effect=fail_only_db_activation,
+            ):
+                with self.assertRaises(OSError):
+                    RecoveryManager.restore(
+                        candidate_path=raw,
+                        target_path=active.path,
+                        identity_id="fish-replace",
+                        mode=RestoreMode.DISASTER_RECOVERY,
+                        watermark_path=trusted,
+                        activated_at=T0+timedelta(minutes=21),
+                    )
+
+            with Database(active.path).transaction() as conn:
+                value=str(
+                    conn.execute(
+                        "SELECT value FROM recovery_probe"
+                    ).fetchone()[0]
+                )
+            self.assertEqual(value,"active")
+            self.assertTrue(
+                RecoveryQuarantineStore(active.path).is_active()
+            )
+            self.assertIsNotNone(
+                ExternalErasureFenceStore(active.path).identity(
+                    "fish-replace"
+                )
             )
 
 
