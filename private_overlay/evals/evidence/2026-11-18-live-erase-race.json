@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "source_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+  "work_root": "D:\\xiaoyu_private_overlay_state\\erase-race-e2e",
+  "source_product_data_touched": false,
+  "synthetic_canary_only": true,
+  "canary_text_recorded": false,
+  "official_history_route": "/internal/memory/{lanlan_name}/scoped_history",
+  "official_forget_route": "/internal/memory/{lanlan_name}/scoped_forget",
+  "verdict": "PASS",
+  "generation_window": {
+    "extractor_calls": 1,
+    "forget_landed_while_generation_blocked": true,
+    "pre_release_fact_count": 0,
+    "created": 0,
+    "post_fact_count": 0,
+    "canary_persisted": false,
+    "pass": true
+  },
+  "staging_recheck_window": {
+    "extractor_calls": 1,
+    "forget_triggered_inside_staging_write": true,
+    "created": 0,
+    "post_fact_count": 0,
+    "key_state": "done",
+    "staging_contains_canary": false,
+    "canary_persisted": false,
+    "pass": true
+  },
+  "pass": true,
+  "work_root_cleaned": true
+}

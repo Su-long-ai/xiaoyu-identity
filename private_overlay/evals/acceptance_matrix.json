@@ -52,14 +52,14 @@
     {
       "id": "erase_race",
       "goal": "in-flight extraction cannot write erased material back",
-      "status": "native_evidence_pass_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+      "status": "isolated_live_generation_fence_pass",
+      "evidence": "evals/evidence/2026-11-18-live-erase-race.json"
     },
     {
       "id": "commitment_restart",
       "goal": "commitments survive restart without duplicate proactive delivery",
-      "status": "native_proactive_prompt_restart_dedup_pass_live_delivery_pending",
-      "evidence": "evals/evidence/2026-11-18-commitment-restart.json"
+      "status": "native_cue_live_qq_receipt_restart_dedup_pass_integrated_proactive_session_pending",
+      "evidence": "evals/evidence/2026-11-18-live-commitment-delivery.json"
     },
     {
       "id": "uncertain_effect",
