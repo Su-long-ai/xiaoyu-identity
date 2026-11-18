@@ -1,0 +1,126 @@
+{
+  "schema": "xiaoyu-product-reuse-policy-v1",
+  "version": 1,
+  "decision_glob": "governance/implementation_reuse_decisions/*.json",
+  "allowed_modes": [
+    "reuse",
+    "extend",
+    "custom_policy",
+    "legacy_compat",
+    "falsification"
+  ],
+  "blocked_component_lifecycles": [
+    "hold",
+    "deprecated"
+  ],
+  "unclassified_new_file_guard": {
+    "prefixes": [
+      "xiaoyu/runtime/",
+      "xiaoyu/providers/",
+      "xiaoyu/tools/",
+      "xiaoyu/guardian/",
+      "xiaoyu/release/"
+    ],
+    "extensions": [
+      ".py"
+    ]
+  },
+  "areas": {
+    "provider_transport": {
+      "paths": [
+        "model_adapter.py",
+        "xiaoyu/providers/**",
+        "xiaoyu/runtime/litellm_backend.py"
+      ],
+      "required_component_kinds": [
+        "provider_transport",
+        "model_gateway"
+      ],
+      "intent": "Provider protocol compatibility, HTTP/API transport, SDK adaptation and retry/fallback plumbing should reuse mature provider libraries. XiaoYu may retain per-attempt privacy, freshness and fallback authority."
+    },
+    "memory_retrieval": {
+      "paths": [
+        "product_retrieval_adapter.py",
+        "xiaoyu/core/memory.py",
+        "xiaoyu/runtime/retrieval.py"
+      ],
+      "required_component_kinds": [
+        "stdlib_search",
+        "embedding",
+        "vector_store",
+        "memory_reference",
+        "memory_architecture_reference",
+        "model_component"
+      ],
+      "intent": "Lexical search, embeddings, vector search, reranking and memory extraction/classification should reuse mature components. XiaoYu retains truth, admissibility, erasure and audience authority."
+    },
+    "resource_runtime": {
+      "paths": [
+        "xiaoyu/runtime/resource_broker.py"
+      ],
+      "required_component_kinds": [
+        "resource_telemetry"
+      ],
+      "intent": "Host telemetry and device inspection should reuse mature OS/vendor libraries. XiaoYu retains resource policy, lease semantics and preemption decisions."
+    },
+    "vision_runtime": {
+      "paths": [
+        "xiaoyu/runtime/vision.py"
+      ],
+      "required_component_kinds": [
+        "screen_capture"
+      ],
+      "intent": "Screen capture and high-rate capture should reuse mature capture libraries. XiaoYu retains privacy, TTL, change-selection and observation authority."
+    },
+    "voice_runtime": {
+      "paths": [
+        "xiaoyu/runtime/voice.py"
+      ],
+      "required_component_kinds": [
+        "voice_runtime"
+      ],
+      "intent": "Audio pipeline, VAD, ASR and TTS orchestration should reuse mature voice components. XiaoYu retains semantic turn, interruption and canonical-event boundaries."
+    },
+    "observability": {
+      "paths": [
+        "xiaoyu/guardian/otel.py",
+        "xiaoyu/runtime/telemetry.py"
+      ],
+      "required_component_kinds": [
+        "observability"
+      ],
+      "intent": "Tracing, metrics and export plumbing should reuse OpenTelemetry-compatible components. XiaoYu retains privacy-safe allowlists and Guardian findings."
+    },
+    "credentials": {
+      "paths": [
+        "xiaoyu/runtime/credentials.py"
+      ],
+      "required_component_kinds": [
+        "credential_store"
+      ],
+      "intent": "Secret storage should reuse the host credential store/keyring. XiaoYu must not implement a new secret vault."
+    },
+    "external_tool_runtime": {
+      "paths": [
+        "xiaoyu/tools/**"
+      ],
+      "required_component_kinds": [
+        "tool_protocol",
+        "sandbox_runtime"
+      ],
+      "intent": "External tool protocols, long-running task polling and sandbox execution should reuse MCP/standard sandbox runtimes where available. XiaoYu retains authorization and effect semantics."
+    },
+    "release_distribution": {
+      "paths": [
+        "xiaoyu/release/updater.py",
+        "xiaoyu/release/signing.py",
+        "xiaoyu/release/distribution.py"
+      ],
+      "required_component_kinds": [
+        "supply_chain",
+        "updater_security"
+      ],
+      "intent": "Artifact signing, update metadata and secure distribution should reuse mature supply-chain standards rather than custom cryptographic/update protocols."
+    }
+  }
+}
