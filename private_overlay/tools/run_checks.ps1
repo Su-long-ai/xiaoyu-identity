@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$NekoRoot = "D:\xiaoyu_external_audit\N.E.K.O",
     [switch]$HostSmoke
 )
@@ -12,7 +12,7 @@ python -m unittest discover -s (Join-Path $OverlayRoot "tests") -v
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== XiaoYu overlay compile =="
-python -m compileall -q $PluginRoot (Join-Path $OverlayRoot "tools") (Join-Path $OverlayRoot "tests")
+python -m compileall -q $PluginRoot (Join-Path $OverlayRoot "tools") (Join-Path $OverlayRoot "tests") (Join-Path $OverlayRoot "migration") (Join-Path $OverlayRoot "evals")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== XiaoYu/N.E.K.O authority contract =="

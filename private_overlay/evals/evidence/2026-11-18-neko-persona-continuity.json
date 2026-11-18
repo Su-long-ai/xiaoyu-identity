@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_ISOLATED_CONTINUITY_LIVE_PRODUCT_E2E_PENDING",
+  "isolation": {
+    "storage_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+    "character_name": "XiaoYu",
+    "product_data_touched": false,
+    "neko_core_patches": 0
+  },
+  "migration_commit": {
+    "source_format": "openclaw",
+    "candidate_count": 9,
+    "persona_candidates": 9,
+    "fact_candidates": 0,
+    "fusion_mode": "local_deterministic_preserve",
+    "reason": "Validate N.E.K.O's real import/persistence/idempotency path without sending private SOUL content to any model provider before provider-privacy admission is accepted.",
+    "external_import_entries_after_commit": 7,
+    "persona_sha256": "022f17769ab57975bf1fa94831fd7fc79e2102a3e854866ddcc236420765c04c"
+  },
+  "idempotent_reimport": {
+    "status_code": 200,
+    "result_status": "success",
+    "candidate_count": 9,
+    "fusion_calls": 0,
+    "added_persona": 0,
+    "added_facts": 0,
+    "skipped_duplicates": 9,
+    "persona_sha256": "022f17769ab57975bf1fa94831fd7fc79e2102a3e854866ddcc236420765c04c"
+  },
+  "restart_verification": {
+    "new_process": true,
+    "exit_code": 0,
+    "external_import_entries": 7,
+    "persona_sha256": "022f17769ab57975bf1fa94831fd7fc79e2102a3e854866ddcc236420765c04c",
+    "same_digest_as_committed_state": true
+  },
+  "model_provider_swap": {
+    "provider_cases": [
+      "qwen",
+      "free"
+    ],
+    "resolved_models": [
+      "qwen3.8-flash",
+      "free-model"
+    ],
+    "resolved_base_urls": [
+      "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "https://www.lanlan.tech/text/v1"
+    ],
+    "provider_resolution_changed": true,
+    "persona_sha256_before_after": "022f17769ab57975bf1fa94831fd7fc79e2102a3e854866ddcc236420765c04c",
+    "same_persona_digest": true,
+    "network_calls_performed": 0
+  },
+  "acceptance_support": {
+    "legacy_migration": "isolated N.E.K.O persistence path committed and idempotent; product cutover still pending",
+    "identity_restart": "same persona digest read by a fresh process",
+    "identity_model_swap": "same persona digest under two independently resolved provider/model configurations; live conversational identity still pending"
+  },
+  "caveats": [
+    "The isolated migration commit replaced only the fusion model transport with a deterministic local function; N.E.K.O's parser, persona fusion persistence path, fingerprint/idempotency logic and on-disk PersonaManager storage remained real.",
+    "No private SOUL/persona text was sent to lanlan.tech, Qwen or another model provider by these continuity checks.",
+    "A live-model behavioral identity comparison is still required after provider-privacy admission is defined.",
+    "Desktop-to-QQ continuity remains pending."
+  ]
+}

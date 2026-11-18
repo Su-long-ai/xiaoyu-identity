@@ -4,12 +4,14 @@
     {
       "id": "identity_restart",
       "goal": "same XiaoYu identity across restart",
-      "status": "pending"
+      "status": "isolated_storage_pass_product_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
     },
     {
       "id": "identity_model_swap",
       "goal": "same XiaoYu identity across model/provider swap",
-      "status": "pending"
+      "status": "isolated_storage_pass_live_model_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
     },
     {
       "id": "desktop_qq_continuity",
@@ -68,8 +70,8 @@
     {
       "id": "legacy_migration",
       "goal": "legacy canonical XiaoYu persona can be staged deterministically into N.E.K.O without importing bootstrap/test memories or widening scope",
-      "status": "native_preview_pass_commit_pending",
-      "evidence": "evals/evidence/2026-11-18-legacy-migration-preview.json"
+      "status": "isolated_commit_pass_product_cutover_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
     }
   ]
 }
