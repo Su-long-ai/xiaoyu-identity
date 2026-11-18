@@ -614,7 +614,8 @@ class RecoveryManager:
             cur = conn.execute(
                 """UPDATE deliveries
                    SET state='NEEDS_RECONCILIATION',updated_at=?
-                   WHERE identity_id=? AND state IN ('PENDING','FAILED')""",
+                   WHERE identity_id=?
+                     AND state IN ('PENDING','ATTEMPTING','FAILED')""",
                 (restored_at, identity_id),
             )
             counts["deliveries"] = int(cur.rowcount)
@@ -811,6 +812,38 @@ class RecoveryManager:
             ).fetchone()
             if auth is not None:
                 raise RestoreInvariantError("restored execution authorization remains reusable")
+            delivery = conn.execute(
+                """SELECT 1 FROM deliveries
+                   WHERE identity_id=?
+                     AND state IN ('PENDING','ATTEMPTING','FAILED')
+                   LIMIT 1""",
+                (identity_id,),
+            ).fetchone()
+            if delivery is not None:
+                raise RestoreInvariantError(
+                    "restored non-terminal delivery remains executable/ambiguous"
+                )
+            tables = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "delivery_attempts" in tables:
+                attempt = conn.execute(
+                    """SELECT 1 FROM delivery_attempts
+                       WHERE identity_id=?
+                         AND state IN (
+                           'QUEUED','CLAIMED','DISPATCHING',
+                           'UNKNOWN','FAILED_RETRYABLE'
+                         )
+                       LIMIT 1""",
+                    (identity_id,),
+                ).fetchone()
+                if attempt is not None:
+                    raise RestoreInvariantError(
+                        "restored non-terminal delivery attempt remains"
+                    )
 
     @staticmethod
     def _require_healthy(db: Database, label: str) -> None:

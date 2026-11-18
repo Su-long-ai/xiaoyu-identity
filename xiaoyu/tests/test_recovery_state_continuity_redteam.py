@@ -196,7 +196,7 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 )
 
 
-    def test_restore_quarantines_attmpting_delivery_parent_and_dispatching_attempt(self):
+    def test_restore_quarantines_attempting_delivery_parent_and_dispatching_attempt(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
             db=Database(root/"identity.sqlite3")
