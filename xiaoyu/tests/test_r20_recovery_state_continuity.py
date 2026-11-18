@@ -196,5 +196,55 @@ class R20RecoveryStateContinuityTests(unittest.TestCase):
             self.assertFalse(store.memory.get("drink").archived)
 
 
+    def test_disaster_recovery_rejects_pre_archive_and_pre_unarchive_backups(self):
+        for mode in ("archive","unarchive"):
+            with self.subTest(mode=mode):
+                with tempfile.TemporaryDirectory() as td:
+                    root=Path(td)
+                    db,store,controls,item=self._seed(root)
+                    if mode=="unarchive":
+                        item=controls.archive(
+                            memory_id="drink",
+                            expected_revision=item.revision,
+                            archived=True,
+                            source_event_key="archive-before-backup",
+                            created_at=T0+timedelta(minutes=1),
+                        )
+                    backup=self._backup(
+                        db,root,"before-%s.sqlite3" % mode
+                    )
+                    changed=controls.archive(
+                        memory_id="drink",
+                        expected_revision=item.revision,
+                        archived=(mode=="archive"),
+                        source_event_key=mode+"-after-backup",
+                        created_at=T0+timedelta(minutes=2),
+                    )
+                    self.assertEqual(
+                        changed.archived,
+                        mode=="archive",
+                    )
+                    trusted=root/"latest-fence.json"
+                    ExternalErasureFenceStore(db.path).copy_to(
+                        ExternalErasureFenceStore(
+                            root/"lost.sqlite3",path=trusted
+                        )
+                    )
+                    recovered=root/"recovered.sqlite3"
+                    with self.assertRaisesRegex(
+                        RestoreInvariantError,
+                        "owner-control generation does not match",
+                    ):
+                        RecoveryManager.restore(
+                            candidate_path=backup,
+                            target_path=recovered,
+                            identity_id="fish-r20-recovery",
+                            mode=RestoreMode.DISASTER_RECOVERY,
+                            watermark_path=trusted,
+                            activated_at=T0+timedelta(minutes=3),
+                        )
+                    self.assertFalse(recovered.exists())
+
+
 if __name__=="__main__":
     unittest.main()
