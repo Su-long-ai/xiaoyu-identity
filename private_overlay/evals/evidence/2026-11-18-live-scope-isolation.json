@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "source_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+  "work_root": "D:\\xiaoyu_private_overlay_state\\scope-e2e",
+  "source_product_data_touched": false,
+  "synthetic_canaries_only": true,
+  "private_canary_text_recorded": false,
+  "group_canary_text_recorded": false,
+  "model_response_recorded": false,
+  "native_regression_evidence": "evals/evidence/2026-11-18-neko-scope-qq-native.json",
+  "private_add_result": "added",
+  "group_add_result": "added",
+  "private_render_sha256": "f5d94cef23a8480c965ac46db5eef39561d038a7007a47608c98aac33e9406c1",
+  "group_render_sha256": "2fccc481f133ffee59a5d5c6485404264641baafcbf0558474182966a439505a",
+  "render_checks": {
+    "private_render_has_private": true,
+    "private_render_excludes_group": true,
+    "group_render_has_group": true,
+    "group_render_excludes_private": true
+  },
+  "live_model": "qwen3.8-flash",
+  "live_host": "dashscope.aliyuncs.com",
+  "credential_source": "environment:DASHSCOPE_API_KEY",
+  "response_sha256": "96db5be5cc2012ef52380b14292adca68c2f7a5b9f6def88c93036d8d59c7095",
+  "live_checks": {
+    "model_returns_group_canary": true,
+    "model_does_not_return_private_canary": true
+  },
+  "verdict": "PASS",
+  "work_root_cleaned": true
+}
