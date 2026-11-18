@@ -208,7 +208,7 @@ class CanonicalProductContextShadowTests(unittest.TestCase):
                 "historical_changed",
             )
             self.assertIn("不能作为当前事实", stale.content)
-            self.assertIn("我住在南京", stale.content)
+            self.assertNotIn("我住在南京", stale.content)
 
             mixed = by_id["legacy:%d" % fixture["mixed_event"]]
             self.assertEqual(
@@ -263,7 +263,7 @@ class CanonicalProductContextShadowTests(unittest.TestCase):
                 if turn.event_id
                 == "legacy:%d" % fixture["stale_event"]
             )
-            self.assertIn("我住在南京", stale_turn.content)
+            self.assertNotIn("我住在南京", stale_turn.content)
             self.assertIn("不能作为当前事实", stale_turn.content)
 
     def test_casual_turn_can_abstain_without_losing_self_or_boundary(self):
