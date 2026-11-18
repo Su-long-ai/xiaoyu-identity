@@ -6,9 +6,17 @@ Base frontier: `feat/reuse-first-credentials` @ `8f4d5d24ba399d30b0c510ad1dd3c38
 
 External source snapshots inspected:
 
-- Project N.E.K.O: `e14f6196395a346ff422e0eb852c5eae3befc1cf`
-- Cyrene-Agent: `852ec5765183ea62c45eba8a3db0a5aae2b74bbb`
+- Project N.E.K.O: `402695cd115323440dfd4e6860c25a32c10dda43`
+- MIRA: `0eb6e7602b9913ce5859dc4648f1a0805c392749`
+- Alicization: `42de37fc5d20ba744f71879bcc3bcef8434e8244`
 - Psycheros/entity-core: `724987dc072a0bbc9914be58c73efc278154a410`
+- Miru: `cbea20b436a255e3cd26d952aaf952c003990b65`
+- OpenCharaAgent: `c094c62eabb1c1c1ecb5f41d6684ce3b716105dd`
+- Cremind: `e6b9d4dd3c1dc3bc20d6bcff32cf916b5011bbe0`
+- Cyrene-Agent: `852ec5765183ea62c45eba8a3db0a5aae2b74bbb`
+
+Detailed same-criteria source/runtime evidence is recorded in
+`MOTHER_PROJECT_CONCRETE_AUDIT_20261118.md`.
 
 ## 1. Decision
 
@@ -54,7 +62,7 @@ N.E.K.O has product semantics close to XiaoYu's strongest R9/R17 requirements:
 
 Dedicated upstream tests cover cold-store erasure, pending/dedup cleanup, embedding-worker generation fencing and restore/sync behavior.
 
-A local directed pytest attempt did not reach collection because the machine's global Python lacks `nest_asyncio`; this is an environment dependency gap, not a test failure. No global environment was modified.
+A later isolated local audit at `402695cd` installed test dependencies into a dedicated virtual environment and executed eight erasure/restore race tests mapped directly to XiaoYu acceptance criteria 5–7. **All 8 passed locally**, including restore-before-forget non-resurrection, restore/forget serialization, cold-store erasure, in-flight generation fencing, malformed-tombstone fail-closed behavior, restart-persistent forget tombstones and unfinished-forget restart blocking. The global Python environment was not modified.
 
 ### QQ / NapCat / multi-surface
 
@@ -212,7 +220,7 @@ The permanent XiaoYu implementation should aim to be a **small separable layer**
 ### AOP hook documentation is ahead of the inspected runtime
 
 N.E.K.O documents `before_entry`, `after_entry`, `around_entry` and
-`replace_entry` as execution interceptors. At inspected commit
+`replace_entry` as execution interceptors. At the originally inspected extension-seam snapshot
 `e14f6196395a346ff422e0eb852c5eae3befc1cf`, source-wide lookup found the
 hook metadata decorators and metadata-only tests, but no host/runtime consumer
 of `HOOK_META_ATTR`. `collect_entries()` also ignores its
@@ -283,8 +291,10 @@ benefit rather than silently growing a permanent fork.
 
 ## 8. Current provisional verdict
 
-**N.E.K.O is the only candidate found so far that simultaneously covers the companion product, memory/relationship system, strong erasure semantics, QQ/NapCat, agent/plugin runtime and extension surface closely enough to justify a mother-project replacement spike.**
+The expanded concrete audit no longer treats N.E.K.O as the only serious candidate. MIRA, Alicization, Psycheros/entity-core, Miru, OpenCharaAgent and Cremind were inspected at fixed revisions, with targeted local execution where practical.
 
-Cyrene-Agent remains useful as a Windows/channel/policy reference. Psycheros/entity-core is not selected because its documented permanent-memory philosophy and snapshot restore semantics conflict with XiaoYu's deletion-no-resurrection requirement.
+**N.E.K.O nevertheless remains the preferred primary challenger after that comparison.** The reason is now evidence-based rather than discovery-based: it combines the broadest companion/runtime/QQ surface with the strongest observed erase/restore implementation, and eight locally executed critical erasure/restore race tests passed at the newer `402695cd` snapshot.
 
-Do not merge architectures. Test N.E.K.O as the single primary upstream first.
+Key eliminators/weaknesses observed in alternatives are recorded in `MOTHER_PROJECT_CONCRETE_AUDIT_20261118.md`: Psycheros locally resurrected deleted identity data from an old snapshot; Miru's current-state deletion tests passed but its whole-data restore can roll deletion state backward; MIRA's built-in memory does not claim temporal/citation completeness and its restore has no observed independent erasure fence; OpenCharaAgent is materially POSIX-oriented on the tested Windows host; Cremind intentionally retains recoverable deleted-profile artifacts; Alicization is semantically strong but would substitute another large bespoke digital-life core rather than collapse permanent implementation surface.
+
+Do not merge architectures. Test N.E.K.O as the single primary upstream first, while using the other candidates as falsification controls and mechanism references.
