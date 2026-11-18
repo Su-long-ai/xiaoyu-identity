@@ -9,6 +9,10 @@ from .receipts import ActionReceiptRepository, DeliveryRepository
 from .purposes import PurposeRepository
 from .profile import ProfileRepository
 from .promise import PromiseRepository
+from .product_runtime import (
+    MemoryProposalDecisionRepository,
+    PresentationStateRepository,
+)
 from .relationship import RelationshipRepository
 from .self_authority import SelfAuthorityRepository
 from .temporal import TemporalRepository
@@ -32,6 +36,8 @@ __all__ = [
     "PurposeRepository",
     "ProfileRepository",
     "PromiseRepository",
+    "MemoryProposalDecisionRepository",
+    "PresentationStateRepository",
     "RelationshipRepository",
     "SelfAuthorityRepository",
     "TemporalRepository",

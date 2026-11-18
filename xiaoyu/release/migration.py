@@ -177,15 +177,53 @@ class AuthorityCutoverController:
         )
 
     @staticmethod
-    def _memory_change_seq(conn) -> int:
-        row = conn.execute(
-            "SELECT value FROM settings WHERE key='memory_change_seq'"
-        ).fetchone()
-        if row is not None:
-            try:
-                return int(json.loads(str(row[0])))
-            except (TypeError, ValueError, json.JSONDecodeError):
-                pass
+    def _legacy_authority_tables_present(conn) -> bool:
+        tables = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        return any(
+            table in tables
+            for table in LEGACY_AUTHORITY_TABLES
+        )
+
+    @staticmethod
+    def _table_exists(conn, table: str) -> bool:
+        return conn.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name=?""",
+            (table,),
+        ).fetchone() is not None
+
+    @classmethod
+    def _legacy_event_high_watermark(cls, conn) -> int:
+        if not cls._table_exists(conn, "events"):
+            return 0
+        return int(
+            conn.execute(
+                "SELECT COALESCE(MAX(event_id),0) FROM events"
+            ).fetchone()[0]
+        )
+
+    @classmethod
+    def _memory_change_seq(cls, conn) -> int:
+        if cls._table_exists(conn, "settings"):
+            row = conn.execute(
+                "SELECT value FROM settings WHERE key='memory_change_seq'"
+            ).fetchone()
+            if row is not None:
+                try:
+                    return int(json.loads(str(row[0])))
+                except (
+                    TypeError,
+                    ValueError,
+                    json.JSONDecodeError,
+                ):
+                    pass
+        if not cls._table_exists(conn, "memories"):
+            return 0
         row = conn.execute(
             "SELECT COALESCE(MAX(change_seq),0) FROM memories"
         ).fetchone()
@@ -202,9 +240,12 @@ class AuthorityCutoverController:
         if existing.mode is AuthorityMode.CANONICAL:
             return existing
 
-        # Backfill/source-order is checked from live data rather than trusting
-        # the caller's boolean alone.
-        self.backfill.require_cutover_ready(identity_id)
+        # Legacy migrations must prove source-order convergence. A fresh
+        # canonical-only database has no legacy authority to backfill/fence.
+        with self.db.transaction() as conn:
+            legacy_present = self._legacy_authority_tables_present(conn)
+        if legacy_present:
+            self.backfill.require_cutover_ready(identity_id)
 
         effective = replace(
             evidence,
@@ -234,11 +275,7 @@ class AuthorityCutoverController:
                     "ANOTHER_IDENTITY_ALREADY_CANONICAL"
                 )
 
-            event_high = int(
-                conn.execute(
-                    "SELECT COALESCE(MAX(event_id),0) FROM events"
-                ).fetchone()[0]
-            )
+            event_high = self._legacy_event_high_watermark(conn)
             memory_seq = self._memory_change_seq(conn)
             activation_payload = {
                 "identity_id": identity_id,
@@ -287,11 +324,7 @@ class AuthorityCutoverController:
         if state.mode is not AuthorityMode.CANONICAL:
             return False
         with self.db.transaction() as conn:
-            event_high = int(
-                conn.execute(
-                    "SELECT COALESCE(MAX(event_id),0) FROM events"
-                ).fetchone()[0]
-            )
+            event_high = self._legacy_event_high_watermark(conn)
             memory_seq = self._memory_change_seq(conn)
         return (
             event_high == state.legacy_event_high_watermark

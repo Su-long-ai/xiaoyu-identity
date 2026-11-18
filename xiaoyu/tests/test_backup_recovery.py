@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import threading
 import time
@@ -13,6 +14,30 @@ from xiaoyu.persistence.recovery import BackupError, RecoveryManager, RestoreInv
 
 
 class BackupDurabilityTests(unittest.TestCase):
+    def test_database_connect_closes_handle_when_sqlite_initialization_fails(self):
+        class BrokenConnection:
+            row_factory = None
+
+            def __init__(self):
+                self.closed = False
+
+            def execute(self, sql):
+                if "journal_mode=WAL" in sql:
+                    raise sqlite3.DatabaseError("synthetic corrupt database")
+                return self
+
+            def close(self):
+                self.closed = True
+
+        connection = BrokenConnection()
+        with mock.patch(
+            "xiaoyu.persistence.db.sqlite3.connect",
+            return_value=connection,
+        ):
+            with self.assertRaises(sqlite3.DatabaseError):
+                Database("ignored.sqlite3").connect()
+        self.assertTrue(connection.closed)
+
     def _db(self, path: Path) -> Database:
         db = Database(path)
         apply_migrations(db)

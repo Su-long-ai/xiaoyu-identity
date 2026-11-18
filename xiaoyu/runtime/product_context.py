@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from xiaoyu.core.identity import SelfAuthorityService
 from xiaoyu.core.memory import CanonicalMemoryService
-from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.persistence import Database, applied_versions, apply_migrations
 from xiaoyu.persistence.backfill import LegacyShadowBackfill
 from xiaoyu.persistence.memory_backfill import LegacyMemoryTemporalBackfill
 from xiaoyu.core.identity import LegacySelfBackfill
@@ -619,6 +619,7 @@ class CanonicalReadShadowStatus:
     last_blockers: tuple[str, ...]
     evidence_digest: str
     updated_at: str
+    schema_version: int = 0
 
 
 class CanonicalReadShadowMonitor:
@@ -712,8 +713,13 @@ class CanonicalReadShadowMonitor:
             evidence.ready
             and consecutive >= self.required_consecutive
         )
+        schema_version = max(
+            applied_versions(self.db),
+            default=0,
+        )
         payload = {
             "version": self.VERSION,
+            "schema_version": schema_version,
             "identity_id": identity_id,
             "consecutive_ready": consecutive,
             "required_consecutive": self.required_consecutive,
@@ -732,6 +738,7 @@ class CanonicalReadShadowMonitor:
             last_blockers=blockers,
             evidence_digest=digest,
             updated_at=stamp,
+            schema_version=schema_version,
         )
 
     def status(self) -> Optional[CanonicalReadShadowStatus]:
@@ -760,6 +767,9 @@ class CanonicalReadShadowMonitor:
                     payload["evidence_digest"]
                 ),
                 updated_at=str(payload["updated_at"]),
+                schema_version=int(
+                    payload.get("schema_version") or 0
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return None

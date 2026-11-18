@@ -19,6 +19,7 @@ from .migrations import (
     v11_memory_context,
     v12_authority_cutover,
     v13_self_authority,
+    v14_product_write_runtime,
 )
 
 
@@ -44,6 +45,7 @@ MIGRATIONS = (
     Migration(v11_memory_context.VERSION, v11_memory_context.NAME, v11_memory_context.apply, v11_memory_context.verify),
     Migration(v12_authority_cutover.VERSION, v12_authority_cutover.NAME, v12_authority_cutover.apply, v12_authority_cutover.verify),
     Migration(v13_self_authority.VERSION, v13_self_authority.NAME, v13_self_authority.apply, v13_self_authority.verify),
+    Migration(v14_product_write_runtime.VERSION, v14_product_write_runtime.NAME, v14_product_write_runtime.apply, v14_product_write_runtime.verify),
 )
 
 
