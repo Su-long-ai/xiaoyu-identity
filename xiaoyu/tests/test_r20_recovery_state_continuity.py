@@ -7,6 +7,7 @@ from pathlib import Path
 
 from xiaoyu.core.memory import MemoryControlState
 from xiaoyu.persistence import Database
+from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
     RecoveryManager,
     RestoreInvariantError,
@@ -149,6 +150,50 @@ class R20RecoveryStateContinuityTests(unittest.TestCase):
             )
             self.assertFalse(active.archived)
             self._assert_restore_rejected(db,backup)
+
+
+    def test_disaster_recovery_old_snapshot_cannot_resurrect_muted_memory_as_normal(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db,store,controls,item=self._seed(root)
+            backup=self._backup(db,root,"before-muted.sqlite3")
+
+            muted=controls.set_state(
+                memory_id="drink",
+                expected_revision=item.revision,
+                control_state=MemoryControlState.MUTED,
+                source_event_key="mute-before-disk-loss",
+                created_at=T0+timedelta(minutes=1),
+            )
+            self.assertEqual(muted.control_state,MemoryControlState.MUTED)
+
+            # Simulate total loss of the active SQLite authority while its
+            # independently stored latest fence survives.
+            trusted=root/"latest-external-fence.json"
+            ExternalErasureFenceStore(db.path).copy_to(
+                ExternalErasureFenceStore(
+                    root/"lost-active.sqlite3",
+                    path=trusted,
+                )
+            )
+            recovered=root/"recovered.sqlite3"
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=recovered,
+                identity_id="fish-r20-recovery",
+                mode=RestoreMode.DISASTER_RECOVERY,
+                watermark_path=trusted,
+                activated_at=T0+timedelta(minutes=2),
+            )
+            recovered_item=CanonicalProductStore(
+                Database(recovered),
+                identity_id="fish-r20-recovery",
+            ).memory.get("drink")
+            self.assertEqual(
+                recovered_item.control_state,
+                MemoryControlState.MUTED,
+                "old disaster snapshot resurrected MUTED memory as NORMAL",
+            )
             self.assertFalse(store.memory.get("drink").archived)
 
 
