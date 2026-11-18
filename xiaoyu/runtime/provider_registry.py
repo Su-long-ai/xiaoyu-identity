@@ -240,7 +240,7 @@ def evaluate_provider(
             for value in context.viewer_principal_ids
             if str(value)
         }
-        if viewers and viewers != {owner_principal}:
+        if viewers != {owner_principal}:
             reasons.append("owner_private_viewer_set_mismatch")
         if context_space in {"SHARED","GROUP","GUEST"}:
             reasons.append("owner_private_context_space_mismatch")
