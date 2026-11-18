@@ -54,6 +54,23 @@ The following eight high-value tests were selected because they map directly to 
 
 The first run was intentionally incremental: four tests passed while four were blocked only by missing sparse-checkout modules; after adding upstream `knowledge` / `services` and the minimal dependencies, the remaining four also passed. No product assertion failed in the final targeted set.
 
+A second directed local set then exercised adjacent acceptance behavior:
+
+- legacy unscoped rows remain private and never become global;
+- hybrid recall filters scope **before** rankers;
+- persona view exposes only authorized scoped sections;
+- scoped synthesis prompts do not name the private master;
+- correction facts pair with and replace stale facts;
+- private persona snapshots are detached and preserve retained fields;
+- kept-promise reports mark commitments done;
+- due promises lead proactive memory cues;
+- OneBot forward path maps private inbound messages;
+- OneBot action replies are echo-correlated;
+- Molili external import maps into bounded layers;
+- repeated persona import is idempotent without another LLM call.
+
+The selected tests expanded through parametrization. After filling only missing isolated test dependencies / sparse-checkout paths, **14/14 executed cases passed locally**. The proactive-commitment test initially stopped at missing optional runtime imports (`soxr`, `Pillow`, `jmespath`); after installing those in the audit venv it executed and passed. These dependency stops are not counted as product failures.
+
 ### 3.2 Source-confirmed mechanism
 
 N.E.K.O implements mechanisms materially stronger than ordinary memory deletion:
@@ -257,14 +274,14 @@ Legend:
 | Criterion | N.E.K.O | Alicization | Miru | MIRA | Psycheros | OpenChara | Cremind |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Identity continuity | P | P | ~ | ~ | P | P | ~ |
-| Private/group isolation | ~ | ~ | ? | P | ? | ~ | P |
+| Private/group isolation | **P** | ~ | ? | P | ? | ~ | P |
 | Provider privacy eligibility | F/GAP | ? | ? | ? | ? | ? | ? |
-| Correction/current truth | P | P | P | ~ | ~ | ~ | ~ |
+| Correction/current truth | **P** | P | P | ~ | ~ | ~ | ~ |
 | Erasure closure | P | ? | ~ | ~ | ~ | ~ | F/~ |
 | Old-backup no-resurrection | P | ? | F | F/~ | **F (local attack)** | ? | F/~ |
 | In-flight erase race | P | ? | ? | ? | ? | ? | ? |
 | QQ/NapCat identity scope | P/~ | ? | ? | ? | ? | P/~ | ? |
-| Commitment continuity | P/~ | P | P/~ | ~ | ~ | P | ~ |
+| Commitment continuity | **P/~** | P | P/~ | ~ | ~ | P | ~ |
 | External ACK-loss semantics | ~ | ~ | ? | ~ | ? | F/~ | ? |
 | Import/export + provenance | ~ | ~ | ~ | ~ | ~ | ~ | ~ |
 | Complete companion E2E surface | **P** | ~ | ~ | ~ | ~ | ~ | ~ |
