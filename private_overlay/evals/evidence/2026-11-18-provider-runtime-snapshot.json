@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_AUTOMATIC_FALLBACK_BOUNDARY_MANUAL_OWNER_RECHECK_REQUIRED",
+  "source_audit": {
+    "shared_chat_factory": "one resolved model/base_url/api_key tuple creates one client; SDK max_retries stay on that client",
+    "automatic_cross_provider_failover_found": false,
+    "session_snapshot": "core session resolves paired provider configuration from one core_config snapshot",
+    "settings_update": "owner settings save persists new config, then ends active sessions and reloads configuration"
+  },
+  "native_tests": {
+    "passed": 3,
+    "failed": 0,
+    "tests": [
+      "test_aget_model_api_config_reuses_a_caller_snapshot",
+      "test_a_single_call_reads_core_config_once_even_when_it_recurses",
+      "test_session_construction_resolves_paired_configs_from_one_snapshot"
+    ],
+    "seconds": 6.36
+  },
+  "overlay_policy": {
+    "startup_preflight": "explicit direct-provider allowlist; unknown hosts fail closed",
+    "automatic_fallback": "accepted: no cross-provider fallback found",
+    "manual_provider_change": "explicit owner operation; rerun provider preflight before continuing private XiaoYu use",
+    "core_patch_decision": "NO_PATCH",
+    "reason": "A core patch would exist only to police an explicit owner settings change, while automatic fallback and per-session drift are already bounded. Keep the overlay smaller."
+  },
+  "caveat": "This does not claim that N.E.K.O prevents an owner from manually saving a disallowed provider while already running. XiaoYu treats that as an explicit configuration change and requires preflight before subsequent private use."
+}
