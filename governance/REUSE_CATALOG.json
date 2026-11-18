@@ -950,6 +950,143 @@
       "admission": "reference_only",
       "decision_ref": "ADR-009-trust-layer-gap-closure-and-resaturation",
       "health_status": "reference_only"
+    },
+    {
+      "id": "litellm_11100",
+      "kind": "provider_transport",
+      "status": "preferred",
+      "covers": [
+        "LLM provider protocol compatibility",
+        "OpenAI-compatible request adaptation"
+      ],
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI litellm / BerriAI LiteLLM"
+      },
+      "version": "1.110.0",
+      "license": "MIT",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "reviewed_optional_adapter",
+      "health_note": "XiaoYu uses LiteLLM only for a single selected provider attempt; max_retries=0 and cross-provider fallback authority remains in XiaoYu."
+    },
+    {
+      "id": "keyring_2570",
+      "kind": "credential_store",
+      "status": "preferred",
+      "covers": [
+        "host OS credential store",
+        "Windows Credential Locker access"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI keyring / host OS keyring"
+      },
+      "version": "25.7.0",
+      "license": "MIT",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "verified_optional_adapter",
+      "health_note": "Real Windows isolated-venv smoke selected WinVaultKeyring; XiaoYu does not persist the secret."
+    },
+    {
+      "id": "psutil_722",
+      "kind": "resource_telemetry",
+      "status": "preferred",
+      "covers": [
+        "CPU telemetry",
+        "RAM telemetry",
+        "battery/power telemetry"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI psutil"
+      },
+      "version": "7.2.2",
+      "license": "BSD-3-Clause",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "verified_local_runtime"
+    },
+    {
+      "id": "nvidia_ml_py_1361571",
+      "kind": "resource_telemetry",
+      "status": "preferred",
+      "covers": [
+        "NVIDIA GPU utilization",
+        "VRAM telemetry",
+        "GPU power telemetry"
+      ],
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI nvidia-ml-py / NVIDIA NVML"
+      },
+      "version": "13.615.71",
+      "license": "BSD",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "reviewed_optional_adapter"
+    },
+    {
+      "id": "mss_1020",
+      "kind": "screen_capture",
+      "status": "preferred",
+      "covers": [
+        "cross-platform screen capture",
+        "Windows screen capture"
+      ],
+      "lifecycle": "adopt",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI mss / python-mss"
+      },
+      "version": "10.2.0",
+      "license": "MIT",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "reviewed_optional_adapter"
+    },
+    {
+      "id": "pipecat_ai_1160",
+      "kind": "voice_runtime",
+      "status": "preferred",
+      "covers": [
+        "voice pipeline orchestration",
+        "turn/interruption runtime",
+        "ASR/TTS pipeline composition"
+      ],
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "PyPI pipecat-ai / pipecat-ai/pipecat"
+      },
+      "version": "1.16.0",
+      "license": "BSD-2-Clause",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "PRODUCT_REUSE_GATE_V1",
+      "health_status": "reviewed_optional_adapter"
     }
   ],
   "rules": [
