@@ -150,6 +150,12 @@ class NativeCanonicalExporter:
                        WHERE identity_id=? ORDER BY activity_id""",
                     (identity_id,),
                 ),
+                "authority_cutover_state": self._rows(
+                    conn,
+                    """SELECT * FROM authority_cutover_state
+                       WHERE identity_id=?""",
+                    (identity_id,),
+                ),
             }
 
         versions = applied_versions(self.db)

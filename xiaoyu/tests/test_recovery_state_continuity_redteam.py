@@ -482,13 +482,17 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
             self.assertEqual(activated.mode,AuthorityMode.CANONICAL)
 
-            RecoveryManager.restore(
-                candidate_path=backup,
-                target_path=db.path,
-                identity_id="fish-cutover",
-                mode=RestoreMode.MANAGED,
-                activated_at=T0+timedelta(minutes=2),
-            )
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "conflicts with current canonical authority",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=db.path,
+                    identity_id="fish-cutover",
+                    mode=RestoreMode.MANAGED,
+                    activated_at=T0+timedelta(minutes=2),
+                )
             current=AuthorityCutoverController(
                 Database(db.path)
             ).state("fish-cutover")
