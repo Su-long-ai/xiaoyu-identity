@@ -218,7 +218,8 @@ class EffectCoordinator:
         purpose_row = None
         if effect.purpose_id is not None:
             purpose_row = conn.execute(
-                "SELECT revision,state FROM purposes WHERE purpose_id=?",
+                """SELECT revision,state,resolved_utc_time
+                   FROM purposes WHERE purpose_id=?""",
                 (effect.purpose_id,),
             ).fetchone()
         if purpose_row is not None:
@@ -236,6 +237,15 @@ class EffectCoordinator:
                 raise EffectBindingError(
                     "effect cannot bind terminal purpose"
                 )
+            if purpose_row["resolved_utc_time"] is not None:
+                if str(purpose_row["state"]) == "SCHEDULED":
+                    raise EffectBindingError(
+                        "scheduled purpose has not activated an occurrence"
+                    )
+                if effect.purpose_occurrence_id is None:
+                    raise EffectBindingError(
+                        "scheduled purpose effect must bind current occurrence"
+                    )
             if effect.purpose_occurrence_id is not None:
                 occurrence = conn.execute(
                     """SELECT state,purpose_revision FROM purpose_occurrences

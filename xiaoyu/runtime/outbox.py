@@ -285,7 +285,8 @@ class OutboxDispatcher:
         if row.purpose_id is None:
             return None
         purpose = conn.execute(
-            "SELECT state,revision FROM purposes WHERE purpose_id=?",
+            """SELECT state,revision,resolved_utc_time
+               FROM purposes WHERE purpose_id=?""",
             (row.purpose_id,),
         ).fetchone()
         if purpose is None:
@@ -299,6 +300,16 @@ class OutboxDispatcher:
             return "PURPOSE_TERMINAL"
         if str(purpose["state"]) == "NEEDS_RECONCILIATION":
             return "PURPOSE_NEEDS_RECONCILIATION"
+        if (
+            purpose["resolved_utc_time"] is not None
+            and str(purpose["state"]) == "SCHEDULED"
+        ):
+            return "PURPOSE_OCCURRENCE_NOT_ACTIVATED"
+        if (
+            purpose["resolved_utc_time"] is not None
+            and row.purpose_occurrence_id is None
+        ):
+            return "PURPOSE_OCCURRENCE_REQUIRED"
         if row.purpose_revision is None:
             return "PURPOSE_REVISION_MISSING"
         if int(purpose["revision"]) != int(row.purpose_revision):
