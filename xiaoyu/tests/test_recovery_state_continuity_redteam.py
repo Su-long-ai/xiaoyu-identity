@@ -7,7 +7,9 @@ from pathlib import Path
 
 from xiaoyu.core.memory import CanonicalMemoryService
 from xiaoyu.persistence import Database
+from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
+    BackupError,
     RecoveryManager,
     RestoreInvariantError,
     RestoreMode,
@@ -150,6 +152,48 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                 1,
                 "restore rolled newer memory-control priority back to old snapshot",
             )
+
+
+    def test_managed_restore_rejects_manifestless_raw_sqlite_snapshot(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            store=CanonicalProductStore(db,identity_id="fish-state")
+            source=store.record_user_turn(
+                source_event_key="raw-save",
+                text="记住裸快照测试",
+                observed_at=T0,
+            )
+            store.save_memory(
+                memory_id="raw",
+                mutation_id="raw-save",
+                source_event_id=source.event_id,
+                principal_id="owner",
+                text="裸快照不能直接恢复",
+                category="other",
+                priority=3,
+                created_at=T0,
+            )
+            ExternalErasureFenceStore(db.path).ensure_identity("fish-state")
+            raw=db.backup_to(root/"legacy-raw.sqlite3")
+            self.assertFalse(
+                Path(str(raw)+".manifest.json").exists()
+            )
+
+            with self.assertRaises(
+                BackupError,
+                msg=(
+                    "managed restore accepted a raw SQLite snapshot "
+                    "without backup provenance/migration metadata"
+                ),
+            ):
+                RecoveryManager.restore(
+                    candidate_path=raw,
+                    target_path=db.path,
+                    identity_id="fish-state",
+                    mode=RestoreMode.MANAGED,
+                    activated_at=T0+timedelta(minutes=1),
+                )
 
 
 if __name__=="__main__":
