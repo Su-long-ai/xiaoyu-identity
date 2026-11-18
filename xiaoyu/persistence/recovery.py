@@ -224,13 +224,6 @@ class RecoveryManager:
             )
         source_candidate = Database(candidate_path)
         RecoveryManager._require_healthy(source_candidate, "candidate")
-        if manifest is not None:
-            RecoveryManager._validate_manifest_continuity(
-                source_candidate,
-                candidate_path=candidate_path,
-                identity_id=identity_id,
-                manifest=manifest,
-            )
 
         RecoveryManager._reject_stale_authority_restore(
             target_path=target_path,
@@ -357,6 +350,20 @@ class RecoveryManager:
         expected_digest = str(payload.get("db_sha256") or "")
         if not expected_digest or expected_digest != RecoveryManager._sha256(candidate):
             raise BackupError("backup manifest digest mismatch")
+
+        # "Manifest valid" is also the product-facing backup/status check.
+        # Make it mean restorable evidence, not merely JSON + DB sha.
+        db = Database(candidate)
+        RecoveryManager._require_healthy(db, "backup candidate")
+        identity_id = str(payload.get("identity_id") or "")
+        if not identity_id:
+            raise BackupError("backup manifest identity_id is missing")
+        RecoveryManager._validate_manifest_continuity(
+            db,
+            candidate_path=candidate,
+            identity_id=identity_id,
+            manifest=payload,
+        )
         return payload
 
     @staticmethod
