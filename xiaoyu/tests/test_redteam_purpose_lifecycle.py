@@ -114,10 +114,23 @@ class PurposeLifecycleRedTeamTests(unittest.TestCase):
             valid_from=NOW - timedelta(minutes=1),
             expires_at=NOW + timedelta(hours=2),
         )
+        with db.transaction() as conn:
+            occurrence = conn.execute(
+                """SELECT occurrence_id FROM purpose_occurrences
+                   WHERE purpose_id='purpose-1'
+                     AND purpose_revision=?
+                     AND state='READY'""",
+                (purpose_revision,),
+            ).fetchone()
+        if occurrence is None:
+            raise AssertionError(
+                "test fixture must activate the scheduled occurrence before enqueue"
+            )
         eff = replace(
             effect(),
             created_at=NOW,
             purpose_revision=purpose_revision,
+            purpose_occurrence_id=str(occurrence["occurrence_id"]),
         )
         EffectCoordinator(db).enqueue_authorized(
             decision_id="auth-purpose",
@@ -244,6 +257,11 @@ class PurposeLifecycleRedTeamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
             self._insert_purpose(db)
+            decisions = PurposeScheduler(
+                db, "fish-1"
+            ).reconcile_due(NOW)
+            self.assertEqual(len(decisions), 1)
+            self.assertIsNotNone(decisions[0].occurrence_id)
             self._enqueue_bound_effect(db, 1)
             with db.transaction(immediate=True) as conn:
                 self.assertTrue(
@@ -282,6 +300,11 @@ class PurposeLifecycleRedTeamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
             self._insert_purpose(db)
+            decisions = PurposeScheduler(
+                db, "fish-1"
+            ).reconcile_due(NOW)
+            self.assertEqual(len(decisions), 1)
+            self.assertIsNotNone(decisions[0].occurrence_id)
             self._enqueue_bound_effect(db, 1)
             new_due = NOW + timedelta(hours=1)
             wall = new_due.astimezone(
@@ -319,6 +342,11 @@ class PurposeLifecycleRedTeamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
             self._insert_purpose(db)
+            decisions = PurposeScheduler(
+                db, "fish-1"
+            ).reconcile_due(NOW)
+            self.assertEqual(len(decisions), 1)
+            self.assertIsNotNone(decisions[0].occurrence_id)
             self._enqueue_bound_effect(db, 1)
             with db.transaction(immediate=True) as conn:
                 conn.execute(
