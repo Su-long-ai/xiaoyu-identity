@@ -129,6 +129,11 @@ class RecoveryManager:
             RecoveryManager._require_healthy(backup_db, "backup")
             backup_fence = ExternalErasureFenceStore(stage)
             fence.copy_to(backup_fence)
+            backup_fence_identity = backup_fence.identity(identity_id)
+            if backup_fence_identity is None:
+                raise BackupError(
+                    "backup erasure fence lost identity during snapshot"
+                )
 
             # Manifest continuity markers must describe the committed SQLite
             # snapshot, never a live source that may advance after backup_to().
@@ -158,7 +163,9 @@ class RecoveryManager:
                 "identity_id": identity_id,
                 "schema_version": max(versions, default=0),
                 "migration_version": max(versions, default=0),
-                "erasure_generation": int(identity_fence["erasure_generation"]),
+                "erasure_generation": int(
+                    backup_fence_identity["erasure_generation"]
+                ),
                 "source_revision_watermark": int(source_revision),
                 "fact_mutation_watermark": int(fact_mutation_watermark),
                 "canonical_authority_digest": canonical_authority_digest,
@@ -214,6 +221,13 @@ class RecoveryManager:
             )
         source_candidate = Database(candidate_path)
         RecoveryManager._require_healthy(source_candidate, "candidate")
+        if manifest is not None:
+            RecoveryManager._validate_manifest_continuity(
+                source_candidate,
+                candidate_path=candidate_path,
+                identity_id=identity_id,
+                manifest=manifest,
+            )
 
         RecoveryManager._reject_stale_authority_restore(
             target_path=target_path,
@@ -332,6 +346,76 @@ class RecoveryManager:
         if not expected_digest or expected_digest != RecoveryManager._sha256(candidate):
             raise BackupError("backup manifest digest mismatch")
         return payload
+
+    @staticmethod
+    def _validate_manifest_continuity(
+        db: Database,
+        *,
+        candidate_path: Path,
+        identity_id: str,
+        manifest: dict,
+    ) -> None:
+        """Recompute continuity claims from backup evidence itself."""
+        versions = applied_versions(db)
+        actual_schema = max(versions, default=0)
+        try:
+            manifest_schema = int(manifest["schema_version"])
+            manifest_migration = int(manifest["migration_version"])
+            manifest_source = int(manifest["source_revision_watermark"])
+            manifest_mutation = int(manifest["fact_mutation_watermark"])
+            manifest_erasure = int(manifest["erasure_generation"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BackupError(
+                "backup manifest continuity fields are missing or invalid"
+            ) from exc
+        if manifest_schema != actual_schema:
+            raise BackupError(
+                "backup manifest schema_version does not match candidate"
+            )
+        if manifest_migration != actual_schema:
+            raise BackupError(
+                "backup manifest migration_version does not match candidate"
+            )
+
+        actual_source = RecoveryManager._source_revision_watermark(
+            db, identity_id
+        )
+        if manifest_source != actual_source:
+            raise BackupError(
+                "backup manifest source revision does not match candidate"
+            )
+        actual_mutation = RecoveryManager._fact_mutation_watermark(
+            db, identity_id
+        )
+        if manifest_mutation != actual_mutation:
+            raise BackupError(
+                "backup manifest fact mutation watermark does not match candidate"
+            )
+        actual_authority = RecoveryManager._canonical_authority_digest(
+            db, identity_id
+        )
+        if str(manifest.get("canonical_authority_digest") or "") != actual_authority:
+            raise BackupError(
+                "backup manifest canonical authority digest does not match candidate"
+            )
+
+        fence_identity = ExternalErasureFenceStore(
+            candidate_path
+        ).identity(identity_id)
+        if fence_identity is None:
+            raise BackupError(
+                "managed backup erasure fence identity is missing"
+            )
+        if int(fence_identity["erasure_generation"]) != manifest_erasure:
+            raise BackupError(
+                "backup manifest erasure generation does not match candidate fence"
+            )
+
+        if not str(manifest.get("release_version") or "").strip():
+            raise BackupError("backup release_version is missing")
+        release_digest = str(manifest.get("release_digest") or "")
+        if not release_digest.startswith("sha256:") or len(release_digest) <= 7:
+            raise BackupError("backup release_digest is invalid")
 
     @staticmethod
     def _source_revision_watermark(

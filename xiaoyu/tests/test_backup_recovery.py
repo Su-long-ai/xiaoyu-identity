@@ -249,5 +249,77 @@ class BackupDurabilityTests(unittest.TestCase):
                 )
 
 
+    def test_manifest_continuity_claims_are_recomputed_from_backup_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=self._db(root/"identity.sqlite3")
+            backup=RecoveryManager.create_backup(
+                source_path=source.path,
+                backup_path=root/"managed.sqlite3",
+                identity_id="fish-1",
+                release_version="test-release",
+                release_digest="sha256:test-release",
+            )
+            manifest_path=Path(str(backup)+".manifest.json")
+            original=json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            tampered=[
+                (
+                    "source_revision_watermark",
+                    int(original["source_revision_watermark"])+1,
+                ),
+                (
+                    "fact_mutation_watermark",
+                    int(original["fact_mutation_watermark"])+1,
+                ),
+                (
+                    "canonical_authority_digest",
+                    "sha256:"+"0"*64,
+                ),
+                (
+                    "schema_version",
+                    int(original["schema_version"])+1,
+                ),
+                (
+                    "erasure_generation",
+                    int(original["erasure_generation"])+1,
+                ),
+            ]
+            for field,value in tampered:
+                with self.subTest(field=field):
+                    payload=dict(original)
+                    payload[field]=value
+                    manifest_path.write_text(
+                        json.dumps(
+                            payload,
+                            sort_keys=True,
+                            separators=(",",":"),
+                        )+"\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(
+                        BackupError,
+                        msg=(
+                            "restore trusted tampered manifest field "
+                            +field
+                        ),
+                    ):
+                        RecoveryManager.restore(
+                            candidate_path=backup,
+                            target_path=source.path,
+                            identity_id="fish-1",
+                            mode=RestoreMode.MANAGED,
+                        )
+            manifest_path.write_text(
+                json.dumps(
+                    original,
+                    sort_keys=True,
+                    separators=(",",":"),
+                )+"\n",
+                encoding="utf-8",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
