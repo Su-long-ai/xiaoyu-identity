@@ -6,6 +6,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from xiaoyu.core.memory import MemoryControlState
+from xiaoyu.core.relationship import (
+    RelationshipLifecycle,
+    RelationshipService,
+)
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
@@ -13,7 +17,10 @@ from xiaoyu.persistence.recovery import (
     RestoreInvariantError,
     RestoreMode,
 )
-from xiaoyu.runtime.product_controls import MemoryControlService
+from xiaoyu.runtime.product_controls import (
+    MemoryControlService,
+    ProductOffboardingService,
+)
 from xiaoyu.runtime.product_store import CanonicalProductStore
 
 
@@ -244,6 +251,67 @@ class R20RecoveryStateContinuityTests(unittest.TestCase):
                             activated_at=T0+timedelta(minutes=3),
                         )
                     self.assertFalse(recovered.exists())
+
+
+    def test_disaster_recovery_rejects_backup_before_r20_relationship_reset(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db,store,controls,item=self._seed(root)
+            relationships=RelationshipService(db)
+            relation_event=store.record_owner_control(
+                source_event_key="relationship-seed",
+                event_type="relationship.owner_seed",
+                payload={"state":"FAMILIAR"},
+                observed_at=T0+timedelta(minutes=1),
+            )
+            familiar=relationships.transition(
+                transition_id="rel-familiar",
+                identity_id="fish-r20-recovery",
+                principal_id="owner",
+                expected_state=RelationshipLifecycle.NEW,
+                to_state=RelationshipLifecycle.FAMILIAR,
+                source_event_id=relation_event.event_id,
+                reason="OWNER_SEED",
+                value_patch={
+                    "shared_history":["private-shared-history"],
+                    "proactivity_policy":{"enabled":True},
+                },
+                created_at=T0+timedelta(minutes=1),
+            )
+            self.assertEqual(
+                familiar.state,RelationshipLifecycle.FAMILIAR
+            )
+            backup=self._backup(
+                db,root,"before-offboarding-reset.sqlite3"
+            )
+
+            report=ProductOffboardingService(store).execute(
+                source_event_key="offboard-reset",
+                reset_relationship=True,
+                created_at=T0+timedelta(minutes=2),
+            )
+            self.assertEqual(
+                report.relationship.state,
+                RelationshipLifecycle.PAUSED,
+            )
+            trusted=root/"latest-offboarding-fence.json"
+            ExternalErasureFenceStore(db.path).copy_to(
+                ExternalErasureFenceStore(
+                    root/"lost.sqlite3",path=trusted
+                )
+            )
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "owner-control generation does not match",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=root/"recovered.sqlite3",
+                    identity_id="fish-r20-recovery",
+                    mode=RestoreMode.DISASTER_RECOVERY,
+                    watermark_path=trusted,
+                    activated_at=T0+timedelta(minutes=3),
+                )
 
 
 if __name__=="__main__":
