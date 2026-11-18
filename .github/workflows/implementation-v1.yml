@@ -13,10 +13,16 @@ on:
       - "test_nonmemory_state_generation_bypass.py"
       - "test_main07_growth_manager_binding.py"
       - "test_cross_model_vertical.py"
+      - "governance/IMPLEMENTATION_REUSE_POLICY.json"
+      - "governance/REUSE_CATALOG.json"
+      - "governance/REUSE_GUARD.md"
+      - "governance/implementation_reuse_gate.py"
+      - "governance/implementation_reuse_decisions/**"
       - ".github/workflows/implementation-v1.yml"
   push:
     branches:
       - "feat/implementation-v1-*"
+      - "feat/product-reuse-*"
       - "fix/redteam-*"
     paths:
       - "xiaoyu/**"
@@ -29,6 +35,11 @@ on:
       - "test_nonmemory_state_generation_bypass.py"
       - "test_main07_growth_manager_binding.py"
       - "test_cross_model_vertical.py"
+      - "governance/IMPLEMENTATION_REUSE_POLICY.json"
+      - "governance/REUSE_CATALOG.json"
+      - "governance/REUSE_GUARD.md"
+      - "governance/implementation_reuse_gate.py"
+      - "governance/implementation_reuse_decisions/**"
       - ".github/workflows/implementation-v1.yml"
 
 permissions:
@@ -44,16 +55,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Enforce product reuse-first gate
+        if: github.event_name == 'pull_request'
+        env:
+          XIAOYU_REUSE_BASE: ${{ github.event.pull_request.base.sha }}
+        run: python governance/implementation_reuse_gate.py --base "$XIAOYU_REUSE_BASE"
+
       - name: Compile XiaoYu package and product facades
         run: |
           python -m compileall -q xiaoyu
-          python -m py_compile companion.py model_adapter.py send_guard.py
+          python -m py_compile companion.py model_adapter.py send_guard.py governance/implementation_reuse_gate.py
 
       - name: Discover all XiaoYu implementation tests
         run: python -m unittest discover -v -s xiaoyu/tests -p "test_*.py"
