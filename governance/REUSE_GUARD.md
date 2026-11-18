@@ -160,3 +160,25 @@ New normal use of `hold` or `deprecated` components fails closed. Generic aliase
 ## Scope control
 
 No Backstage/OPA/Cedar/MLflow/DVC service was added. The project borrows their catalog, decision-log, lifecycle and searchable-run ideas inside the existing stdlib/SQLite control plane. This is deliberate: the anti-reinvention mechanism must not itself become another platform.
+
+
+## Product implementation reuse gate — 2026-11-18
+
+The research lease guard now has a product-implementation counterpart.
+
+`governance/implementation_reuse_gate.py` is executed by the implementation CI for pull requests. It compares the PR with its base commit and classifies changed commodity-capability files using `IMPLEMENTATION_REUSE_POLICY.json`.
+
+A product PR that changes a guarded commodity area must add a machine-readable decision under `governance/implementation_reuse_decisions/*.json` in the same PR. The decision must:
+
+- name one or more reviewed components from `REUSE_CATALOG.json`;
+- include at least one component whose kind matches that capability area;
+- not use `hold` or `deprecated` components for new product work;
+- declare `no_new_infrastructure=true`;
+- use `reuse` for direct adapters, or bound any XiaoYu-specific glue with `extend` / `custom_policy` and a concrete gap;
+- never satisfy the gate with `xiaoyu_existing_core` alone.
+
+The initial guarded areas are provider transport, memory retrieval, resource telemetry/runtime, vision capture, voice runtime, observability, credentials, external-tool runtime and release distribution. New Python files under runtime/providers/tools/guardian/release that match no declared area fail closed until they are classified, preventing filename-based bypass.
+
+Authority-specific modules such as temporal truth, authorization semantics, effects/outbox reconciliation, erasure and restore are deliberately not blanket-routed through this gate. They remain XiaoYu-owned unless a later architecture decision proves a mature component can preserve the same semantics.
+
+The intent is asymmetric: commodity capability defaults to reuse; custom authority/policy remains allowed only at the narrow boundary that external components cannot own.
