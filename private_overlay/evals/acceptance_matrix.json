@@ -34,8 +34,8 @@
     {
       "id": "correction",
       "goal": "owner correction stops obsolete facts/persona from being current",
-      "status": "native_evidence_pass_product_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-correction-native.json"
+      "status": "live_current_memory_behavior_pass",
+      "evidence": "evals/evidence/2026-11-18-live-correction.json"
     },
     {
       "id": "erasure_closure",
