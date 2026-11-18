@@ -4,8 +4,8 @@
     {
       "id": "identity_restart",
       "goal": "same XiaoYu identity across restart",
-      "status": "isolated_storage_pass_product_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
+      "status": "live_runtime_restart_behavior_pass",
+      "evidence": "evals/evidence/2026-11-18-live-restart-identity.json"
     },
     {
       "id": "identity_model_swap",
