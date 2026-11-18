@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 import json
 import os
@@ -33,6 +33,13 @@ class ReleaseManifest:
     migration_version: int
     contract_digest: str
     release_digest: str
+    provider_digests: Dict[str, str] = field(default_factory=dict)
+    model_digests: Dict[str, str] = field(default_factory=dict)
+    tokenizer_digests: Dict[str, str] = field(default_factory=dict)
+    config_digest: str = ""
+    skills_digest: str = ""
+    sidecars_digest: str = ""
+    test_evidence_digest: str = ""
 
     def __post_init__(self) -> None:
         if not self.release_id:
@@ -41,6 +48,38 @@ class ReleaseManifest:
             raise ValueError("invalid release schema compatibility range")
         if self.migration_version < 0:
             raise ValueError("migration_version cannot be negative")
+        for name, values in (
+            ("provider_digests", self.provider_digests),
+            ("model_digests", self.model_digests),
+            ("tokenizer_digests", self.tokenizer_digests),
+        ):
+            if not isinstance(values, dict):
+                raise TypeError("%s must be a dict" % name)
+            for key, value in values.items():
+                if not str(key).strip() or not str(value).startswith("sha256:"):
+                    raise ValueError("%s contains invalid digest" % name)
+
+    @staticmethod
+    def _digest_present(value: str) -> bool:
+        return str(value).startswith("sha256:") and len(str(value)) > len("sha256:")
+
+    def binding_blockers(self) -> Tuple[str, ...]:
+        blockers = []
+        if not self.provider_digests:
+            blockers.append("PROVIDER_DIGESTS_MISSING")
+        if not self.model_digests:
+            blockers.append("MODEL_DIGESTS_MISSING")
+        if not self.tokenizer_digests:
+            blockers.append("TOKENIZER_DIGESTS_MISSING")
+        for label, value in (
+            ("CONFIG_DIGEST_MISSING", self.config_digest),
+            ("SKILLS_DIGEST_MISSING", self.skills_digest),
+            ("SIDECARS_DIGEST_MISSING", self.sidecars_digest),
+            ("TEST_EVIDENCE_DIGEST_MISSING", self.test_evidence_digest),
+        ):
+            if not self._digest_present(value):
+                blockers.append(label)
+        return tuple(blockers)
 
 
 @dataclass(frozen=True)
@@ -75,8 +114,19 @@ class ReleaseAuthority:
         payload = self._load()
         releases = payload["releases"]
         existing = releases.get(manifest.release_id)
-        if existing is not None and existing["manifest"] != asdict(manifest):
-            raise ReleaseActivationError("release_id reused with different manifest")
+        if existing is not None:
+            try:
+                normalized_existing = asdict(
+                    ReleaseManifest(**existing["manifest"])
+                )
+            except Exception as exc:
+                raise ReleaseActivationError(
+                    "stored release manifest is invalid"
+                ) from exc
+            if normalized_existing != asdict(manifest):
+                raise ReleaseActivationError(
+                    "release_id reused with different manifest"
+                )
         releases[manifest.release_id] = {
             "state": ReleaseState.CANDIDATE.value,
             "manifest": asdict(manifest),
@@ -99,7 +149,8 @@ class ReleaseAuthority:
         ):
             raise ReleaseActivationError("release is not activatable")
 
-        blockers = evidence.blockers()
+        manifest = ReleaseManifest(**record["manifest"])
+        blockers = manifest.binding_blockers() + evidence.blockers()
         record["evidence"] = asdict(evidence)
         if blockers:
             record["state"] = ReleaseState.REJECTED.value

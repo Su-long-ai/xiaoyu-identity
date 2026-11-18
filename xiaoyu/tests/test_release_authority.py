@@ -26,6 +26,19 @@ def manifest(release_id: str, schema: int, max_schema: int) -> ReleaseManifest:
         migration_version=schema,
         contract_digest="sha256:contract-" + release_id,
         release_digest="sha256:release-" + release_id,
+        provider_digests={
+            "qwen": "sha256:provider-" + release_id,
+        },
+        model_digests={
+            "qwen3.8-flash": "sha256:model-" + release_id,
+        },
+        tokenizer_digests={
+            "qwen3.8-flash": "sha256:tokenizer-" + release_id,
+        },
+        config_digest="sha256:config-" + release_id,
+        skills_digest="sha256:skills-" + release_id,
+        sidecars_digest="sha256:sidecars-" + release_id,
+        test_evidence_digest="sha256:tests-" + release_id,
     )
 
 
@@ -66,6 +79,46 @@ class ReleaseAuthorityTests(unittest.TestCase):
                     target_release_id="r-old",
                 ),
                 ReleaseRollbackPolicy.FORWARD_FIX_REQUIRED,
+            )
+
+    def test_incomplete_new_candidate_cannot_activate(self):
+        with tempfile.TemporaryDirectory() as td:
+            authority = ReleaseAuthority(
+                Path(td) / "release-authority.json"
+            )
+            incomplete = ReleaseManifest(
+                release_id="incomplete",
+                core_commit="commit-incomplete",
+                schema_version=1,
+                max_schema_version=1,
+                migration_version=1,
+                contract_digest="sha256:contract",
+                release_digest="sha256:release",
+            )
+            authority.register_candidate(incomplete)
+            with self.assertRaisesRegex(
+                ReleaseActivationError,
+                "PROVIDER_DIGESTS_MISSING",
+            ):
+                authority.activate("incomplete", GOOD)
+            self.assertEqual(
+                authority.state("incomplete"),
+                ReleaseState.REJECTED,
+            )
+
+    def test_legacy_manifest_record_still_loads_with_empty_bindings(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "release-authority.json"
+            path.write_text(
+                """{"version":1,"current_release_id":"legacy","last_known_good_release_id":null,"releases":{"legacy":{"state":"CURRENT","manifest":{"release_id":"legacy","core_commit":"old","schema_version":1,"max_schema_version":1,"migration_version":1,"contract_digest":"sha256:contract","release_digest":"sha256:release"},"evidence":null}}}""",
+                encoding="utf-8",
+            )
+            current = ReleaseAuthority(path).current()
+            self.assertEqual(current.release_id, "legacy")
+            self.assertEqual(current.provider_digests, {})
+            self.assertIn(
+                "PROVIDER_DIGESTS_MISSING",
+                current.binding_blockers(),
             )
 
     def test_release_smoke_runs_migration_restore_and_identity_checks(self):
