@@ -16,6 +16,11 @@ from xiaoyu.contracts import (
     IsolationMode,
     ProviderLifecycle,
 )
+from xiaoyu.runtime.credentials import (
+    KeyringCredentialRef,
+    OptionalCredentialStoreUnavailable,
+    SystemKeyringCredentialStore,
+)
 from xiaoyu.runtime.provider_registry import (
     PrivacyClass,
     ProviderDescriptor,
@@ -82,6 +87,10 @@ def load_provider(home):
     key_file=raw.get("key_file") if "key_file" in raw else base.get("key_file","")
     if key_file:
         config["key_file"]=str(key_file).strip()
+    for name in ("keyring_service","keyring_username"):
+        value=raw.get(name) if name in raw else base.get(name)
+        if value:
+            config[name]=str(value).strip()
     if "enable_thinking" in base or "enable_thinking" in raw:
         config["enable_thinking"]=bool(raw.get("enable_thinking",base.get("enable_thinking",False)))
     if "reasoning_effort" in base or "reasoning_effort" in raw:
@@ -338,9 +347,43 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
     return out
 
 
+def _keyring_ref(config):
+    service=str(config.get("keyring_service") or "").strip()
+    username=str(config.get("keyring_username") or "").strip()
+    provider=str(config.get("provider") or "").strip().lower()
+    if not service and provider in (
+        "deepseek_web", "deepseek", "openai", "qwen"
+    ):
+        service="XiaoYu Provider API"
+    if service and not username:
+        username=provider or "default"
+    if not service or not username:
+        return None
+    return KeyringCredentialRef(service=service,username=username)
+
+
+def _keyring_provider_key(config):
+    ref=_keyring_ref(config)
+    if ref is None:
+        return ""
+    try:
+        value=SystemKeyringCredentialStore().get(ref)
+    except OptionalCredentialStoreUnavailable:
+        return ""
+    except Exception:
+        # A broken optional OS-keyring integration must not break legacy
+        # environment/file credentials. If no fallback exists, _provider_key
+        # below still fails closed with a user-facing configuration error.
+        return ""
+    return value or ""
+
+
 def _provider_key(config):
     envvar=config.get("key_env","")
     key=os.getenv(envvar,"").strip() if envvar else ""
+    if key:
+        return key
+    key=_keyring_provider_key(config)
     if key:
         return key
     key_file=str(config.get("key_file") or "").strip()
@@ -351,9 +394,14 @@ def _provider_key(config):
                     return line.strip()
         except OSError:
             pass
-        raise ProviderConfigError(f"本地模型凭据文件不可用：{key_file}")
-    if envvar:
-        raise ProviderConfigError(f"请先在系统环境变量中配置 {envvar}，不要把密钥输入聊天记录。")
+        raise ProviderConfigError(
+            f"凭据不可用：系统凭据库无可用项，且本地凭据文件不可用：{key_file}"
+        )
+    if envvar or _keyring_ref(config) is not None:
+        target=envvar or str(config.get("provider") or "provider")
+        raise ProviderConfigError(
+            f"请在系统环境变量 {target} 或 Windows 凭据库中配置模型密钥，不要把密钥输入聊天记录。"
+        )
     return ""
 
 def _chat_once(config, messages, max_tokens, timeout, on_dispatched):
