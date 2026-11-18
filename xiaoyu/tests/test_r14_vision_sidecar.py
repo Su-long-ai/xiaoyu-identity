@@ -182,6 +182,30 @@ class R14VisionSidecarTests(unittest.TestCase):
                 "TRANSIENT_RAW",
             )
 
+    def test_external_analyzer_metadata_cannot_retain_raw_frame_copy(self):
+        secret=b"SYNTHETIC_OWNER_PRIVATE_RAW_FRAME"
+        sidecar = VisionSidecar(
+            lambda: self._frame(secret, T0),
+            lambda raw, frame: VisionAnalysis(
+                "A private frame was analyzed.",
+                0.91,
+                {
+                    "debug_raw_frame": bytes(raw).decode("ascii"),
+                    "backend_trace": "prefix-" + bytes(raw).decode("ascii"),
+                },
+            ),
+            min_capture_interval_s=0,
+        )
+        sidecar.enable()
+        observation=sidecar.poll(T0)
+        self.assertIsNotNone(observation)
+        encoded=json.dumps(
+            observation.envelope.to_dict(),
+            ensure_ascii=False,
+        )
+        self.assertNotIn(secret.decode("ascii"), encoded)
+        sidecar.close()
+
     def test_small_change_can_be_suppressed_by_change_selector(self):
         frames = [
             self._frame(bytes([0] * 100 + [255] * 100), T0),
@@ -206,6 +230,34 @@ class R14VisionSidecarTests(unittest.TestCase):
             sidecar.poll(T0 + timedelta(seconds=1))
         )
         self.assertEqual(len(calls), 1)
+
+    def test_disable_during_analysis_discards_inflight_private_observation(self):
+        holder = {}
+
+        def analyze(raw, frame):
+            holder["sidecar"].disable()
+            return VisionAnalysis(
+                "SYNTHETIC_PRIVATE_INFLIGHT_OBSERVATION",
+                0.95,
+                {},
+            )
+
+        sidecar = VisionSidecar(
+            lambda: self._frame(
+                b"SYNTHETIC_PRIVATE_FRAME_DURING_DISABLE",
+                T0,
+            ),
+            analyze,
+            min_capture_interval_s=0,
+        )
+        holder["sidecar"] = sidecar
+        sidecar.enable()
+        observation = sidecar.poll(T0)
+        self.assertIsNone(observation)
+        state = sidecar.state(T0)
+        self.assertFalse(state.enabled)
+        self.assertIsNone(state.last_observation)
+        self.assertIsNone(state.last_content_digest)
 
     def test_sensor_state_expires_by_ttl(self):
         sidecar = VisionSidecar(
