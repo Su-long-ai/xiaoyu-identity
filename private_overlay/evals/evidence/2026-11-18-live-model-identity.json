@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "verdict": "PASS",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "storage_root": "D:\\xiaoyu_private_overlay_state\\neko-sandbox",
+  "private_persona_sent_only_to_allowlisted_provider": true,
+  "persona_text_recorded": false,
+  "response_text_recorded": false,
+  "distinct_models": true,
+  "cross_provider_attempted": true,
+  "distinct_providers": true,
+  "cases": [
+    {
+      "tier": "conversation",
+      "model": "qwen3.8-omni-flash",
+      "host": "dashscope.aliyuncs.com",
+      "credential_source": "environment:DASHSCOPE_API_KEY",
+      "response_sha256": "bffb1e8bf2da78609f62830a9b089c834247b09e97346b93d1bb05204d44f9d6",
+      "parsed_name": "小鱼",
+      "same_identity_after_model_swap": true,
+      "name_ok": true,
+      "continuity_ok": true,
+      "pass": true
+    },
+    {
+      "tier": "summary",
+      "model": "qwen3.8-flash",
+      "host": "dashscope.aliyuncs.com",
+      "credential_source": "environment:DASHSCOPE_API_KEY",
+      "response_sha256": "bffb1e8bf2da78609f62830a9b089c834247b09e97346b93d1bb05204d44f9d6",
+      "parsed_name": "小鱼",
+      "same_identity_after_model_swap": true,
+      "name_ok": true,
+      "continuity_ok": true,
+      "pass": true
+    },
+    {
+      "tier": "cross_provider_deepseek",
+      "model": "deepseek-chat",
+      "host": "api.deepseek.com",
+      "credential_source": "environment:DEEPSEEK_API_KEY",
+      "response_sha256": "bffb1e8bf2da78609f62830a9b089c834247b09e97346b93d1bb05204d44f9d6",
+      "parsed_name": "小鱼",
+      "same_identity_after_model_swap": true,
+      "name_ok": true,
+      "continuity_ok": true,
+      "pass": true
+    }
+  ],
+  "caveat": "Configured Qwen cases use N.E.K.O ConfigManager + PersonaManager + LLM client. The optional DeepSeek case reuses the same N.E.K.O PersonaManager prompt and LLM client with an owner-allowlisted direct endpoint and an existing environment credential; no secret is recorded."
+}

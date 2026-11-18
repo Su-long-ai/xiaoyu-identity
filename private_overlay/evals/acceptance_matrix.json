@@ -10,8 +10,8 @@
     {
       "id": "identity_model_swap",
       "goal": "same XiaoYu identity across model/provider swap",
-      "status": "isolated_storage_pass_live_model_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-neko-persona-continuity.json"
+      "status": "live_cross_provider_behavior_pass",
+      "evidence": "evals/evidence/2026-11-18-live-model-identity.json"
     },
     {
       "id": "desktop_qq_continuity",
