@@ -13,6 +13,7 @@ class OverlayContractTests(unittest.TestCase):
         )
         self.assertEqual(lock["memory_authority"], "neko_native")
         self.assertEqual(lock["persona_storage_authority"], "neko_native")
+        self.assertEqual(lock["evolution_authority"], "neko_native")
         self.assertEqual(lock["task_authority"], "neko_native")
         self.assertFalse(lock["allow_dual_write"])
 
@@ -39,6 +40,21 @@ class OverlayContractTests(unittest.TestCase):
             "private_context_must_not_widen_audience",
         }
         self.assertTrue(required.issubset(set(data["invariants"])))
+
+    def test_growth_policy_is_data_only_and_neko_owns_evolution_runtime(self):
+        data = json.loads(
+            (ROOT / "identity" / "invariants.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertTrue(data["allowed_growth"])
+        self.assertTrue(data["forbidden_silent_changes"])
+
+        evolution_dir = ROOT / "evolution"
+        executable = list(evolution_dir.rglob("*.py")) if evolution_dir.exists() else []
+        self.assertEqual(
+            executable,
+            [],
+            "XiaoYu overlay must not grow a second persona/evolution runtime",
+        )
 
     def test_plugin_manifest_is_thin_external_overlay(self):
         manifest_path = ROOT / "plugins" / "xiaoyu_private" / "plugin.toml"

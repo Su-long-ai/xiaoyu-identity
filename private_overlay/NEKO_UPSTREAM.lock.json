@@ -5,6 +5,7 @@
   "integration_mode": "external_plugin_overlay",
   "memory_authority": "neko_native",
   "persona_storage_authority": "neko_native",
+  "evolution_authority": "neko_native",
   "task_authority": "neko_native",
   "core_patch_budget": 0,
   "allow_dual_write": false
