@@ -836,6 +836,14 @@ class RecoveryManager:
                 "DELETE FROM projections WHERE identity_id=?", (identity_id,)
             )
             counts["projections"] = int(cur.rowcount)
+            # R11 context summaries are lossy/rebuildable derived context.
+            # Never preserve their plaintext across restore; fresh summaries
+            # must be rebuilt from canonical events/current authority.
+            if "context_summaries" in tables:
+                conn.execute(
+                    "DELETE FROM context_summaries WHERE identity_id=?",
+                    (identity_id,),
+                )
             counts["rebuilt_projections"] = RecoveryManager._rebuild_projections(
                 conn, identity_id=identity_id, built_at=restored_at
             )
