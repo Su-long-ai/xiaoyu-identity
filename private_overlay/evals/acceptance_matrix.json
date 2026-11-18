@@ -16,8 +16,8 @@
     {
       "id": "desktop_qq_continuity",
       "goal": "desktop and QQ share one continuing identity",
-      "status": "external_plugin_authority_pass_live_napcat_e2e_pending",
-      "evidence": "evals/evidence/2026-11-18-desktop-qq-continuity.json"
+      "status": "live_napcat_connector_pass_message_roundtrip_pending",
+      "evidence": "evals/evidence/2026-11-18-live-qq-connector.json"
     },
     {
       "id": "private_group_isolation",
