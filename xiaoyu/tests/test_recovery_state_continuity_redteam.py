@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from xiaoyu.core.memory import CanonicalMemoryService
-from xiaoyu.persistence import Database
+from xiaoyu.persistence import Database, apply_migrations
 from xiaoyu.persistence.erasure import ExternalErasureFenceStore
 from xiaoyu.persistence.recovery import (
     BackupError,
@@ -194,6 +194,102 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
                     mode=RestoreMode.MANAGED,
                     activated_at=T0+timedelta(minutes=1),
                 )
+
+
+    def test_restore_quarantines_attmpting_delivery_parent_and_dispatching_attempt(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            apply_migrations(db)
+            stamp=T0.isoformat(timespec="microseconds")
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO effects(
+                           effect_id,identity_id,intent_id,purpose_id,actor_id,
+                           action_class,idempotency_key,replayable,dispatch_state,
+                           request_json,receipt_id,verifier_state,created_at,
+                           updated_at,authorization_decision_id,purpose_revision,
+                           purpose_occurrence_id
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "effect-delivery","fish-exec","intent-delivery",None,
+                        "actor-1","notify",None,0,"DISPATCHING",
+                        '{"text":"once"}',None,None,stamp,stamp,
+                        "auth-delivery",None,None,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO outbox(
+                           outbox_id,identity_id,effect_id,destination,
+                           payload_json,state,attempt_count,next_attempt_at,
+                           created_at,updated_at
+                       ) VALUES(?,?,?,?,?,'DISPATCHING',1,NULL,?,?)""",
+                    (
+                        "outbox-delivery","fish-exec","effect-delivery",
+                        "desktop",'{"text":"once"}',stamp,stamp,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO deliveries(
+                           delivery_id,identity_id,logical_notification_id,
+                           purpose_id,surface,state,attempt_count,external_ref,
+                           created_at,updated_at
+                       ) VALUES(?,?,?,?,?,'ATTEMPTING',1,NULL,?,?)""",
+                    (
+                        "delivery-1","fish-exec","logical-1",None,
+                        "desktop",stamp,stamp,
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO delivery_attempts(
+                           attempt_id,identity_id,delivery_id,
+                           logical_notification_id,effect_id,surface,state,
+                           external_ref,created_at,updated_at
+                       ) VALUES(?,?,?,?,?,?,'DISPATCHING',NULL,?,?)""",
+                    (
+                        "attempt-1","fish-exec","delivery-1","logical-1",
+                        "effect-delivery","desktop",stamp,stamp,
+                    ),
+                )
+
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"pending-work.sqlite3",
+                identity_id="fish-exec",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(seconds=1),
+            )
+            report=RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-exec",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=1),
+            )
+            restored=Database(db.path)
+            with restored.transaction() as conn:
+                delivery=conn.execute(
+                    "SELECT state FROM deliveries WHERE delivery_id='delivery-1'"
+                ).fetchone()[0]
+                attempt=conn.execute(
+                    "SELECT state FROM delivery_attempts WHERE attempt_id='attempt-1'"
+                ).fetchone()[0]
+                effect=conn.execute(
+                    "SELECT dispatch_state FROM effects WHERE effect_id='effect-delivery'"
+                ).fetchone()[0]
+                outbox=conn.execute(
+                    "SELECT state FROM outbox WHERE outbox_id='outbox-delivery'"
+                ).fetchone()[0]
+            self.assertEqual(attempt,"NEEDS_RECONCILIATION")
+            self.assertEqual(effect,"NEEDS_RECONCILIATION")
+            self.assertEqual(outbox,"NEEDS_RECONCILIATION")
+            self.assertEqual(
+                delivery,
+                "NEEDS_RECONCILIATION",
+                "restore left a non-terminal delivery parent in ATTEMPTING",
+            )
+            self.assertEqual(report.quarantined_deliveries,1)
 
 
 if __name__=="__main__":
