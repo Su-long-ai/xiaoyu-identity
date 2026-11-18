@@ -675,5 +675,69 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             )
 
 
+    def test_restore_discards_private_context_summary_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            apply_migrations(db)
+            ExternalErasureFenceStore(db.path).ensure_identity(
+                "fish-derived"
+            )
+            stamp=T0.isoformat(timespec="microseconds")
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO context_summaries(
+                           summary_id,identity_id,principal_scope,context_space,
+                           audience_scope,fidelity_class,summary_text,
+                           source_event_ids_json,source_digest,source_revision,
+                           erasure_generation,builder_version,status,created_at
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "summary-private",
+                        "fish-derived",
+                        "owner",
+                        "PERSONAL",
+                        "PRIVATE",
+                        "LOSSY_ALLOWED",
+                        "DERIVED_PRIVATE_SECRET_MUST_NOT_SURVIVE_RESTORE",
+                        "[]",
+                        "sha256:derived-summary",
+                        0,
+                        0,
+                        "r11.summary.v1",
+                        "ACTIVE",
+                        stamp,
+                    ),
+                )
+
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"derived-cache.sqlite3",
+                identity_id="fish-derived",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(seconds=1),
+            )
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-derived",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=1),
+            )
+
+            restored=Database(db.path)
+            with restored.transaction() as conn:
+                rows=conn.execute(
+                    """SELECT summary_text FROM context_summaries
+                       WHERE identity_id='fish-derived'"""
+                ).fetchall()
+            self.assertEqual(
+                rows,
+                [],
+                "restore retained a rebuildable private-derived summary cache",
+            )
+
+
 if __name__=="__main__":
     unittest.main()
