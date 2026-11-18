@@ -54,6 +54,18 @@ class BrokenRanker:
         raise RetrievalRankerError("synthetic semantic outage")
 
 
+class InvalidatingRanker:
+    def __init__(self, repository, ids):
+        self.repository = repository
+        self.ids = list(ids)
+
+    def rank(self, documents, query, *, limit):
+        # Simulate retract/delete/correction while an external semantic ranker
+        # is working outside the DB authorization snapshot.
+        self.repository.rows = []
+        return self.ids[:limit]
+
+
 class FakeEmbeddingModel:
     def passage_embed(self, texts):
         for text in texts:
@@ -233,6 +245,41 @@ class ReuseFirstMemoryRetrievalTests(unittest.TestCase):
                 ["group-safe"],
             )
 
+    def test_candidate_invalidated_during_external_ranking_is_not_returned(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = self._db(td)
+            repository = FakeRepository(
+                [
+                    row(
+                        "stale-private",
+                        subject="owner",
+                        predicate="preference",
+                        value_json='{"text":"private old value"}',
+                        revision=4,
+                    )
+                ]
+            )
+            semantic = InvalidatingRanker(
+                repository,
+                ["stale-private"],
+            )
+            retriever = MemoryRetriever(
+                db,
+                repository=repository,
+                lexical_ranker=FixedRanker([]),
+                semantic_ranker=semantic,
+            )
+            result = retriever.retrieve(
+                identity_id="fish-1",
+                principal_scope="owner",
+                context_space="PERSONAL",
+                allowed_audiences=("PRIVATE",),
+                query="private old value",
+                limit=5,
+            )
+            self.assertEqual(result, [])
+            self.assertGreaterEqual(len(repository.calls), 2)
+
     def test_semantic_failure_degrades_to_fts5_not_to_broader_scope(self):
         with tempfile.TemporaryDirectory() as td:
             db = self._db(td)
@@ -310,7 +357,13 @@ class ReuseFirstMemoryRetrievalTests(unittest.TestCase):
                         "owner",
                         "PERSONAL",
                         ("PRIVATE",),
-                    )
+                    ),
+                    (
+                        "fish-1",
+                        "owner",
+                        "PERSONAL",
+                        ("PRIVATE",),
+                    ),
                 ],
             )
 

@@ -360,6 +360,40 @@ class MemoryRetriever:
 
         scores = reciprocal_rank_scores(rankings)
         by_id = {item.fact_id: item for item in candidates}
+
+        # External ranking runs outside the authority-read transaction and may
+        # be slow. Re-read the authorized CURRENT set before returning so a
+        # correction/retract/delete/audience change during ranking cannot turn
+        # the candidate snapshot into a stale disclosure.
+        with self.db.transaction() as conn:
+            fresh_rows = self.repository.current_fact_candidates(
+                conn,
+                identity_id=identity_id,
+                principal_scope=principal_scope,
+                context_space=context_space,
+                allowed_audiences=allowed_audiences,
+            )
+        fresh_by_id = {
+            str(row["fact_id"]): row
+            for row in fresh_rows
+        }
+
+        def still_authorized(item: MemoryCandidate) -> bool:
+            fresh = fresh_by_id.get(item.fact_id)
+            if fresh is None:
+                return False
+            try:
+                return (
+                    int(fresh["revision"]) == item.revision
+                    and str(fresh["fact_key"]) == item.fact_key
+                    and str(fresh["subject"]) == item.subject
+                    and str(fresh["predicate"]) == item.predicate
+                    and str(fresh["audience_scope"]) == item.audience_scope
+                    and canonical_json(json.loads(fresh["value_json"]))
+                        == canonical_json(item.value)
+                )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                return False
         # An external ranker can only reorder the pre-authorized candidate
         # set. Unknown IDs are ignored and cannot widen privacy/authority.
         ranked_ids = [
@@ -368,7 +402,7 @@ class MemoryRetriever:
                 scores,
                 key=lambda value: (-scores[value], value),
             )
-            if fact_id in by_id
+            if fact_id in by_id and still_authorized(by_id[fact_id])
         ]
         for item in sorted(
             candidates,
@@ -378,7 +412,10 @@ class MemoryRetriever:
                 value.fact_id,
             ),
         ):
-            if item.fact_id not in ranked_ids:
+            if (
+                item.fact_id not in ranked_ids
+                and still_authorized(item)
+            ):
                 ranked_ids.append(item.fact_id)
 
         output = []

@@ -100,9 +100,10 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(raw[corrected_event]["content"],"我现在住在苏州")
         self.assertEqual(raw[retract_event]["content"],"我喜欢薄荷茶")
         self.assertIn("已被用户更正",projected[corrected_event]["content"])
-        self.assertIn("我现在住在苏州",projected[corrected_event]["content"])
+        self.assertNotIn("我现在住在苏州",projected[corrected_event]["content"])
         self.assertEqual(projected[corrected_event]["memory_state_annotation"],"superseded")
         self.assertIn("已被用户撤回",projected[retract_event]["content"])
+        self.assertNotIn("我喜欢薄荷茶",projected[retract_event]["content"])
         self.assertEqual(projected[retract_event]["memory_state_annotation"],"retracted")
         self.assertEqual(projected[active_event]["content"],"我喜欢安静的鞋")
         self.assertNotIn("memory_state_annotation",projected[active_event])
@@ -132,7 +133,8 @@ class IdentityTests(unittest.TestCase):
             "mixed_changed",
         )
         self.assertIn("部分长期事实后来已被更正",projected[event]["content"])
-        self.assertIn("我现在住在苏州",projected[event]["content"])
+        self.assertNotIn("我现在住在苏州",projected[event]["content"])
+        self.assertIn("我喜欢安静的鞋",projected[event]["content"])
 
     def test_project_history_fail_closed_keeps_only_current_user_turn(self):
         old_event=self.s.record(

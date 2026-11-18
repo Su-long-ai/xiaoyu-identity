@@ -279,6 +279,68 @@ class LegacyFallbackFreshnessRedTeamTests(unittest.TestCase):
                 bridge.close()
                 store.close()
 
+    def test_empty_owner_viewer_set_becoming_guest_blocks_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            (
+                store,bridge,memory_id,generation,
+                expectations,config,messages,
+            )=self._fixture(td)
+            state={
+                "identity_id":"id-1",
+                "principal_id":"owner",
+                "audience_scope":"PRIVATE",
+                "context_space":"PERSONAL",
+                "authorization_digest":"auth-v1",
+                "routing_policy_digest":"route-v1",
+                "tool_result_digest":None,
+                "tool_implementation_digest":None,
+                "tool_schema_digest":None,
+                "viewer_principal_ids":(),
+            }
+            calls=[]
+
+            def fake_once(
+                candidate,attempt_messages,max_tokens,timeout,on_dispatched
+            ):
+                if on_dispatched:
+                    on_dispatched()
+                calls.append(candidate["provider"])
+                if len(calls)==1:
+                    state["viewer_principal_ids"]=("guest-1",)
+                    raise RuntimeError("primary failed after guest joined")
+                return "PRIVATE_CONTEXT_MUST_NOT_REACH_FALLBACK",{}
+
+            try:
+                with patch.object(
+                    model_adapter,
+                    "_chat_once",
+                    side_effect=fake_once,
+                ):
+                    with self.assertRaises(FreshnessChanged):
+                        dual_guarded_chat(
+                            model_adapter.chat,
+                            config,
+                            messages,
+                            store.db_path,
+                            bridge.db_path,
+                            generation,
+                            expectations,
+                            identity_id="id-1",
+                            principal_id="owner",
+                            owner_principal_id="owner",
+                            audience_scope="PRIVATE",
+                            context_space="PERSONAL",
+                            required_privacy_class="OWNER_PRIVATE",
+                            authorization_digest="auth-v1",
+                            routing_policy_digest="route-v1",
+                            context_state_provider=lambda:dict(state),
+                            viewer_principal_ids=(),
+                        )
+                self.assertEqual(calls,["deepseek_web"])
+            finally:
+                bridge.close()
+                store.close()
+
     def test_private_tool_result_without_digest_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             (

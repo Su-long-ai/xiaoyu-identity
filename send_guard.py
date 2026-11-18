@@ -201,16 +201,15 @@ def _validate_context_state_snapshot(
     viewers=tuple(sorted(
         str(value) for value in viewer_principal_ids if str(value)
     ))
-    if viewers:
-        current_viewers=tuple(sorted(
-            str(value)
-            for value in current.get("viewer_principal_ids", ())
-            if str(value)
-        ))
-        if current_viewers != viewers:
-            raise FreshnessChanged(
-                "attempt_context_changed:viewer_principal_ids"
-            )
+    current_viewers=tuple(sorted(
+        str(value)
+        for value in current.get("viewer_principal_ids", ())
+        if str(value)
+    ))
+    if current_viewers != viewers:
+        raise FreshnessChanged(
+            "attempt_context_changed:viewer_principal_ids"
+        )
     for key,value in expected.items():
         if current.get(key) != value:
             raise FreshnessChanged("attempt_context_changed:"+key)
