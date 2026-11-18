@@ -19,7 +19,12 @@ from xiaoyu.core.relationship import (
 )
 from xiaoyu.persistence import Database
 from xiaoyu.persistence.recovery import RecoveryManager
+from xiaoyu.persistence.repositories.effects import (
+    EffectRepository,
+    OutboxRepository,
+)
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
+from xiaoyu.persistence.repositories.receipts import DeliveryRepository
 from xiaoyu.runtime.host import RuntimeHost
 from xiaoyu.runtime.product_store import CanonicalProductStore
 from xiaoyu.runtime.provider_registry import ProviderDescriptor
@@ -381,6 +386,86 @@ class ProductOffboardingService:
         self.relationships = RelationshipService(self.db)
         self.memory_controls = MemoryControlService(store)
         self.purposes = PurposeRepository()
+        self.effects = EffectRepository()
+        self.outbox = OutboxRepository()
+        self.deliveries = DeliveryRepository()
+
+    def _fence_pre_dispatch_effects(
+        self,
+        at: datetime,
+    ) -> tuple[str, ...]:
+        """Cancel only work that provably has not crossed the transport boundary.
+
+        SQLite IMMEDIATE serialization makes this race deterministic:
+        - if offboarding wins first, QUEUED work is terminally fenced and its
+          execution snapshot is removed before a worker can preflight;
+        - if dispatch linearization wins first, the effect is DISPATCHING and
+          offboarding reports reconciliation instead of claiming cancellation.
+        """
+        blockers: list[str] = []
+        with self.db.transaction(immediate=True) as conn:
+            uncertain = conn.execute(
+                """SELECT effect_id,dispatch_state
+                   FROM effects
+                   WHERE identity_id=?
+                     AND dispatch_state IN (
+                       'DISPATCHING','UNKNOWN','NEEDS_RECONCILIATION'
+                     )
+                   ORDER BY effect_id""",
+                (self.store.identity_id,),
+            ).fetchall()
+            for row in uncertain:
+                blockers.append(
+                    "effect %s requires reconciliation (%s)"
+                    % (row["effect_id"], row["dispatch_state"])
+                )
+
+            queued = conn.execute(
+                """SELECT e.effect_id,e.authorization_decision_id,
+                          o.outbox_id,o.state AS outbox_state
+                   FROM effects e
+                   LEFT JOIN outbox o ON o.effect_id=e.effect_id
+                   WHERE e.identity_id=? AND e.dispatch_state='QUEUED'
+                   ORDER BY e.effect_id,o.outbox_id""",
+                (self.store.identity_id,),
+            ).fetchall()
+            for row in queued:
+                outbox_id = row["outbox_id"]
+                outbox_state = row["outbox_state"]
+                if (
+                    outbox_id is None
+                    or str(outbox_state)
+                    not in ("PENDING", "FAILED_RETRYABLE", "CLAIMED")
+                ):
+                    blockers.append(
+                        "effect %s could not be fenced from outbox state %s"
+                        % (row["effect_id"], outbox_state)
+                    )
+                    continue
+
+                self.outbox.mark(
+                    conn,
+                    str(outbox_id),
+                    "FAILED_FINAL",
+                    at,
+                )
+                self.effects.set_authorization_failed(
+                    conn,
+                    str(row["effect_id"]),
+                    "OFFBOARDING_FENCE",
+                    at,
+                )
+                self.deliveries.mark_cancelled(
+                    conn,
+                    str(row["effect_id"]),
+                    at,
+                )
+                conn.execute(
+                    """DELETE FROM execution_authorizations
+                       WHERE authorization_decision_id=?""",
+                    (row["authorization_decision_id"],),
+                )
+        return tuple(blockers)
 
     def _cancel_purposes(self, at: datetime) -> tuple[tuple[str, ...], tuple[str, ...]]:
         with self.db.transaction() as conn:
@@ -439,6 +524,8 @@ class ProductOffboardingService:
         )
 
         blockers: list[str] = []
+        execution_blockers = self._fence_pre_dispatch_effects(at)
+        blockers.extend(execution_blockers)
         cancelled, purpose_blockers = self._cancel_purposes(at)
         blockers.extend(purpose_blockers)
 
@@ -556,6 +643,7 @@ class ProductOffboardingService:
 
         paused = (
             background_paused
+            and not execution_blockers
             and not purpose_blockers
             and relationship.state
             in (RelationshipLifecycle.PAUSED, RelationshipLifecycle.ENDED)
