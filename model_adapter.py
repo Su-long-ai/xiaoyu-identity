@@ -321,10 +321,17 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
         "partial_deleted":"【历史用户原话：这条原话关联的部分长期事实已被物理删除；为避免已删除内容重新进入模型，仅投影仍有效的已确认长期记忆】",
     }
     out=[]
+    suppress_following_assistant=False
+    assistant_suppression=(
+        "【历史助手回复：上一条用户上下文后来被更正、撤回、归档或删除；"
+        "为避免旧信息回流，本条不参与模型上下文】"
+    )
     for row in rows:
         item={"role":row["role"],"content":str(row["content"])[:1500],
               "event_id":row.get("event_id")}
         if item["role"]=="user":
+            # A new user turn ends the disclosure scope of the previous one.
+            suppress_following_assistant=False
             event_id=int(item["event_id"])
             if event_id in deleted_sources:
                 survivors=active_texts.get(event_id,[])
@@ -332,6 +339,7 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
                 if survivors:
                     item["content"]+="\\n"+"\\n".join(survivors)[:1200]
                 item["memory_state_annotation"]="partial_deleted"
+                suppress_following_assistant=True
                 out.append(item)
                 continue
             status_set=states.get(event_id,set())
@@ -345,8 +353,15 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
                 survivors=active_texts.get(event_id,[])
                 item["content"]=labels[chosen]
                 if survivors:
-                    item["content"]+="\n"+"\n".join(survivors)[:1200]
+                    item["content"]+="\\n"+"\\n".join(survivors)[:1200]
                 item["memory_state_annotation"]=chosen
+                suppress_following_assistant=True
+        elif item["role"]=="assistant" and suppress_following_assistant:
+            # The paired assistant response may have echoed private/stale
+            # material from the invalidated user turn. Storage is untouched;
+            # only model-visible projection is fenced.
+            item["content"]=assistant_suppression
+            item["memory_state_annotation"]="source_turn_invalidated"
         out.append(item)
     return out
 
