@@ -337,11 +337,15 @@ def project_history(store, limit=16, fail_closed_current_event_id=None):
             status_set=states.get(event_id,set())
             invalid=[x for x in ("retracted","superseded","archived") if x in status_set]
             if invalid:
-                # One user turn can support multiple atomic memories. If one remains
-                # active while another was corrected/retracted, leaving the whole raw
-                # turn unqualified would leak the stale fact through recent history.
+                # Once any sourced memory is corrected/retracted/archived, the
+                # original utterance is no longer safe prompt context: it may
+                # contain exactly the stale/private fact the user withdrew.
+                # Preserve only still-active atomic survivors from that source.
                 chosen="mixed_changed" if "active" in status_set else invalid[0]
-                item["content"]=labels[chosen]+"\n"+item["content"]
+                survivors=active_texts.get(event_id,[])
+                item["content"]=labels[chosen]
+                if survivors:
+                    item["content"]+="\n"+"\n".join(survivors)[:1200]
                 item["memory_state_annotation"]=chosen
         out.append(item)
     return out
