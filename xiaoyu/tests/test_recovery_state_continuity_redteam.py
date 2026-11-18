@@ -292,5 +292,88 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             self.assertEqual(report.quarantined_deliveries,1)
 
 
+    def test_restore_cannot_lose_mutation_committed_after_backup_with_preexisting_source_event(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            db=Database(root/"identity.sqlite3")
+            store=CanonicalProductStore(db,identity_id="fish-state")
+            save_event=store.record_user_turn(
+                source_event_key="txn-gap-save",
+                text="记住我喜欢乌龙茶",
+                observed_at=T0,
+            )
+            saved=store.save_memory(
+                memory_id="txn-gap",
+                mutation_id="txn-gap-save",
+                source_event_id=save_event.event_id,
+                principal_id="owner",
+                text="我喜欢乌龙茶",
+                category="preference",
+                priority=5,
+                created_at=T0,
+            )
+            # The owner edit event is durable before its authoritative mutation.
+            # A crash/backup may land exactly in this transaction gap.
+            correction_event=store.record_user_turn(
+                source_event_key="txn-gap-correct-event",
+                text="更正：我喜欢咖啡",
+                observed_at=T0+timedelta(minutes=1),
+            )
+            backup=RecoveryManager.create_backup(
+                source_path=db.path,
+                backup_path=root/"txn-gap-old.sqlite3",
+                identity_id="fish-state",
+                release_version="r20-redteam",
+                release_digest="sha256:r20-redteam",
+                created_at=T0+timedelta(minutes=1,seconds=1),
+            )
+            manifest=RecoveryManager.validate_backup_manifest(
+                backup,expected_identity_id="fish-state"
+            )
+            candidate_source_revision=int(
+                manifest["source_revision_watermark"]
+            )
+
+            corrected=store.correct_memory(
+                memory_id="txn-gap",
+                mutation_id="txn-gap-correct",
+                source_event_id=correction_event.event_id,
+                principal_id="owner",
+                expected_revision=saved.revision,
+                text="我喜欢咖啡",
+                category="preference",
+                priority=5,
+                created_at=T0+timedelta(minutes=2),
+            )
+            self.assertEqual(corrected.text,"我喜欢咖啡")
+            with db.transaction() as conn:
+                active_source_revision=int(
+                    conn.execute(
+                        """SELECT COALESCE(MAX(ingest_revision),0)
+                           FROM canonical_event_ingest
+                           WHERE identity_id='fish-state'"""
+                    ).fetchone()[0]
+                )
+            self.assertEqual(
+                active_source_revision,
+                candidate_source_revision,
+                "test requires mutation to advance without a new source event",
+            )
+
+            RecoveryManager.restore(
+                candidate_path=backup,
+                target_path=db.path,
+                identity_id="fish-state",
+                mode=RestoreMode.MANAGED,
+                activated_at=T0+timedelta(minutes=3),
+            )
+            current=CanonicalMemoryService(Database(db.path)).get("txn-gap")
+            self.assertEqual(
+                current.text,
+                "我喜欢咖啡",
+                "restore lost a committed authority mutation hidden behind an unchanged source watermark",
+            )
+
+
 if __name__=="__main__":
     unittest.main()
