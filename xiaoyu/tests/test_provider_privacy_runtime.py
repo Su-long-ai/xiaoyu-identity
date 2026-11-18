@@ -16,6 +16,20 @@ from send_guard import (
     capture_expectations,
     dual_guarded_chat,
 )
+
+_raw_dual_guarded_chat = dual_guarded_chat
+
+def dual_guarded_chat(*args, **kwargs):
+    audience = str(kwargs.get("audience_scope", "PRIVATE")).upper()
+    if (
+        audience in {"PRIVATE", "OWNER_PRIVATE"}
+        and "viewer_principal_ids" not in kwargs
+    ):
+        kwargs["viewer_principal_ids"] = (
+            str(kwargs.get("owner_principal_id", "owner")),
+        )
+    return _raw_dual_guarded_chat(*args, **kwargs)
+
 from xiaoyu.runtime.provider_registry import (
     AUDIENCE_RESET_COMPONENTS,
     PrivacyClass,
