@@ -124,6 +124,34 @@
       "health_status": "verified_local_or_internal"
     },
     {
+      "id": "opentelemetry_python_1452",
+      "kind": "observability",
+      "status": "preferred",
+      "covers": [
+        "traces",
+        "metrics",
+        "telemetry SDK/exporter interoperability"
+      ],
+      "lifecycle": "trial",
+      "owner": "xiaoyu-lead",
+      "source": {
+        "type": "external_package",
+        "locator": "OpenTelemetry Python"
+      },
+      "version": "opentelemetry-api 1.45.2; opentelemetry-sdk 1.45.2 smoke",
+      "license": "Apache-2.0",
+      "verified_at": "2026-11-18",
+      "review_after": "2027-02-16",
+      "admission": "optional_runtime",
+      "decision_ref": "IMPLEMENTATION_RUNBOOK_V1_R19",
+      "evidence": [
+        "plans/OTEL_GUARDIAN_SMOKE_20261118.md"
+      ],
+      "health_note": "Real package smoke emitted Guardian metric/span metadata through the official in-memory SDK path. XiaoYu exports no prompt/memory/payload content.",
+      "health_status": "verified_optional_adapter",
+      "security_review": "Keep export attributes allowlisted and bounded. Collector/export destination remains an explicit deployment choice."
+    },
+    {
       "id": "fastembed_existing",
       "kind": "embedding",
       "status": "reuse",
