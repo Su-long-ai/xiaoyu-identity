@@ -207,6 +207,80 @@ XiaoYu delta
 
 The permanent XiaoYu implementation should aim to be a **small separable layer**, not a forked companion platform. A reasonable engineering target is a low-thousands-of-LOC production delta excluding tests and one-time migration code; this is a target to validate, not a claimed current result.
 
+## 7A. Source-audit corrections after extension-seam verification
+
+### AOP hook documentation is ahead of the inspected runtime
+
+N.E.K.O documents `before_entry`, `after_entry`, `around_entry` and
+`replace_entry` as execution interceptors. At inspected commit
+`e14f6196395a346ff422e0eb852c5eae3befc1cf`, source-wide lookup found the
+hook metadata decorators and metadata-only tests, but no host/runtime consumer
+of `HOOK_META_ATTR`. `collect_entries()` also ignores its
+`wrap_with_hooks` argument.
+
+Therefore the replacement plan must **not** rely on generic AOP hooks as a
+security or effect boundary.
+
+The adapter gateway is different: its
+`Normalizer -> PolicyEngine -> RouteEngine -> PluginInvoker -> Serializer`
+pipeline is implemented and importable. XiaoYu-specific high-risk external
+effects should be concentrated behind a dedicated adapter/gateway instead of
+assuming global interception of arbitrary upstream entries.
+
+### OneBot/NapCat send uncertainty is narrower than the old XiaoYu stack
+
+N.E.K.O's OneBot sends create an echo-correlated future, write the action once,
+and wait for the echo response. On timeout, text/segment sends return `None`;
+the inspected send methods do not reissue the action.
+
+This is good: the transport itself does not blindly retry an uncertain send.
+However `None` conflates at least two cases:
+
+1. the action never reached the remote implementation;
+2. the action was accepted/sent but the echo response was lost.
+
+So XiaoYu's full delivery stack is not justified, but the semantic distinction
+`UNKNOWN` plus optional reconciliation remains useful for high-risk or
+duplicate-sensitive effects.
+
+### Provider privacy needs a few narrow admission seams, not RuntimeHost
+
+N.E.K.O's central model resolver returns `base_url`, `provider_type`,
+`model` and credentials, and the project already uses task-local
+`ContextVar` state for LLM call classification. Ordinary chat/model and
+NekoClaw paths heavily reuse `utils.llm_client.create_chat_llm_async`.
+
+A privacy delta can therefore reuse the existing ContextVar pattern:
+
+- attach a disclosure class to the active turn/background memory operation;
+- classify configured endpoints/providers as eligible or ineligible;
+- fail closed before constructing/sending a client request.
+
+One factory is **not** enough for every modality: realtime/ASR and some native
+provider SDK paths are separate. The acceptable spike budget is therefore a
+small explicit list of modality admission seams (target <= 3), not a return to
+a general XiaoYu RuntimeHost.
+
+If enforcing provider disclosure requires broad call-site edits or more than
+three upstream-core touchpoints, treat that as evidence against the N.E.K.O
+mother-project cutover.
+
+### Deep-fork budget
+
+The preferred integration shape is:
+
+- 0 N.E.K.O memory-core patches;
+- 0 second identity/memory database;
+- high-risk effects implemented outside the upstream core through a dedicated
+  XiaoYu adapter/gateway;
+- provider disclosure implemented with at most three narrow upstream
+  admission touchpoints;
+- everything else expressed as configuration, plugin/adapter code, migration
+  tooling or conformance tests.
+
+Crossing those bounds requires an explicit re-evaluation of replacement
+benefit rather than silently growing a permanent fork.
+
 ## 8. Current provisional verdict
 
 **N.E.K.O is the only candidate found so far that simultaneously covers the companion product, memory/relationship system, strong erasure semantics, QQ/NapCat, agent/plugin runtime and extension surface closely enough to justify a mother-project replacement spike.**
