@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import math
 import subprocess
+import threading
 from typing import Any, Callable, Optional, Tuple
 
 from xiaoyu.contracts import (
@@ -216,6 +217,8 @@ class VisionSidecar:
             process_supervisor or SidecarProcessSupervisor()
         )
         self._enabled = False
+        self._sensor_generation = 0
+        self._state_lock = threading.RLock()
         self._last_capture_at: Optional[datetime] = None
         self._last_analysis_at: Optional[datetime] = None
         self._last_digest: Optional[str] = None
@@ -247,20 +250,26 @@ class VisionSidecar:
         )
 
     def enable(self) -> bool:
-        changed = not self._enabled
-        self._enabled = True
-        self.process_supervisor.start()
-        return changed
+        with self._state_lock:
+            changed = not self._enabled
+            if changed:
+                self._sensor_generation += 1
+            self._enabled = True
+            self.process_supervisor.start()
+            return changed
 
     def disable(self) -> bool:
-        changed = self._enabled or self.process_supervisor.running
-        self._enabled = False
-        self.process_supervisor.stop()
-        close_capture = getattr(self.capture, "close", None)
-        if callable(close_capture):
-            close_capture()
-        self._clear_sensor_state()
-        return changed
+        with self._state_lock:
+            changed = self._enabled or self.process_supervisor.running
+            self._enabled = False
+            # Invalidate every capture/analysis already in flight.
+            self._sensor_generation += 1
+            self.process_supervisor.stop()
+            close_capture = getattr(self.capture, "close", None)
+            if callable(close_capture):
+                close_capture()
+            self._clear_sensor_state()
+            return changed
 
     def close(self) -> None:
         self.disable()
@@ -279,32 +288,41 @@ class VisionSidecar:
 
     def state(self, now: datetime) -> VisionSensorState:
         require_aware(now, "now")
-        self._expire_if_needed(now)
-        return VisionSensorState(
-            enabled=self._enabled,
-            worker_running=self.process_supervisor.running,
-            last_capture_at=self._last_capture_at,
-            last_analysis_at=self._last_analysis_at,
-            last_content_digest=self._last_digest,
-            expires_at=self._expires_at,
-            last_observation=self._last_observation,
-        )
+        with self._state_lock:
+            self._expire_if_needed(now)
+            return VisionSensorState(
+                enabled=self._enabled,
+                worker_running=self.process_supervisor.running,
+                last_capture_at=self._last_capture_at,
+                last_analysis_at=self._last_analysis_at,
+                last_content_digest=self._last_digest,
+                expires_at=self._expires_at,
+                last_observation=self._last_observation,
+            )
 
     def poll(self, now: datetime) -> Optional[VisionObservation]:
         require_aware(now, "now")
-        self._expire_if_needed(now)
-        if not self._enabled:
-            return None
-        if (
-            self._last_capture_at is not None
-            and (now - self._last_capture_at).total_seconds()
-                < self.min_capture_interval_s
-        ):
-            return None
+        with self._state_lock:
+            self._expire_if_needed(now)
+            if not self._enabled:
+                return None
+            generation = self._sensor_generation
+            if (
+                self._last_capture_at is not None
+                and (now - self._last_capture_at).total_seconds()
+                    < self.min_capture_interval_s
+            ):
+                return None
 
         frame = self.capture()
-        self._last_capture_at = now
-        self._expires_at = now + timedelta(seconds=self.sensor_ttl_s)
+        with self._state_lock:
+            if (
+                not self._enabled
+                or generation != self._sensor_generation
+            ):
+                return None
+            self._last_capture_at = now
+            self._expires_at = now + timedelta(seconds=self.sensor_ttl_s)
         if frame is None:
             return None
 
@@ -312,76 +330,88 @@ class VisionSidecar:
         digest = self._digest(raw)
         signature = self._signature(raw)
 
-        unchanged = digest == self._last_digest
-        below_threshold = False
-        if (
-            not unchanged
-            and self._last_signature is not None
-            and self.change_threshold > 0
-        ):
-            below_threshold = (
-                self._distance(self._last_signature, signature)
-                < self.change_threshold
-            )
-
-        self._last_digest = digest
-        self._last_signature = signature
+        with self._state_lock:
+            if (
+                not self._enabled
+                or generation != self._sensor_generation
+            ):
+                return None
+            unchanged = digest == self._last_digest
+            below_threshold = False
+            if (
+                not unchanged
+                and self._last_signature is not None
+                and self.change_threshold > 0
+            ):
+                below_threshold = (
+                    self._distance(self._last_signature, signature)
+                    < self.change_threshold
+                )
+            self._last_digest = digest
+            self._last_signature = signature
         if unchanged or below_threshold:
             return None
 
         analysis = self.analyze(raw, frame)
-        # Do not retain raw bytes beyond this call.
+        # Do not retain raw bytes beyond the external analyzer call.
         del raw
 
-        evidence = MultimodalEvidenceRef(
-            modality="vision",
-            source_id=frame.source_id,
-            observed_from=frame.captured_at,
-            observed_to=None,
-            content_digest=digest,
-            derived_text=analysis.derived_text,
-            retention_class="TRANSIENT_RAW",
-            privacy_class=frame.privacy_class,
-        )
-        event_material = (
-            frame.source_id
-            + "\0"
-            + digest
-            + "\0"
-            + frame.captured_at.isoformat()
-        )
-        event_id = "vision:" + hashlib.sha256(
-            event_material.encode("utf-8")
-        ).hexdigest()[:32]
-        envelope = InputSourceEnvelope(
-            event_id=event_id,
-            surface=frame.surface,
-            source_type="vision.observation",
-            principal_hint=frame.principal_hint,
-            audience_scope=frame.audience_scope,
-            context_space=frame.context_space,
-            trust_class=TrustClass.VISION_OBSERVATION,
-            taint=(
-                Taint.TRANSIENT_SENSOR,
-                Taint.MODEL_INFERRED,
-            ),
-            eligible_for_memory=False,
-            correlation_id=event_id,
-            observed_at=frame.captured_at,
-            payload_type="application/x-xiaoyu-vision-observation+json",
-            payload={
-                "evidence_class": "UNTRUSTED_OBSERVATION",
-                "evidence": evidence.to_dict(),
-                "analysis": {
-                    "confidence": float(analysis.confidence),
-                    # External analyzer metadata is transient implementation
-                    # detail and may contain raw-frame/debug copies. It must
-                    # never cross into a persistable semantic envelope.
-                    "metadata": {},
+        with self._state_lock:
+            if (
+                not self._enabled
+                or generation != self._sensor_generation
+            ):
+                return None
+
+            evidence = MultimodalEvidenceRef(
+                modality="vision",
+                source_id=frame.source_id,
+                observed_from=frame.captured_at,
+                observed_to=None,
+                content_digest=digest,
+                derived_text=analysis.derived_text,
+                retention_class="TRANSIENT_RAW",
+                privacy_class=frame.privacy_class,
+            )
+            event_material = (
+                frame.source_id
+                + "\0"
+                + digest
+                + "\0"
+                + frame.captured_at.isoformat()
+            )
+            event_id = "vision:" + hashlib.sha256(
+                event_material.encode("utf-8")
+            ).hexdigest()[:32]
+            envelope = InputSourceEnvelope(
+                event_id=event_id,
+                surface=frame.surface,
+                source_type="vision.observation",
+                principal_hint=frame.principal_hint,
+                audience_scope=frame.audience_scope,
+                context_space=frame.context_space,
+                trust_class=TrustClass.VISION_OBSERVATION,
+                taint=(
+                    Taint.TRANSIENT_SENSOR,
+                    Taint.MODEL_INFERRED,
+                ),
+                eligible_for_memory=False,
+                correlation_id=event_id,
+                observed_at=frame.captured_at,
+                payload_type="application/x-xiaoyu-vision-observation+json",
+                payload={
+                    "evidence_class": "UNTRUSTED_OBSERVATION",
+                    "evidence": evidence.to_dict(),
+                    "analysis": {
+                        "confidence": float(analysis.confidence),
+                        # External analyzer metadata is transient
+                        # implementation detail and may contain raw-frame or
+                        # debug copies. Never cross it into durable semantics.
+                        "metadata": {},
+                    },
                 },
-            },
-        )
-        observation = VisionObservation(evidence, envelope)
-        self._last_analysis_at = now
-        self._last_observation = observation
-        return observation
+            )
+            observation = VisionObservation(evidence, envelope)
+            self._last_analysis_at = now
+            self._last_observation = observation
+            return observation
