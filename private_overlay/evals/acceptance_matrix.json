@@ -1,17 +1,68 @@
 {
   "version": 1,
   "tests": [
-    {"id":"identity_restart","goal":"same XiaoYu identity across restart","status":"pending"},
-    {"id":"identity_model_swap","goal":"same XiaoYu identity across model/provider swap","status":"pending"},
-    {"id":"desktop_qq_continuity","goal":"desktop and QQ share one continuing identity","status":"pending"},
-    {"id":"private_group_isolation","goal":"owner-private memory does not leak into group context","status":"pending"},
-    {"id":"provider_privacy","goal":"private context cannot be sent to a privacy-ineligible provider","status":"pending"},
-    {"id":"correction","goal":"owner correction stops obsolete facts/persona from being current","status":"pending"},
-    {"id":"erasure_closure","goal":"scoped forget clears active/archive/cold/index/derived state","status":"pending"},
-    {"id":"no_resurrection","goal":"old restore cannot revive erased material","status":"pending"},
-    {"id":"erase_race","goal":"in-flight extraction cannot write erased material back","status":"pending"},
-    {"id":"commitment_restart","goal":"commitments survive restart without duplicate proactive delivery","status":"pending"},
-    {"id":"uncertain_effect","goal":"ambiguous non-idempotent effects are not blindly retried","status":"deferred_until_needed"},
-    {"id":"private_product_e2e","goal":"desktop + voice/vision + QQ + tools work under one XiaoYu identity","status":"pending"}
+    {
+      "id": "identity_restart",
+      "goal": "same XiaoYu identity across restart",
+      "status": "pending"
+    },
+    {
+      "id": "identity_model_swap",
+      "goal": "same XiaoYu identity across model/provider swap",
+      "status": "pending"
+    },
+    {
+      "id": "desktop_qq_continuity",
+      "goal": "desktop and QQ share one continuing identity",
+      "status": "pending"
+    },
+    {
+      "id": "private_group_isolation",
+      "goal": "owner-private memory does not leak into group context",
+      "status": "pending"
+    },
+    {
+      "id": "provider_privacy",
+      "goal": "private context cannot be sent to a privacy-ineligible provider",
+      "status": "pending"
+    },
+    {
+      "id": "correction",
+      "goal": "owner correction stops obsolete facts/persona from being current",
+      "status": "pending"
+    },
+    {
+      "id": "erasure_closure",
+      "goal": "scoped forget clears active/archive/cold/index/derived state",
+      "status": "native_evidence_pass_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+    },
+    {
+      "id": "no_resurrection",
+      "goal": "old restore cannot revive erased material",
+      "status": "native_evidence_pass_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+    },
+    {
+      "id": "erase_race",
+      "goal": "in-flight extraction cannot write erased material back",
+      "status": "native_evidence_pass_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-erasure-native.json"
+    },
+    {
+      "id": "commitment_restart",
+      "goal": "commitments survive restart without duplicate proactive delivery",
+      "status": "pending"
+    },
+    {
+      "id": "uncertain_effect",
+      "goal": "ambiguous non-idempotent effects are not blindly retried",
+      "status": "deferred_until_needed"
+    },
+    {
+      "id": "private_product_e2e",
+      "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
+      "status": "pending"
+    }
   ]
 }

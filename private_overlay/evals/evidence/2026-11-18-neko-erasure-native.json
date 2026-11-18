@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_NATIVE_EVIDENCE_E2E_PENDING",
+  "scope": [
+    "subject archive/restore",
+    "cold store",
+    "scoped history idempotency",
+    "forget tombstones",
+    "visit forget",
+    "visit memory bridge"
+  ],
+  "environment": {
+    "os": "Windows",
+    "python": "3.11.9",
+    "pytest_mode": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1; addopts cleared; pytest_asyncio.plugin explicitly loaded",
+    "reason": "Avoid unrelated/global pytest-plugin startup noise while preserving pytest-asyncio semantics for the selected upstream tests."
+  },
+  "results": [
+    {
+      "command_group": "tests/unit/test_subject_archive.py",
+      "passed": 38,
+      "failed": 0,
+      "warnings": 4,
+      "seconds": 5.95
+    },
+    {
+      "command_group": [
+        "tests/unit/test_cold_store.py",
+        "tests/unit/test_memory_server_scoped_history_idempotency.py",
+        "tests/unit/test_theater_forget_tombstone.py",
+        "tests/unit/test_visit_forget.py",
+        "tests/unit/test_visit_memory_bridge.py"
+      ],
+      "passed": 427,
+      "failed": 0,
+      "warnings": 8,
+      "seconds": 117.75
+    }
+  ],
+  "total": {
+    "passed": 465,
+    "failed": 0
+  },
+  "acceptance_support": {
+    "erasure_closure": {
+      "level": "strong_native_evidence",
+      "examples": [
+        "test_sweep_archives_all_three_stores_and_spares_active",
+        "test_staged_writes_are_cancelled_before_the_erase_starts",
+        "test_forget_sends_every_given_subject_with_its_epoch",
+        "test_forget_person_with_two_cats_erases_four_subjects_participant_last"
+      ]
+    },
+    "no_resurrection": {
+      "level": "strong_native_evidence",
+      "examples": [
+        "test_restore_does_not_revive_snapshots_preceding_scoped_forget",
+        "test_subject_restore_never_resurrects_an_arbitration_loser",
+        "test_story_forget_tombstone_drops_writes_without_its_marker_and_survives_restart",
+        "test_unfinished_forget_log_blocks_the_block_after_restart"
+      ]
+    },
+    "erase_race": {
+      "level": "strong_native_evidence",
+      "examples": [
+        "test_forget_without_epoch_during_generation_still_drops_the_write",
+        "test_forget_landing_while_staging_is_written_is_caught_by_the_recheck",
+        "test_forget_during_generation_survives_a_crash_before_apply",
+        "test_router_forget_after_archive_timeout_fences_the_late_write",
+        "test_restore_waits_for_subject_forget_transaction"
+      ]
+    }
+  },
+  "caveat": "These are upstream/native implementation tests, not yet XiaoYu end-to-end acceptance through the final desktop/QQ/product surfaces."
+}
