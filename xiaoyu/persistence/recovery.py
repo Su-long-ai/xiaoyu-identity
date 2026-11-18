@@ -129,7 +129,9 @@ class RecoveryManager:
             backup_fence = ExternalErasureFenceStore(stage)
             fence.copy_to(backup_fence)
 
-            with source.transaction() as conn:
+            # Manifest continuity markers must describe the committed SQLite
+            # snapshot, never a live source that may advance after backup_to().
+            with backup_db.transaction() as conn:
                 source_revision = conn.execute(
                     """SELECT COALESCE(MAX(ingest_revision),0)
                        FROM canonical_event_ingest WHERE identity_id=?""",
@@ -143,7 +145,12 @@ class RecoveryManager:
                        WHERE fm.identity_id=?""",
                     (identity_id,),
                 ).fetchone()[0]
-            versions = applied_versions(source)
+            canonical_authority_digest = (
+                RecoveryManager._canonical_authority_digest(
+                    backup_db, identity_id
+                )
+            )
+            versions = applied_versions(backup_db)
             now = (created_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
             manifest = {
                 "version": 1,
@@ -153,6 +160,7 @@ class RecoveryManager:
                 "erasure_generation": int(identity_fence["erasure_generation"]),
                 "source_revision_watermark": int(source_revision),
                 "fact_mutation_watermark": int(fact_mutation_watermark),
+                "canonical_authority_digest": canonical_authority_digest,
                 "creation_time": now.isoformat(timespec="microseconds"),
                 "release_version": release_version,
                 "release_digest": release_digest,
@@ -345,6 +353,25 @@ class RecoveryManager:
         return int(row[0] or 0)
 
     @staticmethod
+    def _canonical_authority_digest(
+        db: Database,
+        identity_id: str,
+    ) -> str:
+        # Reuse the native authority inventory instead of maintaining a
+        # second recovery-specific list of durable truth tables.
+        from xiaoyu.core.export import NativeCanonicalExporter
+
+        bundle = NativeCanonicalExporter(db).build(
+            identity_id=identity_id
+        )
+        digest = str(bundle.get("bundle_digest") or "")
+        if not digest.startswith("sha256:"):
+            raise BackupError(
+                "native canonical authority digest is invalid"
+            )
+        return digest
+
+    @staticmethod
     def _fact_mutation_watermark(
         db: Database,
         identity_id: str,
@@ -453,6 +480,31 @@ class RecoveryManager:
                 "(candidate mutation %d, active %d)"
                 % (candidate_mutation, active_mutation)
             )
+
+        candidate_authority_digest = str(
+            manifest.get("canonical_authority_digest") or ""
+        )
+        if not candidate_authority_digest.startswith("sha256:"):
+            raise BackupError(
+                "managed backup lacks canonical authority digest; "
+                "use explicit migration/compatibility handling"
+            )
+        # When the active DB has consumed the same number of source events,
+        # any canonical-authority difference is a post-backup mutation in the
+        # event->authority transaction gap (SELF, Relationship, Promise,
+        # Purpose, proposal decisions, activities, or future authority added
+        # to NativeCanonicalExporter). Never silently roll it back.
+        if active_revision == candidate_revision:
+            active_authority_digest = (
+                RecoveryManager._canonical_authority_digest(
+                    target, identity_id
+                )
+            )
+            if active_authority_digest != candidate_authority_digest:
+                raise RestoreInvariantError(
+                    "restore candidate conflicts with current canonical authority "
+                    "at the same source revision"
+                )
 
     @staticmethod
     def _trusted_fence(

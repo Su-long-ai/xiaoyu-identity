@@ -423,13 +423,17 @@ class RecoveryStateContinuityRedTeamTests(unittest.TestCase):
             self.assertEqual(revised.persona_revision,2)
             self.assertEqual(revised.persona["style"]["tone"],"direct")
 
-            RecoveryManager.restore(
-                candidate_path=backup,
-                target_path=db.path,
-                identity_id="fish-self",
-                mode=RestoreMode.MANAGED,
-                activated_at=T0+timedelta(minutes=3),
-            )
+            with self.assertRaisesRegex(
+                RestoreInvariantError,
+                "conflicts with current canonical authority",
+            ):
+                RecoveryManager.restore(
+                    candidate_path=backup,
+                    target_path=db.path,
+                    identity_id="fish-self",
+                    mode=RestoreMode.MANAGED,
+                    activated_at=T0+timedelta(minutes=3),
+                )
             current=CanonicalProductStore(
                 Database(db.path),identity_id="fish-self"
             ).self_authority.get("fish-self")
