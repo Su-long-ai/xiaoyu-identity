@@ -20,6 +20,15 @@ from .product_store import (
     MemoryProposalLedger,
     PresentationStateStore,
 )
+from .product_controls import (
+    MemoryControlService,
+    MemoryControlView,
+    OffboardingReport,
+    OnboardingCheck,
+    OnboardingReport,
+    ProductOffboardingService,
+    ProductOnboardingVerifier,
+)
 from .product_context import (
     CanonicalDialogueProjector,
     CanonicalHistoryTurn,
@@ -141,6 +150,13 @@ __all__ = [
     "CanonicalWriteShadowStatus",
     "MemoryProposal",
     "MemoryProposalLedger",
+    "MemoryControlService",
+    "MemoryControlView",
+    "OffboardingReport",
+    "OnboardingCheck",
+    "OnboardingReport",
+    "ProductOffboardingService",
+    "ProductOnboardingVerifier",
     "PresentationStateStore",
     "CanonicalReadinessEvidence",
     "CanonicalReadShadowBootstrap",

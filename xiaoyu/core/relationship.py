@@ -216,6 +216,89 @@ class RelationshipService:
             builder_version=self.BUILDER_VERSION,
         )
 
+    def reset(
+        self,
+        *,
+        transition_id: str,
+        identity_id: str,
+        principal_id: str,
+        source_event_id: str,
+        reason: str,
+        created_at: Optional[datetime] = None,
+    ) -> RelationshipProjection:
+        """Append an owner-evidenced relationship epoch reset.
+
+        Historical transitions remain auditable, but the active projection is
+        reset to NEW with empty derived state. Rebuild recognizes the explicit
+        reset transition and therefore cannot resurrect the pre-reset projection.
+        """
+        at = created_at or datetime.now(timezone.utc)
+        with self.db.transaction(immediate=True) as conn:
+            event = self.event_repository.get(conn, source_event_id)
+            if event is None:
+                raise KeyError("unknown source event %s" % source_event_id)
+            if event.identity_id != identity_id:
+                raise RelationshipTransitionError(
+                    "relationship evidence belongs to another identity"
+                )
+            if event.principal_id != principal_id:
+                raise RelationshipTransitionError(
+                    "relationship evidence principal mismatch"
+                )
+            if event.trust_class not in self.TRUSTED_EVIDENCE:
+                raise RelationshipTransitionError(
+                    "untrusted/model-derived evidence cannot reset relationship state"
+                )
+            ingest_revision = self.event_repository.get_ingest_revision(
+                conn, source_event_id
+            )
+            current = self.repository.get(
+                conn,
+                identity_id=identity_id,
+                principal_id=principal_id,
+            )
+            current_state = (
+                RelationshipLifecycle.NEW
+                if current is None
+                else RelationshipLifecycle(current["state"])
+            )
+            revision = 0 if current is None else int(current["revision"])
+            self.repository.append_transition(
+                conn,
+                transition_id=transition_id,
+                identity_id=identity_id,
+                principal_id=principal_id,
+                from_state=current_state.value,
+                to_state=RelationshipLifecycle.NEW.value,
+                source_event_id=source_event_id,
+                source_ingest_revision=ingest_revision,
+                value_patch={},
+                reason="OWNER_RELATIONSHIP_RESET:" + str(reason),
+                created_at=at,
+            )
+            self.repository.upsert_state(
+                conn,
+                identity_id=identity_id,
+                principal_id=principal_id,
+                state=RelationshipLifecycle.NEW.value,
+                value={},
+                source_event_ids=[source_event_id],
+                revision=revision + 1,
+                builder_version=self.BUILDER_VERSION,
+                last_transition_id=transition_id,
+                effective_from=at,
+                updated_at=at,
+            )
+        return RelationshipProjection(
+            identity_id=identity_id,
+            principal_id=principal_id,
+            state=RelationshipLifecycle.NEW,
+            revision=revision + 1,
+            value={},
+            source_event_ids=(source_event_id,),
+            builder_version=self.BUILDER_VERSION,
+        )
+
     def get(
         self,
         *,
@@ -286,17 +369,31 @@ class RelationshipService:
             for row in transitions:
                 from_state = RelationshipLifecycle(str(row["from_state"]))
                 to_state = RelationshipLifecycle(str(row["to_state"]))
-                if state != from_state or to_state not in self.ALLOWED[state]:
+                reason = str(row["reason"])
+                is_reset = (
+                    to_state is RelationshipLifecycle.NEW
+                    and reason.startswith("OWNER_RELATIONSHIP_RESET:")
+                )
+                if is_reset:
+                    if state != from_state:
+                        raise RelationshipTransitionError(
+                            "relationship reset transition log is not replayable"
+                        )
+                elif state != from_state or to_state not in self.ALLOWED[state]:
                     raise RelationshipTransitionError(
                         "relationship transition log is not replayable"
                     )
                 patch = json.loads(row["value_patch_json"])
                 self._validate_patch(patch)
                 state = to_state
-                value = self._merge(value, patch)
                 source_id = str(row["source_event_id"])
-                if source_id not in source_ids:
-                    source_ids.append(source_id)
+                if is_reset:
+                    value = {}
+                    source_ids = [source_id]
+                else:
+                    value = self._merge(value, patch)
+                    if source_id not in source_ids:
+                        source_ids.append(source_id)
                 at = datetime_from_text(str(row["created_at"]), "created_at")
                 first_at = first_at or at
                 last_at = at
