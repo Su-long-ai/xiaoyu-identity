@@ -357,7 +357,13 @@ class ReuseFirstMemoryRetrievalTests(unittest.TestCase):
                         "owner",
                         "PERSONAL",
                         ("PRIVATE",),
-                    )
+                    ),
+                    (
+                        "fish-1",
+                        "owner",
+                        "PERSONAL",
+                        ("PRIVATE",),
+                    ),
                 ],
             )
 
