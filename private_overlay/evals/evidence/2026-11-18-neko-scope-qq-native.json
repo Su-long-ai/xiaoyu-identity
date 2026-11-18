@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_NATIVE_EVIDENCE_E2E_PENDING",
+  "total": {
+    "passed": 62,
+    "failed": 0,
+    "warnings": 7,
+    "seconds": 23.68
+  },
+  "scope": [
+    "private/group memory boundary",
+    "authorized scoped persona rendering",
+    "participant display-name scope handoff",
+    "QQ Open Platform actor identity",
+    "QQ identity forensic scope",
+    "OneBot/NapCat forward transport",
+    "cross-platform subject identity isolation"
+  ],
+  "acceptance_support": {
+    "private_group_isolation": {
+      "level": "strong_native_evidence",
+      "examples": [
+        "test_legacy_rows_default_to_private_and_never_become_global",
+        "test_malformed_partial_scope_fails_closed_as_legacy_private",
+        "test_hybrid_recall_filters_scope_before_rankers",
+        "test_persona_view_only_exposes_authorized_scoped_sections",
+        "test_scoped_synthesis_prompt_never_names_private_master",
+        "test_persona_view_authorizes_scoped_entries_per_entry",
+        "test_display_name_scope_mismatch_is_fail_closed",
+        "test_scoped_render_hides_display_name_owned_by_another_scope"
+      ]
+    },
+    "qq_identity_scope": {
+      "level": "strong_native_evidence",
+      "examples": [
+        "test_official_c2c_payload_yields_the_user_openid",
+        "test_official_group_payload_yields_the_member_openid_and_group_openid",
+        "test_the_two_paths_do_not_read_each_other_s_key",
+        "test_expansion_never_crosses_a_platform",
+        "test_forget_never_fans_out_across_platforms",
+        "test_the_same_conversation_id_on_two_platforms_never_folds",
+        "test_factory_dispatches_napcat_forward",
+        "test_forward_process_incoming_to_receive_private"
+      ]
+    }
+  },
+  "caveat": "These are native N.E.K.O implementation tests. A final XiaoYu desktop<->QQ conversation must still prove that the same continuing XiaoYu persona is used while owner-private context remains excluded from unauthorized group turns."
+}

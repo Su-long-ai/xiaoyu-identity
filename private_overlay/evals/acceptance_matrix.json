@@ -19,7 +19,8 @@
     {
       "id": "private_group_isolation",
       "goal": "owner-private memory does not leak into group context",
-      "status": "pending"
+      "status": "native_evidence_pass_e2e_pending",
+      "evidence": "evals/evidence/2026-11-18-neko-scope-qq-native.json"
     },
     {
       "id": "provider_privacy",
