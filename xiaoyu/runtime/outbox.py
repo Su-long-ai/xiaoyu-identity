@@ -103,16 +103,16 @@ class OutboxDispatcher:
             if binding_error is not None:
                 with self.db.transaction(immediate=True) as conn:
                     self.outbox_repo.mark(
-                        conn, row.outbox_id, "FAILED_FINAL", current
+                        conn, row.outbox_id, "FAILED_FINAL", claim_time
                     )
                     self.effect_repo.set_authorization_failed(
                         conn,
                         row.effect_id,
                         binding_error,
-                        current,
+                        claim_time,
                     )
                     self.delivery_repo.mark_failed_final(
-                        conn, row.effect_id, current
+                        conn, row.effect_id, claim_time
                     )
                 self._release_effect_resources(row.effect_id)
                 continue
