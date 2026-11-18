@@ -67,6 +67,7 @@ def attempt_context(
     expected_capability_digest=None,
     expected_approval_binding_digest=None,
     private_tool=False,
+    viewer_principal_ids=("owner",),
     authorization_digest="auth-v1",
     routing_policy_digest=None,
     tool_result_digest=None,
@@ -95,6 +96,7 @@ def attempt_context(
         tool_implementation_digest=tool_implementation_digest,
         tool_schema_digest=tool_schema_digest,
         source_contains_private_tool_result=private_tool,
+        viewer_principal_ids=tuple(viewer_principal_ids),
     )
 
 
@@ -133,6 +135,21 @@ class ProviderPrivacyRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(web_proxy.endpoint_scope,"REMOTE")
         self.assertNotIn(PrivacyClass.LOCAL_ONLY,web_proxy.privacy_classes)
+
+    def test_owner_private_requires_explicit_owner_only_viewer_set(self):
+        d=descriptor()
+        missing=evaluate_provider(
+            d,
+            attempt_context(
+                d,
+                viewer_principal_ids=(),
+            ),
+        )
+        self.assertFalse(missing.allowed)
+        self.assertIn(
+            "owner_private_viewer_set_mismatch",
+            missing.reasons,
+        )
 
     def test_owner_private_rejects_group_guest_and_shared(self):
         d=descriptor()
