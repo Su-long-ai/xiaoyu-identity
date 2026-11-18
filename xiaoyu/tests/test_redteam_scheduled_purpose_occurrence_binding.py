@@ -4,8 +4,13 @@ import tempfile
 import unittest
 from datetime import timedelta
 
-from xiaoyu.core.effects import EffectBindingError
+from xiaoyu.core.effects import (
+    DispatchOutcome,
+    DispatchStatus,
+    EffectBindingError,
+)
 from xiaoyu.persistence.repositories.purposes import PurposeRepository
+from xiaoyu.runtime import OutboxDispatcher
 from xiaoyu.tests import test_execution_reliability_minisprint as fixture_module
 
 
@@ -52,6 +57,58 @@ class ScheduledPurposeOccurrenceBindingRedTeamTests(unittest.TestCase):
                 self.assertEqual(
                     conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0],
                     0,
+                )
+            finally:
+                conn.close()
+
+    def test_final_preflight_blocks_legacy_queued_scheduled_effect(self):
+        with tempfile.TemporaryDirectory() as td:
+            fixture = fixture_module.ExecutionReliabilityMiniSprintRedTeamTests()
+            db = fixture._db(td)
+            fixture._insert_purpose(db)
+
+            # Simulate an effect already committed under an older/permissive
+            # state before the scheduler authority became durable.
+            fixture._enqueue(db)
+            future = NOW + timedelta(hours=1)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """UPDATE purposes
+                       SET state='SCHEDULED',
+                           scheduled_wall_time=?,
+                           timezone='UTC',
+                           resolved_utc_time=?
+                       WHERE purpose_id='purpose-1'
+                         AND revision=1""",
+                    (
+                        future.isoformat(timespec="microseconds"),
+                        future.isoformat(timespec="microseconds"),
+                    ),
+                )
+
+            calls = []
+
+            def transport(payload, idem):
+                calls.append((payload, idem))
+                return DispatchOutcome(DispatchStatus.SUCCEEDED)
+
+            processed = OutboxDispatcher(
+                db,
+                {"qq": transport},
+            ).dispatch_once(now=NOW)
+
+            self.assertEqual(processed, 0)
+            self.assertEqual(calls, [])
+            conn = db.connect()
+            try:
+                row = conn.execute(
+                    """SELECT dispatch_state,verifier_state
+                       FROM effects WHERE effect_id='effect-1'"""
+                ).fetchone()
+                self.assertEqual(row["dispatch_state"], "FAILED")
+                self.assertIn(
+                    "PURPOSE_OCCURRENCE_NOT_ACTIVATED",
+                    row["verifier_state"],
                 )
             finally:
                 conn.close()
