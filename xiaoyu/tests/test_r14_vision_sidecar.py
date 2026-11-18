@@ -231,6 +231,34 @@ class R14VisionSidecarTests(unittest.TestCase):
         )
         self.assertEqual(len(calls), 1)
 
+    def test_disable_during_analysis_discards_inflight_private_observation(self):
+        holder = {}
+
+        def analyze(raw, frame):
+            holder["sidecar"].disable()
+            return VisionAnalysis(
+                "SYNTHETIC_PRIVATE_INFLIGHT_OBSERVATION",
+                0.95,
+                {},
+            )
+
+        sidecar = VisionSidecar(
+            lambda: self._frame(
+                b"SYNTHETIC_PRIVATE_FRAME_DURING_DISABLE",
+                T0,
+            ),
+            analyze,
+            min_capture_interval_s=0,
+        )
+        holder["sidecar"] = sidecar
+        sidecar.enable()
+        observation = sidecar.poll(T0)
+        self.assertIsNone(observation)
+        state = sidecar.state(T0)
+        self.assertFalse(state.enabled)
+        self.assertIsNone(state.last_observation)
+        self.assertIsNone(state.last_content_digest)
+
     def test_sensor_state_expires_by_ttl(self):
         sidecar = VisionSidecar(
             lambda: self._frame(),
