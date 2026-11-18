@@ -8,6 +8,7 @@ from pathlib import Path
 
 from xiaoyu.core.memory import MemoryControlState
 from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.runtime.context import ContextAssembler, ContextRequest
 from xiaoyu.runtime.product_context import CanonicalDialogueProjector
 from xiaoyu.runtime.product_controls import MemoryControlService
 from xiaoyu.runtime.product_store import CanonicalProductStore
@@ -80,6 +81,55 @@ class R20CanonicalContextRedTeamTests(unittest.TestCase):
                 created_at=T0 + timedelta(minutes=1),
             )
             self.assertNotIn(SECRET, self._encoded_history(db))
+
+    @staticmethod
+    def _encoded_blocks(db):
+        assembled = ContextAssembler(db).assemble(
+            ContextRequest(
+                identity_id="fish-r20-redteam",
+                principal_id="owner",
+                audience_scope="PRIVATE",
+                context_space="PERSONAL",
+                viewer_principal_ids=("owner",),
+                turn_text="do not recall stale private data",
+                identity_block={"identity_id": "fish-r20-redteam"},
+            ),
+            now=T0 + timedelta(minutes=2),
+        )
+        return json.dumps(
+            [
+                {
+                    "kind": block.kind,
+                    "payload": block.payload,
+                }
+                for block in assembled.blocks
+            ],
+            ensure_ascii=False,
+        )
+
+    def test_muted_memory_does_not_bypass_retrieval_via_current_corrections_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            db, store, memory = self._fixture(td)
+            MemoryControlService(store).set_state(
+                memory_id=memory.memory_id,
+                expected_revision=memory.revision,
+                control_state=MemoryControlState.MUTED,
+                source_event_key="mute-secret-context",
+                created_at=T0 + timedelta(minutes=1),
+            )
+            self.assertNotIn(SECRET, self._encoded_blocks(db))
+
+    def test_archived_memory_does_not_bypass_retrieval_via_current_corrections_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            db, store, memory = self._fixture(td)
+            MemoryControlService(store).archive(
+                memory_id=memory.memory_id,
+                expected_revision=memory.revision,
+                archived=True,
+                source_event_key="archive-secret-context",
+                created_at=T0 + timedelta(minutes=1),
+            )
+            self.assertNotIn(SECRET, self._encoded_blocks(db))
 
     def test_archived_memory_and_assistant_echo_are_absent_from_canonical_prompt_history(self):
         with tempfile.TemporaryDirectory() as td:
