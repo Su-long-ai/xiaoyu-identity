@@ -105,6 +105,7 @@ class GuardianInputs:
     expected_provider_digests: Mapping[str, str] = field(
         default_factory=dict
     )
+    release_authority_path: Optional[Path] = None
     resource_snapshot: Optional[HostResourceSnapshot] = None
     state_path: Optional[Path] = None
 
@@ -298,20 +299,65 @@ class IndependentGuardian:
                 conn.close()
         return []
 
+    def _release_provider_digests(
+        self,
+        inputs: GuardianInputs,
+    ) -> tuple[dict[str, str], list[GuardianFinding]]:
+        explicit = dict(inputs.expected_provider_digests)
+        if explicit:
+            return explicit, []
+        if inputs.release_authority_path is None:
+            return {}, []
+        try:
+            from xiaoyu.release.authority import ReleaseAuthority
+            current = ReleaseAuthority(
+                inputs.release_authority_path
+            ).current()
+        except Exception:
+            return {}, [
+                GuardianFinding(
+                    "RELEASE_AUTHORITY_UNREADABLE",
+                    GuardianSeverity.CRITICAL,
+                    "release-authority",
+                )
+            ]
+        if current is None:
+            return {}, [
+                GuardianFinding(
+                    "CURRENT_RELEASE_MISSING",
+                    GuardianSeverity.WARNING,
+                    "release-authority",
+                )
+            ]
+        blockers = current.binding_blockers()
+        findings = []
+        if blockers:
+            findings.append(
+                GuardianFinding(
+                    "CURRENT_RELEASE_BINDINGS_INCOMPLETE",
+                    GuardianSeverity.WARNING,
+                    "release-authority",
+                    {"count": len(blockers)},
+                )
+            )
+        return dict(current.provider_digests), findings
+
     def _provider_findings(
         self,
         inputs: GuardianInputs,
     ) -> list[GuardianFinding]:
-        if not inputs.expected_provider_digests:
-            return []
+        expected_provider_digests, findings = (
+            self._release_provider_digests(inputs)
+        )
+        if not expected_provider_digests:
+            return findings
         conn = None
-        findings = []
         try:
             conn = self._readonly_connection(
                 Path(inputs.identity_db_path)
             )
             if not self._table_exists(conn, "provider_registry"):
-                return [
+                return findings + [
                     GuardianFinding(
                         "PROVIDER_REGISTRY_MISSING",
                         GuardianSeverity.CRITICAL,
@@ -319,7 +365,7 @@ class IndependentGuardian:
                     )
                 ]
             for provider_id, expected in sorted(
-                inputs.expected_provider_digests.items()
+                expected_provider_digests.items()
             ):
                 row = conn.execute(
                     """SELECT descriptor_digest,lifecycle_state

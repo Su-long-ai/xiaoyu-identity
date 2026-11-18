@@ -17,6 +17,11 @@ from xiaoyu.guardian import (
     OpenTelemetryGuardianSink,
 )
 from xiaoyu.persistence import Database, apply_migrations
+from xiaoyu.release.authority import (
+    ReleaseAuthority,
+    ReleaseManifest,
+    ReleaseSmokeEvidence,
+)
 from xiaoyu.runtime import HostResourceSnapshot
 
 
@@ -125,6 +130,78 @@ class R19GuardianTests(unittest.TestCase):
             self.assertIn("COMPONENT_HEARTBEAT_STALE", codes)
             self.assertIn("RESTART_LOOP", codes)
             self.assertFalse(report.healthy)
+
+    def test_current_release_supplies_expected_provider_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = self._db(root)
+            with db.transaction(immediate=True) as conn:
+                conn.execute(
+                    """INSERT INTO provider_registry(
+                           provider_id,capability,descriptor_json,
+                           artifact_digest,descriptor_digest,
+                           interface_digest,tool_schema_digest,
+                           lifecycle_state,health_state_json,updated_at
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "qwen",
+                        "chat.completion",
+                        "{}",
+                        "sha256:artifact",
+                        "sha256:actual",
+                        "sha256:interface",
+                        None,
+                        "ACTIVE",
+                        "{}",
+                        NOW.isoformat(),
+                    ),
+                )
+            release_path = root / "release-authority.json"
+            authority = ReleaseAuthority(release_path)
+            authority.register_candidate(
+                ReleaseManifest(
+                    release_id="r1",
+                    core_commit="commit-r1",
+                    schema_version=1,
+                    max_schema_version=99,
+                    migration_version=1,
+                    contract_digest="sha256:contract",
+                    release_digest="sha256:release",
+                    provider_digests={
+                        "qwen": "sha256:expected"
+                    },
+                    model_digests={
+                        "qwen3.8-flash": "sha256:model"
+                    },
+                    tokenizer_digests={
+                        "qwen3.8-flash": "sha256:tokenizer"
+                    },
+                    config_digest="sha256:config",
+                    skills_digest="sha256:skills",
+                    sidecars_digest="sha256:sidecars",
+                    test_evidence_digest="sha256:tests",
+                )
+            )
+            authority.activate(
+                "r1",
+                ReleaseSmokeEvidence(True, True, True, True),
+            )
+
+            report = IndependentGuardian().check(
+                GuardianInputs(
+                    identity_db_path=db.path,
+                    release_authority_path=release_path,
+                ),
+                observed_at=NOW,
+            )
+            self.assertIn(
+                "PROVIDER_DIGEST_DRIFT",
+                self._codes(report),
+            )
+            self.assertNotIn(
+                "CURRENT_RELEASE_BINDINGS_INCOMPLETE",
+                self._codes(report),
+            )
 
     def test_provider_digest_drift_is_metadata_only(self):
         with tempfile.TemporaryDirectory() as td:
