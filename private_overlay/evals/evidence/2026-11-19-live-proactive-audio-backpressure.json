@@ -44,5 +44,15 @@
     "transcript_text_persisted_in_evidence": false,
     "assistant_text_persisted_in_evidence": false
   },
-  "verdict": "PATCH_CANDIDATE_PASS"
+  "verdict": "PATCH_PASS_READY_FOR_MANAGED_POST_RC1_USE",
+  "independent_review": {
+    "audio_stream_queue_suite": "136/136 PASS",
+    "hot_path_microbenchmark": {
+      "160_samples_us_per_frame": 10.68,
+      "160_samples_cpu_ms_per_second_at_100fps": 1.068,
+      "480_samples_us_per_frame": 62.88,
+      "480_samples_cpu_ms_per_second_at_100fps": 6.288
+    },
+    "assessment": "Overhead is negligible relative to one CPU core and preserves existing queue/provider/VAD semantics."
+  }
 }
