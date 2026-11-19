@@ -17,15 +17,21 @@ class OverlayContractTests(unittest.TestCase):
         self.assertEqual(lock["task_authority"], "neko_native")
         self.assertFalse(lock["allow_dual_write"])
 
-    def test_initial_core_patch_queue_is_empty(self):
+    def test_core_patch_queue_stays_small_and_evidence_backed(self):
         lock = json.loads(
             (ROOT / "NEKO_UPSTREAM.lock.json").read_text(encoding="utf-8-sig")
         )
         series = json.loads(
             (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
         )
-        self.assertLessEqual(len(series["patches"]), lock["core_patch_budget"])
-        self.assertEqual(series["patches"], [])
+        patches = series["patches"]
+        self.assertLessEqual(len(patches), lock["core_patch_budget"])
+        self.assertEqual(lock["core_patch_budget"], 1)
+        self.assertEqual(len(patches), 1)
+        for patch in patches:
+            self.assertTrue((ROOT / "patches" / patch["file"]).is_file())
+            self.assertTrue(patch["reason"].strip())
+            self.assertTrue((ROOT / patch["evidence"]).is_file())
 
     def test_identity_contract_has_required_hard_invariants(self):
         data = json.loads(
@@ -98,6 +104,9 @@ class OverlayContractTests(unittest.TestCase):
             "sparse-checkout add frontend templates",
             "npm run build-only",
             "npm run build",
+            "Ensure-NekoCorePatches",
+            "git -C $NekoRoot apply --reverse --check",
+            "git -C $NekoRoot apply --check",
         }
         for marker in required:
             self.assertIn(marker, script)

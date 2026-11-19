@@ -58,7 +58,7 @@
     {
       "id": "commitment_restart",
       "goal": "commitments survive restart without duplicate proactive delivery",
-      "status": "native_cue_live_qq_receipt_restart_dedup_pass_integrated_proactive_session_pending",
+      "status": "native_cue_live_qq_receipt_restart_dedup_pass_integrated_proactive_runtime_pass_commitment_specific_surface_pending",
       "evidence": "evals/evidence/2026-11-18-live-commitment-delivery.json"
     },
     {

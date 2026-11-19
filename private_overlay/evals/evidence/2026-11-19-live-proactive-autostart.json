@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T17:03:11+08:00",
+  "neko_upstream_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "gap": {
+    "route": "/api/proactive_chat",
+    "mode": "vision",
+    "before_patch_http_status": 200,
+    "before_patch_action": "pass",
+    "before_patch_reason_code": "PASS_ACTIVITY_BUSY",
+    "before_patch_stage": "activity_gate",
+    "root_cause": "prepare_proactive_delivery auto-started a text session; start_session intentionally refreshed lifecycle last_user_activity_time; the immediate post-start idle recheck mistook that internal timestamp for user activity."
+  },
+  "patch": {
+    "file": "patches/0001-proactive-autostart-idle-gate.patch",
+    "scope": "main_logic/core/proactive.py plus one upstream regression test",
+    "behavior": "After internal proactive auto-start, recheck last_user_engagement_time for genuine takeover while preserving normal last_user_activity_time semantics elsewhere."
+  },
+  "tests": {
+    "targeted_pytest_pass": 73,
+    "targeted_pytest_fail": 0,
+    "files": [
+      "tests/unit/test_proactive_sid_guard.py",
+      "tests/unit/test_session_start_guard.py"
+    ]
+  },
+  "live_after_patch": {
+    "http_status": 200,
+    "action": "chat",
+    "reason_code": "CHAT_DELIVERED",
+    "stage": "delivery",
+    "response_text_recorded": false,
+    "screenshot_recorded": false,
+    "websocket_model_response": true,
+    "websocket_audio_chunks": true,
+    "websocket_audio_done": true
+  },
+  "verdict": "PASS"
+}

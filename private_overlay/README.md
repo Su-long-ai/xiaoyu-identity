@@ -9,7 +9,7 @@ Principles:
 - Growth mechanics are not implemented in the overlay. N.E.K.O native evidence/reflection/persona-promotion/correction mechanisms remain authoritative; XiaoYu only declares which identity dimensions may or may not change.
 - There is currently no private XiaoYu runtime plugin. Add one only when a concrete acceptance failure cannot be solved by N.E.K.O/configuration/a mature external component.
 - Do not modify N.E.K.O core unless a wanted feature cannot be expressed as configuration, external component, plugin or adapter.
-- Core patches live only in patches/ and are explicitly counted. Initial patch budget is zero.
+- Core patches live only in patches/ and are explicitly counted. The current budget is one narrow patch, admitted only after a reproduced live product gap and tied to acceptance evidence.
 - Never dual-write memory/identity authorities.
 - Private customization is optimized for this user, not for upstream generality.
 
@@ -25,3 +25,7 @@ Startup:
 - Use tools/start_xiaoyu.ps1 -PreflightOnly to validate the launch path without starting the UI.
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.
+
+## Managed core patch
+
+The only current N.E.K.O core patch fixes the proactive auto-start idle gate: an internally started text session must not impersonate fresh user activity and block its own proactive delivery. The patch is replayed by tools/setup_local.ps1, covered by upstream regression tests, and must be removed if a future pinned N.E.K.O version includes equivalent behavior.

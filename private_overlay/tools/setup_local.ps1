@@ -5,12 +5,71 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OverlayRoot = Split-Path -Parent $PSScriptRoot
+$NekoLockPath = Join-Path $OverlayRoot "NEKO_UPSTREAM.lock.json"
+$PatchSeriesPath = Join-Path $OverlayRoot "patches\\series.json"
 $QQLockPath = Join-Path $OverlayRoot "QQ_PLUGIN_UPSTREAM.lock.json"
 
 function Assert-LastExitCode([string]$What) {
     if ($LASTEXITCODE -ne 0) {
         throw "$What failed with exit code $LASTEXITCODE"
     }
+}
+
+function Test-NekoPatchApplied([string]$PatchPath) {
+    $PreviousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        git -C $NekoRoot apply --reverse --check -- $PatchPath 2>$null | Out-Null
+        $ExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $PreviousPreference
+    }
+    return ($ExitCode -eq 0)
+}
+
+function Ensure-NekoCorePatches {
+    $NekoLock = Get-Content $NekoLockPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $PatchSeries = Get-Content $PatchSeriesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+
+    $NekoHead = (git -C $NekoRoot rev-parse HEAD).Trim()
+    if ($NekoHead -ne $NekoLock.tested_commit) {
+        throw "N.E.K.O pin mismatch: expected $($NekoLock.tested_commit), got $NekoHead"
+    }
+
+    $Patches = @($PatchSeries.patches)
+    if ($Patches.Count -gt [int]$NekoLock.core_patch_budget) {
+        throw "N.E.K.O core patch queue exceeds declared budget"
+    }
+
+    foreach ($Patch in $Patches) {
+        $PatchPath = Join-Path $OverlayRoot ("patches\\" + [string]$Patch.file)
+        if (-not (Test-Path $PatchPath)) {
+            throw "Managed N.E.K.O patch is missing: $PatchPath"
+        }
+
+        $AlreadyApplied = Test-NekoPatchApplied $PatchPath
+        if ($AlreadyApplied) {
+            Write-Host ("PASS: managed N.E.K.O patch already applied: " + $Patch.file)
+            continue
+        }
+
+        if ($VerifyOnly) {
+            throw "Managed N.E.K.O patch is not applied; run setup_local.ps1 once: $($Patch.file)"
+        }
+
+        Write-Host ("== Apply managed N.E.K.O patch: " + $Patch.file + " ==")
+        git -C $NekoRoot apply --check -- $PatchPath
+        Assert-LastExitCode ("git apply --check " + $Patch.file)
+        git -C $NekoRoot apply -- $PatchPath
+        Assert-LastExitCode ("git apply " + $Patch.file)
+
+        if (-not (Test-NekoPatchApplied $PatchPath)) {
+            throw "Managed N.E.K.O patch did not verify after apply: $($Patch.file)"
+        }
+    }
+
+    Write-Host ("PASS: managed N.E.K.O core patches ready (" + $Patches.Count + ")")
 }
 
 function Ensure-NekoUiAssets {
@@ -96,6 +155,8 @@ function Ensure-NekoUiAssets {
 
     Write-Host "PASS: native N.E.K.O UI source and build artifacts are ready"
 }
+
+Ensure-NekoCorePatches
 
 if (Test-Path $QQLockPath) {
     $QQLock = Get-Content $QQLockPath -Raw -Encoding UTF8 | ConvertFrom-Json
