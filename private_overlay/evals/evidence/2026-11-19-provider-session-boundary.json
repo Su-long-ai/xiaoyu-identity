@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-19",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_SESSION_SNAPSHOT_AND_OWNER_RECONFIGURATION_BOUNDARY",
+  "policy_scope": {
+    "automatic_cross_provider_fallback": "denied by overlay allowlist; no error-driven cross-provider failover found in the shared client factory",
+    "in_flight_request": "provider/model/base_url/key resolution is taken from one caller/session snapshot; an existing client is not mutated to a newly saved provider",
+    "manual_provider_change": "explicit owner-authorized reconfiguration, not silent fallback; config save notifies clients, closes the captured pre-save sessions using expected_session guards, then reloads configuration",
+    "post_change_rule": "normal XiaoYu startup reruns the provider preflight; unknown/relay/router endpoints fail closed"
+  },
+  "source_audit": {
+    "save_path": "main_routers/config_router/core_config.py::update_core_config",
+    "order": [
+      "persist one serialized config snapshot",
+      "notify connected clients",
+      "capture and end the pre-save sessions with expected_session identity",
+      "reload character/provider configuration"
+    ],
+    "stale_session_guard": "end_session(expected_session=...) preserves a replacement live session instead of tearing it down"
+  },
+  "native_tests": {
+    "passed": 5,
+    "failed": 0,
+    "tests": [
+      "test_aget_model_api_config_reuses_a_caller_snapshot",
+      "test_a_single_call_reads_core_config_once_even_when_it_recurses",
+      "test_session_construction_resolves_paired_configs_from_one_snapshot",
+      "test_explicit_stale_provider_end_preserves_live_connection_and_input",
+      "test_core_api_save_lock_is_released_once_the_file_is_written"
+    ],
+    "seconds": 5.41
+  },
+  "decision": "No fourth N.E.K.O core patch. Treat manual provider settings changes as an explicit owner reconfiguration boundary; silent/automatic drift remains fail-closed."
+}

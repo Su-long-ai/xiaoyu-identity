@@ -23,4 +23,8 @@ Write-Host "== XiaoYu provider privacy preflight =="
 python (Join-Path $OverlayRoot "tools\check_provider_privacy.py") --neko-root $NekoRoot --storage-root $StorageRoot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== XiaoYu release readiness =="
+python (Join-Path $OverlayRoot "tools\check_release_readiness.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 exit 0

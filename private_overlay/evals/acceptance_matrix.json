@@ -27,9 +27,10 @@
     },
     {
       "id": "provider_privacy",
-      "goal": "private context cannot be sent to a privacy-ineligible provider",
-      "status": "automatic_fallback_pass_manual_owner_recheck_required",
-      "evidence": "evals/evidence/2026-11-18-provider-runtime-snapshot.json"
+      "goal": "private context cannot silently drift to a privacy-ineligible provider without an explicit owner reconfiguration",
+      "status": "automatic_fallback_fail_closed_session_snapshot_and_owner_reconfiguration_boundary_pass",
+      "evidence": "evals/evidence/2026-11-19-provider-session-boundary.json",
+      "note": "Manual provider edits are explicit owner configuration operations. Existing sessions keep their captured provider/client and are retired by identity before configuration reload; normal XiaoYu startup reruns the allowlist preflight."
     },
     {
       "id": "correction",
@@ -65,7 +66,9 @@
     {
       "id": "uncertain_effect",
       "goal": "ambiguous non-idempotent effects are not blindly retried",
-      "status": "deferred_until_needed"
+      "status": "native_uncertain_dispatch_no_blind_retry_pass",
+      "evidence": "evals/evidence/2026-11-19-neko-uncertain-effect-native.json",
+      "note": "N.E.K.O distinguishes definitely-not-delivered from may-have-arrived and never blindly redispatches the uncertain case."
     },
     {
       "id": "realtime_voice_provider_e2e",

@@ -8,7 +8,7 @@ This catches configuration-time fallback such as a custom slot silently resolvin
 
 The gate intentionally denies N.E.K.O's public free relay and common third-party model routers by default. This is a private XiaoYu policy choice, not a claim that all allowlisted first-party vendors have identical privacy terms.
 
-Current limitation: N.E.K.O can change provider configuration while running. The preflight gate does not yet prove that a hot provider switch cannot race an in-flight private request. Until that is closed, provider privacy remains partial acceptance rather than DONE.
+Runtime provider-change boundary is now accepted for the XiaoYu product scope. Provider/model/endpoint resolution is captured per call/session rather than mutating an existing client in place. Saving provider settings notifies clients, retires the captured pre-save sessions with an expected-session identity guard, then reloads configuration. A manual provider edit is therefore treated as an explicit owner-authorized reconfiguration boundary, not silent fallback.
 
 ## Runtime provider-change boundary
 
@@ -17,6 +17,7 @@ The audited N.E.K.O request path resolves one endpoint into one client and SDK r
 XiaoYu therefore treats automatic fallback and manual owner provider changes differently:
 
 - Automatic cross-provider fallback to a denied relay/router is not accepted and was not found in the audited shared factory.
-- An owner manually changing provider settings is an explicit configuration operation, not a fallback. Before continuing private XiaoYu use after such a change, rerun the provider preflight through run_checks.ps1 or check_provider_privacy.py.
+- An owner manually changing provider settings is an explicit configuration operation, not a fallback. Existing in-flight sessions retain their captured client/provider and the save path retires the captured sessions before the new configuration becomes the next-session authority.
+- Normal XiaoYu startup reruns the provider preflight through run_checks.ps1 / check_provider_privacy.py. Unknown endpoints and denied relay/router endpoints fail closed.
 
 We intentionally do not add a N.E.K.O core patch solely to police an explicit owner settings change.

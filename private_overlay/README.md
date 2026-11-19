@@ -29,3 +29,7 @@ The desired steady state is data + policy + conformance around N.E.K.O, not a se
 ## Managed core patches
 
 Two narrow N.E.K.O patches are currently managed. The first fixes the proactive auto-start idle gate: an internally started text session must not impersonate fresh user activity and block its own proactive delivery. The second exposes the already-native microphone runtime through the active Full Chat toolbar because the compatibility mic control is hidden and the avatar floating control was absent in the live XiaoYu surface. Neither patch introduces a parallel runtime. Both are replayed by tools/setup_local.ps1, covered by regression evidence, and should be removed when a future pinned N.E.K.O version includes equivalent behavior.
+
+## Release readiness
+
+tools/run_checks.ps1 ends with a fail-closed release gate. Every case in evals/acceptance_matrix.json must be in a PASS state and point to an existing evidence file. Any case that regresses to pending/deferred/partial/blocked/not-yet-ready blocks the release check.

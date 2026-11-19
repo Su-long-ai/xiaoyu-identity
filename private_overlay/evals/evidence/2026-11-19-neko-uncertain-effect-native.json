@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-19",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "verdict": "PASS_NATIVE_UNCERTAIN_DISPATCH_NO_BLIND_RETRY",
+  "source_contract": {
+    "never_arrived": "connection/refusal/4xx paths return TASK_TOOL_UNREACHABLE and issue exactly one request",
+    "may_have_arrived": "read timeout, remote disconnect, 5xx, unreadable/empty success responses return TASK_TOOL_UNCERTAIN",
+    "retry_policy": "the task is not automatically dispatched a second time; user-facing copy says outcome is uncertain and advises querying instead of redispatching",
+    "privacy_logging": "task text is not included in the INFO outcome log"
+  },
+  "native_tests": {
+    "passed": 13,
+    "failed": 0,
+    "tests": [
+      "test_a_dispatch_that_never_arrived_is_told_as_not_handed_over",
+      "test_a_dispatch_that_went_out_unanswered_is_told_as_not_known",
+      "test_the_time_limit_is_on_the_whole_request_not_on_each_of_its_phases",
+      "test_the_answer_for_an_unknown_outcome_exists_in_every_language"
+    ],
+    "seconds": 3.46
+  },
+  "decision": "Reuse N.E.K.O native task receipt/uncertainty semantics. Do not revive the retired XiaoYu outbox/effect runtime."
+}
