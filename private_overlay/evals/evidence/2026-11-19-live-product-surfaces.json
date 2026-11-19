@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T16:39:30+08:00",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "core_patch_count": 0,
+  "runtime": "original N.E.K.O launcher + XiaoYu dedicated state",
+  "text_websocket": {
+    "endpoint": "ws://127.0.0.1:48911/ws/XiaoYu",
+    "session_started": true,
+    "deterministic_text_probe_exact": true,
+    "expected_probe": "WS-E2E-PASS",
+    "verdict": "PASS"
+  },
+  "tts_output": {
+    "real_model_reply_used": true,
+    "audio_chunk_events_received": true,
+    "binary_audio_received": true,
+    "audio_done_received": true,
+    "server_tts_done_sent_and_delivered": true,
+    "provider_family": "qwen",
+    "verdict": "PASS"
+  },
+  "vision": {
+    "capture_api": "/api/screenshot",
+    "native_csrf_origin_gate_respected": true,
+    "native_screenshot_returned": true,
+    "screenshot_transport": "websocket stream_data input_type=screen",
+    "fullscreen_marker_recorded": false,
+    "marker_sha_or_value_recorded": false,
+    "model_exact_marker_match": true,
+    "provider_model": "qwen3.8-omni-flash",
+    "verdict": "PASS"
+  },
+  "tools": {
+    "registry_api_used": true,
+    "temporary_tool_name": "xiaoyu_e2e_echo",
+    "tool_registered_for_role": "XiaoYu",
+    "model_invoked_tool": true,
+    "callback_call_id_present": true,
+    "callback_argument_token_recorded": false,
+    "callback_argument_match": true,
+    "tool_result_returned_to_model": true,
+    "temporary_tool_unregistered": true,
+    "callback_server_stopped": true,
+    "verdict": "PASS"
+  },
+  "voice_input": {
+    "audio_session_started": true,
+    "realtime_model": "qwen3.8-omni-flash-realtime",
+    "native_route_selected": true,
+    "browser_binary_wire_format": "NEKO + uint32le 48000 + PCM16",
+    "exact_browser_frame_size_tested_samples": 480,
+    "ingress_backpressure_in_exact_frame_run": false,
+    "provider_transport_bytes_written": 176160,
+    "synthetic_windows_tts_source_used": true,
+    "synthetic_source_generated_user_transcript": false,
+    "synthetic_source_generated_model_reply": false,
+    "physical_microphone_capture_used": false,
+    "physical_user_utterance_verified": false,
+    "verdict": "PARTIAL_PASS_PHYSICAL_UTTERANCE_PENDING",
+    "note": "Realtime session establishment and native PCM transport are live. A synthetic Windows TTS source did not trigger a Qwen realtime user turn; this is not counted as a microphone utterance pass."
+  },
+  "overall": {
+    "vision": "PASS",
+    "tools": "PASS",
+    "tts": "PASS",
+    "voice_realtime_transport": "PASS",
+    "physical_microphone_utterance": "PENDING"
+  }
+}

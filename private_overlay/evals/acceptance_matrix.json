@@ -69,8 +69,8 @@
     {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "live_runtime_and_qq_interactive_pass_voice_vision_tools_interactive_pending",
-      "evidence": "evals/evidence/2026-11-18-live-xiaoyu-runtime-startup.json"
+      "status": "live_runtime_qq_vision_tools_tts_pass_realtime_voice_transport_pass_physical_mic_utterance_pending",
+      "evidence": "evals/evidence/2026-11-19-live-product-surfaces.json"
     },
     {
       "id": "legacy_migration",
