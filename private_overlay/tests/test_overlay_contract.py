@@ -80,6 +80,7 @@ class OverlayContractTests(unittest.TestCase):
             "-VerifyOnly",
             "ensure_neko_storage_policy.py",
             "run_checks.ps1",
+            "restore_neko_plugin_autostart.py",
             "NEKO_STORAGE_SELECTED_ROOT",
             "NEKO_STORAGE_ANCHOR_ROOT",
             "NEKO_RUNTIME_STATE_DIR",

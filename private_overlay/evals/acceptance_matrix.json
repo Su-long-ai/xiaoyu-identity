@@ -20,6 +20,13 @@
       "evidence": "evals/evidence/2026-11-19-live-qq-roundtrip.json"
     },
     {
+      "id": "plugin_autostart_restart",
+      "goal": "N.E.K.O native runtime_auto_start plugins restore after product restart without enabling the Agent master",
+      "status": "native_registry_refresh_autostart_and_qq_reconnect_live_pass",
+      "evidence": "evals/evidence/2026-11-19-live-plugin-autostart-reconcile.json",
+      "note": "The overlay only reconciles N.E.K.O's persisted runtime_auto_start preferences through native lifecycle APIs; it does not force plugin policy or add a duplicate plugin runtime."
+    },
+    {
       "id": "private_group_isolation",
       "goal": "owner-private memory does not leak into group context",
       "status": "live_private_canary_real_group_non_disclosure_pass",

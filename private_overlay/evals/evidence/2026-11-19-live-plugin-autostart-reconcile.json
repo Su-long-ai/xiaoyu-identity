@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T20:40:38+08:00",
+  "issue": "embedded N.E.K.O PluginServer starts with an empty registry when Agent master/user_plugin lifecycle is off, so native runtime_auto_start plugins do not restore after a product restart",
+  "pre_fix_live_observation": {
+    "restart_time_local": "2026-11-19T20:25:20+08:00",
+    "plugin_server_http_ready": true,
+    "registry_plugin_count": 0,
+    "qq_source_present_on_disk": true,
+    "qq_runtime_auto_start_preference": true,
+    "napcat_onebot_port_3001_listening": true,
+    "qq_onebot_session_restored": false
+  },
+  "root_cause": {
+    "embedded_plugin_server_manage_lifecycle": false,
+    "agent_user_plugin_enabled": false,
+    "agent_master_enabled": false,
+    "upstream_intent": "embedded PluginServer deliberately leaves lifecycle ownership to Agent user_plugin_enabled",
+    "product_constraint": "XiaoYu should not enable the whole Agent master merely to keep native auto-start plugins alive"
+  },
+  "solution": {
+    "kind": "thin_overlay_native_api_reconciler",
+    "helper": "tools/restore_neko_plugin_autostart.py",
+    "core_patch_added": false,
+    "core_patch_count_remains": 4,
+    "behavior": [
+      "wait for N.E.K.O main and embedded plugin HTTP APIs",
+      "obtain native page_config CSRF token",
+      "refresh native plugin registry through /plugins/refresh",
+      "read native runtime_enabled and runtime_auto_start preferences",
+      "start only enabled native auto-start plugins that are not already running",
+      "leave Agent master off"
+    ],
+    "does_not_do": [
+      "implement plugin business logic",
+      "force-start plugins with runtime_auto_start=false",
+      "enable Agent master",
+      "modify QQ plugin source",
+      "add a fifth N.E.K.O core patch"
+    ]
+  },
+  "verification": {
+    "offline_helper_tests": "2/2 PASS",
+    "overlay_tests_before_live_restart": "22/22 PASS",
+    "provider_privacy": "PASS",
+    "release_readiness_before_new_case": "15/15 PASS",
+    "real_full_restart": {
+      "launcher_start_local": "2026-11-19T20:39:25+08:00",
+      "registry_refreshed": true,
+      "discovered_count": 12,
+      "autostart_candidates": [
+        "qq_auto_reply",
+        "web_search"
+      ],
+      "started": [
+        "qq_auto_reply",
+        "web_search"
+      ],
+      "already_running": [],
+      "failed": {},
+      "agent_master_required": false,
+      "native_api_only": true
+    },
+    "post_restart_plugin_status": {
+      "qq_auto_reply": {
+        "runtime_enabled": true,
+        "runtime_auto_start": true,
+        "status": "running"
+      },
+      "web_search": {
+        "runtime_enabled": true,
+        "runtime_auto_start": true,
+        "status": "running"
+      }
+    },
+    "qq_transport": {
+      "forward_ws_connected_time_local": "2026-11-19T20:39:33+08:00",
+      "endpoint": "ws://127.0.0.1:3001",
+      "login_info_ok_time_local": "2026-11-19T20:39:34+08:00",
+      "live_group_message_seen_after_restart": true
+    }
+  },
+  "privacy": {
+    "qq_message_content_recorded_in_evidence": false,
+    "qq_user_identifiers_recorded_in_evidence": false,
+    "tokens_or_access_secrets_recorded_in_evidence": false
+  },
+  "verdict": "PASS"
+}
