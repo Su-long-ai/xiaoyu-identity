@@ -16,13 +16,13 @@
     {
       "id": "desktop_qq_continuity",
       "goal": "desktop and QQ share one continuing identity",
-      "status": "live_napcat_self_send_receipt_pass_reply_roundtrip_pending",
-      "evidence": "evals/evidence/2026-11-18-live-qq-connector.json"
+      "status": "live_private_and_group_reply_roundtrip_same_xiaoyu_runtime_pass",
+      "evidence": "evals/evidence/2026-11-19-live-qq-roundtrip.json"
     },
     {
       "id": "private_group_isolation",
       "goal": "owner-private memory does not leak into group context",
-      "status": "isolated_live_scoped_model_pass_real_group_roundtrip_pending",
+      "status": "isolated_live_scope_pass_real_group_surface_roundtrip_pass_private_canary_surface_retest_pending",
       "evidence": "evals/evidence/2026-11-18-live-scope-isolation.json"
     },
     {
@@ -69,7 +69,7 @@
     {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "live_runtime_services_pass_interactive_surface_e2e_pending",
+      "status": "live_runtime_and_qq_interactive_pass_voice_vision_tools_interactive_pending",
       "evidence": "evals/evidence/2026-11-18-live-xiaoyu-runtime-startup.json"
     },
     {

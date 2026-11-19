@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T16:02:30+08:00",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "overlay_commit_before_evidence": "aab2574b83e5c2d8fdd2e91c4eda462b96dded9c",
+  "qq_plugin_version": "0.16.0",
+  "transport": "NapCat + OneBot v11 forward WebSocket",
+  "onebot_endpoint": "ws://127.0.0.1:3001",
+  "account_ids_recorded": false,
+  "group_ids_recorded": false,
+  "message_text_recorded": false,
+  "permissions": {
+    "trusted_users_count": 1,
+    "trusted_groups_count": 1,
+    "owner_user_level": "admin",
+    "test_group_level": "trusted"
+  },
+  "private_roundtrip": {
+    "inbound_received": true,
+    "permission_gate": "admin",
+    "character_route": "XiaoYu",
+    "model_request_ok": true,
+    "model_provider_host": "dashscope.aliyuncs.com",
+    "memory_sync": true,
+    "reply_generated": true,
+    "buffer_delivery": true,
+    "send_logged": true,
+    "verdict": "PASS"
+  },
+  "group_roundtrip": {
+    "inbound_received": true,
+    "permission_gate": "trusted",
+    "explicit_at_bot_detected": true,
+    "attention_lock_acquired": true,
+    "character_route": "XiaoYu",
+    "model_request_ok": true,
+    "model_provider_host": "dashscope.aliyuncs.com",
+    "group_memory_sync_skipped": true,
+    "reply_generated": true,
+    "buffer_delivery": true,
+    "send_logged": true,
+    "reply_reference_sent": true,
+    "at_mention_sent": true,
+    "verdict": "PASS"
+  },
+  "negative_control": {
+    "unauthorized_group_messages_observed": true,
+    "unauthorized_group_decision": "permission_none",
+    "unauthorized_group_send_blocked": true,
+    "verdict": "PASS"
+  },
+  "scope_claim": {
+    "real_group_surface_roundtrip": "PASS",
+    "isolated_private_group_model_scope_evidence": "evals/evidence/2026-11-18-live-scope-isolation.json",
+    "real_surface_private_canary_non_disclosure": "NOT_RETESTED_IN_THIS_ROUND",
+    "note": "This run proves the real QQ group surface and permission boundary. The prior isolated live model scope test remains the direct private-canary non-disclosure evidence."
+  },
+  "verdict": "PASS"
+}
