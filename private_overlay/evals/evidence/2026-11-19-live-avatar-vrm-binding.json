@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-19",
+  "release_relation": "post_xiaoyu-neko-v1-rc1",
+  "verdict": "PASS_NATIVE_VRM_BINDING",
+  "character": "XiaoYu",
+  "native_api": {
+    "route": "PUT /api/characters/catgirl/l2d/XiaoYu",
+    "model_type": "vrm",
+    "model_path": "/static/vrm/sister1.0.vrm",
+    "apply_runtime": true,
+    "response_success": true
+  },
+  "persisted_state": {
+    "model_type": "live3d",
+    "live3d_sub_type": "vrm",
+    "vrm_model_path": "/static/vrm/sister1.0.vrm",
+    "asset_source": "builtin",
+    "current_character": "XiaoYu"
+  },
+  "page_config_view": {
+    "lanlan_name": "XiaoYu",
+    "model_type": "live3d",
+    "model_path": "/static/vrm/sister1.0.vrm"
+  },
+  "asset_probe": {
+    "http_status": 206,
+    "range_bytes": 32,
+    "prefix_hex": "676c544602000000402ff0002ce60100",
+    "format": "GLB/VRM"
+  },
+  "implementation": "N.E.K.O native character/model configuration only; no XiaoYu renderer or core patch added."
+}
