@@ -62,3 +62,7 @@ Thumbs.db
 # Duplicated research snapshots / temporary helpers
 plans/history/
 governance/tmp_*.py
+
+# Versioned XiaoYu overlay policy (not runtime identity data)
+!private_overlay/identity/
+!private_overlay/identity/invariants.json

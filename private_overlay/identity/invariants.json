@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "authority": "neko_native",
+  "invariants": [
+    "same_identity_across_model_swap",
+    "same_identity_across_restart",
+    "same_identity_across_desktop_and_qq",
+    "owner_correction_becomes_current",
+    "erased_private_memory_must_not_resurrect",
+    "private_context_must_not_widen_audience"
+  ],
+  "allowed_growth": [
+    "evidence_backed_preference_refinement",
+    "relationship_state_updates_grounded_in_observed_interactions",
+    "style_adaptation_without_changing_hard_identity_constraints",
+    "explicit_owner_approved_persona_edits"
+  ],
+  "forbidden_silent_changes": [
+    "replace_identity_across_model_provider_or_restart",
+    "widen_private_context_audience",
+    "resurrect_erased_private_memory",
+    "override_owner_correction_with_stale_evidence",
+    "promote_uncertain_inference_to_hard_identity_fact_without_evidence"
+  ]
+}
