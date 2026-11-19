@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "release_id": "xiaoyu-neko-v1-rc2",
+  "release_kind": "private_product_release_candidate",
+  "status": "READY",
+  "created_at_local": "2026-11-19T20:26:29.750482+08:00",
+  "basis_commit": "b5a2b906b9eeed3a8f619806238a91468580bac4",
+  "product_branch": "private/neko-overlay-v1",
+  "supersedes": "xiaoyu-neko-v1-rc1",
+  "architecture": {
+    "mother_project": "Project N.E.K.O",
+    "integration_mode": "private_data_policy_overlay",
+    "memory_authority": "neko_native",
+    "persona_storage_authority": "neko_native",
+    "evolution_authority": "neko_native",
+    "task_authority": "neko_native",
+    "allow_dual_write": false,
+    "legacy_xiaoyu_runtime": "quarantined_not_release_authority"
+  },
+  "external_pins": {
+    "neko": {
+      "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
+      "commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+      "branch": "main"
+    },
+    "qq_plugin": {
+      "repository": "https://github.com/zhaijiunknow/n.e.k.o_plugin_qq_auto_reply.git",
+      "commit": "54acf36bf978edad4757e5fffc743c5618360700",
+      "version": "0.16.0",
+      "role": "external_qq_surface"
+    }
+  },
+  "managed_core_patches": {
+    "count": 4,
+    "budget": 4,
+    "files": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0002-full-chat-native-voice-entry.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch"
+    ]
+  },
+  "acceptance": {
+    "closed": 15,
+    "total": 15,
+    "ids": [
+      "identity_restart",
+      "identity_model_swap",
+      "desktop_qq_continuity",
+      "private_group_isolation",
+      "provider_privacy",
+      "correction",
+      "erasure_closure",
+      "no_resurrection",
+      "erase_race",
+      "commitment_restart",
+      "uncertain_effect",
+      "realtime_voice_provider_e2e",
+      "avatar_vrm_binding",
+      "private_product_e2e",
+      "legacy_migration"
+    ],
+    "release_gate": "PASS"
+  },
+  "verification": {
+    "startup_preflight": "PASS",
+    "overlay_unit_tests": "20/20 PASS",
+    "provider_privacy_preflight": "PASS",
+    "release_readiness": "15/15 PASS",
+    "physical_microphone_e2e": "PASS",
+    "uncertain_effect_native_tests": "13/13 PASS",
+    "provider_session_boundary_native_tests": "5/5 PASS",
+    "qwen38_vad_regression": "4/4 PASS",
+    "audio_stream_queue_suite": "136/136 PASS",
+    "proactive_backpressure_targeted_regressions": "6/6 PASS",
+    "patch_0004_reverse_apply_check": "PASS",
+    "native_vrm_binding": "PASS",
+    "post_patch4_runtime_restart": "PASS (launcher ready at 2026-11-19T20:25:32+08:00)"
+  },
+  "post_rc1_delta": [
+    {
+      "kind": "reliability_fix",
+      "name": "native microphone activity before proactive backpressure",
+      "implementation": "0004-native-ingress-activity-before-backpressure.patch",
+      "evidence": "evals/evidence/2026-11-19-live-proactive-audio-backpressure.json"
+    },
+    {
+      "kind": "native_reuse",
+      "name": "XiaoYu VRM avatar binding",
+      "implementation": "N.E.K.O native Live3D/VRM configuration",
+      "evidence": "evals/evidence/2026-11-19-live-avatar-vrm-binding.json"
+    }
+  ],
+  "bindings_sha256": {
+    "NEKO_UPSTREAM.lock.json": "33de0448a96a3f953f331c0ddfd445a5275bf42f3b52c801cf5d5c9326548aff",
+    "QQ_PLUGIN_UPSTREAM.lock.json": "967120b442a8ba27a1f020e525bb1de91fde044ff6efb37032da00322705bad7",
+    "patches/series.json": "e500b012546f6298f04e7f28776a7322ca4e6470b57259d08d6165b61fd9e799",
+    "evals/acceptance_matrix.json": "abeefc4e72301859ec9b74dfc815617ce0ce8faf19ae2338344de7c6cc9a4dcb"
+  },
+  "known_nonblocking_upstream_warnings": [
+    "source config workshop_config.json is absent and N.E.K.O falls back to its default/in-memory behavior",
+    "Steamworks Python module is not installed in this private source-launch environment; Steam-only features are unavailable",
+    "compatibility avatar/Live2D code can still log a yui-lolita fallback warning even though XiaoYu page_config is bound to native live3d/vrm and the VRM asset is served correctly",
+    "startup migrate_openclaw_url_port emits an ignored ModuleNotFoundError warning in this environment",
+    "brief startup loop-stall watchdog warnings occur during heavy Python imports and recovered automatically in the live restart"
+  ],
+  "release_scope": {
+    "included": [
+      "desktop text",
+      "native VRM desktop avatar binding",
+      "physical microphone realtime voice",
+      "TTS",
+      "vision/screenshot",
+      "memory/persona continuity",
+      "correction",
+      "erasure/no-resurrection/race closure",
+      "proactive commitments with restart dedup",
+      "proactive voice user-priority under ingress backpressure",
+      "QQ private and trusted-group continuity",
+      "private-group isolation",
+      "native task uncertainty/no-blind-retry behavior"
+    ],
+    "excluded": [
+      "Steam-specific distribution behavior",
+      "a private duplicate XiaoYu memory/persona/task/effect runtime",
+      "automatic trust of arbitrary relay/router model endpoints"
+    ]
+  }
+}
