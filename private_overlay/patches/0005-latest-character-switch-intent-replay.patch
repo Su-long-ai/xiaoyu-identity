@@ -1,0 +1,191 @@
+diff --git a/static/app/app-character.js b/static/app/app-character.js
+index afac6cdb..8c3a4f77 100644
+--- a/static/app/app-character.js
++++ b/static/app/app-character.js
+@@ -326,7 +326,8 @@
+      * @param {string} newCatgirl - Name of the new character
+      * @param {string} oldCatgirl - Name of the previous character
+      */
+-    async function handleCatgirlSwitch(newCatgirl, oldCatgirl) {
++    async function handleCatgirlSwitch(newCatgirl, oldCatgirl, options = {}) {
++        const forceReload = !!options.forceReload;
+         console.log('[猫娘切换] ========== 开始切换 ==========');
+         console.log('[猫娘切换] 从', oldCatgirl, '切换到', newCatgirl);
+         console.log('[猫娘切换] isSwitchingCatgirl:', S.isSwitchingCatgirl);
+@@ -386,14 +387,39 @@
+         };
+ 
+         if (S.isSwitchingCatgirl) {
+-            console.log('[猫娘切换] 正在切换中，忽略本次请求');
++            if (newCatgirl) {
++                // 快速 A→B→A 时，旧逻辑会把第二次请求直接丢掉；而第一轮已经开始清理
++                // A 的模型，最终就可能出现“后端已回到 A、前端模型为空”。这里只保留最新
++                // 目标（last intent wins），等当前 attempt 收尾后强制重放一次。
++                S._pendingCatgirlSwitch = { newCatgirl, oldCatgirl };
++                console.log('[猫娘切换] 正在切换中，记录最新待切换目标:', newCatgirl);
++            } else {
++                console.log('[猫娘切换] 正在切换中且 newCatgirl 为空，忽略');
++            }
+             return;
+         }
+         if (!newCatgirl) {
+             console.log('[猫娘切换] newCatgirl为空，返回');
+             return;
+         }
+-        if (newCatgirl === oldCatgirl) {
++
++        // 角色名相同并不总等于“已经完成切换”。目标角色加载失败时 catch 会恢复
++        // previousLanlanConfig，但 VRM 清理发生在更早阶段：此时 lanlan_name 已回到旧角色，
++        // currentModel 却可能已经是 null。随后后端真正切回该角色的事件若只按名字去重，
++        // 就会永久留下空白桌宠。仅在当前配置明确要求 VRM 且实例缺失时把同名事件视为
++        // recovery，而不是 duplicate；正常 BC + WS 双通道重复事件仍保持原去重行为。
++        const currentModelType = String(window.lanlan_config?.model_type || '').trim().toLowerCase();
++        const currentLive3dSubType = String(window.lanlan_config?.live3d_sub_type || '').trim().toLowerCase();
++        const currentConfigWantsVrm = currentModelType === 'vrm'
++            || (currentModelType === 'live3d' && currentLive3dSubType === 'vrm');
++        const sameCurrentCharacterMissingVrm = !!(
++            window.lanlan_config
++            && window.lanlan_config.lanlan_name === newCatgirl
++            && currentConfigWantsVrm
++            && !window.vrmManager?.currentModel?.vrm
++        );
++
++        if (newCatgirl === oldCatgirl && !forceReload && !sameCurrentCharacterMissingVrm) {
+             console.log('[猫娘切换] 新旧角色相同，跳过切换');
+             return;
+         }
+@@ -403,9 +429,12 @@
+         // !== oldCatgirl 的 dedupe 拦不住，会重新清 chat / 关 socket / 重连 / 重加载模型。
+         // app-interpage 的 BC handler 已加同样守护作为外层防御，这里在源头再加一道，
+         // 让所有调用方（不光 BC/WS handler）自动受益。
+-        if (window.lanlan_config && window.lanlan_config.lanlan_name === newCatgirl) {
+-            console.log('[猫娘切换] 已经是当前角色', newCatgirl, '，跳过重复事件（BC + WS 双通道收到同一切换）');
+-            return;
++        if (!forceReload && window.lanlan_config && window.lanlan_config.lanlan_name === newCatgirl) {
++            if (!sameCurrentCharacterMissingVrm) {
++                console.log('[猫娘切换] 已经是当前角色', newCatgirl, '，跳过重复事件（BC + WS 双通道收到同一切换）');
++                return;
++            }
++            console.warn('[猫娘切换] 角色名已是', newCatgirl, '但 VRM 实例缺失，执行一致性恢复');
+         }
+         // 确认切换到不同角色后，清空上一任的搜歌任务
+         window.invalidatePendingMusicSearch();
+@@ -546,6 +575,15 @@
+                 }
+                 S.isSwitchingCatgirl = false;
+                 S._currentSwitchAttemptId = null;
++                const pendingSwitch = S._pendingCatgirlSwitch;
++                S._pendingCatgirlSwitch = null;
++                if (pendingSwitch?.newCatgirl) {
++                    Promise.resolve().then(() => handleCatgirlSwitch(
++                        pendingSwitch.newCatgirl,
++                        pendingSwitch.oldCatgirl || '',
++                        { forceReload: true, queuedReason: 'watchdog' }
++                    )).catch(err => console.error('[猫娘切换] watchdog 后重放待切换目标失败:', err));
++                }
+                 if (!switchAlreadyCompleted) {
+                     try {
+                         showStatusToast((window.t && window.t('app.switchCatgirlWatchdog')) || '上次切换似乎卡住了，请再点一次切换', 5000);
+@@ -2080,6 +2118,17 @@
+             if (isCurrentAttempt) {
+                 S.isSwitchingCatgirl = false;
+                 S._currentSwitchAttemptId = null;
++                const pendingSwitch = S._pendingCatgirlSwitch;
++                S._pendingCatgirlSwitch = null;
++                if (pendingSwitch?.newCatgirl) {
++                    // 当前 attempt 可能失败并把 lanlan_name 回滚到 pending target；仍要 forceReload，
++                    // 因为模型清理可能已经发生，仅凭“角色名相同”不能证明画面已经恢复。
++                    Promise.resolve().then(() => handleCatgirlSwitch(
++                        pendingSwitch.newCatgirl,
++                        pendingSwitch.oldCatgirl || '',
++                        { forceReload: true, queuedReason: 'finally' }
++                    )).catch(err => console.error('[猫娘切换] 重放待切换目标失败:', err));
++                }
+                 // window._currentCatgirlSwitchId 故意不清——它是 VRM applyLighting retry loop
+                 // 的 ownership token（line 794-800 用 Symbol() 标识 attempt，retry 比对
+                 // !== currentSwitchId 自我退出）。retry 是 setTimeout 链，可能跨 finally 还在跑；
+diff --git a/tests/frontend/chat_avatar_integration.test.cjs b/tests/frontend/chat_avatar_integration.test.cjs
+index d541a407..258ab6e2 100644
+--- a/tests/frontend/chat_avatar_integration.test.cjs
++++ b/tests/frontend/chat_avatar_integration.test.cjs
+@@ -151,6 +151,80 @@ test('watchdog retires pending switch and late response cannot reclaim avatar id
+     assert.deepEqual(calls, [['begin', 1], ['rollback', 1], ['begin', 2], ['commit', 2, { uid: UID_B, name: 'B' }]]);
+ });
+ 
++
++
++test('same-current VRM event recovers when the configured VRM instance is missing', async () => {
++    const h = harness(); const calls = avatarCalls(h);
++    h.window.lanlan_config = {
++        lanlan_name: 'A',
++        model_type: 'live3d',
++        live3d_sub_type: 'vrm'
++    };
++    h.window.vrmManager = { currentModel: null };
++    h.context.fetch = async () => { throw new Error('stop after dedupe gate'); };
++    h.load('static/app/app-character.js');
++
++    await h.window.handleCatgirlSwitch('A', 'B');
++
++    assert.deepEqual(calls, [
++        ['begin', 1],
++        ['rollback', 1]
++    ], 'missing VRM must bypass same-current dedupe and enter recovery flow');
++});
++
++test('same-current VRM event remains deduped when the VRM instance is healthy', async () => {
++    const h = harness(); const calls = avatarCalls(h);
++    h.window.lanlan_config = {
++        lanlan_name: 'A',
++        model_type: 'live3d',
++        live3d_sub_type: 'vrm'
++    };
++    h.window.vrmManager = { currentModel: { vrm: {} } };
++    h.load('static/app/app-character.js');
++
++    await h.window.handleCatgirlSwitch('A', 'B');
++
++    assert.deepEqual(calls, [], 'healthy VRM duplicate must keep BC/WS dedupe behavior');
++});
++
++test('rapid switch back queues latest target and force-reloads it after the in-flight switch fails', async () => {
++    const h = harness(); const calls = avatarCalls(h); const firstFetch = deferred();
++    let fetchCount = 0;
++    h.context.fetch = async () => {
++        fetchCount += 1;
++        if (fetchCount === 1) return firstFetch.promise;
++        return { ok: true, json: async () => ({ '猫娘': {
++            A: { model_type: 'live2d', _reserved: { character_uid: UID_A } },
++            B: { model_type: 'live2d', _reserved: { character_uid: UID_B } }
++        } }) };
++    };
++    h.load('static/app/app-character.js');
++
++    const first = h.window.handleCatgirlSwitch('B', 'A');
++    await Promise.resolve();
++    assert.equal(h.window.appState.isSwitchingCatgirl, true);
++
++    await h.window.handleCatgirlSwitch('A', 'B');
++    assert.equal(h.window.appState._pendingCatgirlSwitch?.newCatgirl, 'A');
++    assert.equal(h.window.appState._pendingCatgirlSwitch?.oldCatgirl, 'B');
++
++    firstFetch.reject(new Error('B model/config unavailable'));
++    await first;
++    await new Promise(resolve => setImmediate(resolve));
++    await new Promise(resolve => setImmediate(resolve));
++
++    assert.ok(fetchCount >= 2, 'queued switch-back must replay instead of being dropped');
++    assert.equal(h.window.lanlan_config.lanlan_name, 'A');
++    assert.equal(h.window.appState.isSwitchingCatgirl, false);
++    assert.equal(h.window.appState._pendingCatgirlSwitch, null);
++    assert.deepEqual(calls, [
++        ['begin', 1],
++        ['rollback', 1],
++        ['begin', 2],
++        ['commit', 2, { uid: UID_A, name: 'A' }]
++    ]);
++});
++
+ test('display update refreshes existing assistant avatars without changing user messages', () => {
+     const h = harness(); const updates = [];
+     let current = 'data:image/png;base64,CUSTOM';

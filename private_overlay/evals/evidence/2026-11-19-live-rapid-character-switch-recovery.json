@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T22:05:47+08:00",
+  "live_reproduction": {
+    "initial_character": "XiaoYu",
+    "first_switch": {
+      "target": "YUI",
+      "time": "2026-11-19T22:05:47+08:00"
+    },
+    "second_switch": {
+      "target": "XiaoYu",
+      "time": "2026-11-19T22:05:49+08:00"
+    },
+    "backend_final_character": "XiaoYu",
+    "xiaoyu_vrm_configuration_preserved": true,
+    "xiaoyu_vrm_path": "/static/vrm/sister1.0.vrm",
+    "frontend_symptom": "avatar disappeared after switching back",
+    "root_cause": "handleCatgirlSwitch dropped the second request while S.isSwitchingCatgirl was true"
+  },
+  "fix": {
+    "policy": "last_intent_wins plus model-aware same-character dedupe",
+    "queued_target_count": 1,
+    "force_reload_on_queued_replay": true,
+    "watchdog_replay": true,
+    "same_character_dedupe_requires_healthy_configured_vrm": true,
+    "scope": "VRM recovery only; healthy same-character duplicate events remain deduped"
+  },
+  "regression": {
+    "tests/frontend/chat_avatar_integration.test.cjs": "26/26 PASS",
+    "tests/frontend/live2d_audio_ownership.test.cjs": "71/71 PASS",
+    "new_cases": [
+      "same-current VRM event recovers when configured VRM instance is missing",
+      "same-current VRM event remains deduped when VRM instance is healthy",
+      "rapid switch back queues latest target and force-reloads it after in-flight switch failure"
+    ]
+  },
+  "privacy": {
+    "conversation_text_recorded": false,
+    "audio_recorded": false,
+    "desktop_screenshot_persisted": false,
+    "renderer_probe_recorded_only_structural_switch_and_model_state": true
+  },
+  "live_retest": {
+    "status": "PASS",
+    "performed_at_local": "2026-11-19T22:27:35+08:00",
+    "precondition": {
+      "current_character": "XiaoYu",
+      "vrm_present": true,
+      "vrm_url": "/static/vrm/sister1.0.vrm"
+    },
+    "failed_switch": {
+      "target": "YUI",
+      "frontend_rolled_back_to": "XiaoYu",
+      "vrm_present_after_failure": false
+    },
+    "recovery_switch": {
+      "event": "YUI -> XiaoYu",
+      "frontend_name_before_handler": "XiaoYu",
+      "vrm_present_before_handler": false,
+      "handler_started_epoch_ms": 1795098455875,
+      "handler_finished_epoch_ms": 1795098456460,
+      "recovery_ms": 585
+    },
+    "final_state": {
+      "current_character": "XiaoYu",
+      "vrm_present": true,
+      "vrm_object_present": true,
+      "vrm_url": "/static/vrm/sister1.0.vrm",
+      "scene_visible": true,
+      "container_hidden": false,
+      "container_display": "block"
+    },
+    "visual_confirmation": "full-body XiaoYu VRM visible on desktop",
+    "screenshot_persisted": false
+  },
+  "root_cause_detail": {
+    "failed_target": "YUI",
+    "failed_target_model": "default Live2D yui-lolita unavailable",
+    "rollback_state": {
+      "frontend_character_name": "XiaoYu",
+      "configured_xiaoyu_vrm": "/static/vrm/sister1.0.vrm",
+      "vrm_instance_present": false
+    },
+    "second_switch_event": {
+      "new_character": "XiaoYu",
+      "old_character": "YUI",
+      "frontend_character_before_handler": "XiaoYu",
+      "old_behavior": "same-character dedupe returned before model reload"
+    }
+  }
+}

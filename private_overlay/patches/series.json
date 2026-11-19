@@ -20,6 +20,11 @@
       "file": "0004-native-ingress-activity-before-backpressure.patch",
       "reason": "Live RC voice use showed the bounded microphone ingress queue reaching 1.5s and clearing 200 frames while a proactive realtime media/response transaction held the shared turn-admission lock. Existing user-priority gates depend on realtime _user_recent_activity_time, but native PCM only updated it inside the blocked worker. Publish the same raw-RMS activity signal immediately after ingress validation and before queueing; provider audio, VAD, DSP, transcript and queue semantics remain unchanged.",
       "evidence": "evals/evidence/2026-11-19-live-proactive-audio-backpressure.json"
+    },
+    {
+      "file": "0005-latest-character-switch-intent-replay.patch",
+      "reason": "Live desktop use reproduced two character-switch recovery failures. First, an in-flight switch could drop a newer A→B→A intent. Second, and decisive for the observed blank XiaoYu avatar, a failed target-model load restored lanlan_name to XiaoYu after the old VRM had already been removed; the subsequent real YUI→XiaoYu event was then incorrectly discarded by same-character dedupe. Preserve the latest pending target and make same-character dedupe conditional on the configured VRM instance actually existing, so missing VRM state is treated as recovery.",
+      "evidence": "evals/evidence/2026-11-19-live-rapid-character-switch-recovery.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."
