@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T20:01:51.855232+08:00",
+  "arm_id": "4e86df0ee7e042fb8d69dfa0594fa962",
+  "user_attested_physical_microphone_utterance": true,
+  "runtime_log_name": "N.E.K.O_Main_20261119.log",
+  "baseline_offset_bytes": 599035,
+  "examined_new_bytes": 13185,
+  "privacy": {
+    "microphone_audio_recorded_by_verifier": false,
+    "transcript_text_recorded": false,
+    "model_reply_text_recorded": false,
+    "only_lengths_timestamps_and_runtime_markers_recorded": true
+  },
+  "observed": {
+    "audio_session_start_seen": true,
+    "audio_session_start_time": "2026-11-19T20:01:14",
+    "nonempty_user_transcript_seen": true,
+    "transcript_session": "OmniRealtimeClient",
+    "transcript_length": 3,
+    "transcript_time": "2026-11-19T20:01:21",
+    "model_reply_after_transcript_seen": true,
+    "model_reply_length": 1,
+    "model_reply_time": "2026-11-19T20:01:21",
+    "reply_delay_seconds": 0.0,
+    "response_idle_timeout_between_transcript_and_reply": false,
+    "voice_end_seen": true
+  },
+  "verdict": "PASS"
+}

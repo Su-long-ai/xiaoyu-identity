@@ -76,8 +76,9 @@
     {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "live_runtime_qq_vision_tools_tts_pass_qwen38_realtime_synthetic_e2e_pass_physical_mic_utterance_pending",
-      "evidence": "evals/evidence/2026-11-19-live-product-surfaces.json"
+      "status": "live_runtime_qq_vision_tools_tts_qwen38_realtime_and_physical_mic_e2e_pass",
+      "evidence": "evals/evidence/2026-11-19-live-physical-mic-acceptance.json",
+      "note": "Physical microphone acceptance passed on a user-attested live utterance after Qwen3.8 realtime VAD fallback; verifier persisted only structural markers and lengths."
     },
     {
       "id": "legacy_migration",
