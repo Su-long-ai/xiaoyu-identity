@@ -15,6 +15,11 @@
       "file": "0003-qwen38-server-vad-reliability.patch",
       "reason": "Live privacy-safe synthetic-audio E2E reproduced a Qwen3.8 native realtime failure: semantic_vad accepted session.update and 231 audio appends but emitted no speech/transcript/reply before buffer clear. The same PCM with server_vad emitted speech_started, completed transcription and a completed assistant response. Scope the fallback to qwen3.8 only.",
       "evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
+    },
+    {
+      "file": "0004-native-ingress-activity-before-backpressure.patch",
+      "reason": "Live RC voice use showed the bounded microphone ingress queue reaching 1.5s and clearing 200 frames while a proactive realtime media/response transaction held the shared turn-admission lock. Existing user-priority gates depend on realtime _user_recent_activity_time, but native PCM only updated it inside the blocked worker. Publish the same raw-RMS activity signal immediately after ingress validation and before queueing; provider audio, VAD, DSP, transcript and queue semantics remain unchanged.",
+      "evidence": "evals/evidence/2026-11-19-live-proactive-audio-backpressure.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

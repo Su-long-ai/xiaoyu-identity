@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T20:19:43+08:00",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "issue": "native microphone ingress can publish user activity too late when proactive delivery holds the shared turn-admission lock",
+  "live_observation": {
+    "first_backlog_time": "2026-11-19T20:03:29+08:00",
+    "first_backlog_duration_ms": 1500,
+    "queue_capacity_ms": 2000,
+    "first_clear_time": "2026-11-19T20:03:30+08:00",
+    "first_clear_dropped_frames": 200,
+    "second_backlog_time": "2026-11-19T20:04:13+08:00",
+    "second_clear_time": "2026-11-19T20:04:14+08:00",
+    "second_clear_dropped_frames": 200,
+    "coincident_runtime_state": "voice proactive response transaction",
+    "post_event_voice_recovery_observed": true
+  },
+  "pre_fix_deterministic_probe": {
+    "input": "validated native 16kHz PCM frame with constant amplitude 2000 and worker disabled",
+    "queue_size_after_ingress": 1,
+    "realtime_user_recent_activity_time_after_ingress": 0.0,
+    "verdict": "FAIL"
+  },
+  "fix_contract": {
+    "scope": "native OmniRealtimeClient ingress only",
+    "activity_threshold": "same _client_vad_threshold raw-RMS contract already used by OmniRealtimeClient.stream_audio",
+    "timing": "after _QueuedMicFrame validation and before bounded queue insertion",
+    "does_not_change": [
+      "provider audio bytes",
+      "provider VAD mode",
+      "DSP/RNNoise path",
+      "transcript admission",
+      "queue capacity",
+      "queue overflow semantics",
+      "proactive transaction semantics"
+    ]
+  },
+  "verification": {
+    "targeted_regressions": "6/6 PASS",
+    "audio_stream_queue_suite": "136/136 PASS"
+  },
+  "privacy": {
+    "microphone_audio_persisted_in_evidence": false,
+    "transcript_text_persisted_in_evidence": false,
+    "assistant_text_persisted_in_evidence": false
+  },
+  "verdict": "PATCH_CANDIDATE_PASS"
+}

@@ -1,0 +1,112 @@
+diff --git a/main_logic/core/asr_runtime.py b/main_logic/core/asr_runtime.py
+index d7a98215..7abb68ba 100644
+--- a/main_logic/core/asr_runtime.py
++++ b/main_logic/core/asr_runtime.py
+@@ -3677,6 +3677,49 @@ class AsrRuntimeMixin:
+             getattr(self, "session", None),
+         )
+ 
++    def _note_native_realtime_ingress_activity(self, message: dict) -> None:
++        """Publish loud native PCM activity before the bounded worker queue.
++
++        The realtime client's turn-admission lock is intentionally shared with
++        proactive callback delivery. While a slow proactive media transaction
++        owns that lock, the audio worker can block on its first frame and the
++        bounded ingress queue continues filling behind it. If user activity is
++        only published inside OmniRealtimeClient.stream_audio(), speech
++        arriving during that backpressure is invisible to the existing
++        proactive user-priority gates until it is too late.
++
++        Mirror the realtime client's raw-RMS threshold here, after the frame
++        has passed ingress validation but before it enters the queue. This is
++        only an arbitration signal: provider audio, VAD state, transcripts,
++        buffer clearing and DSP remain owned by the normal worker path.
++        """
++        if self._asr_route_mode != "native":
++            return
++        session = getattr(self, "session", None)
++        if not isinstance(session, _core_facade.OmniRealtimeClient):
++            return
++        data = message.get("data")
++        if not isinstance(data, list) or not data:
++            return
++        try:
++            threshold = float(
++                getattr(session, "_client_vad_threshold", 500.0)
++            )
++            mean_square = sum(
++                float(sample) * float(sample) for sample in data
++            ) / len(data)
++            rms = math.sqrt(mean_square)
++        except (TypeError, ValueError, OverflowError, ZeroDivisionError):
++            return
++        if rms <= threshold:
++            return
++        now = time.time()
++        previous = float(
++            getattr(session, "_user_recent_activity_time", 0.0) or 0.0
++        )
++        if now > previous:
++            session._user_recent_activity_time = now
++
+     async def _enqueue_audio_stream_data(self, message: dict) -> None:
+         self._ensure_asr_runtime_state()
+         if self._normal_capture_end_owner is not None:
+@@ -3725,6 +3768,7 @@ class AsrRuntimeMixin:
+                 self._asr_route_mode,
+             )
+             return
++        self._note_native_realtime_ingress_activity(message)
+         self._voice_activation_pending_capture[ingress_sequence] = frame.received_at
+         self._ensure_audio_stream_worker()
+         try:
+diff --git a/tests/unit/test_audio_stream_queue.py b/tests/unit/test_audio_stream_queue.py
+index 78f0621a..525b898e 100644
+--- a/tests/unit/test_audio_stream_queue.py
++++ b/tests/unit/test_audio_stream_queue.py
+@@ -245,6 +245,45 @@ def _authorize_core_lease(mgr: LLMSessionManager) -> None:
+     mgr._voice_input_suppressed = False
+ 
+ 
++async def test_native_realtime_loud_ingress_publishes_activity_before_worker():
++    """Backpressured proactive delivery must see speech before the worker lock."""
++    mgr = LLMSessionManager.__new__(LLMSessionManager)
++    mgr._init_asr_runtime_state()
++    _authorize_core_lease(mgr)
++    mgr._set_microphone_route("native")
++    mgr._ensure_audio_stream_worker = lambda: None
++    mgr._audio_stream_queue = AudioDurationQueue(
++        capacity_us=1_000_000,
++        max_frames=10,
++    )
++    session = OmniRealtimeClient.__new__(OmniRealtimeClient)
++    session._client_vad_threshold = 500.0
++    session._user_recent_activity_time = 0.0
++    mgr.session = session
++
++    await LLMSessionManager._enqueue_audio_stream_data(
++        mgr,
++        {
++            "input_type": "audio",
++            "sample_rate_hz": 16_000,
++            "data": [100] * 160,
++        },
++    )
++    assert session._user_recent_activity_time == 0.0
++
++    await LLMSessionManager._enqueue_audio_stream_data(
++        mgr,
++        {
++            "input_type": "audio",
++            "sample_rate_hz": 16_000,
++            "data": [2_000] * 160,
++        },
++    )
++
++    assert session._user_recent_activity_time > 0.0
++    assert mgr._audio_stream_queue.qsize() == 2
++
++
+ async def test_native_audio_without_asr_lifecycle_reaches_internal_processor():
+     mgr = LLMSessionManager.__new__(LLMSessionManager)
+     mgr._init_asr_runtime_state()
