@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T21:32:45+08:00",
+  "desktop_host": {
+    "version": "0.0.0-20261118-e14f6196",
+    "entrypoint": "D:\\xiaoyu_external_audit\\neko-nightly-desktop\\shell\\N.E.K.O.exe",
+    "visible_desktop_avatar_observed": true,
+    "duplicate_launch_guard_verified": true
+  },
+  "existing_xiaoyu_backend": {
+    "main_port": 48911,
+    "main_pid_before_desktop": 72208,
+    "main_pid_after_desktop": 72208,
+    "memory_port": 48912,
+    "memory_pid_before_desktop": 71028,
+    "memory_pid_after_desktop": 71028,
+    "agent_port": 48915,
+    "agent_pid_before_desktop": 65456,
+    "agent_pid_after_desktop": 65456,
+    "plugin_port": 48916,
+    "plugin_pid_before_desktop": 65456,
+    "plugin_pid_after_desktop": 65456,
+    "main_http_200": true,
+    "memory_http_200": true,
+    "agent_http_200": true
+  },
+  "conclusion": {
+    "backend_pids_unchanged": true,
+    "desktop_host_attached_without_replacing_xiaoyu_backend": true,
+    "second_xiaoyu_backend_observed": false,
+    "verdict": "PASS"
+  },
+  "privacy": {
+    "desktop_screenshot_persisted_in_repository": false,
+    "temporary_local_screenshot_deleted_after_visual_check": true,
+    "conversation_content_persisted_in_evidence": false
+  }
+}

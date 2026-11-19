@@ -9,7 +9,7 @@ Principles:
 - Growth mechanics are not implemented in the overlay. N.E.K.O native evidence/reflection/persona-promotion/correction mechanisms remain authoritative; XiaoYu only declares which identity dimensions may or may not change.
 - There is currently no private XiaoYu runtime plugin. Add one only when a concrete acceptance failure cannot be solved by N.E.K.O/configuration/a mature external component.
 - Do not modify N.E.K.O core unless a wanted feature cannot be expressed as configuration, external component, plugin or adapter.
-- Core patches live only in patches/ and are explicitly counted. The current budget is two narrow patches, each admitted only after a reproduced live product gap and tied to acceptance evidence.
+- Core patches live only in patches/ and are explicitly counted. The current budget is four narrow patches, each admitted only after a reproduced live product gap and tied to acceptance evidence.
 - Never dual-write memory/identity authorities.
 - Private customization is optimized for this user, not for upstream generality.
 
@@ -18,11 +18,14 @@ Development layout:
 - private overlay checkout: this repository
 - isolated private state: D:\xiaoyu_private_overlay_state
 - pinned external QQ plugin: private_overlay/QQ_PLUGIN_UPSTREAM.lock.json
+- pinned official desktop host: private_overlay/DESKTOP_SHELL.lock.json
 
 Startup:
 - Run tools/setup_local.ps1 after changing pinned external components.
-- Use tools/start_xiaoyu.ps1 for private XiaoYu use. It verifies local pins, completes N.E.K.O's native first-run storage selection when needed, runs the privacy/authority preflight, sets the isolated XiaoYu storage root, then launches N.E.K.O directly.
-- Use tools/start_xiaoyu.ps1 -PreflightOnly to validate the launch path without starting the UI.
+- Use tools/start_xiaoyu.ps1 for backend-only/private-runtime startup. It verifies local pins, completes N.E.K.O's native first-run storage selection when needed, runs the privacy/authority preflight, sets the isolated XiaoYu storage root, then launches N.E.K.O directly.
+- Use tools/start_xiaoyu_oneclick.ps1 for normal daily use. It waits until the XiaoYu main/memory/agent services are healthy, then launches the pinned official N.E.K.O desktop host so the existing XiaoYu backend is shown as a desktop pet instead of opening a browser.
+- Use tools/start_xiaoyu.ps1 -PreflightOnly to validate the backend launch path without starting the UI.
+- The local desktop shortcut `小鱼 XiaoYu` points to the one-click launcher. The separate debug shortcut opens `http://127.0.0.1:48911/`.
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.
 

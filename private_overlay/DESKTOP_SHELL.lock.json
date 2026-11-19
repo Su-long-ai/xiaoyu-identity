@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "product": "Project N.E.K.O official desktop host",
+  "role": "desktop_window_host_only",
+  "integration_mode": "attach_existing_xiaoyu_backend",
+  "local_root": "D:\\xiaoyu_external_audit\\neko-nightly-desktop\\shell",
+  "entrypoint": "D:\\xiaoyu_external_audit\\neko-nightly-desktop\\shell\\N.E.K.O.exe",
+  "version": "0.0.0-20261118-e14f6196",
+  "platform": "win32",
+  "arch": "x64",
+  "distribution": "archive-portable",
+  "asset_name": "N.E.K.O_0.0.0-20261118-e14f6196_win.zip",
+  "asset_sha256": "ed33dbaf86d9c94089b798928c2ef4f429d8dce109a91f177f2bfd9d7538c152",
+  "entrypoint_sha256": "a34052d34a59ffebb6b472359a4dbe14c0542a5d3e8b6964e6720f73b9534153",
+  "app_asar_sha256": "308a24e599de9989ab84de5ae91628f865c88c657afd7ba47859296d83f58fcb",
+  "launch_policy": {
+    "require_existing_backend_ready": true,
+    "required_endpoints": [
+      "http://127.0.0.1:48911/",
+      "http://127.0.0.1:48912/health",
+      "http://127.0.0.1:48915/health"
+    ],
+    "allow_duplicate_private_runtime": false
+  }
+}
