@@ -77,6 +77,13 @@
       "evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
     },
     {
+      "id": "avatar_vrm_binding",
+      "goal": "XiaoYu desktop avatar resolves through N.E.K.O native Live3D/VRM configuration and serves the bound VRM asset",
+      "status": "native_vrm_binding_page_config_and_asset_pass",
+      "evidence": "evals/evidence/2026-11-19-live-avatar-vrm-binding.json",
+      "note": "Uses N.E.K.O native character/model configuration only; no XiaoYu renderer or core patch is introduced."
+    },
+    {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
       "status": "live_runtime_qq_vision_tools_tts_qwen38_realtime_and_physical_mic_e2e_pass",
