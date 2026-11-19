@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T19:44:53+08:00",
+  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "model": "qwen3.8-omni-flash-realtime",
+  "provider": "dashscope.aliyuncs.com",
+  "test_kind": "privacy_safe_synthetic_audio_live_e2e",
+  "product_data_touched": false,
+  "real_microphone_used": false,
+  "transcript_text_recorded": false,
+  "assistant_text_recorded": false,
+  "baseline_semantic_vad": {
+    "session_started_audio": true,
+    "microphone_route": "native",
+    "session_updated_ack": true,
+    "turn_detection": "semantic_vad",
+    "input_audio_buffer_append_count_observed": 231,
+    "speech_started_observed": false,
+    "transcription_completed_observed": false,
+    "assistant_response_observed": false,
+    "input_audio_buffer_clear_observed": true,
+    "verdict": "FAIL"
+  },
+  "candidate_server_vad": {
+    "session_started_audio": true,
+    "microphone_route": "native",
+    "session_updated_ack": true,
+    "turn_detection": "server_vad",
+    "speech_started_observed": true,
+    "speech_stopped_observed": true,
+    "input_audio_buffer_committed_observed": true,
+    "transcription_completed_observed": true,
+    "nonempty_user_transcript_observed": true,
+    "assistant_response_created_observed": true,
+    "assistant_response_completed_observed": true,
+    "assistant_audio_observed": true,
+    "verdict": "PASS"
+  },
+  "scope": {
+    "qwen3_8": "server_vad",
+    "qwen3_5": "semantic_vad_unchanged",
+    "qwen3": "semantic_vad_unchanged",
+    "qwen_omni_turbo": "server_vad_unchanged"
+  },
+  "regression": {
+    "test": "tests/unit/test_voice_session.py::test_connect_qwen_server_vad_type_follows_model",
+    "result": "4 passed"
+  },
+  "privacy_note": "Wire trace records structural event types, IDs and counts only; no microphone audio, transcript text, prompt text, tool arguments or assistant text were persisted by this evidence."
+}

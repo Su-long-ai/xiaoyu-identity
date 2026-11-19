@@ -68,9 +68,15 @@
       "status": "deferred_until_needed"
     },
     {
+      "id": "realtime_voice_provider_e2e",
+      "goal": "native realtime PCM reaches Qwen3.8 speech detection, transcription and assistant response",
+      "status": "privacy_safe_synthetic_audio_server_vad_live_pass",
+      "evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
+    },
+    {
       "id": "private_product_e2e",
       "goal": "desktop + voice/vision + QQ + tools work under one XiaoYu identity",
-      "status": "live_runtime_qq_vision_tools_tts_pass_realtime_voice_transport_pass_physical_mic_utterance_pending",
+      "status": "live_runtime_qq_vision_tools_tts_pass_qwen38_realtime_synthetic_e2e_pass_physical_mic_utterance_pending",
       "evidence": "evals/evidence/2026-11-19-live-product-surfaces.json"
     },
     {

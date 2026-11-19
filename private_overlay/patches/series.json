@@ -10,6 +10,11 @@
       "file": "0002-full-chat-native-voice-entry.patch",
       "reason": "Live physical-microphone acceptance was blocked because the active Full Chat surface exposed no visible voice control even though N.E.K.O's native microphone/realtime runtime was present. Add only a visible bridge to the existing #micButton.",
       "evidence": "evals/evidence/2026-11-19-live-voice-ui-entry.json"
+    },
+    {
+      "file": "0003-qwen38-server-vad-reliability.patch",
+      "reason": "Live privacy-safe synthetic-audio E2E reproduced a Qwen3.8 native realtime failure: semantic_vad accepted session.update and 231 audio appends but emitted no speech/transcript/reply before buffer clear. The same PCM with server_vad emitted speech_started, completed transcription and a completed assistant response. Scope the fallback to qwen3.8 only.",
+      "evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."
