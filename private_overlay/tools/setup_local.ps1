@@ -7,6 +7,96 @@ $ErrorActionPreference = "Stop"
 $OverlayRoot = Split-Path -Parent $PSScriptRoot
 $QQLockPath = Join-Path $OverlayRoot "QQ_PLUGIN_UPSTREAM.lock.json"
 
+function Assert-LastExitCode([string]$What) {
+    if ($LASTEXITCODE -ne 0) {
+        throw "$What failed with exit code $LASTEXITCODE"
+    }
+}
+
+function Ensure-NekoUiAssets {
+    $TemplateIndex = Join-Path $NekoRoot "templates\index.html"
+    $PluginManagerPackage = Join-Path $NekoRoot "frontend\plugin-manager\package.json"
+    $ChatPackage = Join-Path $NekoRoot "frontend\react-neko-chat\package.json"
+    $PluginManagerDist = Join-Path $NekoRoot "frontend\plugin-manager\dist\index.html"
+    $ChatBundle = Join-Path $NekoRoot "static\react\neko-chat\neko-chat-window.iife.js"
+
+    $SourceAssets = @($TemplateIndex, $PluginManagerPackage, $ChatPackage)
+    $MissingSource = @($SourceAssets | Where-Object { -not (Test-Path $_) })
+
+    if ($MissingSource.Count -gt 0) {
+        if ($VerifyOnly) {
+            throw "N.E.K.O UI source is incomplete; run setup_local.ps1 once to expand the pinned checkout. Missing: $($MissingSource -join ', ')"
+        }
+
+        $SparseCheckout = (git -C $NekoRoot config --bool core.sparseCheckout 2>$null)
+        if (-not $SparseCheckout -or $SparseCheckout.Trim() -ne "true") {
+            throw "N.E.K.O UI source is missing from a non-sparse checkout: $($MissingSource -join ', ')"
+        }
+
+        Write-Host "== Expand pinned N.E.K.O checkout for native UI =="
+        git -C $NekoRoot sparse-checkout add frontend templates
+        Assert-LastExitCode "git sparse-checkout add frontend templates"
+
+        $MissingSource = @($SourceAssets | Where-Object { -not (Test-Path $_) })
+        if ($MissingSource.Count -gt 0) {
+            throw "N.E.K.O UI source is still incomplete after sparse expansion: $($MissingSource -join ', ')"
+        }
+    }
+
+    $BuildAssets = @($PluginManagerDist, $ChatBundle)
+    $MissingBuild = @($BuildAssets | Where-Object { -not (Test-Path $_) })
+    if ($MissingBuild.Count -gt 0) {
+        if ($VerifyOnly) {
+            throw "N.E.K.O UI build artifacts are missing; run setup_local.ps1 once. Missing: $($MissingBuild -join ', ')"
+        }
+
+        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "npm is required to build the pinned N.E.K.O UI"
+        }
+
+        if (-not (Test-Path $PluginManagerDist)) {
+            Write-Host "== Build native N.E.K.O plugin manager UI =="
+            $PluginManagerRoot = Join-Path $NekoRoot "frontend\plugin-manager"
+            Push-Location $PluginManagerRoot
+            try {
+                if (-not (Test-Path (Join-Path $PluginManagerRoot "node_modules\.bin\vite.cmd"))) {
+                    npm ci
+                    Assert-LastExitCode "npm ci (plugin-manager)"
+                }
+                npm run build-only
+                Assert-LastExitCode "npm run build-only (plugin-manager)"
+            }
+            finally {
+                Pop-Location
+            }
+        }
+
+        if (-not (Test-Path $ChatBundle)) {
+            Write-Host "== Build native N.E.K.O chat UI =="
+            $ChatRoot = Join-Path $NekoRoot "frontend\react-neko-chat"
+            Push-Location $ChatRoot
+            try {
+                if (-not (Test-Path (Join-Path $ChatRoot "node_modules"))) {
+                    npm ci
+                    Assert-LastExitCode "npm ci (react-neko-chat)"
+                }
+                npm run build
+                Assert-LastExitCode "npm run build (react-neko-chat)"
+            }
+            finally {
+                Pop-Location
+            }
+        }
+
+        $MissingBuild = @($BuildAssets | Where-Object { -not (Test-Path $_) })
+        if ($MissingBuild.Count -gt 0) {
+            throw "N.E.K.O UI build did not produce required artifacts: $($MissingBuild -join ', ')"
+        }
+    }
+
+    Write-Host "PASS: native N.E.K.O UI source and build artifacts are ready"
+}
+
 if (Test-Path $QQLockPath) {
     $QQLock = Get-Content $QQLockPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $QQRoot = Join-Path $NekoRoot "plugin\plugins\qq_auto_reply"
@@ -20,7 +110,7 @@ if (Test-Path $QQLockPath) {
         }
         Write-Host "== Clone pinned external QQ plugin =="
         git clone --filter=blob:none --depth 1 $QQLock.repository $QQRoot
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Assert-LastExitCode "git clone QQ plugin"
     }
 
     $Dirty = git -C $QQRoot status --porcelain
@@ -31,9 +121,9 @@ if (Test-Path $QQLockPath) {
     if (-not $VerifyOnly) {
         Write-Host "== Sync pinned external QQ plugin =="
         git -C $QQRoot fetch origin $QQLock.tested_commit --depth 1
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Assert-LastExitCode "git fetch QQ plugin"
         git -C $QQRoot checkout --detach $QQLock.tested_commit
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Assert-LastExitCode "git checkout QQ plugin pin"
     }
 
     $QQHead = (git -C $QQRoot rev-parse HEAD).Trim()
@@ -42,9 +132,11 @@ if (Test-Path $QQLockPath) {
     }
 }
 
+Ensure-NekoUiAssets
+
 if ($VerifyOnly) {
-    Write-Host "PASS: pinned external dependencies match locally"
+    Write-Host "PASS: pinned external dependencies and native UI assets match locally"
 } else {
-    Write-Host "PASS: external dependencies are pinned; no private XiaoYu runtime plugin is required"
+    Write-Host "PASS: external dependencies are pinned; native UI is ready; no private XiaoYu runtime plugin is required"
 }
 exit 0

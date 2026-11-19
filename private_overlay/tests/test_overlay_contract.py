@@ -85,5 +85,25 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("start_plugin", script)
 
 
+    def test_setup_keeps_neko_ui_native_and_repairable(self):
+        script = (ROOT / "tools" / "setup_local.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "templates\\index.html",
+            "frontend\\plugin-manager\\package.json",
+            "frontend\\react-neko-chat\\package.json",
+            "frontend\\plugin-manager\\dist\\index.html",
+            "static\\react\\neko-chat\\neko-chat-window.iife.js",
+            "sparse-checkout add frontend templates",
+            "npm run build-only",
+            "npm run build",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+        self.assertNotIn("build_frontend.bat", script)
+        self.assertNotIn("plugins\\xiaoyu_private", script)
+
+
 if __name__ == "__main__":
     unittest.main()
