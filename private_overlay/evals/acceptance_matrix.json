@@ -58,8 +58,9 @@
     {
       "id": "commitment_restart",
       "goal": "commitments survive restart without duplicate proactive delivery",
-      "status": "native_cue_live_qq_receipt_restart_dedup_pass_integrated_proactive_runtime_pass_commitment_specific_surface_pending",
-      "evidence": "evals/evidence/2026-11-18-live-commitment-delivery.json"
+      "status": "native_cue_live_qq_receipt_restart_dedup_pass_no_private_surface_required",
+      "evidence": "evals/evidence/2026-11-18-live-commitment-delivery.json",
+      "note": "Acceptance goal is restart continuity plus exactly-once proactive delivery. Native N.E.K.O cue/delivery already proves this; a separate XiaoYu commitment UI would duplicate the mother project without adding required behavior."
     },
     {
       "id": "uncertain_effect",
