@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T20:58:53+08:00",
+  "upgrade": {
+    "from_neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+    "to_neko_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+    "upstream_repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
+    "upstream_branch": "main",
+    "origin_main_confirmed_equal_to_target": true,
+    "upstream_delta": {
+      "files_changed": 423,
+      "insertions": 67474,
+      "deletions": 3369
+    },
+    "python_dependency_files_changed": false,
+    "python_runtime": "3.11.9"
+  },
+  "reuse_rationale": {
+    "decision": "PROMOTE_UPSTREAM_MOTHER_PROJECT",
+    "reason": "The newer N.E.K.O mother project provides broad upstream gains in NekoClaw/session/space, plugin call-chain, remote access, voice/multimodal and runtime reliability. Reusing those upstream capabilities has higher global product value than keeping the older mother-project pin and recreating them privately.",
+    "duplicate_private_runtime_added": false
+  },
+  "patch_replay": {
+    "managed_patch_count": 4,
+    "patch_1": "directly applies on new upstream",
+    "patch_2": "same Full Chat native mic bridge rebased to the new upstream source context; no behavior expansion",
+    "patch_3": "directly applies on new upstream",
+    "patch_4": "directly applies on new upstream",
+    "clean_replay_verified": true,
+    "clean_replay_binary_diff_sha256": "C0B688E8FB428ABF9158C9B0B1170FFC5BA4F216FC7E5E6F91E828377D5737C4",
+    "candidate_binary_diff_sha256": "C0B688E8FB428ABF9158C9B0B1170FFC5BA4F216FC7E5E6F91E828377D5737C4",
+    "canonical_binary_diff_sha256": "C0B688E8FB428ABF9158C9B0B1170FFC5BA4F216FC7E5E6F91E828377D5737C4",
+    "all_equal": true,
+    "rollback_branch": "xiaoyu-pin-402695c-pre-upgrade"
+  },
+  "candidate_verification": {
+    "overlay_tests": "22/22 PASS",
+    "provider_privacy": "PASS",
+    "release_readiness_before_upgrade_case": "16/16 PASS",
+    "voice_audio_proactive_memory_plugin_qq_native_batch": "730 passed, 4 skipped, 0 failed",
+    "nekoclaw_task_runtime_batch": "1032 passed, 0 failed",
+    "full_chat_voice_bridge": "1 passed, 296 skipped",
+    "live_synthetic_realtime": {
+      "session_route": "native",
+      "nonempty_user_transcript": true,
+      "model_reply_after_user": true,
+      "provider_buffer_committed": true,
+      "verdict": "PASS"
+    }
+  },
+  "canonical_promotion": {
+    "canonical_path": "D:\\xiaoyu_external_audit\\N.E.K.O",
+    "branch": "main",
+    "head": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+    "startup_preflight": "PASS",
+    "live_restart": {
+      "launcher_ready_time_local": "2026-11-19T20:58:26+08:00",
+      "launcher_executable": "D:\\xiaoyu_external_audit\\N.E.K.O\\.venv\\Scripts\\python.exe",
+      "main_http": 200,
+      "memory_http": 200,
+      "agent_http": 200
+    },
+    "plugin_autostart": {
+      "registry_refreshed": true,
+      "discovered_count": 12,
+      "autostart_candidates": [
+        "qq_auto_reply",
+        "web_search"
+      ],
+      "started": [
+        "qq_auto_reply",
+        "web_search"
+      ],
+      "failed": {},
+      "agent_master_required": false,
+      "agent_user_plugin_enabled": false,
+      "qq_status": "running",
+      "web_search_status": "running",
+      "qq_forward_ws_connected_time_local": "2026-11-19T20:58:29+08:00",
+      "qq_login_info_ok_time_local": "2026-11-19T20:58:30+08:00"
+    },
+    "avatar": {
+      "model_type": "live3d",
+      "live3d_sub_type": "vrm",
+      "model_path": "/static/vrm/sister1.0.vrm"
+    }
+  },
+  "privacy": {
+    "microphone_audio_persisted_in_evidence": false,
+    "transcript_text_persisted_in_evidence": false,
+    "assistant_text_persisted_in_evidence": false,
+    "qq_message_content_persisted_in_evidence": false,
+    "qq_identifiers_persisted_in_evidence": false,
+    "access_tokens_persisted_in_evidence": false
+  },
+  "verdict": "PASS"
+}

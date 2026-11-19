@@ -390,7 +390,7 @@ def main() -> int:
     ap.add_argument("--evidence", type=Path)
     ap.add_argument(
         "--neko-commit",
-        default="402695cd115323440dfd4e6860c25a32c10dda43",
+        default="7b776173e758401a3819e3ad3d4179e86e23eb0e",
     )
     args = ap.parse_args()
     if sys.platform == "win32":

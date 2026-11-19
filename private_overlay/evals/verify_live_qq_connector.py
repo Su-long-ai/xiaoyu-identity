@@ -222,7 +222,7 @@ def main() -> int:
     ap.add_argument("--plugin-state", type=Path, default=DEFAULT_PLUGIN_STATE)
     ap.add_argument(
         "--neko-commit",
-        default="402695cd115323440dfd4e6860c25a32c10dda43",
+        default="7b776173e758401a3819e3ad3d4179e86e23eb0e",
     )
     ap.add_argument(
         "--qq-plugin-commit",

@@ -26,7 +26,7 @@ index 220a3eb8..7186c7f0 100644
      const message = parseChatMessage({
        id: 'm-full-hidden',
 diff --git a/frontend/react-neko-chat/src/FullChatSurface.tsx b/frontend/react-neko-chat/src/FullChatSurface.tsx
-index f35fef3a..93b7d426 100644
+index f35fef3a..29f9bf4b 100644
 --- a/frontend/react-neko-chat/src/FullChatSurface.tsx
 +++ b/frontend/react-neko-chat/src/FullChatSurface.tsx
 @@ -2367,6 +2367,25 @@ export default function FullChatSurface({
@@ -42,9 +42,9 @@ index f35fef3a..93b7d426 100644
 +      data-neko-tooltip={voiceControlButtonLabel}
 +      disabled={composerInteractionsDisabled}
 +      onClick={() => {
-+        const legacyMicButton = document.getElementById('micButton');
-+        if (legacyMicButton instanceof HTMLButtonElement && !legacyMicButton.disabled) {
-+          legacyMicButton.click();
++        const nativeMicButton = document.getElementById('micButton');
++        if (nativeMicButton instanceof HTMLButtonElement && !nativeMicButton.disabled) {
++          nativeMicButton.click();
 +        }
 +      }}
 +    >

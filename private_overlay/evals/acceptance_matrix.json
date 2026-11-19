@@ -102,6 +102,13 @@
       "goal": "legacy canonical XiaoYu persona can be staged deterministically into N.E.K.O without importing bootstrap/test memories or widening scope",
       "status": "dedicated_product_root_live_launch_pass",
       "evidence": "evals/evidence/2026-11-18-live-xiaoyu-runtime-startup.json"
+    },
+    {
+      "id": "neko_upstream_upgrade",
+      "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
+      "status": "origin_main_7b_full_regression_clean_patch_replay_and_canonical_live_restart_pass",
+      "evidence": "evals/evidence/2026-11-19-neko-upstream-7b776173-upgrade.json",
+      "note": "Promotes upstream capability rather than recreating it privately; the four XiaoYu core patches remain narrowly scoped and deterministic."
     }
   ]
 }

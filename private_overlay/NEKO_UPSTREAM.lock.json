@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-  "tested_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "tested_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
   "tested_branch": "main",
   "integration_mode": "private_data_policy_overlay",
   "memory_authority": "neko_native",

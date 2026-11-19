@@ -3,7 +3,7 @@
   "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
   "tested_branch": "main",
   "tested_version": "0.16.0",
-  "neko_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "neko_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
   "role": "external_qq_surface",
   "vendored_into_overlay": false,
   "core_patch_required": false
