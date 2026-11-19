@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-19T17:52:35+08:00",
+  "neko_upstream_commit": "402695cd115323440dfd4e6860c25a32c10dda43",
+  "gap": {
+    "surface": "Full Chat composer toolbar",
+    "native_voice_runtime_present": true,
+    "hidden_compatibility_mic_button_present": true,
+    "visible_voice_control_present_before_patch": false,
+    "physical_microphone_acceptance_blocked_by_ui": true
+  },
+  "patch": {
+    "file": "patches/0002-full-chat-native-voice-entry.patch",
+    "behavior": "Expose a Full Chat voice-control button that delegates to the existing native #micButton; no audio capture, realtime provider, or TTS logic is duplicated."
+  },
+  "verification": {
+    "react_build_pass": true,
+    "targeted_bridge_test_pass": true,
+    "targeted_test": "bridges the full voice control to the native microphone button",
+    "native_mic_click_count_expected": 1,
+    "native_mic_click_count_observed": 1
+  },
+  "live_physical_microphone_utterance": "PENDING_USER_UTTERANCE",
+  "verdict": "UI_ENTRY_READY_FOR_LIVE_MIC_TEST"
+}

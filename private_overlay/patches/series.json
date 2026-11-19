@@ -5,6 +5,11 @@
       "file": "0001-proactive-autostart-idle-gate.patch",
       "reason": "Live proactive delivery auto-started a text session, then self-blocked because start_session refreshed last_user_activity_time. After an internal auto-start, the claim recheck must use genuine user engagement instead of lifecycle activity.",
       "evidence": "evals/evidence/2026-11-19-live-proactive-autostart.json"
+    },
+    {
+      "file": "0002-full-chat-native-voice-entry.patch",
+      "reason": "Live physical-microphone acceptance was blocked because the active Full Chat surface exposed no visible voice control even though N.E.K.O's native microphone/realtime runtime was present. Add only a visible bridge to the existing #micButton.",
+      "evidence": "evals/evidence/2026-11-19-live-voice-ui-entry.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

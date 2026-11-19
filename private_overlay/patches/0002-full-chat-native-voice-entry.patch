@@ -1,0 +1,74 @@
+diff --git a/frontend/react-neko-chat/src/App.test.tsx b/frontend/react-neko-chat/src/App.test.tsx
+index 220a3eb8..7186c7f0 100644
+--- a/frontend/react-neko-chat/src/App.test.tsx
++++ b/frontend/react-neko-chat/src/App.test.tsx
+@@ -291,6 +291,22 @@ describe('App', () => {
+     expect(container.querySelector('.compact-chat-stage')).toBeNull();
+   });
+ 
++  it('bridges the full voice control to the native microphone button', () => {
++    const nativeMicButton = document.createElement('button');
++    nativeMicButton.id = 'micButton';
++    const nativeMicClick = vi.fn();
++    nativeMicButton.addEventListener('click', nativeMicClick);
++    document.body.appendChild(nativeMicButton);
++
++    try {
++      render(<App chatSurfaceMode="full" />);
++      fireEvent.click(screen.getByRole('button', { name: 'Voice control' }));
++      expect(nativeMicClick).toHaveBeenCalledTimes(1);
++    } finally {
++      nativeMicButton.remove();
++    }
++  });
++
+   it('hides the full composer and tools when composerHidden is true', () => {
+     const message = parseChatMessage({
+       id: 'm-full-hidden',
+diff --git a/frontend/react-neko-chat/src/FullChatSurface.tsx b/frontend/react-neko-chat/src/FullChatSurface.tsx
+index f35fef3a..93b7d426 100644
+--- a/frontend/react-neko-chat/src/FullChatSurface.tsx
++++ b/frontend/react-neko-chat/src/FullChatSurface.tsx
+@@ -2367,6 +2367,25 @@ export default function FullChatSurface({
+     </button>
+   );
+ 
++  const voiceControlButtonLabel = i18n('buttons.voiceControl', 'Voice control');
++  const voiceControlButtonNode = (
++    <button
++      className="composer-tool-btn composer-voice-control-btn"
++      type="button"
++      aria-label={voiceControlButtonLabel}
++      data-neko-tooltip={voiceControlButtonLabel}
++      disabled={composerInteractionsDisabled}
++      onClick={() => {
++        const legacyMicButton = document.getElementById('micButton');
++        if (legacyMicButton instanceof HTMLButtonElement && !legacyMicButton.disabled) {
++          legacyMicButton.click();
++        }
++      }}
++    >
++      <img src="/static/icons/mic_icon_off.png" alt="" aria-hidden="true" />
++    </button>
++  );
++
+   const galgameToggleButtonNode = (
+     <button
+       className={`composer-tool-btn composer-galgame-btn${galgameModeEnabled ? ' is-active' : ''}`}
+@@ -3528,6 +3547,8 @@ export default function FullChatSurface({
+                       <span className="composer-tool-divider" aria-hidden="true">|</span>
+                       {jukeboxButtonNode}
+                       <span className="composer-tool-divider" aria-hidden="true">|</span>
++                      {voiceControlButtonNode}
++                      <span className="composer-tool-divider" aria-hidden="true">|</span>
+                       {emojiToolMenuNode}
+                     </div>
+                   ) : (
+@@ -3568,6 +3589,7 @@ export default function FullChatSurface({
+                           {galgameToggleButtonNode}
+                           {translateButtonNode}
+                           {jukeboxButtonNode}
++                          {voiceControlButtonNode}
+                           {emojiToolMenuNode}
+                         </div>
+                       ) : null}
