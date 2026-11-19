@@ -22,8 +22,8 @@
     {
       "id": "private_group_isolation",
       "goal": "owner-private memory does not leak into group context",
-      "status": "isolated_live_scope_pass_real_group_surface_roundtrip_pass_private_canary_surface_retest_pending",
-      "evidence": "evals/evidence/2026-11-18-live-scope-isolation.json"
+      "status": "live_private_canary_real_group_non_disclosure_pass",
+      "evidence": "evals/evidence/2026-11-19-live-private-group-canary.json"
     },
     {
       "id": "provider_privacy",
