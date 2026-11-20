@@ -88,9 +88,12 @@ def summarize(data, prices, today):
         for model, b in info.get("by_model", {}).items():
             if model == "app_start":
                 continue
+            tokens = int(b.get("total_tokens",0))
+            chars = int(b.get("prompt_chars",0))
             rows.append({"day":day,"model":model,"calls":int(b.get("call_count",0)),
-                         "tokens":int(b.get("total_tokens",0)),
-                         "chars":int(b.get("prompt_chars",0)),
+                         "tokens":tokens,
+                         "chars":chars,
+                         "has_usage":bool(tokens or chars),
                          "cost":estimate(b, tariffs.get(model), aggregate=True)})
         if day==today.isoformat():
             for k,b in info.get("by_call_type",{}).items():
@@ -99,9 +102,12 @@ def summarize(data, prices, today):
                              "chars":int(b.get("prompt_chars",0))}
     def total(selected):
         known=[r for r in selected if r["cost"] is not None]
-        unknown=[r for r in selected if r["cost"] is None]
+        unknown=[r for r in selected if r["has_usage"] and r["cost"] is None]
+        no_usage=[r for r in selected if not r["has_usage"]]
         return {"low":sum(r["cost"][0] for r in known),"high":sum(r["cost"][1] for r in known),
-                "unknown_calls":sum(r["calls"] for r in unknown),"calls":sum(r["calls"] for r in selected),
+                "unknown_calls":sum(r["calls"] for r in unknown),
+                "no_usage_calls":sum(r["calls"] for r in no_usage),
+                "calls":sum(r["calls"] for r in selected),
                 "tokens":sum(r["tokens"] for r in selected),"known_rows":len(known)}
     periods={
         "今日":total([r for r in rows if r["day"]==today.isoformat()]),
@@ -137,14 +143,14 @@ def render(data,prices,today):
         if not p["known_rows"]: return f"¥{lim:g} · 缺少可计价数据"
         state="估算已达预算" if p["low"]>=lim else "估算可能达到预算" if p["high"]>=lim else "已计价部分低于预算"
         return f"¥{lim:g} · {state}（非硬限额）"
-    cards="".join(f'<article><small>{e(k)}</small><h2>{fmt((v["low"],v["high"])) if v["known_rows"] else "暂无可计价数据"}</h2><p>{v["tokens"]:,} Token · {v["calls"]:,} 次记录</p><p class="muted">未计价：{v["unknown_calls"]:,} 次</p></article>' for k,v in periods.items())
-    modelrows="".join(f'<tr><td>{e(r["day"])}</td><td>{e(r["model"])}</td><td>{r["calls"]:,}</td><td>{r["tokens"]:,}</td><td>{r["chars"]:,}</td><td>{fmt(r["cost"]) if r["cost"] is not None else "未计价"}</td></tr>' for r in rows)
+    cards="".join(f'<article><small>{e(k)}</small><h2>{fmt((v["low"],v["high"])) if v["known_rows"] else "暂无可计价数据"}</h2><p>{v["tokens"]:,} Token · {v["calls"]:,} 次记录</p><p class="muted">有用量但未计价：{v["unknown_calls"]:,} 次 · 无用量记录：{v["no_usage_calls"]:,} 次</p></article>' for k,v in periods.items())
+    modelrows="".join(f'<tr><td>{e(r["day"])}</td><td>{e(r["model"])}</td><td>{r["calls"]:,}</td><td>{r["tokens"]:,}</td><td>{r["chars"]:,}</td><td>{fmt(r["cost"]) if r["cost"] is not None else ("无用量记录" if not r["has_usage"] else "未计价")}</td></tr>' for r in rows)
     frows="".join(f'<tr><td>{e(k)}</td><td>{v["calls"]:,}</td><td>{v["tokens"]:,}</td><td>{v["chars"]:,}</td></tr>' for k,v in sorted(features.items(),key=lambda kv:kv[1]["tokens"],reverse=True))
     srows="".join(f'<tr><td>{e(k)}</td><td>{v["known_calls"]}/{v["calls"]}</td><td>{fmt((v["low"],v["high"])) if v["known_calls"] else "未计价"}</td></tr>' for k,v in sorted(sample.items(),key=lambda kv:kv[1]["high"],reverse=True))
     return f"""<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小鱼 API 费用</title><style>
 body{{font:15px system-ui,sans-serif;background:#12151b;color:#e7eaf0;margin:0;padding:28px;line-height:1.6}}main{{max-width:1100px;margin:auto}}h1{{font-size:28px;margin-bottom:0}}h2{{font-size:22px;margin:7px 0}}h3{{margin-top:30px}}.muted,small{{color:#a8b1c0}}.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}}article,section{{background:#1b2029;border:1px solid #303847;border-radius:12px;padding:16px}}article p{{margin:4px 0}}table{{width:100%;border-collapse:collapse}}td,th{{padding:9px;text-align:left;border-bottom:1px solid #343b46}}td:nth-child(n+3),th:nth-child(n+3){{text-align:right}}.scroll{{overflow:auto}}a{{color:#92c6ff}}code{{overflow-wrap:anywhere}}</style><main>
 <h1>小鱼 API 费用</h1><p class="muted">N.E.K.O 原生统计 · 最后保存：{e(data.get("last_saved") or "无")} · 价格方案：{e(prices.get("profile","未配置"))}</p>
-<p>以下仅为<strong>已计价项目的参考估算</strong>，不代表完整账单。免费额度、折扣、供应商差异、实时音频、语音、未记录调用等可能造成差异。价格历史未追踪，按当前配置重估历史。</p>
+<p>以下为<strong>本地可观测用量的参考估算</strong>，不代表供应商实际账单。免费额度、折扣、供应商差异及未记录调用等可能造成差异；Realtime 因原生统计未拆分模态而显示保守上下界。价格历史未追踪，按当前配置重估历史。</p>
 <div class="cards">{cards}</div><h3>预算提示</h3><section>每日：{e(status("今日",budget))}<br>每月：{e(status("本月",monthly))}<br><small>只读提醒，不会停止 API。修改 api_prices.json 设置预算及价格。</small></section>
 <h3>按天 / 模型</h3><section class="scroll"><table><tr><th>日期</th><th>模型</th><th>次数</th><th>Token</th><th>字符</th><th>估算费用</th></tr>{modelrows}</table></section>
 <h3>今日功能用量（完整已保存汇总）</h3><section class="scroll"><table><tr><th>功能</th><th>次数</th><th>Token</th><th>字符</th></tr>{frows}</table></section>

@@ -46,7 +46,20 @@ class TestCost(unittest.TestCase):
         d={"daily_stats":{"2026-11-20":{"by_model":{"unknown":{"total_tokens":100,"call_count":1}}}}}
         totals,*_=summarize(d,{},date(2026,11,20))
         self.assertEqual(totals["今日"]["unknown_calls"],1)
+        self.assertEqual(totals["今日"]["no_usage_calls"],0)
         self.assertEqual(totals["今日"]["known_rows"],0)
+
+    def test_zero_usage_is_separate_from_unpriced_usage(self):
+        d={"daily_stats":{"2026-11-20":{"by_model":{
+            "priced-but-empty":{"total_tokens":0,"prompt_chars":0,"call_count":3},
+            "unknown":{"total_tokens":100,"call_count":2},
+        }}}}
+        totals,*_=summarize(d,{},date(2026,11,20))
+        self.assertEqual(totals["今日"]["unknown_calls"],2)
+        self.assertEqual(totals["今日"]["no_usage_calls"],3)
+        page=render(d,{},date(2026,11,20))
+        self.assertIn("无用量记录：3 次",page)
+        self.assertIn("有用量但未计价：2 次",page)
 
 if __name__=="__main__":
     unittest.main()
