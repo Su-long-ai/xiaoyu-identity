@@ -198,6 +198,6 @@ Ensure-NekoUiAssets
 if ($VerifyOnly) {
     Write-Host "PASS: pinned external dependencies and native UI assets match locally"
 } else {
-    Write-Host "PASS: external dependencies are pinned; native UI is ready; no private XiaoYu runtime plugin is required"
+    Write-Host "PASS: external dependencies are pinned and native UI is ready; XiaoYu private plugin code is installed/verified separately by start_xiaoyu.ps1 through N.E.K.O package workflow"
 }
 exit 0

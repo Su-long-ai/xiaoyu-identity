@@ -1,0 +1,216 @@
+diff --git a/main_logic/core/streaming.py b/main_logic/core/streaming.py
+index 7f3860e0..4bbd75ac 100644
+--- a/main_logic/core/streaming.py
++++ b/main_logic/core/streaming.py
+@@ -712,6 +712,7 @@ class StreamingMixin:
+                     memory_text = self._clean_frontend_memory_text(message.get("memory_text"))
+                     message_source = str(message.get("source") or "").strip()
+                     record_data = memory_text or data
++                    self._arm_private_speech_fast_control(record_data)
+                     # Additional turn context (knowledge/corpus/memory): start parallel retrieval as soon as original user text arrives,
+                     # alongside interruption, TTS cleanup, and focused-cognition checks below; retrieve results before model submission,
+                     # sharing one time budget. Query with visible original user text (record_data),
+diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
+index bb3553b6..7a728df9 100644
+--- a/main_logic/core/tts_runtime.py
++++ b/main_logic/core/tts_runtime.py
+@@ -23,6 +23,7 @@ import asyncio
+ import hashlib
+ import json
+ import math
++import os
+ import re
+ import time
+ from typing import Optional
+@@ -315,6 +316,68 @@ class TtsRuntimeMixin:
+             [(speech_id, remaining)] if remaining else []
+         )
+ 
++    def _arm_private_speech_fast_control(self, text: str | None) -> None:
++        """Current-turn fast path for explicit XiaoYu speech mute/unmute commands.
++
++        Persistent authority remains the private plugin state file. This only
++        closes the race before the asynchronous semantic classifier updates it.
++        It is disabled completely unless NEKO_PRIVATE_SPEECH_GATE_FILE is set.
++        """
++        if not os.getenv("NEKO_PRIVATE_SPEECH_GATE_FILE", "").strip():
++            self._private_speech_fast_override = None
++            return
++        value = re.sub(r"[\s，。！？、,.!?;；:：~～…]+", "", str(text or "").strip().lower())
++        changed = True
++        while changed:
++            changed = False
++            for prefix in ("小鱼小鱼", "小鱼", "请", "麻烦"):
++                if value.startswith(prefix) and len(value) > len(prefix):
++                    value = value[len(prefix):]
++                    changed = True
++                    break
++        mute = {
++            "不说话", "别说话", "不要说话", "先别说话", "先不要说话",
++            "安静", "安静一下", "先安静", "闭嘴", "别出声", "不要出声",
++        }
++        unmute = {
++            "可以说话了", "说话吧", "继续说", "继续说话", "恢复说话", "解除静音",
++        }
++        if value in mute:
++            self._private_speech_fast_override = True
++        elif value in unmute:
++            self._private_speech_fast_override = False
++        else:
++            self._private_speech_fast_override = None
++
++    def _private_speech_output_muted(self) -> bool:
++        """Read an optional private speech gate without changing native config."""
++        override = getattr(self, "_private_speech_fast_override", None)
++        if isinstance(override, bool):
++            return override
++
++        path = os.getenv("NEKO_PRIVATE_SPEECH_GATE_FILE", "").strip()
++        if not path:
++            return False
++        cached = getattr(self, "_private_speech_gate_cache", None)
++        try:
++            stat = os.stat(path)
++            key = (path, stat.st_mtime_ns, stat.st_size)
++            if isinstance(cached, tuple) and len(cached) == 2 and cached[0] == key:
++                return bool(cached[1])
++            with open(path, "r", encoding="utf-8") as handle:
++                payload = json.load(handle)
++            muted = bool(payload.get("speech_muted", False)) if isinstance(payload, dict) else False
++            self._private_speech_gate_cache = (key, muted)
++            return muted
++        except (OSError, ValueError, TypeError):
++            # If a rewrite is momentarily unreadable, keep the last known gate
++            # for this same path; otherwise preserve normal N.E.K.O behavior.
++            if isinstance(cached, tuple) and len(cached) == 2:
++                key, value = cached
++                if isinstance(key, tuple) and key and key[0] == path:
++                    return bool(value)
++            return False
++
+     def _put_tts_text(self, speech_id, text: str) -> None:
+         """Put one cleaned text chunk on the TTS request queue (the only place text is queued).
+ 
+@@ -347,6 +410,14 @@ class TtsRuntimeMixin:
+         ``tts_request_queue.put``, calling ``_reset_tts_stream_normalizer`` at the
+         appropriate moment.
+         """
++        if self._private_speech_output_muted():
++            logger.debug(
++                "[voice-chain] stage=tts_gate speech_id=%s action=drop_text text_len=%d",
++                speech_id,
++                len(text or ""),
++            )
++            return
++
+         # Retain pre-normalized text because the replacement may use another protocol class.
+         # Preserve raw pre-normalization text; fallback worker may use another protocol class and need original-text replay.
+         self._remember_tts_replay_chunk(speech_id, text)
+@@ -2408,6 +2479,8 @@ class TtsRuntimeMixin:
+ 
+         Returns ``(audio_sent, done_sent)``.
+         """
++        if self._private_speech_output_muted():
++            return False, False
+         chunks = list(audio_chunks or ())
+         try:
+             websocket = self.websocket
+@@ -2462,6 +2535,8 @@ class TtsRuntimeMixin:
+ 
+     async def send_speech(self, tts_audio, speech_id: Optional[str] = None):
+         """Send speech data to the frontend, sending the speech_id header first for precise interruption control"""
++        if self._private_speech_output_muted():
++            return False
+         try:
+             # Pinned once. The lock keeps other SENDERS out, but ``self.websocket``
+             # is reassigned by reconnect/teardown, which are not senders and do not
+diff --git a/main_logic/core/turn.py b/main_logic/core/turn.py
+index be3b7b4f..4a68cb3e 100644
+--- a/main_logic/core/turn.py
++++ b/main_logic/core/turn.py
+@@ -2691,6 +2691,7 @@ class TurnMixin:
+             # bumps _conv_seq to invalidate open_threads cache, and buffers text for
+             # emotion-tier LLMs. Empty transcripts trigger none of these.
+             if record_transcript_text:
++                self._arm_private_speech_fast_control(transcript)
+                 self._note_user_turn(text=transcript)
+                 # Only genuine nonempty, echo-filtered voice messages refresh true-message timestamps
+                 # used for mini-game implicit dismissal, excluding echoes/noise.
+diff --git a/tests/unit/test_private_speech_output_gate.py b/tests/unit/test_private_speech_output_gate.py
+new file mode 100644
+index 00000000..1e6f307b
+--- /dev/null
++++ b/tests/unit/test_private_speech_output_gate.py
+@@ -0,0 +1,72 @@
++import json
++import os
++import tempfile
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++from main_logic.core.tts_runtime import TtsRuntimeMixin
++
++
++class PrivateSpeechGateTests(unittest.IsolatedAsyncioTestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.state = Path(self.tmp.name) / "state.json"
++        self.obj = TtsRuntimeMixin()
++
++    def _write(self, muted):
++        self.state.write_text(json.dumps({"speech_muted": bool(muted)}), encoding="utf-8")
++
++    def _env(self):
++        return patch.dict(os.environ, {"NEKO_PRIVATE_SPEECH_GATE_FILE": str(self.state)}, clear=False)
++
++    def test_gate_is_disabled_without_env(self):
++        with patch.dict(os.environ, {}, clear=True):
++            self.assertFalse(self.obj._private_speech_output_muted())
++
++    def test_file_gate_tracks_plugin_state(self):
++        self._write(True)
++        with self._env():
++            self.assertTrue(self.obj._private_speech_output_muted())
++            self._write(False)
++            self.assertFalse(self.obj._private_speech_output_muted())
++
++    def test_last_known_gate_survives_atomic_rewrite_gap(self):
++        self._write(True)
++        with self._env():
++            self.assertTrue(self.obj._private_speech_output_muted())
++            self.state.unlink()
++            self.assertTrue(self.obj._private_speech_output_muted())
++
++    def test_fast_exact_mute_closes_current_turn_race(self):
++        self._write(False)
++        with self._env():
++            self.obj._arm_private_speech_fast_control("小鱼，请别说话。")
++            self.assertTrue(self.obj._private_speech_output_muted())
++            self.obj._arm_private_speech_fast_control("朋友让我别说话是什么意思")
++            self.assertFalse(self.obj._private_speech_output_muted())
++
++    def test_fast_unmute_overrides_stale_file_for_current_turn(self):
++        self._write(True)
++        with self._env():
++            self.obj._arm_private_speech_fast_control("可以说话了")
++            self.assertFalse(self.obj._private_speech_output_muted())
++
++    def test_muted_enqueue_never_reaches_tts_worker(self):
++        self._write(True)
++        with self._env():
++            self.obj._enqueue_tts_text_chunk("sid", "这段不能送去TTS")
++
++    async def test_muted_audio_send_is_dropped(self):
++        self._write(True)
++        with self._env():
++            self.assertFalse(await self.obj.send_speech(b"pcm", speech_id="sid"))
++            self.assertEqual(
++                await self.obj.send_cached_speech_batch([b"pcm"], "sid"),
++                (False, False),
++            )
++
++
++if __name__ == "__main__":
++    unittest.main()

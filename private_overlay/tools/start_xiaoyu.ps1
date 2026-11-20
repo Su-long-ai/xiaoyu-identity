@@ -6,6 +6,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ToolsRoot = $PSScriptRoot
+$OverlayRoot = (Resolve-Path (Join-Path $ToolsRoot "..")).Path
+$PrivatePluginSource = Join-Path $OverlayRoot "plugins\xiaoyu_interaction_policy"
 
 if (-not (Test-Path $StorageRoot)) {
     throw "XiaoYu storage root not found: $StorageRoot"
@@ -20,6 +22,7 @@ $ResolvedStorage = (Resolve-Path $StorageRoot).Path
 $env:NEKO_STORAGE_SELECTED_ROOT = $ResolvedStorage
 $env:NEKO_STORAGE_ANCHOR_ROOT = $ResolvedStorage
 $env:NEKO_RUNTIME_STATE_DIR = Join-Path $ResolvedStorage ".runtime"
+$env:NEKO_PRIVATE_SPEECH_GATE_FILE = Join-Path $ResolvedStorage "plugins\xiaoyu_interaction_policy\data\state.json"
 
 Write-Host "== Verify pinned external components =="
 & (Join-Path $ToolsRoot "setup_local.ps1") -NekoRoot $NekoRoot -VerifyOnly
@@ -27,6 +30,23 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== Ensure native N.E.K.O storage selection =="
 & $Python (Join-Path $ToolsRoot "ensure_neko_storage_policy.py") --neko-root $NekoRoot --storage-root $ResolvedStorage
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "== Ensure XiaoYu private plugin through N.E.K.O package workflow =="
+$PrivatePluginEnsure = Join-Path $ToolsRoot "ensure_private_plugin.py"
+if (-not (Test-Path $PrivatePluginEnsure)) {
+    throw "XiaoYu private plugin ensure helper not found: $PrivatePluginEnsure"
+}
+$PrivatePluginArgs = @(
+    $PrivatePluginEnsure,
+    "--neko-root", $NekoRoot,
+    "--storage-root", $ResolvedStorage,
+    "--source", $PrivatePluginSource
+)
+if ($PreflightOnly) {
+    $PrivatePluginArgs += "--verify-only"
+}
+& $Python @PrivatePluginArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== XiaoYu private startup preflight =="

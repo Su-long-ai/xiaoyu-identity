@@ -22,7 +22,7 @@ from plugin.sdk.plugin import (
 
 _ROLE = "XiaoYu"
 _CONTROLLER = "proactive_controller"
-_STATE_VERSION = 1
+_STATE_VERSION = 2
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
 _MAX_TEXT_CHARS = 500
@@ -38,19 +38,24 @@ _CANDIDATE_RE = re.compile(
 )
 
 _CLASSIFIER_SYSTEM = """You are a conservative interaction-policy classifier.
-Decide whether the user's CURRENT message explicitly controls whether the assistant may initiate unsolicited/proactive communication.
+Decide whether the user's CURRENT message explicitly controls unsolicited/proactive communication and/or audible assistant speech.
 
 Return JSON only:
-{"action":"quiet"|"resume"|"none","duration_minutes":null|integer}
+{"action":"quiet"|"resume"|"none","duration_minutes":null|integer,"speech_action":"mute"|"unmute"|"unchanged"}
 
 Definitions:
 - quiet: the user explicitly asks the assistant to be quiet, stop talking, stop bothering/contacting/messaging them proactively, or temporarily stop initiating communication.
 - resume: the user explicitly allows the assistant to resume speaking/initiating/contacting after a quiet period.
 - none: everything else.
+- speech_action=mute only when the user explicitly asks the assistant to make no audible speech/sound (for example 别说话, 安静, 闭嘴, 别出声).
+- speech_action=unmute only when the user explicitly allows audible assistant speech again (for example 可以说话了, 继续说话, 解除静音).
+- speech_action=unchanged for proactive-only controls such as 别主动找我 / 可以主动找我了, and for unrelated messages.
 
 Important distinctions:
-- "别说话哦", "你先安静一会", "别主动找我", "先别烦我", "stay quiet", "don't bother me" => quiet.
-- "可以说话了", "继续吧，你可以主动找我了", "resume talking" => resume.
+- "别说话哦", "你先安静一会", "stay quiet", "shut up" => quiet + speech_action=mute.
+- "别主动找我", "先别烦我", "don't bother me" => quiet + speech_action=unchanged.
+- "可以说话了", "resume talking" => resume + speech_action=unmute.
+- "继续吧，你可以主动找我了" => resume + speech_action=unchanged.
 - "我不想说话" means the USER does not want to talk; unless it also tells the assistant to stop, => none.
 - "这个别说/别提这个话题" is topic avoidance, not global interaction control => none.
 - "这条不用回复" is one-turn reply suppression, not a persistent proactive-control request => none.
@@ -69,6 +74,7 @@ def _default_state() -> dict[str, Any]:
         "initialized": False,
         "seen_event_ids": [],
         "quiet": False,
+        "speech_muted": False,
         "previous_proactive_chat_enabled": None,
         "quiet_until": None,
         "changed_at": None,
@@ -90,6 +96,7 @@ def _normalize_state(raw: Any) -> dict[str, Any]:
         if isinstance(item, str) and item
     ][-_SEEN_LIMIT:]
     state["quiet"] = bool(state.get("quiet"))
+    state["speech_muted"] = bool(state.get("speech_muted"))
     previous = state.get("previous_proactive_chat_enabled")
     state["previous_proactive_chat_enabled"] = previous if isinstance(previous, bool) else None
     until = state.get("quiet_until")
@@ -98,8 +105,9 @@ def _normalize_state(raw: Any) -> dict[str, Any]:
 
 
 def parse_classifier_output(raw: str) -> dict[str, Any]:
+    fallback = {"action": "none", "duration_minutes": None, "speech_action": "unchanged"}
     if not isinstance(raw, str):
-        return {"action": "none", "duration_minutes": None}
+        return dict(fallback)
     text = raw.strip()
     fence = chr(96) * 3
     if text.startswith(fence):
@@ -110,13 +118,13 @@ def parse_classifier_output(raw: str) -> dict[str, Any]:
     except Exception:
         match = re.search(r"\{.*?\}", text, flags=re.DOTALL)
         if not match:
-            return {"action": "none", "duration_minutes": None}
+            return dict(fallback)
         try:
             value = json.loads(match.group(0))
         except Exception:
-            return {"action": "none", "duration_minutes": None}
+            return dict(fallback)
     if not isinstance(value, dict):
-        return {"action": "none", "duration_minutes": None}
+        return dict(fallback)
     action = str(value.get("action") or "none").strip().lower()
     if action not in {"quiet", "resume", "none"}:
         action = "none"
@@ -125,7 +133,10 @@ def parse_classifier_output(raw: str) -> dict[str, Any]:
         duration = None
     if action != "quiet":
         duration = None
-    return {"action": action, "duration_minutes": duration}
+    speech_action = str(value.get("speech_action") or "unchanged").strip().lower()
+    if speech_action not in {"mute", "unmute", "unchanged"}:
+        speech_action = "unchanged"
+    return {"action": action, "duration_minutes": duration, "speech_action": speech_action}
 
 
 def candidate_needs_semantic_check(text: str) -> bool:
@@ -136,6 +147,39 @@ def should_run_semantic_check(text: str, *, quiet: bool) -> bool:
     if not isinstance(text, str) or not text.strip():
         return False
     return bool(quiet or candidate_needs_semantic_check(text))
+
+
+_FAST_SPEECH_MUTE = {
+    "不说话", "别说话", "不要说话", "先别说话", "先不要说话",
+    "安静", "安静一下", "先安静", "闭嘴", "别出声", "不要出声",
+}
+_FAST_SPEECH_UNMUTE = {
+    "可以说话了", "说话吧", "继续说", "继续说话", "恢复说话", "解除静音",
+}
+_FAST_CONTROL_STRIP_RE = re.compile(r"[\s，。！？、,.!?;；:：~～…]+")
+_FAST_CONTROL_PREFIXES = ("小鱼小鱼", "小鱼", "请", "麻烦")
+
+
+def _normalize_fast_control(text: str) -> str:
+    value = _FAST_CONTROL_STRIP_RE.sub("", str(text or "").strip().lower())
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _FAST_CONTROL_PREFIXES:
+            if value.startswith(prefix) and len(value) > len(prefix):
+                value = value[len(prefix):]
+                changed = True
+                break
+    return value
+
+
+def fast_speech_control(text: str) -> dict[str, Any] | None:
+    value = _normalize_fast_control(text)
+    if value in _FAST_SPEECH_MUTE:
+        return {"action": "quiet", "duration_minutes": None, "speech_action": "mute"}
+    if value in _FAST_SPEECH_UNMUTE:
+        return {"action": "resume", "duration_minutes": None, "speech_action": "unmute"}
+    return None
 
 
 def _extract_event(record: Any) -> dict[str, Any]:
@@ -161,6 +205,10 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
     async def startup(self, **_):
         self._state_path = self.data_path("state.json")
         state = self._load_state()
+        # Persist the normalized schema on startup. Legacy v1 quiet state is
+        # preserved, while new fields receive conservative defaults unless the
+        # private state file already carries an explicit migration value.
+        self._save_state(state)
 
         controller = await self.plugins.require_enabled(_CONTROLLER)
         if isinstance(controller, Err):
@@ -235,16 +283,25 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                 # semantic resume detection: natural phrases such as "好了你正常来吧"
                 # should be understood by the model even when they are not in the
                 # conservative candidate vocabulary.
-                if not should_run_semantic_check(text, quiet=bool(state["quiet"])):
-                    continue
-
-                decision = await self._classify(text[:_MAX_TEXT_CHARS])
+                decision = fast_speech_control(text)
+                if decision is None:
+                    if not should_run_semantic_check(text, quiet=bool(state["quiet"])):
+                        continue
+                    decision = await self._classify(text[:_MAX_TEXT_CHARS])
                 action = decision["action"]
                 if action == "quiet":
                     state = await self._set_quiet(state, decision.get("duration_minutes"))
                     decisions += 1
                 elif action == "resume":
                     state = await self._resume(state, reason="user")
+                    decisions += 1
+
+                speech_action = decision.get("speech_action")
+                if speech_action == "mute":
+                    state = self._set_speech_muted(state, True, reason="user")
+                    decisions += 1
+                elif speech_action == "unmute":
+                    state = self._set_speech_muted(state, False, reason="user")
                     decisions += 1
 
             await self._enforce_quiet_if_needed(state)
@@ -260,7 +317,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
             api_key = cfg.get("api_key")
             base_url = cfg.get("base_url")
             if not model or not api_key:
-                return {"action": "none", "duration_minutes": None}
+                return {"action": "none", "duration_minutes": None, "speech_action": "unchanged"}
             llm = await create_chat_llm_async(
                 model,
                 base_url,
@@ -293,7 +350,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                 type(exc).__name__,
                 len(text),
             )
-            return {"action": "none", "duration_minutes": None}
+            return {"action": "none", "duration_minutes": None, "speech_action": "unchanged"}
 
     async def _controller_state(self) -> dict[str, Any]:
         result = await self.plugins.call_entry(f"{_CONTROLLER}:get_state")
@@ -349,10 +406,20 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         self.logger.info("hard quiet cleared reason={}", reason)
         return state
 
+    def _set_speech_muted(self, state: dict[str, Any], muted: bool, *, reason: str) -> dict[str, Any]:
+        state["speech_muted"] = bool(muted)
+        state["changed_at"] = time.time()
+        state["last_action"] = ("speech_mute:" if muted else "speech_unmute:") + reason
+        self._save_state(state)
+        self.logger.info("hard speech mute changed muted={} reason={}", bool(muted), reason)
+        return state
+
     async def _expire_if_needed(self, state: dict[str, Any]) -> dict[str, Any]:
         until = state.get("quiet_until")
         if state["quiet"] and isinstance(until, (int, float)) and time.time() >= float(until):
-            return await self._resume(state, reason="expired")
+            state = await self._resume(state, reason="expired")
+            if state.get("speech_muted"):
+                state = self._set_speech_muted(state, False, reason="expired")
         return state
 
     async def _enforce_quiet_if_needed(self, state: dict[str, Any]) -> None:
@@ -403,6 +470,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
     def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         return {
             "quiet": bool(state.get("quiet")),
+            "speech_muted": bool(state.get("speech_muted")),
             "quiet_until": state.get("quiet_until"),
             "last_action": state.get("last_action"),
             "seen_event_count": len(state.get("seen_event_ids") or []),

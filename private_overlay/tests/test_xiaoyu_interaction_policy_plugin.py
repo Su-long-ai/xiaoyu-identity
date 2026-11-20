@@ -38,19 +38,19 @@ class ParserTests(unittest.TestCase):
     def test_json_quiet(self):
         self.assertEqual(
             mod.parse_classifier_output('{"action":"quiet","duration_minutes":10}'),
-            {"action": "quiet", "duration_minutes": 10},
+            {"action": "quiet", "duration_minutes": 10, "speech_action": "unchanged"},
         )
 
     def test_resume_never_keeps_duration(self):
         self.assertEqual(
             mod.parse_classifier_output('{"action":"resume","duration_minutes":10}'),
-            {"action": "resume", "duration_minutes": None},
+            {"action": "resume", "duration_minutes": None, "speech_action": "unchanged"},
         )
 
     def test_invalid_output_fails_to_none(self):
         self.assertEqual(
             mod.parse_classifier_output("maybe quiet"),
-            {"action": "none", "duration_minutes": None},
+            {"action": "none", "duration_minutes": None, "speech_action": "unchanged"},
         )
 
     def test_markdown_json_is_accepted(self):
@@ -58,8 +58,42 @@ class ParserTests(unittest.TestCase):
         raw = fence + 'json\n{"action":"quiet","duration_minutes":30}\n' + fence
         self.assertEqual(
             mod.parse_classifier_output(raw),
-            {"action": "quiet", "duration_minutes": 30},
+            {"action": "quiet", "duration_minutes": 30, "speech_action": "unchanged"},
         )
+
+    def test_v1_state_normalization_preserves_explicit_speech_migration(self):
+        state = mod._normalize_state({
+            "version": 1,
+            "quiet": True,
+            "speech_muted": True,
+            "previous_proactive_chat_enabled": True,
+        })
+        self.assertEqual(state["version"], 2)
+        self.assertTrue(state["quiet"])
+        self.assertTrue(state["speech_muted"])
+        self.assertTrue(state["previous_proactive_chat_enabled"])
+
+    def test_ambiguous_v1_quiet_does_not_invent_speech_mute(self):
+        state = mod._normalize_state({"version": 1, "quiet": True})
+        self.assertTrue(state["quiet"])
+        self.assertFalse(state["speech_muted"])
+
+    def test_speech_action_is_parsed(self):
+        self.assertEqual(
+            mod.parse_classifier_output('{"action":"quiet","duration_minutes":null,"speech_action":"mute"}'),
+            {"action": "quiet", "duration_minutes": None, "speech_action": "mute"},
+        )
+
+    def test_fast_speech_control_handles_exact_hard_commands(self):
+        self.assertEqual(
+            mod.fast_speech_control("小鱼，请别说话。"),
+            {"action": "quiet", "duration_minutes": None, "speech_action": "mute"},
+        )
+        self.assertEqual(
+            mod.fast_speech_control("可以说话了"),
+            {"action": "resume", "duration_minutes": None, "speech_action": "unmute"},
+        )
+        self.assertIsNone(mod.fast_speech_control("朋友让我别说话是什么意思"))
 
     def test_candidate_filter_covers_live_phrases(self):
         self.assertTrue(mod.candidate_needs_semantic_check("别说话哦"))
@@ -82,17 +116,19 @@ class ParserTests(unittest.TestCase):
             "initialized": True,
             "seen_event_ids": ["a"],
             "quiet": True,
+            "speech_muted": True,
             "previous_proactive_chat_enabled": True,
         })
         blob = json.dumps(state, ensure_ascii=False)
         self.assertNotIn("content", state)
         self.assertNotIn("user_text", state)
         self.assertNotIn("别说话", blob)
+        self.assertTrue(state["speech_muted"])
 
     def test_duration_out_of_range_is_dropped(self):
         self.assertEqual(
             mod.parse_classifier_output('{"action":"quiet","duration_minutes":1441}'),
-            {"action": "quiet", "duration_minutes": None},
+            {"action": "quiet", "duration_minutes": None, "speech_action": "unchanged"},
         )
 
 

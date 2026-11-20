@@ -4,8 +4,8 @@
     {
       "id": "xiaoyu_interaction_policy",
       "source_dir": "plugins/xiaoyu_interaction_policy",
-      "purpose": "Semantic mediation for explicit owner interaction-control intent (quiet/resume) that N.E.K.O object-specific user_directives does not persist.",
-      "acceptance_gap": "A live owner instruction to stop speaking was obeyed by the dialogue model for the current reply but did not change proactive runtime state, so proactive messages resumed later.",
+      "purpose": "Semantic mediation for explicit owner proactive quiet/resume and audible speech mute/unmute intent; proactive execution remains native N.E.K.O and audible output is enforced only at the managed native output boundary.",
+      "acceptance_gap": "Live semantic quiet stopped unsolicited proactive delivery, but the owner could still hear TTS/native Realtime audio after explicitly requesting no audible speech and then sending a message.",
       "hard_execution_authority": "neko_native:proactive_controller",
       "dependencies": [
         "proactive_controller"

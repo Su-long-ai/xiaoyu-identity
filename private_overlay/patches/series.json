@@ -25,6 +25,11 @@
       "file": "0005-latest-character-switch-intent-replay.patch",
       "reason": "Live desktop use reproduced two character-switch recovery failures. First, an in-flight switch could drop a newer A→B→A intent. Second, and decisive for the observed blank XiaoYu avatar, a failed target-model load restored lanlan_name to XiaoYu after the old VRM had already been removed; the subsequent real YUI→XiaoYu event was then incorrectly discarded by same-character dedupe. Preserve the latest pending target and make same-character dedupe conditional on the configured VRM instance actually existing, so missing VRM state is treated as recovery.",
       "evidence": "evals/evidence/2026-11-19-live-rapid-character-switch-recovery.json"
+    },
+    {
+      "file": "0006-private-speech-output-gate.patch",
+      "reason": "Live use showed that semantic quiet correctly disabled proactive delivery but did not suppress audible TTS/native Realtime replies when the owner actively sent a message. N.E.K.O has no native global assistant-speech mute or plugin API for that output boundary. Add an opt-in file gate enabled only by the XiaoYu launcher: explicit whole-utterance commands close the current-turn race, external TTS is dropped before provider enqueue, and cached/native audio is dropped before frontend delivery. Persistent intent remains owned by the private semantic interaction plugin.",
+      "evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

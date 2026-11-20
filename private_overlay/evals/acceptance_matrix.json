@@ -108,14 +108,14 @@
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
       "status": "origin_main_6261_patch_replay_dependency_regression_and_canonical_live_restart_pass",
       "evidence": "evals/evidence/2026-11-20-neko-upstream-6261a5f6-upgrade.json",
-      "note": "Promotes N.E.K.O upstream capability/safety fixes while preserving the five evidence-backed XiaoYu patches. None of the five patch source regions changed upstream, so none can yet be retired. Candidate/canonical patch diffs are byte-identical."
+      "note": "The 6261a5f6 upgrade established deterministic replay for the original five patches. A sixth evidence-backed speech-output patch was added later for a reproduced live XiaoYu gap; all six are now authority-checked by startup preflight."
     },
     {
       "id": "semantic_interaction_policy",
       "goal": "explicit natural-language quiet/resume intent is semantically classified and enforced through N.E.K.O native proactive hard state without enabling the Agent master",
       "status": "live_semantic_quiet_resume_timed_restart_native_controller_pass",
       "evidence": "evals/evidence/2026-11-19-live-semantic-interaction-policy.json",
-      "note": "A narrow private semantic adapter consumes N.E.K.O user-message events and delegates hard execution to the built-in proactive_controller. It persists no user message text and adds no core patch."
+      "note": "The released acceptance claim covers proactive quiet/resume only. The v0.2 audible-speech extension is tracked separately in 2026-11-20-private-speech-output-gate.json and is not promoted into this release matrix until the next live restart acceptance."
     }
   ]
 }

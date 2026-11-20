@@ -27,8 +27,8 @@ class OverlayContractTests(unittest.TestCase):
         )
         patches = series["patches"]
         self.assertLessEqual(len(patches), lock["core_patch_budget"])
-        self.assertEqual(lock["core_patch_budget"], 5)
-        self.assertEqual(len(patches), 5)
+        self.assertEqual(lock["core_patch_budget"], 6)
+        self.assertEqual(len(patches), 6)
         for patch in patches:
             self.assertTrue((ROOT / "patches" / patch["file"]).is_file())
             self.assertTrue(patch["reason"].strip())
@@ -120,17 +120,41 @@ class OverlayContractTests(unittest.TestCase):
             "setup_local.ps1",
             "-VerifyOnly",
             "ensure_neko_storage_policy.py",
+            "ensure_private_plugin.py",
+            "--source",
+            "plugins\\xiaoyu_interaction_policy",
             "run_checks.ps1",
             "restore_neko_plugin_autostart.py",
             "NEKO_STORAGE_SELECTED_ROOT",
             "NEKO_STORAGE_ANCHOR_ROOT",
             "NEKO_RUNTIME_STATE_DIR",
+            "NEKO_PRIVATE_SPEECH_GATE_FILE",
             "launcher.py",
         }
         for marker in required:
             self.assertIn(marker, script)
         self.assertNotIn("plugins\\xiaoyu_private", script)
         self.assertNotIn("start_plugin", script)
+
+
+    def test_private_plugin_ensure_uses_native_package_workflow(self):
+        script = (ROOT / "tools" / "ensure_private_plugin.py").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "build_plugin",
+            "PluginCliService",
+            "plan_install",
+            "confirm_upgrade",
+            "confirmation_token",
+            "build_install_source_manager",
+            "reconcile",
+            "USER_PLUGIN_EXEC_ROOT",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+        self.assertNotIn("shutil.copytree", script)
+        self.assertNotIn("copy2(", script)
 
 
     def test_shortcut_installer_is_relocatable_and_covers_product_entries(self):
