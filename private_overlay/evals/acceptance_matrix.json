@@ -120,9 +120,9 @@
     {
       "id": "recent_activity_recall",
       "goal": "recent owner-computer activity can be recalled from bounded local evidence without inventing inactivity or storing raw window titles/screenshots",
-      "status": "live_native_activity_classifier_timeline_and_llm_tool_pass",
+      "status": "live_native_activity_classifier_timeline_tool_registration_and_callback_pass",
       "evidence": "evals/evidence/2026-11-20-recent-activity-recall-live.json",
-      "note": "Reuses N.E.K.O native system-signal/activity classification. Missing coverage is explicitly UNKNOWN and privacy-mode samples suppress app identity."
+      "note": "Reuses N.E.K.O native system-signal/activity classification and native @llm_tool routing. Missing coverage is explicitly UNKNOWN; privacy-mode samples suppress app identity. Tool availability, XiaoYu-only role scope, and direct live callback are proven. First natural post-deployment model-selection call remains observational rather than synthetically forced."
     }
   ]
 }

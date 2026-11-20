@@ -1,37 +1,134 @@
 {
   "schema_version": 1,
   "observed_date_local": "2026-11-20",
+  "incident": {
+    "observed_at_local": "2026-11-20T17:58:23+08:00",
+    "symptom": "A retrospective recent-computer-activity question was answered from memory absence as though the requested hour contained no observed activity.",
+    "log_evidence": {
+      "recall_memory_called_at_local": "2026-11-20T17:58:28+08:00",
+      "recall_memory_hits": 0,
+      "dedicated_activity_tool_present_before_fix": false
+    },
+    "root_cause": "N.E.K.O had current/proactive visual awareness and an OS activity classifier, but ordinary chat had no durable/queryable recent-activity evidence source. Missing retrospective evidence was therefore allowed to collapse into an unsupported inactivity claim.",
+    "vision_setting_at_diagnosis": {
+      "proactiveVisionEnabled": true,
+      "proactiveVisionChatEnabled": true,
+      "proactiveVisionInterval_seconds": 10
+    }
+  },
   "component": {
     "plugin_id": "xiaoyu_interaction_policy",
     "installed_version": "0.4.0",
-    "tool": "xiaoyu_recent_activity"
+    "plugin_status": "running",
+    "llm_tool": "xiaoyu_recent_activity",
+    "llm_tool_role": "XiaoYu",
+    "llm_tool_timeout_seconds": 5
   },
   "architecture": {
-    "source": "N.E.K.O native SystemSignalCollector + activity observation/classification",
-    "storage": "private local activity_timeline.json",
+    "reused_native_components": [
+      "N.E.K.O SystemSignalCollector",
+      "N.E.K.O activity observation/classification",
+      "N.E.K.O plugin SDK @llm_tool",
+      "N.E.K.O main-server ToolRegistry"
+    ],
+    "second_memory_authority": false,
+    "second_vision_runtime": false,
+    "extra_screenshot_capture": false,
+    "extra_visual_api_calls": false,
+    "local_sampling_interval_seconds": 10,
+    "retention_hours": 24,
     "retained_fields": [
       "time range",
-      "canonical app/category",
+      "classified category",
+      "canonical or process-level app name",
       "privacy_state",
       "sample count"
     ],
     "excluded_fields": [
       "raw window titles",
       "screenshots",
-      "user text"
+      "user message text"
     ],
-    "missing_coverage_policy": "UNKNOWN, never inferred as inactivity",
-    "second_memory_authority": false
+    "privacy_mode_behavior": "store only category=private and app=null",
+    "missing_coverage_policy": "UNKNOWN, never inferred as inactivity"
   },
   "live_acceptance": {
+    "installed_source_exact_match": true,
+    "native_package_workflow": true,
     "plugin_started": true,
-    "llm_tool_registered": true,
-    "first_timeline_sample": {
-      "category": "gaming",
-      "app": "Steam",
-      "privacy_state": "visible"
+    "llm_tool_registered_with_main_server": true,
+    "role_isolation": {
+      "XiaoYu": [
+        "recall_memory",
+        "xiaoyu_recent_activity"
+      ],
+      "YUI": [
+        "recall_memory"
+      ],
+      "verdict": "PASS"
     },
-    "privacy_mode_behavior": "private samples suppress app name",
-    "unit_coverage": "activity merge/gap/privacy/tool scope tests included in overlay 61/61 PASS"
-  }
+    "direct_tool_callback": {
+      "requested_minutes": 5,
+      "requested_start_local": "2026-11-20T18:04:51+08:00",
+      "requested_end_local": "2026-11-20T18:09:51+08:00",
+      "first_observation_local": "2026-11-20T18:09:00+08:00",
+      "last_observation_local": "2026-11-20T18:09:50+08:00",
+      "coverage_complete": false,
+      "observed_seconds_approx": 50.3,
+      "observed_summary": {
+        "app": "Steam",
+        "category": "gaming",
+        "seconds_approx": 50.3
+      },
+      "correct_semantics": "The pre-18:09 part of the requested interval is unknown, not empty.",
+      "verdict": "PASS"
+    },
+    "persisted_timeline_sanity": {
+      "contains_window_title": false,
+      "contains_process_name_field": false,
+      "contains_screenshot": false,
+      "contains_user_message_text": false,
+      "verdict": "PASS"
+    },
+    "model_selection_e2e": "PENDING_FIRST_NATURAL_RETROSPECTIVE_QUERY_AFTER_DEPLOYMENT",
+    "note": "Tool availability and callback execution are live-proven. No synthetic user chat was injected solely to force model tool selection, avoiding pollution of the owner's conversation history."
+  },
+  "historical_boundary": {
+    "recording_started_local": "2026-11-20T18:09:00+08:00",
+    "retroactive_reconstruction": false,
+    "implication": "Questions about activity before the first recorded sample must report missing coverage rather than claim inactivity."
+  },
+  "deployment_reliability": {
+    "live_upgrade_observation": "Replacing the running plugin caused a coordinated backend shutdown while the Electron shell remained alive.",
+    "backend_shutdown_at_local": "2026-11-20T18:07:06+08:00",
+    "backend_recovered_without_desktop_restart": true,
+    "restored_listeners": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "mitigation": "ensure_private_plugin now blocks stale live replacement when XiaoYu/N.E.K.O runtime ports are open; normal startup-time install remains allowed.",
+    "false_stale_recheck": "A transient post-install verify mismatch was rechecked; source and installed bytes matched and subsequent verify-only returned current 0.4.0.",
+    "live_guard_probe": {
+      "candidate_version": "0.4.1",
+      "result": "live_runtime_replacement_blocked",
+      "exit_code": 3,
+      "open_ports_after": [
+        48911,
+        48912,
+        48915,
+        48916
+      ],
+      "installed_version_after": "0.4.0",
+      "verdict": "PASS"
+    }
+  },
+  "regression": {
+    "focused_tests": "28/28 PASS",
+    "full_overlay_tests": "62/62 PASS",
+    "py_compile": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "verdict": "LIVE_NATIVE_ACTIVITY_TIMELINE_AND_CHAT_TOOL_REGISTRATION_PASS_WITH_PREDEPLOYMENT_HISTORY_BOUNDARY"
 }
