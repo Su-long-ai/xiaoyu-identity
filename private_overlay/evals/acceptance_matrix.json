@@ -106,9 +106,9 @@
     {
       "id": "neko_upstream_upgrade",
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
-      "status": "origin_main_7b_full_regression_clean_patch_replay_and_canonical_live_restart_pass",
-      "evidence": "evals/evidence/2026-11-19-neko-upstream-7b776173-upgrade.json",
-      "note": "Promotes upstream capability rather than recreating it privately; the five XiaoYu core patches remain narrowly scoped and deterministic."
+      "status": "origin_main_6261_patch_replay_dependency_regression_and_canonical_live_restart_pass",
+      "evidence": "evals/evidence/2026-11-20-neko-upstream-6261a5f6-upgrade.json",
+      "note": "Promotes N.E.K.O upstream capability/safety fixes while preserving the five evidence-backed XiaoYu patches. None of the five patch source regions changed upstream, so none can yet be retired. Candidate/canonical patch diffs are byte-identical."
     },
     {
       "id": "semantic_interaction_policy",

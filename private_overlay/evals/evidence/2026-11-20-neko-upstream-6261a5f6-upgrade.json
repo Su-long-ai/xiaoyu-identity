@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-20T12:54:02+08:00",
+  "upgrade": {
+    "from_neko_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+    "to_neko_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "upstream_repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
+    "upstream_branch": "main",
+    "origin_main_confirmed_equal_to_target": true,
+    "upstream_delta": {
+      "files_changed": 86,
+      "insertions": 13107,
+      "deletions": 535
+    },
+    "python_dependency_change": {
+      "package": "filelock",
+      "from": "3.29.0",
+      "to": "4.2.12",
+      "canonical_runtime_verified": "4.2.12",
+      "reason": "upstream fork-safety/security hardening"
+    }
+  },
+  "reuse_rationale": {
+    "decision": "PROMOTE_UPSTREAM_MOTHER_PROJECT",
+    "reason": "The newer mother-project pin adds upstream NekoClaw space/tidy work, real plugin memory-query recall with bounded deadlines and shared capacity, filelock fork/CVE hardening, Workshop cleanup/path safety, plugin metadata/lifecycle fixes and i18n improvements. Reuse has higher global product value than recreating these privately.",
+    "duplicate_private_runtime_added": false
+  },
+  "managed_patch_assessment": {
+    "managed_patch_count": 5,
+    "upstream_changed_any_patch_source_region": false,
+    "upstream_absorbed_any_managed_fix": false,
+    "all_five_apply_cleanly_on_target": true,
+    "candidate_patch_diff_sha256": "0d73adf13782eeb798e317657cccf9050c108172467dadc25ced85b4593f53f6",
+    "canonical_patch_diff_sha256": "0d73adf13782eeb798e317657cccf9050c108172467dadc25ced85b4593f53f6",
+    "patch_diff_bytes": 23513,
+    "candidate_canonical_equal": true,
+    "rollback_branch": "xiaoyu-pin-7b776173-pre-6261"
+  },
+  "candidate_verification": {
+    "patch_voice_audio_proactive_python": "241 passed, 4 skipped",
+    "avatar_character_switch_frontend": "26/26 PASS",
+    "upstream_changed_domain_batch": "322 passed, 20 skipped",
+    "filelock_4_2_12_fork_recent_lock_batch": "105 passed, 24 skipped",
+    "xiaoyu_interaction_policy_0_1_3_candidate_cli": "0 errors (packaging warnings only)",
+    "react_app_suite_environment_baseline": {
+      "candidate": "collection/import blocked before tests by z.function(...).input is not a function",
+      "old_stable": "identical collection/import blocker before tests",
+      "classification": "pre-existing local node dependency drift; not candidate regression"
+    },
+    "broad_python_suite_environment_baseline": {
+      "candidate": "collection blocked by tests/unit/test_telemetry_canonical.py: ModuleNotFoundError storage",
+      "old_stable": "identical collection blocker on the same test",
+      "classification": "pre-existing local optional test-environment gap; not candidate regression"
+    }
+  },
+  "canonical_promotion": {
+    "canonical_path": "D:\\xiaoyu_external_audit\\N.E.K.O",
+    "branch": "main",
+    "head": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "setup_verify_only": "PASS",
+    "overlay_tests": "34/34 PASS after one non-reproducing timing flake in the local fake HTTP autostart fixture",
+    "release_readiness": "18/18 PASS",
+    "provider_privacy": "PASS",
+    "core_patch_regression": "241 passed, 4 skipped",
+    "live_restart": {
+      "start_completed_local": "2026-11-20T12:52:16+08:00",
+      "main_http": 200,
+      "memory_http": 200,
+      "agent_http": 200,
+      "plugin_http": 200,
+      "current_character": "XiaoYu",
+      "desktop_renderer_registered": true
+    },
+    "plugin_autostart": {
+      "verdict": "PASS",
+      "discovered_count": 13,
+      "autostart_candidates": [
+        "proactive_controller",
+        "qq_auto_reply",
+        "web_search",
+        "xiaoyu_interaction_policy"
+      ],
+      "started": [
+        "proactive_controller",
+        "qq_auto_reply",
+        "web_search",
+        "xiaoyu_interaction_policy"
+      ],
+      "failed": {},
+      "agent_master_required": false,
+      "user_plugin_relay": true,
+      "proactive_controller_status": "running",
+      "xiaoyu_interaction_policy_version": "0.1.3",
+      "xiaoyu_interaction_policy_status": "running",
+      "qq_auto_reply_status": "running",
+      "web_search_status": "running"
+    },
+    "interaction_policy_state": {
+      "quiet": false,
+      "last_action": "resume:user"
+    }
+  },
+  "non_blocking_environment_notes": {
+    "napcat_3001": "not listening during promotion; no NapCat/QQ process was running. This external gateway absence pre-dated the upstream promotion (old 10:39 plugin logs already showed QQ startup connection timeout), so it is not classified as an upstream regression.",
+    "activity_signal_csrf": "one desktop POST /api/activity_signal was rejected without CSRF after restart. The endpoint/caller source is unchanged across 7b776173..6261a5f6 and voice takeover uses the separately regression-tested server-side asr_runtime activity path; not classified as an upstream regression.",
+    "steamworks": "source-run environment still lacks optional steamworks module; existing non-blocking warning"
+  },
+  "privacy": {
+    "microphone_audio_persisted_in_evidence": false,
+    "transcript_text_persisted_in_evidence": false,
+    "assistant_text_persisted_in_evidence": false,
+    "qq_message_content_persisted_in_evidence": false,
+    "qq_identifiers_persisted_in_evidence": false,
+    "access_tokens_persisted_in_evidence": false
+  },
+  "verdict": "PASS"
+}

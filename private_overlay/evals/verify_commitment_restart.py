@@ -111,7 +111,7 @@ def _parent(args) -> int:
         after = _child(script, root, args.neko_root, "after")
         result = {
             "verdict": "PASS",
-            "neko_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+            "neko_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
             "fresh_processes": 5,
             "synthetic_only": True,
             "product_data_touched": False,

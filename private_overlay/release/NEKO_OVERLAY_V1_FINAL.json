@@ -21,30 +21,31 @@
   "external_pins": {
     "neko": {
       "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-      "commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+      "commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
       "branch": "main"
     },
     "qq_plugin": {
       "repository": "https://github.com/zhaijiunknow/n.e.k.o_plugin_qq_auto_reply.git",
       "commit": "54acf36bf978edad4757e5fffc743c5618360700",
       "version": "0.16.0",
-      "neko_commit": "7b776173e758401a3819e3ad3d4179e86e23eb0e",
+      "neko_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
       "role": "external_qq_surface"
     }
   },
   "managed_core_patches": {
-    "count": 4,
-    "budget": 4,
+    "count": 5,
+    "budget": 5,
     "files": [
       "0001-proactive-autostart-idle-gate.patch",
       "0002-full-chat-native-voice-entry.patch",
       "0003-qwen38-server-vad-reliability.patch",
-      "0004-native-ingress-activity-before-backpressure.patch"
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0005-latest-character-switch-intent-replay.patch"
     ]
   },
   "acceptance": {
-    "closed": 17,
-    "total": 17,
+    "closed": 18,
+    "total": 18,
     "ids": [
       "identity_restart",
       "identity_model_swap",
@@ -62,37 +63,46 @@
       "avatar_vrm_binding",
       "private_product_e2e",
       "legacy_migration",
-      "neko_upstream_upgrade"
+      "neko_upstream_upgrade",
+      "semantic_interaction_policy"
     ],
     "release_gate": "PASS"
   },
   "verification": {
-    "overlay_unit_tests": "22/22 PASS",
-    "release_readiness": "17/17 PASS",
+    "overlay_unit_tests": "34/34 PASS",
+    "release_readiness": "18/18 PASS",
     "provider_privacy_preflight": "PASS",
     "managed_patch_authority": "PASS",
     "canonical_startup_preflight": "PASS",
     "canonical_live_restart": "PASS",
-    "canonical_runtime_http": "main/memory/agent 200",
-    "plugin_autostart_full_restart": "PASS",
-    "canonical_qq_reconnect": "PASS",
+    "canonical_runtime_http": "main/memory/agent/plugin 200",
+    "plugin_autostart_full_restart": "PASS; proactive_controller, qq_auto_reply, web_search, xiaoyu_interaction_policy started through native APIs",
+    "canonical_qq_reconnect": "PRIOR E2E PASS retained; 2026-11-20 promotion verified qq_auto_reply runtime start, but external NapCat gateway was not logged in/listening",
     "native_vrm_binding": "PASS",
     "physical_microphone_e2e": "PASS",
     "qwen38_realtime_live_e2e": "PASS",
     "upstream_voice_memory_plugin_qq_regression": "730 passed, 4 skipped, 0 failed",
     "upstream_nekoclaw_task_regression": "1032 passed, 0 failed",
     "full_chat_voice_bridge": "1 passed, 296 skipped",
-    "clean_patch_replay": "PASS; binary diff SHA256 C0B688E8FB428ABF9158C9B0B1170FFC5BA4F216FC7E5E6F91E828377D5737C4"
+    "clean_patch_replay": "PASS; candidate/canonical binary diff SHA256 0D73ADF13782EEB798E317657CCCF9050C108172467DADC25CED85B4593F53F6",
+    "upstream_6261_patch_regression": "241 passed, 4 skipped; avatar switch 26/26 PASS",
+    "upstream_6261_changed_domain_regression": "322 passed, 20 skipped",
+    "upstream_filelock_4_2_12_regression": "105 passed, 24 skipped",
+    "xiaoyu_interaction_policy": "0.1.3 running + runtime_auto_start; native dependency proactive_controller running",
+    "known_test_environment_baselines": [
+      "React App.test.tsx cannot collect on both prior and new pins with the existing local node_modules because z.function().input is unavailable; no candidate-only regression.",
+      "test_telemetry_canonical.py cannot collect on both prior and new pins in this local environment because optional storage module is absent; no candidate-only regression."
+    ]
   },
   "bindings_sha256": {
-    "NEKO_UPSTREAM.lock.json": "af56328555d2081c56e0a0b19db600694dfd34f36551a398a29fce0623d81de4",
-    "QQ_PLUGIN_UPSTREAM.lock.json": "cf9d6efbb0b4d7796477daa65ccf469ca8042825c5ee56e49209ba579685ac0a",
-    "patches/series.json": "e500b012546f6298f04e7f28776a7322ca4e6470b57259d08d6165b61fd9e799",
-    "evals/acceptance_matrix.json": "66be6186695bc2d8605e9046827104ccb944b2af3b60dcc60caddb06f2051fe8"
+    "NEKO_UPSTREAM.lock.json": "06e3d10b77270af051575fa0cbf619faf08536268c8c3782d3f422fadb49fa82",
+    "QQ_PLUGIN_UPSTREAM.lock.json": "8c17fb22d1ec85543447240cea9804a865856e43bfa1707454cdcc655d0f6658",
+    "patches/series.json": "df0e1cea00d15364ada32d8b66caed91087190e86a5d230393b5f39ad2244183",
+    "evals/acceptance_matrix.json": "d866143dbdd6276019629d82b53001d6528bb180637b003e5ebb1d2c1af9f84f"
   },
   "rollback": {
     "previous_release_tag": "xiaoyu-neko-v1-rc3",
-    "previous_mother_project_pin_branch": "xiaoyu-pin-402695c-pre-upgrade"
+    "previous_mother_project_pin_branch": "xiaoyu-pin-7b776173-pre-6261"
   },
   "known_nonblocking_upstream_warnings": [
     "source config workshop_config.json is absent and N.E.K.O falls back to default/in-memory behavior",
@@ -117,12 +127,17 @@
       "QQ/plugin automatic restart recovery",
       "private-group isolation",
       "native task uncertainty/no-blind-retry behavior",
-      "current upstream N.E.K.O NekoClaw/session/space and plugin call-chain capabilities"
+      "current upstream N.E.K.O NekoClaw/session/space and plugin call-chain capabilities",
+      "semantic natural-language hard quiet/resume through native proactive_controller",
+      "VRM recovery after failed/rapid character switching",
+      "upstream plugin memory-query real recall and bounded request handling",
+      "upstream filelock fork/security hardening"
     ],
     "excluded": [
       "Steam-specific distribution behavior",
       "a private duplicate XiaoYu memory/persona/task/effect runtime",
       "automatic trust of arbitrary relay/router model endpoints"
     ]
-  }
+  },
+  "updated_at_local": "2026-11-20T12:57:27+08:00"
 }
