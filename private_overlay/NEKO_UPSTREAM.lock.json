@@ -7,6 +7,7 @@
   "persona_storage_authority": "neko_native",
   "evolution_authority": "neko_native",
   "task_authority": "neko_native",
-  "core_patch_budget": 7,
-  "allow_dual_write": false
+  "core_patch_budget": 8,
+  "allow_dual_write": false,
+  "core_patch_budget_reason": "Eight evidence-backed managed patches are currently required. Patch 0008 reuses N.E.K.O's existing Qwen TTS worker and voice picker; it adds only missing provider-aware clone routing. Revisit the budget whenever an upstream/native replacement lets a managed patch be removed."
 }

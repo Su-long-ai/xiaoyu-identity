@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "feature": "XiaoYu switchable Qwen clone voice bundle",
+  "verdict": "PASS_REUSE_EXISTING_NEKO_VOICE_PICKER_AND_NATIVE_QWEN_OMNI_WITH_THIN_QWEN_AUDIO_ADAPTER",
+  "legacy_source": {
+    "script": "D:/cpod/desktop_pet.py",
+    "settings": "D:/cpod/pet_settings.json",
+    "source_audio": "D:/cpod/5.flac",
+    "source_audio_duration_seconds": 20.18,
+    "old_model": "qwen3-tts-vc-realtime-2026-01-15",
+    "old_voice_id": "qwen-tts-vc-desktoppet-voice-20260805202453937-69c1",
+    "old_speech_rate": 1,
+    "old_model_live_status": "RETIRED",
+    "old_model_probe_error": "InvalidParameter: Model not exist."
+  },
+  "reuse_decision": {
+    "voice_store_and_picker": "N.E.K.O existing character voice storage and source-first picker remain authority",
+    "realtime_synthesis": "N.E.K.O existing qwen3.8-omni-flash-realtime transport remains authority; only the paired cloned voice id is passed to session.update",
+    "text_synthesis": "Thin HTTP adapter to Alibaba Model Studio Qwen-Audio TTS; no second TTS engine, no new voice database",
+    "clone_creation": "Official Alibaba HTTP customization endpoint used once; no shared DashScope SDK upgrade",
+    "why_not_upgrade_shared_sdk": "Installed DashScope 1.27.7 already supports current Omni realtime. Its legacy tts_v2 VoiceEnrollmentService rejected qwen3.8 Omni enrollment; upgrading the shared SDK could affect existing CosyVoice paths, while the official HTTP creation API worked directly."
+  },
+  "created_voices": {
+    "realtime": {
+      "model": "qwen3.8-omni-flash-realtime",
+      "voice_id": "qwen-omni-vc-xiaoyu38-voice-20261120215205543-0243",
+      "live_probe": {
+        "audio_bytes": 103680,
+        "audio_ms_approx": 2160,
+        "errors": []
+      }
+    },
+    "text_tts": {
+      "model": "qwen-audio-3.1-tts-flash",
+      "voice_id": "qwen-audio-3.1-tts-flash-xiaoyu31-d89c2c437bd5456ebaa84dbdd2c40339",
+      "raw_http_probe": {
+        "status": 200,
+        "audio_bytes": 76844
+      },
+      "neko_worker_probe": {
+        "provider": "qwen_bundle",
+        "samples_48k": 69120,
+        "audio_ms_approx": 1440,
+        "ready": true,
+        "sentence_done": true,
+        "audio_done": true,
+        "errors": []
+      }
+    }
+  },
+  "bundle": {
+    "local_ref": "xiaoyu-qwen-clone-v1",
+    "display_name": "XiaoYu · Qwen 克隆",
+    "provider": "qwen_bundle",
+    "speech_rate": 1,
+    "realtime_model_exact_match_required": true,
+    "fallback_on_realtime_model_mismatch": "external Qwen-Audio text TTS; never leak the Omni clone to an incompatible realtime model",
+    "cosyvoice_preserved": true
+  },
+  "tests": {
+    "qwen_bundle_unit": "10/10 PASS",
+    "related_tts_and_voice": "83/83 PASS",
+    "full_overlay_gate": "PASS",
+    "release_readiness": "20/20 PASS after acceptance-matrix update"
+  },
+  "official_references": [
+    "https://www.alibabacloud.com/help/en/model-studio/qwen-omni",
+    "https://www.alibabacloud.com/help/en/model-studio/qwen-omni-realtime",
+    "https://www.alibabacloud.com/help/en/model-studio/qwen-tts"
+  ],
+  "live_cutover": {
+    "backend_provider_loaded": true,
+    "backend_provider_key": "qwen_bundle",
+    "main_page_http_status": 200,
+    "current_xiaoyu_binding": {
+      "source": "clone",
+      "provider": "qwen_bundle",
+      "ref": "xiaoyu-qwen-clone-v1"
+    },
+    "runtime_resolution": {
+      "realtime_model": "qwen3.8-omni-flash-realtime",
+      "realtime_voice_id": "qwen-omni-vc-xiaoyu38-voice-20261120215205543-0243",
+      "text_tts_provider": "qwen_bundle",
+      "text_worker": "qwen_audio_tts_worker",
+      "qwen_key_resolved": true
+    },
+    "picker": "existing N.E.K.O source-first voice picker; display_name is used; CosyVoice entries remain present"
+  }
+}

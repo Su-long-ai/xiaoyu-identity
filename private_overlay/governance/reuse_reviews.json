@@ -149,6 +149,41 @@
       ],
       "why_reuse_insufficient": "The plugin remains only semantic intent mediation and a read-only bridge to native/external authorities; it must not own a second memory, proactive engine, vision runtime, or activity datastore.",
       "acceptance_evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
+    },
+    {
+      "id": "patch:0008-qwen-clone-provider-routing.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "XiaoYu should expose the preferred old-project voice quality as a selectable voice without reviving the retired qwen3-tts-vc model or building a second TTS/voice subsystem.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O existing Qwen3.8 Omni realtime transport",
+          "type": "native",
+          "outcome": "selected for realtime speech; current cloned Omni voice passed through only on exact model/provider match",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "N.E.K.O existing structured character voice storage/picker",
+          "type": "native",
+          "outcome": "selected as the only voice binding and UI authority",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "Alibaba Model Studio Qwen-Audio 3.1 TTS HTTP API",
+          "type": "external",
+          "outcome": "selected for ordinary text TTS using the paired clone; thin adapter only",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "Legacy qwen3-tts-vc-realtime-2026-01-15",
+          "type": "external",
+          "outcome": "rejected after live provider response: model no longer exists",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        }
+      ],
+      "why_reuse_insufficient": "All identity, UI, storage and realtime synthesis are reused. The only missing native piece is ordinary text synthesis for the new Qwen-Audio clone bundle, so patch 0008 adds a narrow HTTP provider adapter and exact-match realtime routing glue.",
+      "acceptance_evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
     }
   ]
 }

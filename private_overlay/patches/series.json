@@ -35,6 +35,11 @@
       "file": "0007-private-first-round-tool-route.patch",
       "reason": "Repeated isolated qwen3.8 probes proved auto-selection skipped one negative recent-activity wording. Revalidation showed the provider's native forced function call works when reasoning_effort=none. Add only a generic opt-in first-round route bridge: the private launcher supplies the registered tool name/regex/reasoning override, N.E.K.O forwards provider-native tool_choice on the first OpenAI-compatible round, and immediately restores normal tool/reasoning settings after that round. No local tool pre-execution or XiaoYu-specific wording lives in N.E.K.O.",
       "evidence": "evals/evidence/2026-11-20-private-first-round-provider-native-tool-route.json"
+    },
+    {
+      "file": "0008-qwen-clone-provider-routing.patch",
+      "reason": "The legacy XiaoYu Qwen3-TTS VC model is retired, but the preferred reference audio remains available. Reuse N.E.K.O's existing character voice store/picker and native Qwen3.8 Omni realtime transport: a single qwen_bundle voice routes matching realtime sessions to the paired Omni clone, while ordinary text TTS uses a thin official Qwen-Audio 3.1 HTTP adapter. CosyVoice remains intact as a selectable fallback; no second voice database or custom realtime transport is introduced.",
+      "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

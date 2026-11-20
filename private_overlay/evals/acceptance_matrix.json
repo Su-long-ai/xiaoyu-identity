@@ -123,6 +123,13 @@
       "status": "activitywatch_external_local_authority_app_only_query_and_provider_native_first_round_route_pass",
       "evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json",
       "note": "ActivityWatch 0.14.3 is the retrospective desktop-activity authority. XiaoYu is a read-only query adapter and returns app/duration/coverage only; ActivityWatch window-title collection is disabled. Provider-native qwen3.8 forced tool_choice with reasoning_effort=none handles the previously failing negative wording; later rounds restore normal reasoning."
+    },
+    {
+      "id": "switchable_qwen_clone_voice",
+      "goal": "XiaoYu can switch between the preferred Qwen clone and the existing CosyVoice clone while reusing one character voice store/picker and the native Qwen realtime transport",
+      "status": "qwen_omni_realtime_and_qwen_audio_text_bundle_live_pass_cosyvoice_preserved",
+      "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json",
+      "note": "The retired legacy qwen3-tts-vc model is not revived. The existing reference audio was re-enrolled into current Qwen3.8 Omni realtime and Qwen-Audio 3.1 TTS clones. One qwen_bundle picker entry routes by surface; CosyVoice remains selectable."
     }
   ]
 }

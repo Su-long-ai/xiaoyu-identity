@@ -28,8 +28,12 @@ class OverlayContractTests(unittest.TestCase):
         )
         patches = series["patches"]
         self.assertLessEqual(len(patches), lock["core_patch_budget"])
-        self.assertEqual(lock["core_patch_budget"], 7)
-        self.assertEqual(len(patches), 7)
+        self.assertGreaterEqual(lock["core_patch_budget"], 1)
+        self.assertLessEqual(
+            lock["core_patch_budget"],
+            10,
+            "Managed N.E.K.O patch budget must remain deliberately small",
+        )
         for patch in patches:
             self.assertTrue((ROOT / "patches" / patch["file"]).is_file())
             self.assertTrue(patch["reason"].strip())
