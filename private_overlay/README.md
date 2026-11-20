@@ -41,3 +41,10 @@ Five narrow N.E.K.O patches are currently managed. The first fixes the proactive
 ## Release readiness
 
 tools/run_checks.ps1 ends with a fail-closed release gate. Every case in evals/acceptance_matrix.json must be in a PASS state and point to an existing evidence file. Any case that regresses to pending/deferred/partial/blocked/not-yet-ready blocks the release check.
+
+
+## Local API cost dashboard
+
+`tools/open_api_cost.cmd` refreshes and opens a local read-only cost report from N.E.K.O's native `config/token_usage.json`. It does not add another usage tracker or call an API. Reference prices and optional daily/monthly warning thresholds live in `tools/api_prices.json`; `null` leaves a threshold disabled.
+
+The bundled rates were rechecked against Alibaba Cloud Model Studio's public pricing page on 2026-11-20. They are reference rates rather than an account invoice. The report keeps unpriced calls separate, uses a range when the native aggregate cannot identify a pricing tier precisely, and does not infer mixed-modality realtime audio cost from text-token totals. Provider billing remains authoritative. Budget warnings are informational and never stop requests.

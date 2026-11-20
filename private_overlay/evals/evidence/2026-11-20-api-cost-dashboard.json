@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": "local API cost dashboard",
+  "architecture": {
+    "usage_authority": "N.E.K.O native config/token_usage.json",
+    "second_usage_tracker": false,
+    "api_calls_added": false,
+    "core_patch_added": false,
+    "output": "isolated .runtime/xiaoyu_api_cost.html",
+    "budget_behavior": "informational only; no request blocking"
+  },
+  "pricing_reference": {
+    "provider": "Alibaba Cloud Model Studio / Bailian",
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing",
+    "verified_date": "2026-11-20",
+    "account_invoice_authoritative": true,
+    "unpriced_mixed_modality_realtime_kept_unknown": true
+  },
+  "local_snapshot": {
+    "today_tokens": 130599,
+    "today_priced_cny_range": [
+      0.1074083,
+      0.1405383
+    ],
+    "yesterday_tokens": 563072,
+    "yesterday_priced_cny_range": [
+      0.34584554,
+      0.57844974
+    ],
+    "month_tokens": 693671,
+    "month_priced_cny_range": [
+      0.45325384,
+      0.71898804
+    ],
+    "unpriced_saved_calls": 164
+  },
+  "verification": {
+    "cost_tests": "7/7 PASS",
+    "overlay_suite": "41/41 PASS on clean rerun",
+    "release_readiness": "18/18 PASS before cost-only selective port; cost tool does not change acceptance state"
+  }
+}

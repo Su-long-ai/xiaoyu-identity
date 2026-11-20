@@ -1,0 +1,55 @@
+{
+  "profile": "百炼公开原价参考（全球/中国内地同价项；非实际账户账单）",
+  "currency": "CNY",
+  "verified": "2026-11-20",
+  "source": "https://help.aliyun.com/zh/model-studio/model-pricing",
+  "daily_budget_cny": null,
+  "monthly_budget_cny": null,
+  "models": {
+    "qwen3.8-flash": {
+      "unit": "tokens",
+      "tiers": [
+        {
+          "input": 0.8,
+          "cached": 0.1,
+          "output": 2.7,
+          "max_prompt_tokens": 1000000
+        }
+      ]
+    },
+    "qwen3.7-flash": {
+      "unit": "tokens",
+      "tiers": [
+        {
+          "input": 0.2,
+          "cached": 0.04,
+          "output": 0.8,
+          "max_prompt_tokens": 32768
+        },
+        {
+          "input": 0.6,
+          "cached": 0.12,
+          "output": 2.4,
+          "max_prompt_tokens": 262144
+        },
+        {
+          "input": 1.2,
+          "cached": 0.24,
+          "output": 4.8,
+          "max_prompt_tokens": 1000000
+        }
+      ]
+    },
+    "qwen3.8-omni-flash": {
+      "unit": "tokens",
+      "tiers": [
+        {
+          "input": 0.8,
+          "cached": 0.1,
+          "output": 2.7,
+          "max_prompt_tokens": 1000000
+        }
+      ]
+    }
+  }
+}
