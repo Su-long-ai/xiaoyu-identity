@@ -27,7 +27,12 @@ class TestCost(unittest.TestCase):
         self.assertIsNone(estimate({"prompt_tokens":100,"prompt_chars":100},{"unit":"tokens","tiers":[{"input":1,"output":2}]}))
     def test_char_rate(self):
         self.assertEqual(estimate({"prompt_chars":1000000},{"unit":"characters","cny_per_million_chars":4}),(4.0,4.0))
+        self.assertEqual(estimate({"prompt_chars":100},{"unit":"characters","cny_per_million_chars":100,"char_multiplier_min":1,"char_multiplier_max":2}),(0.01,0.02))
         self.assertIsNone(estimate({"prompt_chars":10,"prompt_tokens":20},{"unit":"characters","cny_per_million_chars":4}))
+    def test_realtime_modal_range(self):
+        tariff={"unit":"token_modal_range","input_min":1.5,"input_max":6,"output_min":4.5,"output_max":12}
+        self.assertEqual(estimate({"prompt_tokens":1000000,"completion_tokens":1000000},tariff),(6.0,18.0))
+
     def test_no_double_count(self):
         b={"prompt_tokens":1000000,"total_tokens":1000000,"call_count":1}
         d={"daily_stats":{"2026-11-20":{"by_model":{"m":b,"app_start":b},"by_call_type":{"chat":b}}},"recent_records":[{"model":"m","pt":1000000,"type":"chat"}]}

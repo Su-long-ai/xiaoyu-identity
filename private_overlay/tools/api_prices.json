@@ -1,5 +1,5 @@
 {
-  "profile": "百炼公开原价参考（全球/中国内地同价项；非实际账户账单）",
+  "profile": "百炼华北2（北京）公开原价参考（非实际账户账单）",
   "currency": "CNY",
   "verified": "2026-11-20",
   "source": "https://help.aliyun.com/zh/model-studio/model-pricing",
@@ -50,6 +50,30 @@
           "max_prompt_tokens": 1000000
         }
       ]
+    },
+    "qwen3.8-omni-flash-realtime": {
+      "unit": "token_modal_range",
+      "input_min": 1.5,
+      "input_max": 6,
+      "output_min": 4.5,
+      "output_max": 12,
+      "note": "N.E.K.O 当前仅保存 realtime 总 input/output token，无法区分文本/图像/视频与音频，因此按北京各模态原价给出上下界。"
+    },
+    "tts:qwen": {
+      "unit": "characters",
+      "cny_per_million_chars": 100,
+      "char_multiplier_min": 1,
+      "char_multiplier_max": 2,
+      "reference_model": "qwen3-tts-flash-realtime",
+      "note": "N.E.K.O 记录 Python len(text)；百炼汉字按 2 字符、其他多数字符按 1 字符，因此给 1x–2x 上下界。"
+    },
+    "tts:cosyvoice": {
+      "unit": "characters",
+      "cny_per_million_chars": 150,
+      "char_multiplier_min": 1,
+      "char_multiplier_max": 2,
+      "reference_model": "cosyvoice-v3.5-plus",
+      "note": "XiaoYu 当前复刻音色绑定 cosyvoice-v3.5-plus；N.E.K.O 记录 Python len(text)，按 1x–2x 计费字符上下界。"
     }
   }
 }

@@ -8,36 +8,49 @@
     "api_calls_added": false,
     "core_patch_added": false,
     "output": "isolated .runtime/xiaoyu_api_cost.html",
-    "budget_behavior": "informational only; no request blocking"
+    "budget_behavior": "informational only; no request blocking",
+    "bounded_tts_character_pricing": "1x–2x native Python character length because Bailian bills CJK ideographs as two characters",
+    "bounded_realtime_pricing": "N.E.K.O stores aggregate Realtime input/output tokens without modality details; use Beijing min/max modality rates"
   },
   "pricing_reference": {
     "provider": "Alibaba Cloud Model Studio / Bailian",
     "source": "https://help.aliyun.com/zh/model-studio/model-pricing",
     "verified_date": "2026-11-20",
     "account_invoice_authoritative": true,
-    "unpriced_mixed_modality_realtime_kept_unknown": true
+    "region": "华北2（北京） / dashscope.aliyuncs.com",
+    "models": {
+      "qwen3.8-flash": "input 0.8 / cached 0.1 / output 2.7 CNY per million tokens",
+      "qwen3.7-flash": "tiered 0.2/0.8, 0.6/2.4, 1.2/4.8; cached 20% of input tier",
+      "qwen3.8-omni-flash": "input 0.8 / cached 0.1 / output 2.7 CNY per million tokens",
+      "qwen3.8-omni-flash-realtime": "input 1.5(text/image/video)–6(audio), output 4.5(text)–12(audio) CNY per million tokens",
+      "qwen3-tts-flash-realtime": "1 CNY per 10k billable characters",
+      "cosyvoice-v3.5-plus": "1.5 CNY per 10k billable characters"
+    },
+    "realtime_detail_policy": "provider modality split is unavailable in N.E.K.O history, so Realtime is bounded by valid Beijing modality min/max rates rather than stated as exact"
   },
   "local_snapshot": {
     "today_tokens": 130599,
     "today_priced_cny_range": [
-      0.1074083,
-      0.1405383
+      0.1479583,
+      0.2216383
     ],
+    "today_unpriced_calls": 0,
     "yesterday_tokens": 563072,
     "yesterday_priced_cny_range": [
-      0.34584554,
-      0.57844974
+      0.58096204,
+      1.20349774
     ],
+    "yesterday_unpriced_calls": 0,
     "month_tokens": 693671,
     "month_priced_cny_range": [
-      0.45325384,
-      0.71898804
+      0.72892034,
+      1.42513604
     ],
-    "unpriced_saved_calls": 164
+    "month_unpriced_calls": 3
   },
   "verification": {
-    "cost_tests": "7/7 PASS",
-    "overlay_suite": "41/41 PASS on clean rerun",
-    "release_readiness": "18/18 PASS before cost-only selective port; cost tool does not change acceptance state"
+    "cost_tests": "8/8 PASS",
+    "overlay_suite": "42/42 PASS",
+    "release_readiness": "18/18 PASS after bounded TTS/Realtime pricing refinement"
   }
 }

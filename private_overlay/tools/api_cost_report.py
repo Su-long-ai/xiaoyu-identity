@@ -33,8 +33,22 @@ def estimate(bucket, tariff, *, aggregate=False):
         chars = number(bucket.get("prompt_chars"))
         if not chars or number(bucket.get("prompt_tokens")) or number(bucket.get("completion_tokens")):
             return None
-        cost = chars * number(tariff["cny_per_million_chars"]) / 1e6
-        return cost, cost
+        rate = number(tariff["cny_per_million_chars"])
+        lo_mult = number(tariff.get("char_multiplier_min", 1))
+        hi_mult = number(tariff.get("char_multiplier_max", lo_mult))
+        if hi_mult < lo_mult:
+            raise ValueError("char_multiplier_max must be >= char_multiplier_min")
+        return chars * rate * lo_mult / 1e6, chars * rate * hi_mult / 1e6
+    if tariff.get("unit") == "token_modal_range":
+        if number(bucket.get("prompt_chars")):
+            return None
+        p = number(bucket.get("prompt_tokens"))
+        o = number(bucket.get("completion_tokens"))
+        if not p and not o:
+            return None
+        low = (p * number(tariff["input_min"]) + o * number(tariff["output_min"])) / 1e6
+        high = (p * number(tariff["input_max"]) + o * number(tariff["output_max"])) / 1e6
+        return low, high
     if tariff.get("unit") != "tokens":
         return None
     p = number(bucket.get("prompt_tokens"))
