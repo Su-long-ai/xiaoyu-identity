@@ -24,7 +24,7 @@
       "goal": "N.E.K.O native runtime_auto_start plugins restore after product restart without enabling the Agent master",
       "status": "native_registry_refresh_autostart_and_qq_reconnect_live_pass",
       "evidence": "evals/evidence/2026-11-19-live-plugin-autostart-reconcile.json",
-      "note": "The overlay only reconciles N.E.K.O's persisted runtime_auto_start preferences through native lifecycle APIs; it does not force plugin policy or add a duplicate plugin runtime."
+      "note": "N.E.K.O native runtime_auto_start remains the lifecycle authority. The overlay recovery helper only restores persisted autostart state through native lifecycle APIs and the independent User Plugin relay through the native Agent flags API; it does not enable Agent analyzer/computer/browser."
     },
     {
       "id": "private_group_isolation",
@@ -108,7 +108,14 @@
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
       "status": "origin_main_7b_full_regression_clean_patch_replay_and_canonical_live_restart_pass",
       "evidence": "evals/evidence/2026-11-19-neko-upstream-7b776173-upgrade.json",
-      "note": "Promotes upstream capability rather than recreating it privately; the four XiaoYu core patches remain narrowly scoped and deterministic."
+      "note": "Promotes upstream capability rather than recreating it privately; the five XiaoYu core patches remain narrowly scoped and deterministic."
+    },
+    {
+      "id": "semantic_interaction_policy",
+      "goal": "explicit natural-language quiet/resume intent is semantically classified and enforced through N.E.K.O native proactive hard state without enabling the Agent master",
+      "status": "live_semantic_quiet_resume_timed_restart_native_controller_pass",
+      "evidence": "evals/evidence/2026-11-19-live-semantic-interaction-policy.json",
+      "note": "A narrow private semantic adapter consumes N.E.K.O user-message events and delegates hard execution to the built-in proactive_controller. It persists no user message text and adds no core patch."
     }
   ]
 }

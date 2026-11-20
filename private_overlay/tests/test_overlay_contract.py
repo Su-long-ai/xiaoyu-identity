@@ -1,4 +1,5 @@
 import json
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -62,14 +63,54 @@ class OverlayContractTests(unittest.TestCase):
             "XiaoYu overlay must not grow a second persona/evolution runtime",
         )
 
-    def test_no_private_runtime_plugin_is_required_by_default(self):
+    def test_private_runtime_plugins_are_exception_only_and_delegate_authority(self):
         plugins_dir = ROOT / "plugins"
-        runtime_files = list(plugins_dir.rglob("*.py")) if plugins_dir.exists() else []
-        self.assertEqual(
-            runtime_files,
-            [],
-            "Do not keep a private XiaoYu runtime plugin without a concrete acceptance gap",
+        manifest = json.loads(
+            (plugins_dir / "manifest.json").read_text(encoding="utf-8-sig")
         )
+        allowed = manifest.get("allowed_private_runtime_plugins", [])
+        allowed_ids = {item["id"] for item in allowed}
+
+        actual_ids = {
+            path.parent.name
+            for path in plugins_dir.glob("*/__init__.py")
+            if path.is_file()
+        }
+        self.assertEqual(
+            actual_ids,
+            allowed_ids,
+            "Every private runtime plugin must be explicitly admitted by the overlay manifest",
+        )
+
+        for item in allowed:
+            self.assertTrue(item["acceptance_gap"].strip())
+            self.assertEqual(
+                item["hard_execution_authority"],
+                "neko_native:proactive_controller",
+            )
+            for authority_flag in (
+                "owns_memory",
+                "owns_persona",
+                "owns_evolution",
+                "owns_tasks",
+                "owns_proactive_engine",
+            ):
+                self.assertFalse(
+                    item[authority_flag],
+                    f"{item['id']} must not duplicate N.E.K.O authority: {authority_flag}",
+                )
+            source_dir = ROOT / item["source_dir"]
+            config = tomllib.loads(
+                (source_dir / "plugin.toml").read_text(encoding="utf-8")
+            )
+            self.assertEqual(config["plugin"]["id"], item["id"])
+            dependency_ids = {
+                dep.get("id")
+                for dep in config["plugin"].get("dependency", [])
+                if isinstance(dep, dict)
+            }
+            self.assertIn("proactive_controller", dependency_ids)
+            self.assertTrue((ROOT / item["evidence"]).is_file())
 
     def test_startup_delegates_directly_to_neko_launcher(self):
         script = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(

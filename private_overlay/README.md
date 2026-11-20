@@ -7,7 +7,7 @@ Principles:
 - QQ is reused through the pinned external N.E.K.O QQ plugin and N.E.K.O OneBot/QQ connectors.
 - XiaoYu owns only private identity constraints/content, provider trust policy, conformance tests, one-time legacy migration and narrowly-scoped adapters proven necessary by a failing product test.
 - Growth mechanics are not implemented in the overlay. N.E.K.O native evidence/reflection/persona-promotion/correction mechanisms remain authoritative; XiaoYu only declares which identity dimensions may or may not change.
-- There is currently no private XiaoYu runtime plugin. Add one only when a concrete acceptance failure cannot be solved by N.E.K.O/configuration/a mature external component.
+- Private runtime plugins are exception-only. The current xiaoyu_interaction_policy adapter exists because a live object-less quiet request was obeyed only conversationally while native proactive delivery stayed enabled; it performs semantic intent mediation only and delegates hard execution to N.E.K.O's built-in proactive_controller.
 - Do not modify N.E.K.O core unless a wanted feature cannot be expressed as configuration, external component, plugin or adapter.
 - Core patches live only in patches/ and are explicitly counted. The current budget is five narrow patches, each admitted only after a reproduced live product gap and tied to acceptance evidence.
 - Never dual-write memory/identity authorities.
@@ -28,6 +28,11 @@ Startup:
 - The local desktop shortcut `小鱼 XiaoYu` points to the one-click launcher. The separate debug shortcut opens `http://127.0.0.1:48911/`.
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.
+
+## Private interaction-policy adapter
+
+plugins/xiaoyu_interaction_policy is a narrow private plugin, not a second agent/runtime authority. It consumes the N.E.K.O user-message bus, asks the configured Qwen classifier for a structured quiet / resume / none decision, and delegates all hard proactive state changes to the built-in proactive_controller. Outside quiet mode it uses a cheap lexical candidate prefilter to avoid an extra model call on ordinary chat; while the hard quiet latch is active every non-empty owner message is semantically checked so novel natural-language resume wording is not trapped behind a finite keyword list. The hard latch changes only N.E.K.O's proactiveChatEnabled master switch, preserving the owner's custom per-source proactive settings and user-owned privacy switches. Its persisted state contains only control state, timestamps and user-event IDs for deduplication; it does not persist user message text. N.E.K.O's User Plugin relay is enabled while the Agent master/analyzer, Computer Use and Browser Use remain disabled.
+
 
 ## Managed core patches
 

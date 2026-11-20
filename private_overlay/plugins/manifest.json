@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "allowed_private_runtime_plugins": [
+    {
+      "id": "xiaoyu_interaction_policy",
+      "source_dir": "plugins/xiaoyu_interaction_policy",
+      "purpose": "Semantic mediation for explicit owner interaction-control intent (quiet/resume) that N.E.K.O object-specific user_directives does not persist.",
+      "acceptance_gap": "A live owner instruction to stop speaking was obeyed by the dialogue model for the current reply but did not change proactive runtime state, so proactive messages resumed later.",
+      "hard_execution_authority": "neko_native:proactive_controller",
+      "dependencies": [
+        "proactive_controller"
+      ],
+      "owns_memory": false,
+      "owns_persona": false,
+      "owns_evolution": false,
+      "owns_tasks": false,
+      "owns_proactive_engine": false,
+      "evidence": "evals/evidence/2026-11-19-live-semantic-interaction-policy.json"
+    }
+  ]
+}

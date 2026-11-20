@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-19",
+  "component": {
+    "plugin_id": "xiaoyu_interaction_policy",
+    "plugin_version": "0.1.3",
+    "installed_via": "N.E.K.O Plugin Center explicit-confirmation upgrade (0.1.2 -> 0.1.3)",
+    "package_payload_hash": "0eb549b56746de0c78c73ea0791e528ef7054cf88350330447bb2fffd7ad8f63",
+    "hard_execution_authority": "N.E.K.O built-in proactive_controller",
+    "core_patch_added": false,
+    "build_artifact_sha256": "0d370398fea9bc2c03131284910370499e93bda2dc0ece607e300c04efeb59d5"
+  },
+  "architecture": {
+    "input_source": "N.E.K.O user-message bus",
+    "semantic_classifier": "configured N.E.K.O emotion model tier",
+    "classifier_output_schema": {
+      "action": [
+        "quiet",
+        "resume",
+        "none"
+      ],
+      "duration_minutes": "optional integer 1..1440"
+    },
+    "hard_state_field": "proactiveChatEnabled",
+    "user_plugin_relay_enabled": true,
+    "agent_master_analyzer_enabled": false,
+    "computer_use_enabled": false,
+    "browser_use_enabled": false,
+    "startup_recovery": {
+      "native_dependency_order": true,
+      "user_plugin_relay_restored_via_native_agent_flags_api": true,
+      "agent_master_analyzer_enabled": false,
+      "computer_use_enabled": false,
+      "browser_use_enabled": false
+    },
+    "semantic_resume_policy": {
+      "while_not_quiet": "cheap lexical candidate prefilter before classifier",
+      "while_quiet": "every non-empty owner message is semantically classified for resume/quiet/none",
+      "reason": "novel natural resume wording must not be trapped behind a finite keyword list",
+      "hard_state_still_owned_by": "N.E.K.O proactive_controller"
+    },
+    "hard_state_scope": {
+      "field": "proactiveChatEnabled",
+      "why_master_switch_only": "N.E.K.O first-party proactive sources all require the master switch; changing only it preserves the owner's custom per-source settings",
+      "does_not_modify": [
+        "proactiveVisionEnabled",
+        "proactiveVisionChatEnabled",
+        "proactiveNewsChatEnabled",
+        "proactiveCommunityChatEnabled",
+        "proactiveVideoChatEnabled",
+        "proactivePersonalChatEnabled",
+        "proactiveMusicEnabled",
+        "proactiveMemeEnabled",
+        "proactiveMiniGameInviteEnabled",
+        "proactiveTheaterInviteEnabled",
+        "proactiveChatInterval",
+        "proactiveVisionInterval"
+      ]
+    }
+  },
+  "live_acceptance": {
+    "semantic_quiet": {
+      "status": "PASS",
+      "new_user_event_seen": true,
+      "classifier_action": "quiet",
+      "quiet_state": true,
+      "proactive_chat_enabled_after": false
+    },
+    "semantic_resume": {
+      "status": "PASS",
+      "new_user_event_seen": true,
+      "classifier_action": "resume",
+      "quiet_state": false,
+      "proactive_chat_enabled_after": true,
+      "previous_state_restored": true
+    },
+    "neutral_message": {
+      "status": "PASS",
+      "new_user_event_seen": true,
+      "classifier_called": false,
+      "quiet_state_changed": false,
+      "proactive_state_changed": false
+    },
+    "timed_quiet": {
+      "status": "PASS",
+      "duration_requested_minutes": 10,
+      "observed_expiry_delta_seconds_approx": 606.4,
+      "duration_within_expected_window": true,
+      "resume_after_test": "PASS"
+    },
+    "restart_persistence": {
+      "status": "PASS",
+      "quiet_state_before_restart": true,
+      "proactive_chat_enabled_before_restart": false,
+      "quiet_state_after_restart": true,
+      "proactive_chat_enabled_after_restart": false,
+      "user_plugin_relay_after_restart": true,
+      "agent_master_analyzer_after_restart": false,
+      "computer_use_after_restart": false,
+      "browser_use_after_restart": false,
+      "proactive_controller_started_before_semantic_plugin": true,
+      "dependency_or_schema_warning_observed": false,
+      "natural_language_resume_after_restart": "PASS",
+      "final_quiet_state": false,
+      "final_proactive_chat_enabled": true
+    },
+    "upgrade_0_1_3": {
+      "status": "PASS",
+      "plan_action": "upgrade",
+      "current_version": "0.1.2",
+      "target_version": "0.1.3",
+      "payload_hash_verified": true,
+      "installer_restarted_plugin": true,
+      "rollback_status": "not_needed",
+      "runtime_status_after_install": "running",
+      "runtime_auto_start_after_install": true,
+      "dependency_proactive_controller_status": "running",
+      "quiet_state_preserved": false,
+      "proactive_chat_enabled_preserved": true,
+      "custom_proactive_subsettings_preserved": true
+    },
+    "semantic_resume_expansion_0_1_3": {
+      "status": "PASS_UNIT_PLUS_INSTALLED_RUNTIME",
+      "unit_examples": [
+        "好了你正常来吧",
+        "你又能讲话了"
+      ],
+      "quiet_mode_checks_all_nonempty_owner_messages": true,
+      "nonquiet_mode_keeps_candidate_prefilter": true,
+      "plugin_specific_tests": "10/10 PASS",
+      "overlay_tests": "34/34 PASS",
+      "release_readiness": "18/18 PASS",
+      "note": "The base semantic quiet/resume/timed/restart behavior was already live-accepted in 0.1.2. Version 0.1.3 changes only classifier admission while quiet and was installed into the live runtime through the native upgrade path."
+    }
+  },
+  "privacy": {
+    "plugin_state_persists_user_text": false,
+    "evidence_persists_user_text": false,
+    "logs_record_classifier_action_duration_flag_and_input_length_only": true,
+    "state_persists_event_ids_only_for_dedup": true
+  },
+  "observed_update_date_local": "2026-11-20"
+}

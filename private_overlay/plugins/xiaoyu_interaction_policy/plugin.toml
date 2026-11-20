@@ -1,0 +1,27 @@
+[plugin]
+name = "XiaoYu Interaction Policy"
+description = "Private XiaoYu semantic interaction-control adapter. Classifies explicit user requests to quiet/resume unsolicited communication and delegates hard proactive state changes to N.E.K.O's built-in proactive_controller."
+short_description = "Semantic quiet/resume control for XiaoYu using N.E.K.O native proactive_controller."
+keywords = ["xiaoyu", "quiet", "silence", "proactive", "interaction-policy"]
+version = "0.1.3"
+id = "xiaoyu_interaction_policy"
+type = "plugin"
+entry = "plugin.plugins.xiaoyu_interaction_policy:XiaoYuInteractionPolicyPlugin"
+
+[[plugin.dependency]]
+id = "proactive_controller"
+untested = ">=0"
+
+[plugin.author]
+name = "XiaoYu Private Overlay"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+auto_start = false
