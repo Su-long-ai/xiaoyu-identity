@@ -25,7 +25,7 @@ Startup:
 - Use tools/start_xiaoyu.ps1 for backend-only/private-runtime startup. It verifies local pins, completes N.E.K.O's native first-run storage selection when needed, runs the privacy/authority preflight, sets the isolated XiaoYu storage root, then launches N.E.K.O directly.
 - Use tools/start_xiaoyu_oneclick.ps1 for normal daily use. It waits until the XiaoYu main/memory/agent services are healthy, then launches the pinned official N.E.K.O desktop host so the existing XiaoYu backend is shown as a desktop pet instead of opening a browser.
 - Use tools/start_xiaoyu.ps1 -PreflightOnly to validate the backend launch path without starting the UI.
-- The local desktop shortcut `小鱼 XiaoYu` points to the one-click launcher. The separate debug shortcut opens `http://127.0.0.1:48911/`.
+- Run `tools/install_xiaoyu_shortcuts.ps1` after moving or re-cloning the overlay. It recreates the `小鱼 XiaoYu` one-click launcher, the debug shortcut for `http://127.0.0.1:48911/`, and the local API-cost shortcut from the current checkout path instead of preserving stale workspace paths.
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.
 

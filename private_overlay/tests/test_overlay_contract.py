@@ -133,6 +133,26 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("start_plugin", script)
 
 
+    def test_shortcut_installer_is_relocatable_and_covers_product_entries(self):
+        script = (ROOT / "tools" / "install_xiaoyu_shortcuts.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "$PSScriptRoot",
+            "start_xiaoyu_oneclick.ps1",
+            "open_api_cost.cmd",
+            "http://127.0.0.1:48911/",
+            "0x5C0F",
+            "0x9C7C",
+            "0x8D39",
+            "0x7528",
+        }
+        for item in required:
+            self.assertIn(item, script)
+        self.assertNotIn("dsh-fish-overlay-audit", script)
+        self.assertNotIn("xiaoyu_private_overlay_work", script)
+
+
     def test_setup_keeps_neko_ui_native_and_repairable(self):
         script = (ROOT / "tools" / "setup_local.ps1").read_text(
             encoding="utf-8-sig"
