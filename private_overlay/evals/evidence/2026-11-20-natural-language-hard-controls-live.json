@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": {
+    "plugin_id": "xiaoyu_interaction_policy",
+    "installed_version": "0.4.0",
+    "runtime_status": "running",
+    "core_patch_count": 6,
+    "new_core_patch_for_vision": false
+  },
+  "behavior": {
+    "proactive_quiet_resume": "delegated to N.E.K.O proactive_controller",
+    "audible_speech_mute": "private persistent intent + managed N.E.K.O speech-output boundary",
+    "autonomous_screen_privacy": "explicit owner intent maps to N.E.K.O native user-owned conversation setting proactiveVisionEnabled",
+    "global_restore": "restores captured screen-consent value rather than inventing consent"
+  },
+  "verification": {
+    "overlay_suite": "61/61 PASS",
+    "authority_checker": "PASS; all N.E.K.O checkout changes explained by 6 managed patches",
+    "release_readiness": "18/18 PASS before runtime launch",
+    "launcher_state": "ready",
+    "plugin_autostart": "PASS; xiaoyu_interaction_policy started after proactive_controller",
+    "speech_state_after_restart": {
+      "quiet": true,
+      "speech_muted": true,
+      "vision_blocked": false
+    },
+    "vision_native_roundtrip": {
+      "original": true,
+      "blocked": false,
+      "privacy_mode_while_blocked": true,
+      "restored": true,
+      "revisions": "10 -> 11 -> 12",
+      "endpoint": "/api/config/conversation-settings",
+      "cas": "ETag/If-Match"
+    },
+    "semantic_parser_and_native_write_tests": "included in 61/61 overlay suite"
+  },
+  "privacy": {
+    "vision_write_uses_native_user_settings_authority": true,
+    "proactive_controller_user_owned_vision_guard_bypassed": false,
+    "screen_setting_restored_after_test": true,
+    "raw_user_text_persisted": false
+  }
+}

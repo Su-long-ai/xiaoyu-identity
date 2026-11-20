@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": {
+    "plugin_id": "xiaoyu_interaction_policy",
+    "installed_version": "0.4.0",
+    "tool": "xiaoyu_recent_activity"
+  },
+  "architecture": {
+    "source": "N.E.K.O native SystemSignalCollector + activity observation/classification",
+    "storage": "private local activity_timeline.json",
+    "retained_fields": [
+      "time range",
+      "canonical app/category",
+      "privacy_state",
+      "sample count"
+    ],
+    "excluded_fields": [
+      "raw window titles",
+      "screenshots",
+      "user text"
+    ],
+    "missing_coverage_policy": "UNKNOWN, never inferred as inactivity",
+    "second_memory_authority": false
+  },
+  "live_acceptance": {
+    "plugin_started": true,
+    "llm_tool_registered": true,
+    "first_timeline_sample": {
+      "category": "gaming",
+      "app": "Steam",
+      "privacy_state": "visible"
+    },
+    "privacy_mode_behavior": "private samples suppress app name",
+    "unit_coverage": "activity merge/gap/privacy/tool scope tests included in overlay 61/61 PASS"
+  }
+}

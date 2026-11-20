@@ -11,7 +11,7 @@ spec.loader.exec_module(mod)
 
 
 class EnsurePrivatePluginTests(unittest.TestCase):
-    def _write_plugin(self, root: Path, *, version: str = "0.2.0", body: str = "VALUE = 1\n") -> None:
+    def _write_plugin(self, root: Path, *, version: str = "0.3.0", body: str = "VALUE = 1\n") -> None:
         root.mkdir(parents=True, exist_ok=True)
         (root / "plugin.toml").write_text(
             "[plugin]\n"
@@ -40,12 +40,12 @@ class EnsurePrivatePluginTests(unittest.TestCase):
             base = Path(td)
             source = base / "source"
             installed = base / "installed"
-            self._write_plugin(source, version="0.2.0", body="VALUE = 1\n")
-            self._write_plugin(installed, version="0.1.3", body="VALUE = 1\n")
+            self._write_plugin(source, version="0.3.0", body="VALUE = 1\n")
+            self._write_plugin(installed, version="0.2.0", body="VALUE = 1\n")
             exact, reason = mod._installed_matches_source(source, installed)
             self.assertFalse(exact)
             self.assertEqual(reason, "version_mismatch")
-            self._write_plugin(installed, version="0.2.0", body="VALUE = 2\n")
+            self._write_plugin(installed, version="0.3.0", body="VALUE = 2\n")
             exact, reason = mod._installed_matches_source(source, installed)
             self.assertFalse(exact)
             self.assertEqual(reason, "content_mismatch:__init__.py")
@@ -62,6 +62,21 @@ class EnsurePrivatePluginTests(unittest.TestCase):
             (state / "state.json").write_text('{"quiet":true}', encoding="utf-8")
             exact, _ = mod._installed_matches_source(source, installed)
             self.assertTrue(exact)
+
+
+    def test_live_runtime_blocks_only_replacement_not_verify_or_exact(self):
+        self.assertTrue(mod._should_block_live_replacement(
+            exact=False, verify_only=False, open_ports=[48911, 48916]
+        ))
+        self.assertFalse(mod._should_block_live_replacement(
+            exact=True, verify_only=False, open_ports=[48911]
+        ))
+        self.assertFalse(mod._should_block_live_replacement(
+            exact=False, verify_only=True, open_ports=[48911]
+        ))
+        self.assertFalse(mod._should_block_live_replacement(
+            exact=False, verify_only=False, open_ports=[]
+        ))
 
 
     def test_known_v1_owner_state_migration_is_tightly_scoped(self):

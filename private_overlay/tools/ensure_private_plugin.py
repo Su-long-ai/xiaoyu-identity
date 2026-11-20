@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import json
 import os
+import socket
 import sys
 import tomllib
 from pathlib import Path
@@ -95,6 +96,33 @@ def _migrate_known_v1_owner_state(
     return True
 
 
+def _runtime_ports_open(
+    ports: tuple[int, ...] = (48911, 48916),
+    *,
+    host: str = "127.0.0.1",
+    timeout: float = 0.15,
+) -> list[int]:
+    """Return XiaoYu/N.E.K.O runtime ports that currently accept connections.
+
+    Replacing an executable plugin tree while the host has that tree loaded can
+    invalidate the active runtime and trigger a coordinated backend shutdown.
+    Startup installs happen before these ports exist, so block only live
+    replacements; verification remains read-only and is always allowed.
+    """
+    open_ports: list[int] = []
+    for port in ports:
+        try:
+            with socket.create_connection((host, int(port)), timeout=timeout):
+                open_ports.append(int(port))
+        except OSError:
+            continue
+    return open_ports
+
+
+def _should_block_live_replacement(*, exact: bool, verify_only: bool, open_ports: list[int]) -> bool:
+    return (not exact) and (not verify_only) and bool(open_ports)
+
+
 def _installed_matches_source(source: Path, installed: Path) -> tuple[bool, str]:
     if not installed.is_dir():
         return False, "not_installed"
@@ -160,6 +188,19 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
             "version": desired_version,
             "status": "stale",
             "reason": reason,
+            "installed_dir": str(installed),
+        }
+
+    open_ports = _runtime_ports_open()
+    if _should_block_live_replacement(exact=exact, verify_only=False, open_ports=open_ports):
+        return {
+            "ok": False,
+            "changed": False,
+            "plugin_id": PLUGIN_ID,
+            "version": desired_version,
+            "status": "live_runtime_replacement_blocked",
+            "reason": "restart XiaoYu before replacing a loaded private plugin",
+            "open_ports": open_ports,
             "installed_dir": str(installed),
         }
 

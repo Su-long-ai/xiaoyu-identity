@@ -112,10 +112,17 @@
     },
     {
       "id": "semantic_interaction_policy",
-      "goal": "explicit natural-language quiet/resume intent is semantically classified and enforced through N.E.K.O native proactive hard state without enabling the Agent master",
-      "status": "live_semantic_quiet_resume_timed_restart_native_controller_pass",
-      "evidence": "evals/evidence/2026-11-19-live-semantic-interaction-policy.json",
-      "note": "The released acceptance claim covers proactive quiet/resume only. The v0.2 audible-speech extension is tracked separately in 2026-11-20-private-speech-output-gate.json and is not promoted into this release matrix until the next live restart acceptance."
+      "goal": "explicit natural-language interaction controls become deterministic proactive, audible-speech, and autonomous-screen hard state while preserving N.E.K.O native authorities",
+      "status": "live_quiet_resume_speech_mute_restart_and_native_screen_privacy_roundtrip_pass",
+      "evidence": "evals/evidence/2026-11-20-natural-language-hard-controls-live.json",
+      "note": "Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; audible output uses the sixth managed N.E.K.O boundary patch. Version 0.4.0 is live and the prior no-speech intent survived restart."
+    },
+    {
+      "id": "recent_activity_recall",
+      "goal": "recent owner-computer activity can be recalled from bounded local evidence without inventing inactivity or storing raw window titles/screenshots",
+      "status": "live_native_activity_classifier_timeline_and_llm_tool_pass",
+      "evidence": "evals/evidence/2026-11-20-recent-activity-recall-live.json",
+      "note": "Reuses N.E.K.O native system-signal/activity classification. Missing coverage is explicitly UNKNOWN and privacy-mode samples suppress app identity."
     }
   ]
 }

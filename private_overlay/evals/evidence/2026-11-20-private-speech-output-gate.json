@@ -23,10 +23,10 @@
     "plugin_parser_and_fast_control": "14/14 PASS",
     "neko_targeted_voice_tts_regression": "237 passed, 4 skipped",
     "python_compile": "tts_runtime.py, streaming.py, turn.py PASS",
-    "live_restart": "pending next normal restart; current live instance intentionally uninterrupted",
+    "live_restart": "PASS on 2026-11-20 current-overlay restart; state preserved with speech_muted=true and launcher reached ready",
     "ensure_private_plugin_unit": "5/5 PASS",
-    "overlay_suite": "53/53 PASS",
-    "release_readiness": "18/18 existing released acceptance cases PASS; audible-speech candidate intentionally not promoted before live restart",
+    "overlay_suite": "61/61 PASS",
+    "release_readiness": "18/18 PASS before runtime launch",
     "authority_checker": "6/6 managed N.E.K.O patches explain all checkout changes"
   },
   "deployment": {
@@ -35,7 +35,19 @@
     "package_payload_hash": "8d50386699887d04e850c54291aaf0a4ff84ed164ca7388e475da471028825bb",
     "state_separation": "runtime data/state.json preserved across package replacement",
     "scoped_state_migration": "known current 0.1.3 quiet:user state gains speech_muted=true; ambiguous legacy quiet is not promoted",
-    "live_instance": "not restarted or hot-upgraded",
+    "live_instance": {
+      "installed_version": "0.4.0",
+      "runtime_status": "running",
+      "launcher_state": "ready",
+      "state_after_restart": {
+        "quiet": true,
+        "speech_muted": true,
+        "vision_blocked": false
+      },
+      "managed_patch_count": 6,
+      "hot_upgrade_performed": false,
+      "note": "Old instance was stopped first; current overlay then launched original N.E.K.O with NEKO_PRIVATE_SPEECH_GATE_FILE."
+    },
     "current_live_before_restart": {
       "installed_version": "0.1.3",
       "desired_version": "0.2.0",
@@ -43,7 +55,8 @@
       "runtime_auto_start": true,
       "runtime_status": "running",
       "install_source": "imported",
-      "hot_upgrade_performed": false
+      "hot_upgrade_performed": false,
+      "superseded": true
     }
   }
 }
