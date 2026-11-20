@@ -30,6 +30,11 @@
       "file": "0006-private-speech-output-gate.patch",
       "reason": "Live use showed that semantic quiet correctly disabled proactive delivery but did not suppress audible TTS/native Realtime replies when the owner actively sent a message. N.E.K.O has no native global assistant-speech mute or plugin API for that output boundary. Add an opt-in file gate enabled only by the XiaoYu launcher: explicit whole-utterance commands close the current-turn race, external TTS is dropped before provider enqueue, and cached/native audio is dropped before frontend delivery. Persistent intent remains owned by the private semantic interaction plugin.",
       "evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+    },
+    {
+      "file": "0007-private-first-round-tool-route.patch",
+      "reason": "Repeated isolated qwen3.8 probes proved auto-selection skipped one negative recent-activity wording. Revalidation showed the provider's native forced function call works when reasoning_effort=none. Add only a generic opt-in first-round route bridge: the private launcher supplies the registered tool name/regex/reasoning override, N.E.K.O forwards provider-native tool_choice on the first OpenAI-compatible round, and immediately restores normal tool/reasoning settings after that round. No local tool pre-execution or XiaoYu-specific wording lives in N.E.K.O.",
+      "evidence": "evals/evidence/2026-11-20-private-first-round-provider-native-tool-route.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

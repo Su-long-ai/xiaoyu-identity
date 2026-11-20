@@ -22,7 +22,40 @@ $ResolvedStorage = (Resolve-Path $StorageRoot).Path
 $env:NEKO_STORAGE_SELECTED_ROOT = $ResolvedStorage
 $env:NEKO_STORAGE_ANCHOR_ROOT = $ResolvedStorage
 $env:NEKO_RUNTIME_STATE_DIR = Join-Path $ResolvedStorage ".runtime"
+
+# Private product routing: N.E.K.O core only exposes the generic first-round
+# forced-tool bridge. XiaoYu owns the tool name and conservative retrospective
+# activity pattern here, so no product-specific wording lives in N.E.K.O.
+$env:NEKO_PRIVATE_FORCED_TOOL_NAME = "xiaoyu_recent_activity"
+$env:NEKO_PRIVATE_FORCED_TOOL_REASONING_EFFORT = "none"
+$env:NEKO_PRIVATE_FORCED_TOOL_PATTERN = '(?i)(?:(?:\u521a\u624d|\u521a\u521a|\u6700\u8fd1|\u8fd9\u6bb5\u65f6\u95f4|\u8fc7\u53bb\s*\d+\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u524d\s*\d+\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u8fd9\s*\d*\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u4e0a\u4e2a\u5c0f\u65f6|\u4e0a\u4e00\u5c0f\u65f6|\d+\s*\u4e2a?\s*\u5c0f\u65f6\u524d|\u4e00\u4e2a\u5c0f\u65f6\u524d).{0,48}(?:\u5728\u5e72\u561b|\u5e72\u561b|\u5e72\u4ec0\u4e48|\u5e72\u4e86\u4ec0\u4e48|\u5e72\u4e86\u5565|\u5e72\u4e86\u4e9b\u4ec0\u4e48|\u505a\u4ec0\u4e48|\u505a\u4e86\u4ec0\u4e48|\u505a\u4e86\u5565|\u505a\u4e86\u4e9b\u4ec0\u4e48|\u5728\u505a\u4ec0\u4e48|\u6ca1\u5e72\u4e8b|\u6ca1\u505a\u4e8b|\u5fd9\u4ec0\u4e48|\u7535\u8111|\u5199\u4ee3\u7801|\u7f16\u7a0b|\u6253\u6e38\u620f|\u73a9\u6e38\u620f|\u7528\u4e86\u4ec0\u4e48(?:\u8f6f\u4ef6|\u5e94\u7528)?|\u7528\u4ec0\u4e48(?:\u8f6f\u4ef6|\u5e94\u7528)?)|(?:\u7535\u8111|\u5199\u4ee3\u7801|\u7f16\u7a0b|\u6253\u6e38\u620f|\u73a9\u6e38\u620f|\u7528\u4ec0\u4e48(?:\u8f6f\u4ef6|\u5e94\u7528)?).{0,48}(?:\u521a\u624d|\u521a\u521a|\u6700\u8fd1|\u8fd9\u6bb5\u65f6\u95f4|\u8fc7\u53bb\s*\d+\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u524d\s*\d+\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u8fd9\s*\d*\s*\u4e2a?\s*(?:\u5206\u949f|\u5c0f\u65f6)|\u4e0a\u4e2a\u5c0f\u65f6|\u4e0a\u4e00\u5c0f\u65f6|\d+\s*\u4e2a?\s*\u5c0f\u65f6\u524d|\u4e00\u4e2a\u5c0f\u65f6\u524d))'
 $env:NEKO_PRIVATE_SPEECH_GATE_FILE = Join-Path $ResolvedStorage "plugins\xiaoyu_interaction_policy\data\state.json"
+
+Write-Host "== Ensure ActivityWatch external activity authority =="
+$ActivityWatchExe = Join-Path $env:LOCALAPPDATA "Programs\ActivityWatch\aw-qt.exe"
+$ActivityWatchCheck = Join-Path $ToolsRoot "check_activitywatch.py"
+& $Python $ActivityWatchCheck
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not $PreflightOnly) {
+    $ActivityWatchReady = $false
+    try {
+        $null = Invoke-RestMethod -Uri "http://127.0.0.1:5600/api/0/info" -TimeoutSec 1
+        $ActivityWatchReady = $true
+    } catch {}
+    if (-not $ActivityWatchReady) {
+        Start-Process -FilePath $ActivityWatchExe | Out-Null
+        for ($i = 0; $i -lt 20 -and -not $ActivityWatchReady; $i++) {
+            Start-Sleep -Milliseconds 500
+            try {
+                $null = Invoke-RestMethod -Uri "http://127.0.0.1:5600/api/0/info" -TimeoutSec 1
+                $ActivityWatchReady = $true
+            } catch {}
+        }
+        if (-not $ActivityWatchReady) {
+            throw "ActivityWatch local API did not become ready"
+        }
+    }
+}
 
 Write-Host "== Verify pinned external components =="
 & (Join-Path $ToolsRoot "setup_local.ps1") -NekoRoot $NekoRoot -VerifyOnly

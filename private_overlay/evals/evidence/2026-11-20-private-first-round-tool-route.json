@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": "private first-round forced-tool route",
+  "status": "offline_deterministic_route_and_core_regression_pass_live_restart_pending",
+  "motivation": "Four isolated paid qwen3.8-omni-flash probes all scored 3/4; the same negative recent-activity question bypassed the activity tool. Plugin SDK exposes registration but no current-turn forced-tool arbitration hook.",
+  "architecture": {
+    "neko_core": "generic opt-in environment bridge only; no XiaoYu/tool-specific regex or tool name in N.E.K.O",
+    "private_overlay": "launcher owns NEKO_PRIVATE_FORCED_TOOL_NAME and NEKO_PRIVATE_FORCED_TOOL_PATTERN",
+    "scope": "OpenAI-compatible offline text path only; native GenAI path is not forced",
+    "loop_safety": "forced tool_choice applies only to the first tool round; later rounds restore prior/auto choice",
+    "authority": "tool execution remains N.E.K.O ToolRegistry and plugin @llm_tool callback"
+  },
+  "verification": {
+    "targeted_pytest": "7 passed, 111 deselected",
+    "py_compile": "PASS",
+    "preforce_diagnostic": "evals/evidence/2026-11-20-recent-activity-preforce-diagnostic.json",
+    "core_targeted_forced_route_tests": "2/2 PASS",
+    "overlay_focused_tests": "28/28 PASS"
+  },
+  "route_contract": {
+    "tool_name": "xiaoyu_recent_activity",
+    "launcher_owned": true,
+    "positive_examples": [
+      "我的意思是你看见过去1个小时我干了什么吗？",
+      "我刚才一个小时主要在电脑上干嘛？",
+      "我最近是在写代码还是打游戏？",
+      "我刚刚这段时间是不是一直没干事？"
+    ],
+    "negative_examples": [
+      "过去我喜欢打游戏吗？",
+      "你记得我长期更偏好的求职城市是什么吗？",
+      "去年这个时候我做了什么？",
+      "你现在看见我在干什么？"
+    ],
+    "deterministic_route_cases": "8/8 PASS"
+  }
+}

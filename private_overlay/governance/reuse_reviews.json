@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "policy": "Before adding any private runtime plugin or managed N.E.K.O core patch, review N.E.K.O native/upstream capability and mature external components. Reuse wins unless a concrete acceptance gap remains. run_checks.ps1 fails closed when a runtime customization lacks an approved review.",
+  "reviews": [
+    {
+      "id": "patch:0001-proactive-autostart-idle-gate.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Internal proactive session start incorrectly refreshes user-activity authority.",
+      "decision": "self_implement",
+      "candidates": [
+        {
+          "name": "N.E.K.O native proactive runtime",
+          "type": "native",
+          "outcome": "gap_is_inside_authority",
+          "evidence": "evals/evidence/2026-11-19-live-proactive-autostart.json"
+        }
+      ],
+      "why_reuse_insufficient": "This is an internal N.E.K.O lifecycle race; an external component cannot repair the authority ordering without replacing the runtime.",
+      "acceptance_evidence": "evals/evidence/2026-11-19-live-proactive-autostart.json"
+    },
+    {
+      "id": "patch:0002-full-chat-native-voice-entry.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Full Chat hides the already-native microphone control.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O native microphone/realtime runtime",
+          "type": "native",
+          "outcome": "reused; only UI bridge missing",
+          "evidence": "evals/evidence/2026-11-19-live-voice-ui-entry.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native runtime is reused; patch only exposes its existing control in the active surface.",
+      "acceptance_evidence": "evals/evidence/2026-11-19-live-voice-ui-entry.json"
+    },
+    {
+      "id": "patch:0003-qwen38-server-vad-reliability.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Qwen3.8 semantic VAD accepted PCM without completing speech detection in live E2E.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Qwen3.8 server_vad",
+          "type": "provider_native",
+          "outcome": "selected",
+          "evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
+        }
+      ],
+      "why_reuse_insufficient": "Uses provider-native server VAD; only N.E.K.O's model-specific selection needed correction.",
+      "acceptance_evidence": "evals/evidence/2026-11-19-live-qwen38-server-vad-reliability.json"
+    },
+    {
+      "id": "patch:0004-native-ingress-activity-before-backpressure.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "User PCM activity is published too late when the shared worker is backpressured.",
+      "decision": "self_implement",
+      "candidates": [
+        {
+          "name": "N.E.K.O native user-priority/activity signal",
+          "type": "native",
+          "outcome": "reused but emitted too late",
+          "evidence": "evals/evidence/2026-11-19-live-proactive-audio-backpressure.json"
+        }
+      ],
+      "why_reuse_insufficient": "External VAD/ASR cannot fix the internal queue/lock ordering; patch reuses the same native RMS signal before queueing.",
+      "acceptance_evidence": "evals/evidence/2026-11-19-live-proactive-audio-backpressure.json"
+    },
+    {
+      "id": "patch:0005-latest-character-switch-intent-replay.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Rapid character switching can drop the latest intent and leave the VRM torn down.",
+      "decision": "self_implement",
+      "candidates": [
+        {
+          "name": "N.E.K.O native character/VRM renderer",
+          "type": "native",
+          "outcome": "reused; state-machine recovery missing",
+          "evidence": "evals/evidence/2026-11-19-live-rapid-character-switch-recovery.json"
+        }
+      ],
+      "why_reuse_insufficient": "The bug is in N.E.K.O's own switch state machine; replacing the renderer would be larger and duplicate more functionality.",
+      "acceptance_evidence": "evals/evidence/2026-11-19-live-rapid-character-switch-recovery.json"
+    },
+    {
+      "id": "patch:0006-private-speech-output-gate.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Semantic quiet did not suppress already-native TTS/Realtime audible output.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O TTS and realtime output paths",
+          "type": "native",
+          "outcome": "reused; no global speech mute boundary exposed",
+          "evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+        }
+      ],
+      "why_reuse_insufficient": "No external component can reliably enforce mute after all N.E.K.O speech producers without replacing them; the patch is a single opt-in output boundary.",
+      "acceptance_evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+    },
+    {
+      "id": "patch:0007-private-first-round-tool-route.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Qwen3.8 auto tool selection skips a negative recent-activity question.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Qwen3.8-Omni native tool_choice with reasoning_effort=none",
+          "type": "provider_native",
+          "outcome": "verified 1/1 for previously failing case; preferred execution mechanism",
+          "evidence": "evals/evidence/2026-11-20-recent-activity-provider-native-force-nonthinking.json"
+        },
+        {
+          "name": "N.E.K.O plugin SDK @llm_tool",
+          "type": "native",
+          "outcome": "registration reused; no synchronous per-turn tool-choice arbitration hook",
+          "evidence": "evals/evidence/2026-11-20-recent-activity-preforce-diagnostic.json"
+        }
+      ],
+      "why_reuse_insufficient": "Provider-native forced tool is used directly. The remaining patch is only a generic per-turn bridge because N.E.K.O has no configuration/plugin hook to select first-round tool_choice from private policy and then restore ordinary reasoning.",
+      "acceptance_evidence": "evals/evidence/2026-11-20-private-first-round-provider-native-tool-route.json"
+    },
+    {
+      "id": "plugin:xiaoyu_interaction_policy",
+      "status": "approved",
+      "reviewed_at": "2026-11-20",
+      "problem": "Owner natural-language interaction controls need deterministic native state changes; retrospective activity needs a queryable source.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O proactive_controller and conversation settings",
+          "type": "native",
+          "outcome": "selected as hard execution authority",
+          "evidence": "evals/evidence/2026-11-20-natural-language-hard-controls-live.json"
+        },
+        {
+          "name": "ActivityWatch 0.14.3",
+          "type": "external",
+          "outcome": "selected as recent-activity authority; private duplicate timeline is being removed",
+          "evidence": "https://docs.activitywatch.net/en/latest/examples/working-with-data.html"
+        }
+      ],
+      "why_reuse_insufficient": "The plugin remains only semantic intent mediation and a read-only bridge to native/external authorities; it must not own a second memory, proactive engine, vision runtime, or activity datastore.",
+      "acceptance_evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": "ActivityWatch recent-activity authority cutover",
+  "verdict": "PASS_EXTERNAL_ACTIVITYWATCH_AUTHORITY_REPLACES_PRIVATE_TIMELINE",
+  "external_component": {
+    "name": "ActivityWatch",
+    "installed_version": "0.14.3",
+    "install_source": "winget ActivityWatch.ActivityWatch",
+    "local_api": "http://127.0.0.1:5600/api/0",
+    "runtime_processes": [
+      "aw-qt",
+      "aw-server",
+      "aw-watcher-window",
+      "aw-watcher-afk"
+    ]
+  },
+  "privacy": {
+    "window_title_collection": "disabled via aw-watcher-window exclude_title=true",
+    "pre_cutover_window_bucket": "deleted before restart",
+    "post_restart_title_field_observed": "excluded",
+    "data_returned_to_xiaoyu": [
+      "application name",
+      "timestamp",
+      "duration",
+      "AFK-filtered active duration"
+    ],
+    "data_not_returned_to_xiaoyu": [
+      "window title",
+      "URL",
+      "screenshot",
+      "user message text"
+    ]
+  },
+  "architecture": {
+    "authority": "ActivityWatch",
+    "xiaoyu_role": "read-only REST/query adapter",
+    "custom_sampler_removed": true,
+    "custom_timeline_read_write_removed": true,
+    "duplicate_activity_datastore": false,
+    "query_semantics": "window events intersected with not-afk events, aggregated by app"
+  },
+  "live_probe": {
+    "source_version": "v0.14.3",
+    "lookback_minutes": 2,
+    "coverage_complete": true,
+    "gaps": [],
+    "active_seconds": 101.7,
+    "returned_apps": [
+      "chrome.exe"
+    ],
+    "title_present_in_model_payload": false,
+    "unavailable": false
+  },
+  "regression": {
+    "plugin_focused_tests": "21/21 PASS",
+    "reuse_first_gate": "PASS",
+    "overlay_full_tests": "64/64 PASS",
+    "neko_tool_calling_tests": "118/118 PASS",
+    "release_readiness": "19/19 PASS"
+  },
+  "live_cutover": {
+    "plugin_version": "0.5.0",
+    "installed_source_exact_match": true,
+    "main_tool_registered": true,
+    "backend_health_ports": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "legacy_private_timeline": "archived and not recreated after restart",
+    "startup_preflight": "PASS"
+  }
+}

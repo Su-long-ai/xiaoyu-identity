@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-20T18:42:07.323023+08:00",
+  "isolation": {
+    "chat_history_written": false,
+    "memory_written": false,
+    "provider_credentials_persisted": false,
+    "native_usage_ledger_recorded": true,
+    "remote_neko_telemetry_for_probe": false
+  },
+  "model": "qwen3.8-omni-flash",
+  "tool_choice": "forced:xiaoyu_recent_activity",
+  "case_filter": "anti_false_inactivity",
+  "cases": [
+    {
+      "id": "anti_false_inactivity",
+      "expected": "xiaoyu_recent_activity",
+      "expected_not": null,
+      "selected_tools": [],
+      "pass": false,
+      "usage": {
+        "prompt_tokens": 575,
+        "completion_tokens": 97,
+        "total_tokens": 672,
+        "cached_tokens": 0
+      }
+    }
+  ],
+  "summary": {
+    "passed": 0,
+    "total": 1,
+    "all_pass": false,
+    "provider_usage": {
+      "prompt_tokens": 575,
+      "completion_tokens": 97,
+      "total_tokens": 672,
+      "cached_tokens": 0
+    }
+  }
+}

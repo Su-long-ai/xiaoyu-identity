@@ -27,3 +27,8 @@ Optimization target:
 Remote policy:
 - pushing work to the user's own private xiaoyu-identity repository is allowed when part of the project workflow;
 - third-party/upstream publication requires explicit user instruction.
+Reuse-first machine gate:
+- Before adding a private runtime plugin, a managed N.E.K.O core patch, or an equivalent new runtime subsystem, first create and approve a review entry in governance/reuse_reviews.json.
+- The review must inspect N.E.K.O native/upstream capability and mature external components, record concrete candidates/evidence, and explain why reuse is insufficient when any custom adapter or implementation remains.
+- tools/check_reuse_first.py is fail-closed and is part of tools/run_checks.ps1. A new runtime patch/plugin without an approved review blocks release checks.
+- When a reusable candidate becomes viable later, prefer replacing/deleting private implementation rather than preserving sunk-cost code.

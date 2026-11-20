@@ -108,21 +108,21 @@
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
       "status": "origin_main_6261_patch_replay_dependency_regression_and_canonical_live_restart_pass",
       "evidence": "evals/evidence/2026-11-20-neko-upstream-6261a5f6-upgrade.json",
-      "note": "The 6261a5f6 upgrade established deterministic replay for the original five patches. A sixth evidence-backed speech-output patch was added later for a reproduced live XiaoYu gap; all six are now authority-checked by startup preflight."
+      "note": "The 6261a5f6 upgrade established deterministic replay for the original five patches. Later evidence-backed patches add speech-output gating and a generic provider-native first-round tool-choice bridge; all managed patches remain authority-checked by startup preflight."
     },
     {
       "id": "semantic_interaction_policy",
       "goal": "explicit natural-language interaction controls become deterministic proactive, audible-speech, and autonomous-screen hard state while preserving N.E.K.O native authorities",
       "status": "live_quiet_resume_speech_mute_restart_and_native_screen_privacy_roundtrip_pass",
       "evidence": "evals/evidence/2026-11-20-natural-language-hard-controls-live.json",
-      "note": "Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; audible output uses the sixth managed N.E.K.O boundary patch. Version 0.4.0 is live and the prior no-speech intent survived restart."
+      "note": "Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; audible output uses the sixth managed N.E.K.O boundary patch. Private plugin 0.5.0 is live; the hard-control state survived the cutover, while retrospective activity now delegates to ActivityWatch instead of a private timeline."
     },
     {
       "id": "recent_activity_recall",
       "goal": "recent owner-computer activity can be recalled from bounded local evidence without inventing inactivity or storing raw window titles/screenshots",
-      "status": "live_native_activity_classifier_timeline_tool_registration_and_callback_pass",
-      "evidence": "evals/evidence/2026-11-20-recent-activity-recall-live.json",
-      "note": "Reuses N.E.K.O native system-signal/activity classification and native @llm_tool routing. Missing coverage is explicitly UNKNOWN; privacy-mode samples suppress app identity. Tool availability, XiaoYu-only role scope, and direct live callback are proven. First natural post-deployment model-selection call remains observational rather than synthetically forced."
+      "status": "activitywatch_external_local_authority_app_only_query_and_provider_native_first_round_route_pass",
+      "evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json",
+      "note": "ActivityWatch 0.14.3 is the retrospective desktop-activity authority. XiaoYu is a read-only query adapter and returns app/duration/coverage only; ActivityWatch window-title collection is disabled. Provider-native qwen3.8 forced tool_choice with reasoning_effort=none handles the previously failing negative wording; later rounds restore normal reasoning."
     }
   ]
 }

@@ -1,4 +1,5 @@
 import json
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -27,8 +28,8 @@ class OverlayContractTests(unittest.TestCase):
         )
         patches = series["patches"]
         self.assertLessEqual(len(patches), lock["core_patch_budget"])
-        self.assertEqual(lock["core_patch_budget"], 6)
-        self.assertEqual(len(patches), 6)
+        self.assertEqual(lock["core_patch_budget"], 7)
+        self.assertEqual(len(patches), 7)
         for patch in patches:
             self.assertTrue((ROOT / "patches" / patch["file"]).is_file())
             self.assertTrue(patch["reason"].strip())
@@ -129,12 +130,47 @@ class OverlayContractTests(unittest.TestCase):
             "NEKO_STORAGE_ANCHOR_ROOT",
             "NEKO_RUNTIME_STATE_DIR",
             "NEKO_PRIVATE_SPEECH_GATE_FILE",
+            "NEKO_PRIVATE_FORCED_TOOL_NAME",
+            "NEKO_PRIVATE_FORCED_TOOL_REASONING_EFFORT",
+            "NEKO_PRIVATE_FORCED_TOOL_PATTERN",
+            "xiaoyu_recent_activity",
             "launcher.py",
         }
         for marker in required:
             self.assertIn(marker, script)
         self.assertNotIn("plugins\\xiaoyu_private", script)
         self.assertNotIn("start_plugin", script)
+
+
+    def test_recent_activity_forced_route_is_narrow_and_covers_live_wording(self):
+        script = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        match = re.search(
+            r"\$env:NEKO_PRIVATE_FORCED_TOOL_PATTERN = '([^']*)'",
+            script,
+        )
+        self.assertIsNotNone(match)
+        pattern = match.group(1)
+        self.assertTrue(all(ord(ch) < 128 for ch in pattern))
+        re.compile(pattern)
+
+        positives = (
+            "\u6211\u7684\u610f\u601d\u662f\u4f60\u770b\u89c1\u8fc7\u53bb1\u4e2a\u5c0f\u65f6\u6211\u5e72\u4e86\u4ec0\u4e48\u5417",
+            "\u6211\u521a\u624d\u4e00\u4e2a\u5c0f\u65f6\u4e3b\u8981\u5728\u7535\u8111\u4e0a\u5e72\u561b\uff1f",
+            "\u6211\u6700\u8fd1\u662f\u5728\u5199\u4ee3\u7801\u8fd8\u662f\u6253\u6e38\u620f\uff1f",
+            "\u6211\u521a\u521a\u8fd9\u6bb5\u65f6\u95f4\u662f\u4e0d\u662f\u4e00\u76f4\u6ca1\u5e72\u4e8b\uff1f",
+        )
+        negatives = (
+            "\u8fc7\u53bb\u6211\u559c\u6b22\u6253\u6e38\u620f\u5417\uff1f",
+            "\u4f60\u8bb0\u5f97\u6211\u957f\u671f\u66f4\u504f\u597d\u7684\u6c42\u804c\u57ce\u5e02\u662f\u4ec0\u4e48\u5417\uff1f",
+            "\u53bb\u5e74\u8fd9\u4e2a\u65f6\u5019\u6211\u505a\u4e86\u4ec0\u4e48\uff1f",
+            "\u4f60\u73b0\u5728\u770b\u89c1\u6211\u5728\u5e72\u4ec0\u4e48\uff1f",
+        )
+        for value in positives:
+            self.assertRegex(value, pattern)
+        for value in negatives:
+            self.assertIsNone(re.search(pattern, value))
 
 
     def test_private_plugin_ensure_uses_native_package_workflow(self):
@@ -198,6 +234,18 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIn(marker, script)
         self.assertNotIn("build_frontend.bat", script)
         self.assertNotIn("plugins\\xiaoyu_private", script)
+
+    def test_run_checks_enforces_reuse_first_gate(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("check_reuse_first.py", script)
+        reviews = json.loads((ROOT / "governance" / "reuse_reviews.json").read_text(encoding="utf-8-sig"))
+        ids = {item["id"] for item in reviews["reviews"]}
+        series = json.loads((ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig"))
+        for patch in series["patches"]:
+            self.assertIn("patch:" + patch["file"], ids)
+        manifest = json.loads((ROOT / "plugins" / "manifest.json").read_text(encoding="utf-8-sig"))
+        for plugin in manifest["allowed_private_runtime_plugins"]:
+            self.assertIn("plugin:" + plugin["id"], ids)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 [plugin]
 name = "XiaoYu Interaction Policy"
-description = "Private XiaoYu interaction adapter. Adds semantic hard controls and a bounded local recent-activity timeline by reusing N.E.K.O native activity classification; hard execution remains delegated to N.E.K.O authorities."
-short_description = "Hard interaction controls plus privacy-bounded recent activity recall for XiaoYu."
+description = "Private XiaoYu interaction adapter. Adds semantic hard controls and a read-only ActivityWatch recent-activity bridge; hard execution remains delegated to N.E.K.O authorities."
+short_description = "Hard interaction controls plus ActivityWatch-backed recent activity recall for XiaoYu."
 keywords = ["xiaoyu", "quiet", "silence", "speech-mute", "privacy", "vision", "proactive", "interaction-policy"]
-version = "0.4.0"
+version = "0.5.0"
 id = "xiaoyu_interaction_policy"
 type = "plugin"
 entry = "plugin.plugins.xiaoyu_interaction_policy:XiaoYuInteractionPolicyPlugin"

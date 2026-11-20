@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "component": "provider-native first-round forced-tool route",
+  "verdict": "PASS_PROVIDER_NATIVE_FORCED_TOOL_REPLACES_LOCAL_TOOL_PREEXECUTION",
+  "motivation": "Repeated qwen3.8-omni-flash auto selection skipped one negative retrospective activity wording. The earlier forced-tool probe was run without disabling thinking, where provider-native forcing was ineffective.",
+  "provider_validation": {
+    "model": "qwen3.8-omni-flash",
+    "route": "tool_choice=function(xiaoyu_recent_activity) + reasoning_effort=none",
+    "previously_failing_case": "anti_false_inactivity",
+    "result": "1/1 PASS",
+    "total_tokens": 570,
+    "evidence": "evals/evidence/2026-11-20-recent-activity-provider-native-force-nonthinking.json"
+  },
+  "architecture": {
+    "first_round": "provider-native tool_choice",
+    "first_round_reasoning_effort": "none",
+    "later_rounds": "restore previous/auto tool_choice and previous reasoning settings",
+    "local_tool_preexecution": false,
+    "tool_execution_authority": "N.E.K.O normal ToolRegistry/plugin callback",
+    "private_matching_owner": "launcher env regex/tool name"
+  },
+  "regression": {
+    "core_targeted_tests": "2/2 PASS",
+    "core_full_tool_calling_tests": "118/118 PASS",
+    "overlay_route_and_gate_tests": "2/2 PASS",
+    "launcher_regex": "ASCII-safe Unicode escapes; original 17:58 incident wording compiles and matches"
+  },
+  "live_restart": {
+    "backend_health_ports": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "plugin_version": "0.5.0",
+    "route_env_loaded_after_ascii_safe_fix": true
+  }
+}

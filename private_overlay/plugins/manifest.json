@@ -4,8 +4,8 @@
     {
       "id": "xiaoyu_interaction_policy",
       "source_dir": "plugins/xiaoyu_interaction_policy",
-      "purpose": "Semantic mediation for explicit owner proactive quiet/resume, audible speech mute/unmute, autonomous-screen privacy intent, plus bounded local recent-activity recall using N.E.K.O native activity classification.",
-      "acceptance_gap": "Live use required natural-language intent to become deterministic controls, and retrospective questions such as 'what did I do over the last hour' had no queryable observation timeline, causing missing evidence to be narrated as inactivity.",
+      "purpose": "Semantic mediation for explicit owner proactive quiet/resume, audible speech mute/unmute, autonomous-screen privacy intent, plus read-only retrospective activity recall from ActivityWatch.",
+      "acceptance_gap": "Live use required natural-language intent to become deterministic controls, and retrospective questions such as 'what did I do over the last hour' needed a queryable activity source without duplicating a new activity datastore.",
       "hard_execution_authority": "neko_native:proactive_controller",
       "dependencies": [
         "proactive_controller"
@@ -20,10 +20,11 @@
         "proactive": "neko_native:proactive_controller",
         "screen_privacy": "neko_native:/api/config/conversation-settings",
         "audible_output": "managed_neko_native:speech_output_gate",
-        "activity_recall": "read_only_local_evidence:N.E.K.O_activity_classifier"
+        "activity_recall": "external_local_authority:ActivityWatch"
       },
       "additional_evidence": [
-        "evals/evidence/2026-11-20-recent-activity-recall-live.json"
+        "evals/evidence/2026-11-20-recent-activity-recall-live.json",
+        "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
       ]
     }
   ]

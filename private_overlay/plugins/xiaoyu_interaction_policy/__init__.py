@@ -7,7 +7,7 @@ import re
 import tempfile
 import time
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,11 +29,9 @@ _STATE_VERSION = 3
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
 _MAX_TEXT_CHARS = 500
-_ACTIVITY_TIMELINE_VERSION = 1
-_ACTIVITY_SAMPLE_SECONDS = 10
-_ACTIVITY_RETENTION_SECONDS = 24 * 60 * 60
-_ACTIVITY_MAX_SEGMENTS = 2000
-_ACTIVITY_GAP_SECONDS = _ACTIVITY_SAMPLE_SECONDS * 3
+_ACTIVITYWATCH_BASE_URL = "http://127.0.0.1:5600/api/0"
+_ACTIVITYWATCH_TIMEOUT_SECONDS = 4.0
+_ACTIVITYWATCH_COVERAGE_GRACE_SECONDS = 15.0
 
 _CANDIDATE_RE = re.compile(
     r"(安静|静一静|别.{0,8}(说|讲|聊|烦|扰|找|联系|主动|消息|出声)|"
@@ -234,92 +232,6 @@ def _extract_event(record: Any) -> dict[str, Any]:
     return dict(raw) if isinstance(raw, dict) else {}
 
 
-def _default_activity_timeline(now: float | None = None) -> dict[str, Any]:
-    ts = float(time.time() if now is None else now)
-    return {"version": _ACTIVITY_TIMELINE_VERSION, "created_at": ts, "segments": []}
-
-
-def _normalize_activity_timeline(raw: Any, *, now: float | None = None) -> dict[str, Any]:
-    ts = float(time.time() if now is None else now)
-    timeline = _default_activity_timeline(ts)
-    if isinstance(raw, dict):
-        created = raw.get("created_at")
-        if isinstance(created, (int, float)) and not isinstance(created, bool):
-            timeline["created_at"] = float(created)
-        source = raw.get("segments")
-        if isinstance(source, list):
-            cleaned: list[dict[str, Any]] = []
-            cutoff = ts - _ACTIVITY_RETENTION_SECONDS
-            for item in source:
-                if not isinstance(item, dict):
-                    continue
-                start = item.get("start")
-                end = item.get("end")
-                if (
-                    isinstance(start, bool) or isinstance(end, bool)
-                    or not isinstance(start, (int, float))
-                    or not isinstance(end, (int, float))
-                ):
-                    continue
-                start_f = float(start)
-                end_f = max(start_f, float(end))
-                if end_f < cutoff:
-                    continue
-                category = str(item.get("category") or "unknown")[:80]
-                app = item.get("app")
-                app_value = str(app)[:120] if isinstance(app, str) and app.strip() else None
-                privacy = str(item.get("privacy_state") or "visible")[:24]
-                samples = item.get("samples")
-                sample_count = int(samples) if isinstance(samples, int) and not isinstance(samples, bool) and samples > 0 else 1
-                cleaned.append({
-                    "start": start_f,
-                    "end": end_f,
-                    "category": category,
-                    "app": app_value,
-                    "privacy_state": privacy,
-                    "samples": sample_count,
-                })
-            cleaned.sort(key=lambda item: item["start"])
-            timeline["segments"] = cleaned[-_ACTIVITY_MAX_SEGMENTS:]
-    timeline["version"] = _ACTIVITY_TIMELINE_VERSION
-    return timeline
-
-
-def _append_activity_sample(
-    timeline: dict[str, Any],
-    *,
-    now: float,
-    category: str,
-    app: str | None,
-    privacy_state: str,
-) -> dict[str, Any]:
-    normalized = _normalize_activity_timeline(timeline, now=now)
-    segments = normalized["segments"]
-    sample = {
-        "start": float(now),
-        "end": float(now),
-        "category": str(category or "unknown")[:80],
-        "app": str(app)[:120] if isinstance(app, str) and app.strip() else None,
-        "privacy_state": str(privacy_state or "unavailable")[:24],
-        "samples": 1,
-    }
-    if segments:
-        previous = segments[-1]
-        same = (
-            previous.get("category") == sample["category"]
-            and previous.get("app") == sample["app"]
-            and previous.get("privacy_state") == sample["privacy_state"]
-            and float(now) - float(previous.get("end") or 0.0) <= _ACTIVITY_GAP_SECONDS
-        )
-        if same:
-            previous["end"] = float(now)
-            previous["samples"] = int(previous.get("samples") or 0) + 1
-            return normalized
-    segments.append(sample)
-    normalized["segments"] = segments[-_ACTIVITY_MAX_SEGMENTS:]
-    return normalized
-
-
 def _iso_local(ts: float) -> str:
     value = float(ts)
     try:
@@ -328,89 +240,217 @@ def _iso_local(ts: float) -> str:
         return f"epoch:{value:.3f}"
 
 
-def build_recent_activity_report(
-    timeline: dict[str, Any],
+def _parse_activitywatch_timestamp(value: Any) -> float | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _select_activitywatch_buckets(buckets: Any, hostname: str | None) -> tuple[str | None, str | None]:
+    if not isinstance(buckets, dict):
+        return None, None
+    candidates: dict[str, dict[str, list[tuple[str, dict[str, Any]]]]] = {}
+    for bucket_id, meta in buckets.items():
+        if not isinstance(meta, dict):
+            continue
+        host = str(meta.get("hostname") or "")
+        kind = str(meta.get("type") or "")
+        if not host:
+            continue
+        role = "window" if kind == "currentwindow" else "afk" if kind == "afkstatus" else ""
+        if not role:
+            continue
+        candidates.setdefault(host, {}).setdefault(role, []).append((str(bucket_id), meta))
+
+    ordered_hosts = []
+    if hostname and hostname in candidates:
+        ordered_hosts.append(hostname)
+    ordered_hosts.extend(host for host in candidates if host not in ordered_hosts)
+
+    def newest(items: list[tuple[str, dict[str, Any]]]) -> str | None:
+        if not items:
+            return None
+        items = sorted(
+            items,
+            key=lambda item: str(item[1].get("last_updated") or item[1].get("created") or ""),
+            reverse=True,
+        )
+        return items[0][0]
+
+    for host in ordered_hosts:
+        roles = candidates[host]
+        window = newest(roles.get("window", []))
+        afk = newest(roles.get("afk", []))
+        if window and afk:
+            return window, afk
+    return None, None
+
+
+def _sanitize_activitywatch_event(event: Any) -> dict[str, Any] | None:
+    if not isinstance(event, dict):
+        return None
+    data = event.get("data")
+    if not isinstance(data, dict):
+        data = {}
+    app = data.get("app")
+    app_value = str(app)[:120] if isinstance(app, str) and app.strip() else None
+    try:
+        duration = max(0.0, float(event.get("duration") or 0.0))
+    except (TypeError, ValueError):
+        duration = 0.0
+    timestamp = event.get("timestamp")
+    if not isinstance(timestamp, str):
+        timestamp = None
+    return {"timestamp": timestamp, "duration_seconds": round(duration, 3), "app": app_value}
+
+
+def _activitywatch_report_from_result(
+    result: Any,
     *,
-    minutes: int = 60,
-    now: float | None = None,
+    minutes: int,
+    requested_start: datetime,
+    requested_end: datetime,
+    version: str | None,
 ) -> dict[str, Any]:
-    current = float(time.time() if now is None else now)
+    payload = result if isinstance(result, dict) else {}
+    raw = [_sanitize_activitywatch_event(item) for item in payload.get("raw", [])]
+    raw = [item for item in raw if item is not None]
+    active = [_sanitize_activitywatch_event(item) for item in payload.get("events", [])]
+    active = [item for item in active if item is not None]
+    apps = [_sanitize_activitywatch_event(item) for item in payload.get("apps", [])]
+    apps = [item for item in apps if item is not None]
+
+    first_ts = None
+    last_end = None
+    gaps: list[dict[str, Any]] = []
+    previous_end = None
+    for item in raw:
+        ts = _parse_activitywatch_timestamp(item.get("timestamp"))
+        if ts is None:
+            continue
+        end = ts + float(item.get("duration_seconds") or 0.0)
+        first_ts = ts if first_ts is None else min(first_ts, ts)
+        last_end = end if last_end is None else max(last_end, end)
+        if previous_end is not None and ts - previous_end > _ACTIVITYWATCH_COVERAGE_GRACE_SECONDS:
+            gaps.append({
+                "start": _iso_local(previous_end),
+                "end": _iso_local(ts),
+                "seconds": round(ts - previous_end, 1),
+            })
+        previous_end = end if previous_end is None else max(previous_end, end)
+
+    start_ts = requested_start.timestamp()
+    end_ts = requested_end.timestamp()
+    complete = bool(
+        raw
+        and first_ts is not None
+        and last_end is not None
+        and first_ts <= start_ts + _ACTIVITYWATCH_COVERAGE_GRACE_SECONDS
+        and last_end >= end_ts - _ACTIVITYWATCH_COVERAGE_GRACE_SECONDS
+        and not gaps
+    )
+    by_app = {
+        str(item["app"]): round(float(item["duration_seconds"]), 1)
+        for item in apps
+        if item.get("app")
+    }
+    try:
+        active_seconds = round(float(payload.get("active_seconds") or 0.0), 1)
+    except (TypeError, ValueError):
+        active_seconds = 0.0
+
+    return {
+        "source": "ActivityWatch",
+        "source_version": version,
+        "requested_minutes": minutes,
+        "requested_start": requested_start.astimezone().isoformat(timespec="seconds"),
+        "requested_end": requested_end.astimezone().isoformat(timespec="seconds"),
+        "coverage": {
+            "first_observation": _iso_local(first_ts) if first_ts is not None else None,
+            "last_observation": _iso_local(last_end) if last_end is not None else None,
+            "complete": complete,
+            "gaps": gaps[:20],
+        },
+        "summary": {
+            "active_seconds": active_seconds,
+            "by_app_seconds": by_app,
+        },
+        "segments": active[-120:],
+        "evidence_policy": (
+            "ActivityWatch is the external local authority for retrospective desktop activity. "
+            "XiaoYu queries its canonical window+AFK intersection and returns application names only; "
+            "window titles/URLs are never returned to the model. Missing coverage is UNKNOWN, never proof "
+            "of inactivity. A period with no active events may mean AFK, not that the owner did nothing."
+        ),
+    }
+
+
+async def query_activitywatch_recent(minutes: int = 60, *, base_url: str = _ACTIVITYWATCH_BASE_URL) -> dict[str, Any]:
     try:
         lookback = int(minutes)
     except (TypeError, ValueError):
         lookback = 60
     lookback = min(1440, max(1, lookback))
-    requested_start = current - lookback * 60
-    normalized = _normalize_activity_timeline(timeline, now=current)
-    all_segments = normalized["segments"]
-    selected = [
-        segment for segment in all_segments
-        if float(segment["end"]) >= requested_start and float(segment["start"]) <= current
-    ]
+    requested_end = datetime.now(timezone.utc)
+    requested_start = requested_end - timedelta(minutes=lookback)
 
-    rendered: list[dict[str, Any]] = []
-    by_app: dict[str, float] = {}
-    by_category: dict[str, float] = {}
-    observed_seconds = 0.0
-    gaps: list[dict[str, Any]] = []
-    previous_end: float | None = None
-    for segment in selected:
-        start = max(requested_start, float(segment["start"]))
-        end = min(current, float(segment["end"]))
-        if previous_end is not None and start - previous_end > _ACTIVITY_GAP_SECONDS:
-            gaps.append({
-                "start": _iso_local(previous_end),
-                "end": _iso_local(start),
-                "seconds": round(start - previous_end, 1),
-            })
-        previous_end = end if previous_end is None else max(previous_end, end)
-        duration = max(float(_ACTIVITY_SAMPLE_SECONDS), end - start)
-        observed_seconds += duration
-        app = segment.get("app")
-        category = str(segment.get("category") or "unknown")
-        if isinstance(app, str) and app:
-            by_app[app] = by_app.get(app, 0.0) + duration
-        by_category[category] = by_category.get(category, 0.0) + duration
-        rendered.append({
-            "start": _iso_local(start),
-            "end": _iso_local(end),
-            "duration_seconds": round(duration, 1),
-            "category": category,
-            "app": app,
-            "privacy_state": segment.get("privacy_state"),
-        })
+    try:
+        async with httpx.AsyncClient(timeout=_ACTIVITYWATCH_TIMEOUT_SECONDS, trust_env=False) as client:
+            info_response = await client.get(f"{base_url}/info")
+            info_response.raise_for_status()
+            info = info_response.json()
+            buckets_response = await client.get(f"{base_url}/buckets/")
+            buckets_response.raise_for_status()
+            buckets = buckets_response.json()
+            hostname = str(info.get("hostname") or "") if isinstance(info, dict) else ""
+            window_bucket, afk_bucket = _select_activitywatch_buckets(buckets, hostname)
+            if not window_bucket or not afk_bucket:
+                raise RuntimeError("ActivityWatch window/AFK bucket pair unavailable")
 
-    first_observation = float(selected[0]["start"]) if selected else None
-    last_observation = float(selected[-1]["end"]) if selected else None
-    complete = bool(
-        selected
-        and first_observation <= requested_start + _ACTIVITY_GAP_SECONDS
-        and last_observation >= current - _ACTIVITY_GAP_SECONDS
-        and not gaps
-    )
-    return {
-        "requested_minutes": lookback,
-        "requested_start": _iso_local(requested_start),
-        "requested_end": _iso_local(current),
-        "coverage": {
-            "first_observation": _iso_local(first_observation) if first_observation is not None else None,
-            "last_observation": _iso_local(last_observation) if last_observation is not None else None,
-            "complete": complete,
-            "observed_seconds_approx": round(observed_seconds, 1),
-            "gaps": gaps[:20],
-        },
-        "summary": {
-            "by_app_seconds": {key: round(value, 1) for key, value in sorted(by_app.items(), key=lambda item: item[1], reverse=True)},
-            "by_category_seconds": {key: round(value, 1) for key, value in sorted(by_category.items(), key=lambda item: item[1], reverse=True)},
-        },
-        "segments": rendered[-120:],
-        "evidence_policy": (
-            "This is a local foreground-activity timeline using N.E.K.O's existing classifier. "
-            "It stores canonical app/category only, never raw window titles or screenshots. "
-            "Missing coverage or gaps mean UNKNOWN, never inactivity. Do not claim the user did nothing "
-            "unless an explicit observed state supports that conclusion."
-        ),
-    }
+            query = [
+                f'raw = flood(query_bucket("{window_bucket}"));',
+                "raw = sort_by_timestamp(raw);",
+                "events = raw;",
+                f'not_afk = flood(query_bucket("{afk_bucket}"));',
+                'not_afk = filter_keyvals(not_afk, "status", ["not-afk"]);',
+                "events = filter_period_intersect(events, not_afk);",
+                "events = sort_by_timestamp(events);",
+                'apps = merge_events_by_keys(events, ["app"]);',
+                "apps = sort_by_duration(apps);",
+                "active_seconds = sum_durations(events);",
+                'RETURN = {"raw": raw, "events": events, "apps": apps, "active_seconds": active_seconds};',
+            ]
+            period = f"{requested_start.isoformat()}/{requested_end.isoformat()}"
+            response = await client.post(
+                f"{base_url}/query/",
+                json={"timeperiods": [period], "query": query},
+            )
+            response.raise_for_status()
+            values = response.json()
+            result = values[0] if isinstance(values, list) and values else {}
+            return _activitywatch_report_from_result(
+                result,
+                minutes=lookback,
+                requested_start=requested_start,
+                requested_end=requested_end,
+                version=str(info.get("version") or "") if isinstance(info, dict) else None,
+            )
+    except Exception as exc:
+        return {
+            "source": "ActivityWatch",
+            "requested_minutes": lookback,
+            "requested_start": requested_start.astimezone().isoformat(timespec="seconds"),
+            "requested_end": requested_end.astimezone().isoformat(timespec="seconds"),
+            "coverage": {"first_observation": None, "last_observation": None, "complete": False, "gaps": []},
+            "summary": {"active_seconds": 0.0, "by_app_seconds": {}},
+            "segments": [],
+            "unavailable": True,
+            "error_type": type(exc).__name__,
+            "evidence_policy": "ActivityWatch evidence is unavailable. Treat the requested period as UNKNOWN and do not infer inactivity.",
+        }
 
 
 @neko_plugin
@@ -420,21 +460,10 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         self.logger = self.enable_file_logging(log_level="INFO")
         self._lock = asyncio.Lock()
         self._state_path: Path | None = None
-        self._activity_path: Path | None = None
-        self._activity_collector = None
 
     @lifecycle(id="startup")
     async def startup(self, **_):
         self._state_path = self.data_path("state.json")
-        self._activity_path = self.data_path("activity_timeline.json")
-        self._save_activity_timeline(self._load_activity_timeline())
-        try:
-            from main_logic.activity.system_signals import SystemSignalCollector
-            self._activity_collector = SystemSignalCollector(poll_interval=5.0)
-            await self._activity_collector.start()
-        except Exception as exc:
-            self._activity_collector = None
-            self.logger.warning("recent activity collector failed to start err_type={}", type(exc).__name__)
         state = self._load_state()
         # Persist the normalized schema on startup. Legacy v1 quiet state is
         # preserved, while new fields receive conservative defaults unless the
@@ -458,17 +487,10 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
             self._save_state(state)
 
         await self._reconcile_state()
-        return Ok({"status": "ready", "role": _ROLE})
+        return Ok({"status": "ready", "role": _ROLE, "recent_activity_authority": "ActivityWatch"})
 
     @lifecycle(id="shutdown")
     async def shutdown(self, **_):
-        collector = self._activity_collector
-        self._activity_collector = None
-        if collector is not None:
-            try:
-                await collector.stop()
-            except Exception as exc:
-                self.logger.debug("recent activity collector stop failed err_type={}", type(exc).__name__)
         return Ok({"status": "shutdown"})
 
     @plugin_entry(
@@ -484,23 +506,22 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         id="recent_activity",
         name="Recent owner computer activity",
         description=(
-            "Query XiaoYu's locally observed foreground activity timeline for the last N minutes. "
-            "Use this when the owner asks what they were doing, using, working on, playing, or viewing "
-            "over a recent period. The result includes explicit coverage/gaps; missing evidence is UNKNOWN, "
-            "never proof that the owner did nothing."
+            "Query the owner's ActivityWatch desktop activity for the last N minutes. "
+            "Use this when the owner asks what they were doing, using, working on, or playing "
+            "over a recent period. Missing coverage is UNKNOWN, never proof that the owner did nothing."
         ),
     )
     async def recent_activity(self, minutes: int = 60, **_):
-        return Ok(build_recent_activity_report(self._load_activity_timeline(), minutes=minutes))
+        return Ok(await query_activitywatch_recent(minutes))
 
     @llm_tool(
         name="xiaoyu_recent_activity",
         description=(
-            "Look up the owner's locally observed recent computer activity when they ask what they were "
-            "doing/using/working on/playing/viewing over the last minutes or hours. This is retrospective "
-            "evidence, unlike the current-screen view. Always respect coverage.complete and gaps: missing "
-            "coverage is unknown and must never be described as inactivity. No screenshots or raw window "
-            "titles are returned."
+            "Look up the owner's recent desktop activity from ActivityWatch when they ask what they were "
+            "doing/using/working on/playing over the last minutes or hours. This is retrospective evidence, "
+            "unlike the current-screen view. Always respect coverage.complete: missing coverage is unknown "
+            "and must never be described as inactivity. Only application names/durations are returned; "
+            "window titles, URLs and screenshots are not returned."
         ),
         parameters={
             "type": "object",
@@ -518,57 +539,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         role=_ROLE,
     )
     async def xiaoyu_recent_activity(self, minutes: int = 60, **_):
-        return build_recent_activity_report(self._load_activity_timeline(), minutes=minutes)
-
-    @timer_interval(id="sample_recent_activity", seconds=_ACTIVITY_SAMPLE_SECONDS, auto_start=True)
-    async def sample_recent_activity(self, **_):
-        now = time.time()
-        category = "unavailable"
-        app: str | None = None
-        privacy_state = "unavailable"
-        try:
-            from utils.preferences import is_privacy_mode_enabled
-            if is_privacy_mode_enabled():
-                category = "private"
-                privacy_state = "private"
-            else:
-                from main_logic.activity.state_machine import observation_from_system
-                collector = self._activity_collector
-                system_snapshot = collector.snapshot() if collector is not None else None
-                if system_snapshot is not None and bool(getattr(system_snapshot, "os_signals_available", True)):
-                    observation = observation_from_system(system_snapshot)
-                    privacy_state = "visible"
-                    if observation is not None:
-                        category = str(getattr(observation, "category", "") or "unknown")
-                        if category == "private":
-                            privacy_state = "private"
-                        else:
-                            canonical = getattr(observation, "canonical", None)
-                            if isinstance(canonical, str) and canonical.strip():
-                                app = canonical.strip()[:120]
-                            else:
-                                process_name = getattr(system_snapshot, "process_name", None)
-                                if isinstance(process_name, str) and process_name.strip():
-                                    fallback = process_name.strip()
-                                    if fallback.lower().endswith(".exe"):
-                                        fallback = fallback[:-4]
-                                    app = fallback[:120] or None
-                    else:
-                        category = "unknown"
-                else:
-                    category = "unavailable"
-        except Exception as exc:
-            self.logger.debug("recent activity sample unavailable err_type={}", type(exc).__name__)
-
-        timeline = _append_activity_sample(
-            self._load_activity_timeline(),
-            now=now,
-            category=category,
-            app=app,
-            privacy_state=privacy_state,
-        )
-        self._save_activity_timeline(timeline)
-        return Ok({"sampled": True, "category": category, "app": app, "privacy_state": privacy_state})
+        return await query_activitywatch_recent(minutes)
 
     @timer_interval(id="scan_user_control_intent", seconds=1, auto_start=True)
     async def scan_user_control_intent(self, **_):
@@ -877,36 +848,6 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         if self._state_path is None:
             self._state_path = self.data_path("state.json")
         return self._state_path
-
-    def _activity_file(self) -> Path:
-        if self._activity_path is None:
-            self._activity_path = self.data_path("activity_timeline.json")
-        return self._activity_path
-
-    def _load_activity_timeline(self) -> dict[str, Any]:
-        try:
-            raw = json.loads(self._activity_file().read_text(encoding="utf-8"))
-        except Exception:
-            raw = {}
-        return _normalize_activity_timeline(raw)
-
-    def _save_activity_timeline(self, timeline: dict[str, Any]) -> None:
-        path = self._activity_file()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        normalized = _normalize_activity_timeline(timeline)
-        fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                json.dump(normalized, handle, ensure_ascii=False, indent=2)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(tmp, path)
-        finally:
-            try:
-                os.unlink(tmp)
-            except FileNotFoundError:
-                pass
 
     def _load_state(self) -> dict[str, Any]:
         try:

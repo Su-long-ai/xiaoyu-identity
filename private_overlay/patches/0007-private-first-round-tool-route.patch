@@ -1,0 +1,236 @@
+diff --git a/main_logic/omni_offline_client/_streaming.py b/main_logic/omni_offline_client/_streaming.py
+index 20087c6e..97618336 100644
+--- a/main_logic/omni_offline_client/_streaming.py
++++ b/main_logic/omni_offline_client/_streaming.py
+@@ -14,6 +14,8 @@
+ # limitations under the License.
+ 
+ import collections
++import os
++import re
+ from dataclasses import replace
+ from typing import Sequence
+ 
+@@ -91,6 +93,30 @@ from ._lifecycle import (
+ )
+ 
+ 
++_PRIVATE_FORCED_TOOL_NAME_ENV = "NEKO_PRIVATE_FORCED_TOOL_NAME"
++_PRIVATE_FORCED_TOOL_PATTERN_ENV = "NEKO_PRIVATE_FORCED_TOOL_PATTERN"
++_PRIVATE_FORCED_TOOL_REASONING_ENV = "NEKO_PRIVATE_FORCED_TOOL_REASONING_EFFORT"
++
++
++def _private_forced_tool_route(text: str, tool_definitions) -> dict | None:
++    """Return one opt-in provider-native first-round tool-choice route."""
++    name = os.getenv(_PRIVATE_FORCED_TOOL_NAME_ENV, "").strip()
++    pattern = os.getenv(_PRIVATE_FORCED_TOOL_PATTERN_ENV, "").strip()
++    if not name or not pattern or not isinstance(text, str) or not text:
++        return None
++    if name not in {str(getattr(tool, "name", "") or "") for tool in (tool_definitions or ())}:
++        return None
++    try:
++        matched = re.search(pattern, text, flags=re.IGNORECASE) is not None
++    except re.error as exc:
++        logger.warning("invalid private forced-tool regex ignored: %s", exc)
++        return None
++    if not matched:
++        return None
++    reasoning_effort = os.getenv(_PRIVATE_FORCED_TOOL_REASONING_ENV, "").strip() or None
++    return {"name": name, "reasoning_effort": reasoning_effort}
++
++
+ def _strip_route_bound_tool_call_extras(history) -> int:
+     """Drop ``tool_calls[].extra_content`` from a history that is about to be
+     replayed on a DIFFERENT endpoint. Returns how many were dropped.
+@@ -1519,6 +1545,12 @@ class _StreamingMixin:
+                         # Tool images published on the bus carry this turn's turn_id, grouping them with
+                         # its user frames; ordinary text turns lack turn_id, so it is None there.
+                         _focus_overrides["_tool_frames_turn_id"] = turn_id
++                        _private_route = _private_forced_tool_route(
++                            text,
++                            getattr(self, "_tool_definitions", ()),
++                        )
++                        if _private_route is not None:
++                            _focus_overrides["_private_forced_tool_route"] = _private_route
+                         cut_keeps_shown = True
+                         _withhold_revoked_proactive_image()
+                         async for chunk in self._astream_visible_with_tools(
+diff --git a/main_logic/omni_offline_client/_tools.py b/main_logic/omni_offline_client/_tools.py
+index 85ebfae3..f734f84a 100644
+--- a/main_logic/omni_offline_client/_tools.py
++++ b/main_logic/omni_offline_client/_tools.py
+@@ -1059,6 +1059,7 @@ class _ToolingMixin(_TurnContextMixin):
+         fallback is a fresh request that may be the first to reach a provider.
+         """
+         before_fallback_request = overrides.pop("_before_fallback_request", None)
++        private_forced_tool_route = overrides.pop("_private_forced_tool_route", None)
+         tool_leak_filter = overrides.pop("_tool_leak_filter", None)
+         tool_leak_provider = overrides.pop("_tool_leak_provider", None)
+         tool_image_slots = overrides.pop("_tool_image_slots", None)
+@@ -1121,6 +1122,7 @@ class _ToolingMixin(_TurnContextMixin):
+                 before_fallback_request()
+         async for chunk in self._astream_openai_with_tools(
+             messages,
++            _private_forced_tool_route=private_forced_tool_route,
+             _tool_leak_filter=tool_leak_filter,
+             _tool_leak_provider=tool_leak_provider,
+             _tool_image_slots=tool_image_slots,
+@@ -1234,6 +1236,7 @@ class _ToolingMixin(_TurnContextMixin):
+         ``finish_reason == "tool_calls"`` runs the tools, appends the
+         results to ``messages``, and re-invokes — up to
+         ``self.max_tool_iterations`` total LLM calls."""
++        private_forced_tool_route = overrides.pop("_private_forced_tool_route", None)
+         tool_leak_filter = overrides.pop("_tool_leak_filter", None)
+         tool_leak_provider = overrides.pop("_tool_leak_provider", None)
+         tool_image_slots = overrides.pop("_tool_image_slots", None)
+@@ -1264,6 +1267,48 @@ class _ToolingMixin(_TurnContextMixin):
+             overrides.pop("tool_choice", None)
+             overrides.pop("tools", None)
+ 
++        forced_route_active = False
++        prior_tool_choice_present = "tool_choice" in overrides
++        prior_tool_choice = overrides.get("tool_choice")
++        prior_reasoning_present = "reasoning_effort" in overrides
++        prior_reasoning_effort = overrides.get("reasoning_effort")
++        if tools_payload and isinstance(private_forced_tool_route, dict):
++            forced_name = str(private_forced_tool_route.get("name") or "").strip()
++            registered = forced_name and any(
++                str(getattr(tool, "name", "") or "") == forced_name
++                for tool in getattr(self, "_tool_definitions", ())
++            )
++            if registered:
++                overrides["tool_choice"] = {
++                    "type": "function",
++                    "function": {"name": forced_name},
++                }
++                forced_reasoning = private_forced_tool_route.get("reasoning_effort")
++                if isinstance(forced_reasoning, str) and forced_reasoning.strip():
++                    overrides["reasoning_effort"] = forced_reasoning.strip()
++                forced_route_active = True
++                logger.info(
++                    "provider-native forced first-round tool route: %s reasoning_effort=%s",
++                    forced_name,
++                    overrides.get("reasoning_effort"),
++                )
++            elif forced_name:
++                logger.warning("private forced-tool route is not registered; ignoring: %s", forced_name)
++
++        def _restore_private_forced_route() -> None:
++            nonlocal forced_route_active
++            if not forced_route_active:
++                return
++            if prior_tool_choice_present:
++                overrides["tool_choice"] = prior_tool_choice
++            else:
++                overrides.pop("tool_choice", None)
++            if prior_reasoning_present:
++                overrides["reasoning_effort"] = prior_reasoning_effort
++            else:
++                overrides.pop("reasoning_effort", None)
++            forced_route_active = False
++
+         # Accumulate actually executed tool-call counts across iterations: zero differs from nonzero in cap logs,
+         # distinguishing entirely unnamed fragments from ordinary budget exhaustion.
+         executed_tool_calls = 0
+@@ -1361,6 +1406,8 @@ class _ToolingMixin(_TurnContextMixin):
+                 yield chunk
+             if not generation_is_active():
+                 return
++            if tool_iter == 0:
++                _restore_private_forced_route()
+             # Record this attempt's final finish_reason for upstream empty-completion
+             # fallback warnings: safety / length / content_filter / stop can all
+             # accompany empty content, crucial evidence for Gemini-via-OpenAI-compat silent
+diff --git a/tests/unit/test_tool_calling.py b/tests/unit/test_tool_calling.py
+index 1d63945a..03da36e5 100644
+--- a/tests/unit/test_tool_calling.py
++++ b/tests/unit/test_tool_calling.py
+@@ -5274,3 +5274,88 @@ async def test_stream_text_only_leak_yields_no_visible_output(monkeypatch):
+     assert emitted == []
+     assert not any(isinstance(m, AIMessage) for m in client._conversation_history)
+     assert [json.loads(message) for message in statuses] == [{"code": "LLM_NO_RESPONSE"}]
++
++
++
++def test_private_provider_native_route_requires_registered_matching_tool(monkeypatch):
++    from main_logic.omni_offline_client._streaming import _private_forced_tool_route
++    from main_logic.tool_calling import ToolDefinition
++
++    tool = ToolDefinition(name="recent_activity", description="recent activity")
++    monkeypatch.delenv("NEKO_PRIVATE_FORCED_TOOL_NAME", raising=False)
++    monkeypatch.delenv("NEKO_PRIVATE_FORCED_TOOL_PATTERN", raising=False)
++    monkeypatch.delenv("NEKO_PRIVATE_FORCED_TOOL_REASONING_EFFORT", raising=False)
++    assert _private_forced_tool_route("刚才在电脑上干嘛", [tool]) is None
++
++    monkeypatch.setenv("NEKO_PRIVATE_FORCED_TOOL_NAME", "recent_activity")
++    monkeypatch.setenv("NEKO_PRIVATE_FORCED_TOOL_PATTERN", r"刚才.{0,20}电脑")
++    monkeypatch.setenv("NEKO_PRIVATE_FORCED_TOOL_REASONING_EFFORT", "none")
++    assert _private_forced_tool_route("我刚才在电脑上干嘛", [tool]) == {
++        "name": "recent_activity",
++        "reasoning_effort": "none",
++    }
++    assert _private_forced_tool_route("你记得我喜欢哪里吗", [tool]) is None
++
++
++@pytest.mark.asyncio
++async def test_private_provider_native_route_forces_only_first_round():
++    from main_logic.omni_offline_client import OmniOfflineClient
++    from main_logic.tool_calling import ToolCall, ToolDefinition, ToolResult
++    from utils.llm_client import LLMStreamChunk
++
++    tool = ToolDefinition(
++        name="recent_activity",
++        description="recent activity",
++        parameters={"type": "object", "properties": {}},
++    )
++    chunks_call_1 = [
++        LLMStreamChunk(
++            content="",
++            tool_call_deltas=[{
++                "index": 0,
++                "id": "call_recent",
++                "type": "function",
++                "function": {"name": "recent_activity", "arguments": "{}"},
++            }],
++        ),
++        LLMStreamChunk(content="", finish_reason="tool_calls"),
++    ]
++    chunks_call_2 = [LLMStreamChunk(content="你刚才主要在写代码。", finish_reason="stop")]
++    fake_llm = _FakeLLM([chunks_call_1, chunks_call_2])
++
++    client = OmniOfflineClient.__new__(OmniOfflineClient)
++    _init_bare(client)
++    client.llm = fake_llm
++    client._tool_definitions = [tool]
++    client.max_tool_iterations = 3
++    client._use_genai_sdk = False
++    client._genai_tools_unsupported = False
++    client._openai_tools_unsupported = False
++    client._openai_tools_unsupported_with_images = False
++
++    handler_calls = []
++    async def handler(call: ToolCall) -> ToolResult:
++        handler_calls.append(call.name)
++        return ToolResult(call_id=call.call_id, name=call.name, output={"activity": "coding"})
++    client.on_tool_call = handler
++
++    messages = [{"role": "user", "content": "我刚才在电脑上干嘛"}]
++    output = []
++    async for chunk in client._astream_with_tools(
++        messages,
++        _private_forced_tool_route={"name": "recent_activity", "reasoning_effort": "none"},
++    ):
++        output.append(chunk)
++
++    assert handler_calls == ["recent_activity"]
++    assert len(fake_llm.calls) == 2
++    first_overrides = fake_llm.calls[0][1]
++    assert first_overrides["tool_choice"] == {
++        "type": "function",
++        "function": {"name": "recent_activity"},
++    }
++    assert first_overrides["reasoning_effort"] == "none"
++    second_overrides = fake_llm.calls[1][1]
++    assert "tool_choice" not in second_overrides
++    assert "reasoning_effort" not in second_overrides
++    assert "写代码" in "".join(chunk.content for chunk in output)

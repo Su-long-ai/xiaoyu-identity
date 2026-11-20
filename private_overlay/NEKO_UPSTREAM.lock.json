@@ -7,6 +7,6 @@
   "persona_storage_authority": "neko_native",
   "evolution_authority": "neko_native",
   "task_authority": "neko_native",
-  "core_patch_budget": 6,
+  "core_patch_budget": 7,
   "allow_dual_write": false
 }

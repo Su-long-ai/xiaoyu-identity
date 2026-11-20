@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-20",
+  "verdict": "AUTO_TOOL_SELECTION_INSUFFICIENT_FOR_NEGATIVE_RECENT_ACTIVITY_QUERY",
+  "isolation": {
+    "chat_history_written": false,
+    "memory_written": false,
+    "provider_credentials_persisted": false,
+    "native_usage_ledger_recorded": true,
+    "remote_neko_telemetry_for_probe": false
+  },
+  "model": "qwen3.8-omni-flash",
+  "repeated_runs": [
+    {
+      "run": 1,
+      "passed": 3,
+      "total": 4,
+      "total_tokens": 2404,
+      "failed_case": "anti_false_inactivity"
+    },
+    {
+      "run": 2,
+      "passed": 3,
+      "total": 4,
+      "total_tokens": 2504,
+      "failed_case": "anti_false_inactivity"
+    },
+    {
+      "run": 3,
+      "passed": 3,
+      "total": 4,
+      "total_tokens": 2530,
+      "failed_case": "anti_false_inactivity"
+    },
+    {
+      "run": 4,
+      "passed": 3,
+      "total": 4,
+      "total_tokens": 2781,
+      "failed_case": "anti_false_inactivity"
+    }
+  ],
+  "aggregate_provider_usage": {
+    "total_tokens": 10219
+  },
+  "stable_successes": [
+    "hour_retrospective -> xiaoyu_recent_activity",
+    "game_or_code -> xiaoyu_recent_activity",
+    "memory_negative_control -> recall_memory"
+  ],
+  "stable_failure": "A yes/no negative recent-computer-activity question repeatedly produced no tool call despite stronger tool descriptions and explicit computer scope.",
+  "decision": "Stop description-only paid probing. Add one opt-in generic first-round forced-tool bridge in N.E.K.O core; keep tool name and regex in XiaoYu launcher config.",
+  "latest_run_cases": [
+    {
+      "id": "hour_retrospective",
+      "expected": "xiaoyu_recent_activity",
+      "expected_not": null,
+      "selected_tools": [
+        "xiaoyu_recent_activity"
+      ],
+      "pass": true,
+      "usage": {
+        "prompt_tokens": 623,
+        "completion_tokens": 68,
+        "total_tokens": 691,
+        "cached_tokens": 0
+      }
+    },
+    {
+      "id": "anti_false_inactivity",
+      "expected": "xiaoyu_recent_activity",
+      "expected_not": null,
+      "selected_tools": [],
+      "pass": false,
+      "usage": {
+        "prompt_tokens": 625,
+        "completion_tokens": 96,
+        "total_tokens": 721,
+        "cached_tokens": 0
+      }
+    },
+    {
+      "id": "game_or_code",
+      "expected": "xiaoyu_recent_activity",
+      "expected_not": null,
+      "selected_tools": [
+        "xiaoyu_recent_activity"
+      ],
+      "pass": true,
+      "usage": {
+        "prompt_tokens": 621,
+        "completion_tokens": 69,
+        "total_tokens": 690,
+        "cached_tokens": 0
+      }
+    },
+    {
+      "id": "memory_negative_control",
+      "expected": null,
+      "expected_not": "xiaoyu_recent_activity",
+      "selected_tools": [
+        "recall_memory"
+      ],
+      "pass": true,
+      "usage": {
+        "prompt_tokens": 620,
+        "completion_tokens": 59,
+        "total_tokens": 679,
+        "cached_tokens": 0
+      }
+    }
+  ]
+}

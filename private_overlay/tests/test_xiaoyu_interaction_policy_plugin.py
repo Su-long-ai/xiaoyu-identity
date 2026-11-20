@@ -3,6 +3,7 @@ import json
 import sys
 import types
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -165,63 +166,72 @@ class ParserTests(unittest.TestCase):
             {"action": "quiet", "duration_minutes": None, "speech_action": "unchanged", "vision_action": "unchanged"},
         )
 
-    def test_activity_timeline_merges_adjacent_same_app(self):
-        timeline = mod._default_activity_timeline(1000.0)
-        timeline = mod._append_activity_sample(
-            timeline, now=1000.0, category="focused_work", app="PyCharm", privacy_state="visible"
+    def test_activitywatch_bucket_pair_prefers_requested_host(self):
+        buckets = {
+            "aw-watcher-window_A": {"type": "currentwindow", "hostname": "A", "last_updated": "2"},
+            "aw-watcher-afk_A": {"type": "afkstatus", "hostname": "A", "last_updated": "2"},
+            "aw-watcher-window_B": {"type": "currentwindow", "hostname": "B", "last_updated": "3"},
+            "aw-watcher-afk_B": {"type": "afkstatus", "hostname": "B", "last_updated": "3"},
+        }
+        self.assertEqual(
+            mod._select_activitywatch_buckets(buckets, "A"),
+            ("aw-watcher-window_A", "aw-watcher-afk_A"),
         )
-        timeline = mod._append_activity_sample(
-            timeline, now=1010.0, category="focused_work", app="PyCharm", privacy_state="visible"
-        )
-        self.assertEqual(len(timeline["segments"]), 1)
-        self.assertEqual(timeline["segments"][0]["samples"], 2)
-        self.assertEqual(timeline["segments"][0]["end"], 1010.0)
 
-    def test_activity_timeline_preserves_gap_as_unknown(self):
-        timeline = mod._default_activity_timeline(1000.0)
-        timeline = mod._append_activity_sample(
-            timeline, now=1000.0, category="focused_work", app="PyCharm", privacy_state="visible"
+    def test_activitywatch_report_strips_titles_and_keeps_app_durations(self):
+        start = datetime(2026, 11, 20, 10, 0, tzinfo=timezone.utc)
+        end = datetime(2026, 11, 20, 10, 1, tzinfo=timezone.utc)
+        result = {
+            "raw": [
+                {"timestamp": "2026-11-20T10:00:00+00:00", "duration": 60, "data": {"app": "PyCharm.exe", "title": "secret.py"}},
+            ],
+            "events": [
+                {"timestamp": "2026-11-20T10:00:00+00:00", "duration": 60, "data": {"app": "PyCharm.exe", "title": "secret.py"}},
+            ],
+            "apps": [
+                {"timestamp": "2026-11-20T10:00:00+00:00", "duration": 60, "data": {"app": "PyCharm.exe", "title": "secret.py"}},
+            ],
+            "active_seconds": 60,
+        }
+        report = mod._activitywatch_report_from_result(
+            result,
+            minutes=1,
+            requested_start=start,
+            requested_end=end,
+            version="v0.14.3",
         )
-        timeline = mod._append_activity_sample(
-            timeline, now=1100.0, category="casual_browsing", app="Chrome", privacy_state="visible"
-        )
-        report = mod.build_recent_activity_report(timeline, minutes=3, now=1110.0)
-        self.assertFalse(report["coverage"]["complete"])
-        self.assertTrue(report["coverage"]["gaps"])
-        self.assertIn("UNKNOWN", report["evidence_policy"])
-
-    def test_activity_report_never_exposes_raw_titles(self):
-        timeline = mod._default_activity_timeline(1000.0)
-        timeline = mod._append_activity_sample(
-            timeline, now=1000.0, category="focused_work", app="PyCharm", privacy_state="visible"
-        )
-        report = mod.build_recent_activity_report(timeline, minutes=1, now=1010.0)
         blob = json.dumps(report, ensure_ascii=False)
-        self.assertIn("PyCharm", blob)
-        self.assertNotIn("window_title", blob)
-        self.assertNotIn("process_name", blob)
+        self.assertTrue(report["coverage"]["complete"])
+        self.assertEqual(report["summary"]["by_app_seconds"]["PyCharm.exe"], 60.0)
+        self.assertIn("PyCharm.exe", blob)
+        self.assertNotIn("secret.py", blob)
+        self.assertNotIn('"title"', blob)
+        self.assertIn("ActivityWatch", report["evidence_policy"])
 
-    def test_private_activity_has_no_app_name(self):
-        timeline = mod._default_activity_timeline(1000.0)
-        timeline = mod._append_activity_sample(
-            timeline, now=1000.0, category="private", app=None, privacy_state="private"
+    def test_activitywatch_partial_coverage_is_unknown_not_inactivity(self):
+        start = datetime(2026, 11, 20, 10, 0, tzinfo=timezone.utc)
+        end = datetime(2026, 11, 20, 10, 1, tzinfo=timezone.utc)
+        report = mod._activitywatch_report_from_result(
+            {"raw": [], "events": [], "apps": [], "active_seconds": 0},
+            minutes=1,
+            requested_start=start,
+            requested_end=end,
+            version="v0.14.3",
         )
-        report = mod.build_recent_activity_report(timeline, minutes=1, now=1010.0)
-        self.assertEqual(report["segments"][0]["category"], "private")
-        self.assertIsNone(report["segments"][0]["app"])
+        self.assertFalse(report["coverage"]["complete"])
+        self.assertIn("UNKNOWN", report["evidence_policy"])
+        self.assertIn("AFK", report["evidence_policy"])
 
-
-    def test_recent_activity_llm_tool_is_role_scoped_and_evidence_aware(self):
+    def test_recent_activity_llm_tool_is_role_scoped_and_activitywatch_backed(self):
         method = mod.XiaoYuInteractionPolicyPlugin.xiaoyu_recent_activity
         meta = method.__test_llm_tool_meta__
         self.assertEqual(meta["name"], "xiaoyu_recent_activity")
         self.assertEqual(meta["role"], "XiaoYu")
         self.assertEqual(meta["timeout"], 5.0)
         self.assertEqual(meta["parameters"]["properties"]["minutes"]["maximum"], 1440)
+        self.assertIn("ActivityWatch", meta["description"])
         self.assertIn("missing coverage is unknown", meta["description"])
-        policy = mod.build_recent_activity_report(mod._default_activity_timeline(1000.0), minutes=60, now=1010.0)
-        self.assertFalse(policy["coverage"]["complete"])
-        self.assertIn("never inactivity", policy["evidence_policy"])
+
 
 
 class VisionNativeWriteTests(unittest.IsolatedAsyncioTestCase):

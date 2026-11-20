@@ -14,6 +14,14 @@ Write-Host "== XiaoYu overlay compile =="
 python -m compileall -q (Join-Path $OverlayRoot "tools") (Join-Path $OverlayRoot "tests") (Join-Path $OverlayRoot "migration") (Join-Path $OverlayRoot "evals")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== XiaoYu ActivityWatch reuse dependency =="
+python (Join-Path $OverlayRoot "tools\check_activitywatch.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "== XiaoYu reuse-first admission gate =="
+python (Join-Path $OverlayRoot "tools\check_reuse_first.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== XiaoYu/N.E.K.O authority contract =="
 $env:NEKO_ROOT = $NekoRoot
 python (Join-Path $OverlayRoot "tools\check_overlay.py")
