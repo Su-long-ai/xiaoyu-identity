@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "feature": "XiaoYu identity seed cutover to N.E.K.O native persona authority",
+  "verdict": "PASS_NATIVE_PERSONA_SINGLE_AUTHORITY",
+  "source": {
+    "seed": "private_overlay/identity/persona.md",
+    "runtime_authority": "D:\\xiaoyu_private_overlay_state\\neko-sandbox\\memory\\XiaoYu\\persona.json",
+    "overlay_runtime_persona_database": false
+  },
+  "import": {
+    "tool": "private_overlay/migration/seed_native_persona.py",
+    "default_mode": "verify_only",
+    "curated_candidates": 10,
+    "skipped_from_runtime_persona": [
+      "Name: (owned by character card)",
+      "No second memory database in the overlay. (engineering constraint)",
+      "headings/prose"
+    ],
+    "live_authority_endpoint": "http://127.0.0.1:48912/internal/memory/import_external_markdown",
+    "native_mechanisms_reused": [
+      "PersonaManager external fusion",
+      "persona token budget",
+      "character-card contradiction checks",
+      "CAS guarded write",
+      "atomic save",
+      "folded-fingerprint idempotence"
+    ],
+    "fusion_result_active_external_import_entries": 6,
+    "repeated_same_seed_result": {
+      "added_persona": 0,
+      "skipped_duplicates": 10
+    }
+  },
+  "stale_retirement": {
+    "stale_fact": "小鱼与碳基生物刚开始认识彼此。",
+    "stale_entry_id": "manual_20261121183707_6b822ddd",
+    "reason": "Contradicted the continuing-companion/shared-history identity contract and survived semantic fusion as a separate old fact.",
+    "tool": "private_overlay/migration/retire_stale_persona.py",
+    "safety": "--commit refuses while any N.E.K.O runtime port is open",
+    "native_method": "PersonaManager.aarchive_persona_entry",
+    "remaining_active_stale_count": 0,
+    "archive_shard": "memory/XiaoYu/persona_archive/2026-11-21_bf17ea64.json",
+    "archive_contains_stale_entry": true
+  },
+  "final_audit": {
+    "active_neko_entries": 8,
+    "active_external_import_entries": 5,
+    "active_stale_just_met_count": 0,
+    "continuity_guard_count": 1,
+    "growth_guard_count": 1,
+    "nonfabrication_guard_count": 1,
+    "folded_fingerprints": [
+      "4f3393fe8b7694cec38ea23fe798ac088f3917d3b580391c69ab3cc58507e8da",
+      "8d3d6bae3c7fba47955a36dfd5980ea94f1e62dd1b64f35796cd8c07c3f330dc",
+      "bef2b2fc7ae55391f00f51e03008644a398869f1ee1e7a6b9330d9a76d835df9"
+    ]
+  },
+  "restart_acceptance": {
+    "services": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "memory_runtime_initialized": true,
+    "active_stale_count_after_restart": 0,
+    "archive_entry_still_present": true,
+    "proactive_meme_setting_persisted_false": true
+  },
+  "reuse_decision": "The overlay remains data + one-time migration only. N.E.K.O owns persona persistence, fusion, corrections, archive/event history and runtime rendering."
+}
