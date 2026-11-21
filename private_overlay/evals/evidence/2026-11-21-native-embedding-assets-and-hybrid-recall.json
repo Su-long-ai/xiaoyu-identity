@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "feature": "N.E.K.O native local embedding assets and live hybrid memory recall",
+  "verdict": "PASS_NATIVE_HYBRID_RECALL_RESTORED_AND_STARTUP_GATED",
+  "before": {
+    "repeated_runtime_log": "EmbeddingService: vectors disabled (model_file_missing)",
+    "worker_log": "[EmbeddingWorker] model load did not produce a ready service (model_file_missing); worker exiting",
+    "recall_mode": "turn_context mode=bm25",
+    "cause": "Source checkout startup had not run N.E.K.O's official prepare_embedding_model.py asset step."
+  },
+  "reuse": {
+    "native_stack": [
+      "memory/embeddings.py",
+      "memory/embedding_worker.py",
+      "memory/hybrid_recall.py",
+      "memory/recall.py",
+      "scripts/prepare_embedding_model.py"
+    ],
+    "overlay_downloader": false,
+    "core_patch_added": false,
+    "model_repo": "jinaai/jina-embeddings-v5-text-nano-retrieval",
+    "revision": "ac5d898c8d382b17167c33e5c8af644a3519b47d",
+    "profile_id": "local-text-retrieval-v1",
+    "variant": "int8"
+  },
+  "hardware": {
+    "ram_gib": 15.7007,
+    "avx_vnni": true,
+    "avx_vnni_absence_confirmed": true,
+    "avx2": true,
+    "avx2_absence_confirmed": true,
+    "native_auto_quantization": "int8"
+  },
+  "prepared_assets": {
+    "tokenizer_json_bytes": 17210235,
+    "model_quantized_onnx_bytes": 131365,
+    "model_quantized_onnx_data_bytes": 247006208,
+    "marker": ".prepared.json with exact repo + revision",
+    "native_prepare_result": "profile ready"
+  },
+  "offline_smoke": {
+    "ready": true,
+    "available": true,
+    "model_id": "local-text-retrieval-v1-128d-int8-mlen1024",
+    "dims": [
+      128,
+      128,
+      128
+    ],
+    "norms": [
+      1,
+      1,
+      1
+    ],
+    "related_cosine": 0.4612,
+    "unrelated_cosine": 0.148796
+  },
+  "live_runtime": {
+    "startup_ready_at_local": "2026-11-21T18:49:34+08:00",
+    "model_id": "local-text-retrieval-v1-128d-int8-mlen1024",
+    "ports": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "active_backfill": {
+      "facts_json": "9/9 current model id",
+      "persona_json": "11/11 current model id",
+      "reflections_json": "2/2 current model id"
+    },
+    "cold_data_not_forced": [
+      "legacy backup persona",
+      "archived retired persona fact"
+    ]
+  },
+  "live_recall_acceptance": {
+    "query": "What interaction preference was expressed about response speed?",
+    "candidates_total": 11,
+    "bm25_scored": 0,
+    "embedding_scored": 11,
+    "embedding_passed_threshold": 3,
+    "embedding_service": "ready",
+    "fused_results": 3,
+    "elapsed_ms": 470.9,
+    "top_result": "response/speech-speed preference fact",
+    "significance": "The requested memory was retrieved by the vector half when BM25 produced zero scored matches."
+  },
+  "startup_closure": {
+    "helper": "private_overlay/tools/ensure_native_embedding_assets.py",
+    "behavior_when_ready": "already_ready; no subprocess download",
+    "behavior_when_missing": "delegate to N.E.K.O scripts/prepare_embedding_model.py",
+    "preflight_behavior": "verify-only; fail closed on incomplete profile or mismatched pin",
+    "release_gate": "run_checks.ps1 verifies the native profile + exact repo/revision pin",
+    "no_custom_network_client": true
+  },
+  "regression": {
+    "neko_embedding_hybrid_turn_context": "137/137 PASS",
+    "overlay_full_gate": "79/79 PASS",
+    "startup_preflight": "PASS"
+  }
+}

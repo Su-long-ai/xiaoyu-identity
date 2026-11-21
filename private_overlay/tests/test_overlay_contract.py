@@ -124,6 +124,8 @@ class OverlayContractTests(unittest.TestCase):
         required = {
             "setup_local.ps1",
             "-VerifyOnly",
+            "ensure_native_embedding_assets.py",
+            "--neko-root",
             "ensure_neko_storage_policy.py",
             "ensure_private_plugin.py",
             "--source",
@@ -144,6 +146,25 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIn(marker, script)
         self.assertNotIn("plugins\\xiaoyu_private", script)
         self.assertNotIn("start_plugin", script)
+
+
+    def test_startup_embedding_assets_delegate_to_neko_native_prepare(self):
+        script = (ROOT / "tools" / "ensure_native_embedding_assets.py").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "prepare_embedding_model.py",
+            "profile_is_complete",
+            "jinaai/jina-embeddings-v5-text-nano-retrieval",
+            "ac5d898c8d382b17167c33e5c8af644a3519b47d",
+            "local-text-retrieval-v1",
+            "--variant",
+            "int8",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+        for forbidden in ("urllib", "httpx", "requests"):
+            self.assertNotIn(forbidden, script)
 
 
     def test_recent_activity_forced_route_is_narrow_and_covers_live_wording(self):
@@ -253,6 +274,8 @@ class OverlayContractTests(unittest.TestCase):
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
+        self.assertIn("ensure_native_embedding_assets.py", script)
+        self.assertIn("--verify-only", script)
         reviews = json.loads((ROOT / "governance" / "reuse_reviews.json").read_text(encoding="utf-8-sig"))
         ids = {item["id"] for item in reviews["reviews"]}
         series = json.loads((ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig"))

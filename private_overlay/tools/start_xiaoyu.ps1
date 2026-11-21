@@ -57,6 +57,21 @@ if (-not $PreflightOnly) {
     }
 }
 
+Write-Host "== Ensure N.E.K.O native embedding assets =="
+$EmbeddingAssetsEnsure = Join-Path $ToolsRoot "ensure_native_embedding_assets.py"
+if (-not (Test-Path $EmbeddingAssetsEnsure)) {
+    throw "Native embedding asset ensure helper not found: $EmbeddingAssetsEnsure"
+}
+$EmbeddingArgs = @(
+    $EmbeddingAssetsEnsure,
+    "--neko-root", $NekoRoot
+)
+if ($PreflightOnly) {
+    $EmbeddingArgs += "--verify-only"
+}
+& $Python @EmbeddingArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== Verify pinned external components =="
 & (Join-Path $ToolsRoot "setup_local.ps1") -NekoRoot $NekoRoot -VerifyOnly
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

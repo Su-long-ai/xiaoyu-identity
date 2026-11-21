@@ -18,6 +18,14 @@ Write-Host "== XiaoYu ActivityWatch reuse dependency =="
 python (Join-Path $OverlayRoot "tools\check_activitywatch.py")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== XiaoYu native embedding asset pin =="
+$NekoPython = Join-Path $NekoRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $NekoPython)) {
+    throw "N.E.K.O venv python not found for embedding asset verification: $NekoPython"
+}
+& $NekoPython (Join-Path $OverlayRoot "tools\ensure_native_embedding_assets.py") --neko-root $NekoRoot --verify-only
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== XiaoYu reuse-first admission gate =="
 python (Join-Path $OverlayRoot "tools\check_reuse_first.py")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
