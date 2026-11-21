@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 import json
 import sys
@@ -35,6 +36,7 @@ sdk.Err = _Err
 sdk.SdkError = _SdkError
 sdk.lifecycle = _identity
 sdk.neko_plugin = lambda cls: cls
+sdk.on_event = _identity
 sdk.plugin_entry = _identity
 sdk.llm_tool = _llm_tool
 sdk.timer_interval = _identity
@@ -76,16 +78,16 @@ class ParserTests(unittest.TestCase):
             {"action": "quiet", "duration_minutes": 30, "speech_action": "unchanged", "vision_action": "unchanged"},
         )
 
-    def test_v1_state_normalization_preserves_explicit_speech_migration(self):
+    def test_v4_state_normalization_collapses_legacy_speech_mute_into_quiet(self):
         state = mod._normalize_state({
             "version": 1,
             "quiet": True,
             "speech_muted": True,
             "previous_proactive_chat_enabled": True,
         })
-        self.assertEqual(state["version"], 3)
+        self.assertEqual(state["version"], 4)
         self.assertTrue(state["quiet"])
-        self.assertTrue(state["speech_muted"])
+        self.assertFalse(state["speech_muted"])
         self.assertFalse(state["vision_blocked"])
         self.assertTrue(state["previous_proactive_chat_enabled"])
 
@@ -109,6 +111,11 @@ class ParserTests(unittest.TestCase):
             mod.fast_speech_control("可以说话了"),
             {"action": "resume", "duration_minutes": None, "speech_action": "unmute"},
         )
+        for phrase in ("说吧", "你说吧", "那你说吧", "那就说吧", "可以说了"):
+            self.assertEqual(
+                mod.fast_speech_control(phrase),
+                {"action": "resume", "duration_minutes": None, "speech_action": "unmute"},
+            )
         self.assertIsNone(mod.fast_speech_control("朋友让我别说话是什么意思"))
 
     def test_candidate_filter_covers_live_phrases(self):
@@ -146,6 +153,87 @@ class ParserTests(unittest.TestCase):
     def test_candidate_filter_avoids_ordinary_chat(self):
         self.assertFalse(mod.candidate_needs_semantic_check("今天天气不错，我们继续写代码吧"))
 
+    def test_semantic_hard_gate_rejects_speed_and_audio_diagnostics(self):
+        bad = {
+            "action": "quiet",
+            "duration_minutes": None,
+            "speech_action": "mute",
+            "vision_action": "unchanged",
+        }
+        for text in (
+            "语速还是太快了",
+            "你说话真的太快了",
+            "这次还是没声音",
+            "怎么没声音",
+            "预览有声，但是回复又快了",
+            "预览有声，但是回复没声音",
+        ):
+            self.assertEqual(
+                mod.gate_semantic_hard_control(text, bad),
+                {
+                    "action": "none",
+                    "duration_minutes": None,
+                    "speech_action": "unchanged",
+                    "vision_action": "unchanged",
+                },
+                text,
+            )
+
+    def test_semantic_hard_gate_allows_explicit_novel_speech_controls(self):
+        self.assertEqual(
+            mod.gate_semantic_hard_control(
+                "你先别开口了",
+                {
+                    "action": "quiet",
+                    "duration_minutes": None,
+                    "speech_action": "mute",
+                    "vision_action": "unchanged",
+                },
+            ),
+            {
+                "action": "quiet",
+                "duration_minutes": None,
+                "speech_action": "mute",
+                "vision_action": "unchanged",
+            },
+        )
+        self.assertEqual(
+            mod.gate_semantic_hard_control(
+                "好了，你可以开口了",
+                {
+                    "action": "resume",
+                    "duration_minutes": None,
+                    "speech_action": "unmute",
+                    "vision_action": "unchanged",
+                },
+            ),
+            {
+                "action": "resume",
+                "duration_minutes": None,
+                "speech_action": "unmute",
+                "vision_action": "unchanged",
+            },
+        )
+
+    def test_semantic_hard_gate_separates_proactive_from_speech_mute(self):
+        self.assertEqual(
+            mod.gate_semantic_hard_control(
+                "暂时不要主动联系我",
+                {
+                    "action": "quiet",
+                    "duration_minutes": 10,
+                    "speech_action": "mute",
+                    "vision_action": "unchanged",
+                },
+            ),
+            {
+                "action": "quiet",
+                "duration_minutes": 10,
+                "speech_action": "unchanged",
+                "vision_action": "unchanged",
+            },
+        )
+
     def test_state_does_not_contain_user_text(self):
         state = mod._normalize_state({
             "initialized": True,
@@ -158,7 +246,7 @@ class ParserTests(unittest.TestCase):
         self.assertNotIn("content", state)
         self.assertNotIn("user_text", state)
         self.assertNotIn("别说话", blob)
-        self.assertTrue(state["speech_muted"])
+        self.assertFalse(state["speech_muted"])
 
     def test_duration_out_of_range_is_dropped(self):
         self.assertEqual(
@@ -231,6 +319,79 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(meta["parameters"]["properties"]["minutes"]["maximum"], 1440)
         self.assertIn("ActivityWatch", meta["description"])
         self.assertIn("missing coverage is unknown", meta["description"])
+
+
+
+class ReplyOutputContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fast_speech_controls_toggle_only_whole_reply_quiet(self):
+        obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        obj.logger = types.SimpleNamespace(info=lambda *_a, **_k: None, warning=lambda *_a, **_k: None)
+        obj._save_state = lambda _state: None
+        proactive_writes = []
+
+        async def current_proactive():
+            return True
+
+        async def set_proactive(enabled):
+            proactive_writes.append(bool(enabled))
+
+        obj._current_proactive_enabled = current_proactive
+        obj._set_proactive = set_proactive
+
+        state = mod._normalize_state({"initialized": True})
+        state, decisions = await obj._apply_control_text(state, "别说话", reason="user")
+        self.assertEqual(decisions, 1)
+        self.assertTrue(state["quiet"])
+        self.assertFalse(state["speech_muted"])
+        self.assertEqual(proactive_writes, [False])
+
+        state, decisions = await obj._apply_control_text(state, "说吧", reason="user")
+        self.assertEqual(decisions, 1)
+        self.assertFalse(state["quiet"])
+        self.assertFalse(state["speech_muted"])
+        self.assertEqual(proactive_writes, [False, True])
+
+
+class VoiceControlEventTests(unittest.IsolatedAsyncioTestCase):
+    async def test_voice_transcript_uses_same_control_path(self):
+        obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        obj._lock = asyncio.Lock()
+        state = mod._normalize_state({
+            "initialized": True,
+            "quiet": True,
+            "speech_muted": True,
+            "previous_proactive_chat_enabled": True,
+        })
+        obj._load_state = lambda: dict(state)
+
+        async def expire(value):
+            return value
+        obj._expire_if_needed = expire
+
+        seen = {}
+        async def apply(value, text, *, reason):
+            seen["text"] = text
+            seen["reason"] = reason
+            value["quiet"] = False
+            value["speech_muted"] = False
+            value["last_action"] = "speech_unmute:voice"
+            return value, 2
+        obj._apply_control_text = apply
+
+        async def enforce(_value):
+            seen["enforced"] = True
+        obj._enforce_quiet_if_needed = enforce
+
+        result = await obj.voice_control_intent(
+            transcript="那你说吧",
+            lanlan_name="XiaoYu",
+        )
+        self.assertEqual(seen["text"], "那你说吧")
+        self.assertEqual(seen["reason"], "voice")
+        self.assertTrue(seen["enforced"])
+        self.assertEqual(result.value["decisions"], 2)
+        self.assertFalse(result.value["quiet"])
+        self.assertFalse(result.value["speech_muted"])
 
 
 

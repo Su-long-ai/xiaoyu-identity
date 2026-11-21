@@ -18,6 +18,7 @@ from plugin.sdk.plugin import (
     SdkError,
     lifecycle,
     neko_plugin,
+    on_event,
     plugin_entry,
     llm_tool,
     timer_interval,
@@ -25,7 +26,7 @@ from plugin.sdk.plugin import (
 
 _ROLE = "XiaoYu"
 _CONTROLLER = "proactive_controller"
-_STATE_VERSION = 3
+_STATE_VERSION = 4
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
 _MAX_TEXT_CHARS = 500
@@ -113,7 +114,11 @@ def _normalize_state(raw: Any) -> dict[str, Any]:
         if isinstance(item, str) and item
     ][-_SEEN_LIMIT:]
     state["quiet"] = bool(state.get("quiet"))
-    state["speech_muted"] = bool(state.get("speech_muted"))
+    # v4 contract: audible speech is no longer independently mutable. Quiet
+    # suppresses the whole assistant reply (text + its paired audio); whenever
+    # a reply is allowed through, audio remains enabled. Keep this legacy field
+    # only for compatibility with older state readers.
+    state["speech_muted"] = False
     state["vision_blocked"] = bool(state.get("vision_blocked"))
     previous_vision = state.get("previous_vision_enabled")
     state["previous_vision_enabled"] = previous_vision if isinstance(previous_vision, bool) else None
@@ -177,11 +182,70 @@ _FAST_SPEECH_MUTE = {
     "安静", "安静一下", "先安静", "闭嘴", "别出声", "不要出声",
 }
 _FAST_SPEECH_UNMUTE = {
-    "可以说话了", "说话吧", "继续说", "继续说话", "恢复说话", "解除静音",
+    "可以说话了", "可以说了", "你可以说了", "说话吧", "说吧", "你说吧", "那你说吧", "那就说吧",
+    "继续说", "继续说吧", "继续说话", "恢复说话", "解除静音",
 }
 _FAST_VISION_BLOCK = {"不要看屏幕", "别看屏幕", "不要看我的屏幕", "别看我的屏幕", "停止看屏幕", "别窥屏", "不要窥屏"}
 _FAST_VISION_ALLOW = {"可以看屏幕了", "可以看我的屏幕了", "继续看屏幕", "恢复看屏幕", "允许看屏幕"}
 _FAST_FULL_RESUME = {"恢复正常", "全部恢复", "恢复所有", "恢复全部"}
+
+# Semantic classifiers may recognize novel wording, but they never own hard
+# execution.  Every model-proposed persistent control is admitted only when the
+# user's literal text contains deterministic evidence of that control.  This
+# prevents troubleshooting/preferences such as "语速还是太快了" or "怎么没声音"
+# from being promoted into a durable speech mute.
+_SEMANTIC_SPEECH_MUTE_RE = re.compile(
+    r"(?:"
+    r"(?:别|不要|不许|不准|禁止|停止|先别|先不要|暂时别|暂时不要|别再|不要再)"
+    r".{0,10}(?:说话|讲话|开口|出声|发声|说|讲)"
+    r"|(?:安静|静一静|闭嘴)(?:一下|一会儿?|会儿?)?"
+    r"|(?:shut\s*up|be\s+(?:quiet|silent)|(?:do\s*not|don't|stop)\s+(?:talk|talking|speak|speaking|make\s+(?:a\s+)?sound))"
+    r")",
+    re.IGNORECASE,
+)
+_SEMANTIC_SPEECH_UNMUTE_RE = re.compile(
+    r"(?:"
+    r"(?:可以|能|允许|继续|恢复|重新|开始|尽管|现在可以).{0,10}(?:说话|讲话|开口|出声|发声|说|讲)"
+    r"|(?:解除|取消).{0,6}(?:静音|禁言)"
+    r"|(?:resume|continue|start)\s+(?:talking|speaking)"
+    r"|(?:speak|talk)\s+again"
+    r")",
+    re.IGNORECASE,
+)
+_SEMANTIC_PROACTIVE_QUIET_RE = re.compile(
+    r"(?:"
+    r"(?:别|不要|停止|先别|先不要|暂时别|暂时不要|别再|不要再)"
+    r".{0,12}(?:主动|找我|联系我|打扰我|烦我|给我发消息|发消息|消息我)"
+    r"|(?:勿扰|免打扰)"
+    r"|(?:do\s*not|don't|stop)\s+(?:bother|contact|message|ping)(?:ing)?\s*(?:me)?"
+    r")",
+    re.IGNORECASE,
+)
+_SEMANTIC_PROACTIVE_RESUME_RE = re.compile(
+    r"(?:"
+    r"(?:可以|继续|恢复|重新|允许).{0,12}(?:主动|找我|联系我|打扰我|给我发消息|发消息)"
+    r"|(?:恢复正常|正常来吧|正常说吧|正常聊吧|好了.{0,6}正常.{0,4}吧)"
+    r"|(?:resume|continue|start)\s+(?:contacting|messaging|pinging)"
+    r")",
+    re.IGNORECASE,
+)
+_SEMANTIC_VISION_BLOCK_RE = re.compile(
+    r"(?:"
+    r"(?:别|不要|停止|先别|先不要|禁止).{0,10}(?:看|观察|盯|窥).{0,6}(?:屏幕|屏|桌面)"
+    r"|(?:别|不要|停止|禁止).{0,6}(?:窥屏)"
+    r"|(?:do\s*not|don't|stop)\s+(?:watching|looking\s+at|viewing)\s+(?:my\s+)?screen"
+    r")",
+    re.IGNORECASE,
+)
+_SEMANTIC_VISION_ALLOW_RE = re.compile(
+    r"(?:"
+    r"(?:可以|继续|恢复|重新|允许).{0,10}(?:看|观察|盯).{0,6}(?:屏幕|屏|桌面)"
+    r"|(?:可以|继续|恢复|允许).{0,6}(?:窥屏)"
+    r"|(?:resume|continue|start)\s+(?:watching|viewing)\s+(?:my\s+)?screen"
+    r")",
+    re.IGNORECASE,
+)
+
 _FAST_CONTROL_STRIP_RE = re.compile(r"[\s，。！？、,.!?;；:：~～…]+")
 _FAST_CONTROL_PREFIXES = ("小鱼小鱼", "小鱼", "请", "麻烦")
 
@@ -219,6 +283,51 @@ def fast_vision_control(text: str) -> str | None:
 
 def fast_full_resume(text: str) -> bool:
     return _normalize_fast_control(text) in _FAST_FULL_RESUME
+
+
+def gate_semantic_hard_control(text: str, decision: dict[str, Any]) -> dict[str, Any]:
+    """Fail closed from model suggestion to persistent interaction control.
+
+    Fast exact commands are handled before this function.  Semantic inference
+    remains useful for novel phrasing, but literal command evidence is required
+    for every durable hard effect.
+    """
+    gated = dict(decision or {})
+    raw = str(text or "")[:_MAX_TEXT_CHARS]
+    action = str(gated.get("action") or "none").strip().lower()
+    speech_action = str(gated.get("speech_action") or "unchanged").strip().lower()
+    vision_action = str(gated.get("vision_action") or "unchanged").strip().lower()
+
+    speech_mute = bool(_SEMANTIC_SPEECH_MUTE_RE.search(raw))
+    speech_unmute = bool(_SEMANTIC_SPEECH_UNMUTE_RE.search(raw))
+    proactive_quiet = bool(_SEMANTIC_PROACTIVE_QUIET_RE.search(raw))
+    proactive_resume = bool(_SEMANTIC_PROACTIVE_RESUME_RE.search(raw))
+    vision_block = bool(_SEMANTIC_VISION_BLOCK_RE.search(raw))
+    vision_allow = bool(_SEMANTIC_VISION_ALLOW_RE.search(raw))
+    global_resume = fast_full_resume(raw)
+
+    if speech_action == "mute" and not speech_mute:
+        gated["speech_action"] = "unchanged"
+    elif speech_action == "unmute" and not (speech_unmute or global_resume):
+        gated["speech_action"] = "unchanged"
+
+    if action == "quiet" and not (speech_mute or proactive_quiet):
+        gated["action"] = "none"
+        gated["duration_minutes"] = None
+    elif action == "resume" and not (speech_unmute or proactive_resume or global_resume):
+        gated["action"] = "none"
+        gated["duration_minutes"] = None
+
+    if vision_action == "block" and not vision_block:
+        gated["vision_action"] = "unchanged"
+    elif vision_action == "allow" and not vision_allow:
+        gated["vision_action"] = "unchanged"
+    elif vision_action == "restore" and not global_resume:
+        gated["vision_action"] = "unchanged"
+
+    if gated.get("action") != "quiet":
+        gated["duration_minutes"] = None
+    return gated
 
 
 def _extract_event(record: Any) -> dict[str, Any]:
@@ -541,6 +650,104 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
     async def xiaoyu_recent_activity(self, minutes: int = 60, **_):
         return await query_activitywatch_recent(minutes)
 
+    async def _apply_control_text(
+        self,
+        state: dict[str, Any],
+        text: str,
+        *,
+        reason: str,
+    ) -> tuple[dict[str, Any], int]:
+        if not text:
+            return state, 0
+
+        if fast_full_resume(text):
+            decision = {
+                "action": "resume",
+                "duration_minutes": None,
+                "speech_action": "unmute",
+                "vision_action": "restore",
+            }
+        else:
+            decision = fast_speech_control(text)
+            if decision is not None:
+                decision["vision_action"] = "unchanged"
+            else:
+                vision_action = fast_vision_control(text)
+                if vision_action is not None:
+                    decision = {
+                        "action": "none",
+                        "duration_minutes": None,
+                        "speech_action": "unchanged",
+                        "vision_action": vision_action,
+                    }
+                else:
+                    if not should_run_semantic_check(
+                        text,
+                        quiet=bool(state["quiet"]),
+                        vision_blocked=bool(state["vision_blocked"]),
+                    ):
+                        return state, 0
+                    decision = await self._classify(text[:_MAX_TEXT_CHARS])
+                    decision = gate_semantic_hard_control(text, decision)
+
+        # v4 folds legacy audible-speech intent into the single reply-output
+        # authority. "mute" means suppress the entire reply; "unmute" means
+        # resume replies. No state may express "text on, audio off".
+        speech_action = decision.get("speech_action")
+        if speech_action == "mute":
+            decision["action"] = "quiet"
+        elif speech_action == "unmute":
+            decision["action"] = "resume"
+
+        decisions = 0
+        action = decision["action"]
+        if action == "quiet":
+            state = await self._set_quiet(state, decision.get("duration_minutes"))
+            decisions += 1
+        elif action == "resume":
+            state = await self._resume(state, reason=reason)
+            decisions += 1
+
+        vision_action = decision.get("vision_action")
+        if vision_action == "block":
+            state = await self._set_vision_blocked(state, True, reason=reason)
+            decisions += 1
+        elif vision_action == "allow":
+            state = await self._allow_vision(state, reason=reason)
+            decisions += 1
+        elif vision_action == "restore":
+            state = await self._restore_vision(state, reason=reason)
+            decisions += 1
+
+        return state, decisions
+
+    @on_event(
+        event_type="voice_transcript_observed",
+        id="voice_control_intent",
+        kind="consumer",
+    )
+    async def voice_control_intent(
+        self,
+        transcript: str = "",
+        lanlan_name: str = "",
+        **_,
+    ):
+        if str(lanlan_name or "") not in {"", _ROLE}:
+            return Ok({"processed": False, "reason": "other_role"})
+        text = str(transcript or "").strip()
+        if not text:
+            return Ok({"processed": False, "reason": "empty"})
+
+        async with self._lock:
+            state = await self._expire_if_needed(self._load_state())
+            state, decisions = await self._apply_control_text(state, text, reason="voice")
+            await self._enforce_quiet_if_needed(state)
+            return Ok({
+                "processed": True,
+                "decisions": decisions,
+                **self._public_state(state),
+            })
+
     @timer_interval(id="scan_user_control_intent", seconds=1, auto_start=True)
     async def scan_user_control_intent(self, **_):
         if self._lock.locked():
@@ -573,69 +780,8 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                 state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
                 self._save_state(state)
 
-                if not text:
-                    continue
-
-                # Outside quiet mode, keep the cheap lexical prefilter so ordinary
-                # conversation does not pay an extra classifier call. Once the hard
-                # quiet latch is active, however, every user message is eligible for
-                # semantic resume detection: natural phrases such as "好了你正常来吧"
-                # should be understood by the model even when they are not in the
-                # conservative candidate vocabulary.
-                if fast_full_resume(text):
-                    decision = {
-                        "action": "resume",
-                        "duration_minutes": None,
-                        "speech_action": "unmute",
-                        "vision_action": "restore",
-                    }
-                else:
-                    decision = fast_speech_control(text)
-                    if decision is not None:
-                        decision["vision_action"] = "unchanged"
-                    else:
-                        vision_action = fast_vision_control(text)
-                        if vision_action is not None:
-                            decision = {
-                                "action": "none",
-                                "duration_minutes": None,
-                                "speech_action": "unchanged",
-                                "vision_action": vision_action,
-                            }
-                        else:
-                            if not should_run_semantic_check(
-                                text,
-                                quiet=bool(state["quiet"]),
-                                vision_blocked=bool(state["vision_blocked"]),
-                            ):
-                                continue
-                            decision = await self._classify(text[:_MAX_TEXT_CHARS])
-                action = decision["action"]
-                if action == "quiet":
-                    state = await self._set_quiet(state, decision.get("duration_minutes"))
-                    decisions += 1
-                elif action == "resume":
-                    state = await self._resume(state, reason="user")
-                    decisions += 1
-
-                speech_action = decision.get("speech_action")
-                if speech_action == "mute":
-                    state = self._set_speech_muted(state, True, reason="user")
-                    decisions += 1
-                elif speech_action == "unmute":
-                    state = self._set_speech_muted(state, False, reason="user")
-                    decisions += 1
-
-                vision_action = decision.get("vision_action")
-                if vision_action == "block":
-                    state = await self._set_vision_blocked(state, True, reason="user")
-                    decisions += 1
-                elif vision_action == "allow":
-                    state = await self._allow_vision(state, reason="user")
-                    decisions += 1
-                elif vision_action == "restore":
-                    state = await self._restore_vision(state, reason="user")
-                    decisions += 1
+                state, added = await self._apply_control_text(state, text, reason="user")
+                decisions += added
 
             await self._enforce_quiet_if_needed(state)
             return Ok({"processed": len(pending), "decisions": decisions, **self._public_state(state)})
@@ -716,6 +862,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         await self._set_proactive(False)
         now = time.time()
         state["quiet"] = True
+        state["speech_muted"] = False
         state["quiet_until"] = now + duration_minutes * 60 if duration_minutes is not None else None
         state["changed_at"] = now
         state["last_action"] = "quiet"
@@ -731,6 +878,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
             await self._set_proactive(restore)
         now = time.time()
         state["quiet"] = False
+        state["speech_muted"] = False
         state["previous_proactive_chat_enabled"] = None
         state["quiet_until"] = None
         state["changed_at"] = now
@@ -813,20 +961,10 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         self.logger.info("native autonomous vision restored reason={}", reason)
         return state
 
-    def _set_speech_muted(self, state: dict[str, Any], muted: bool, *, reason: str) -> dict[str, Any]:
-        state["speech_muted"] = bool(muted)
-        state["changed_at"] = time.time()
-        state["last_action"] = ("speech_mute:" if muted else "speech_unmute:") + reason
-        self._save_state(state)
-        self.logger.info("hard speech mute changed muted={} reason={}", bool(muted), reason)
-        return state
-
     async def _expire_if_needed(self, state: dict[str, Any]) -> dict[str, Any]:
         until = state.get("quiet_until")
         if state["quiet"] and isinstance(until, (int, float)) and time.time() >= float(until):
             state = await self._resume(state, reason="expired")
-            if state.get("speech_muted"):
-                state = self._set_speech_muted(state, False, reason="expired")
         return state
 
     async def _enforce_quiet_if_needed(self, state: dict[str, Any]) -> None:

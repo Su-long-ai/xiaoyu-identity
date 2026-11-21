@@ -61,21 +61,19 @@ def _source_files(source: Path) -> list[Path]:
     return sorted(files, key=lambda p: p.as_posix())
 
 
-def _migrate_known_v1_owner_state(
+def _migrate_reply_output_state(
     storage_root: Path,
     *,
     from_version: str,
     target_version: str,
 ) -> bool:
-    """Preserve this installation's known no-speech intent across v1 -> v2.
+    """Collapse legacy audio-only mute when upgrading to the v0.6 reply contract.
 
-    The historical v1 schema only stored proactive quiet. This private
-    installation is known to have entered quiet via the owner's explicit
-    no-speech instruction. Scope the migration tightly to the 0.1.3 -> 0.2.0
-    transition and the exact quiet:user state; ambiguous legacy states keep the
-    conservative speech_muted=False default.
+    v0.6 has one durable output authority: quiet. A reply is either suppressed
+    before text/TTS split, or both text and its paired audio are admitted.
+    speech_muted remains only as a compatibility field and must be false.
     """
-    if from_version != "0.1.3" or target_version != "0.2.0":
+    if target_version != "0.6.0":
         return False
     path = storage_root / "plugins" / PLUGIN_ID / "data" / "state.json"
     try:
@@ -84,12 +82,12 @@ def _migrate_known_v1_owner_state(
         return False
     if not isinstance(raw, dict):
         return False
-    if raw.get("version") != 1 or not bool(raw.get("quiet")):
-        return False
-    if "speech_muted" in raw or str(raw.get("last_action") or "") != "quiet:user":
+    changed = raw.get("version") != 4 or bool(raw.get("speech_muted"))
+    if not changed:
         return False
 
-    raw["speech_muted"] = True
+    raw["version"] = 4
+    raw["speech_muted"] = False
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(temp, path)
@@ -253,7 +251,7 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
         install_kwargs["confirmation_token"] = token
 
     result = await service.install(**install_kwargs)
-    state_migrated = _migrate_known_v1_owner_state(
+    state_migrated = _migrate_reply_output_state(
         storage_root,
         from_version=current_version,
         target_version=desired_version,

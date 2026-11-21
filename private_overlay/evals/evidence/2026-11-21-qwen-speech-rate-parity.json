@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "feature": "Qwen bundle preview/conversation speech-rate parity",
+  "verdict": "PASS_SHARED_RATE_ACROSS_PREVIEW_TEXT_TTS_AND_REALTIME",
+  "current_binding": {
+    "character": "XiaoYu",
+    "provider": "qwen_bundle",
+    "ref": "qwen-bundle-43e22f9e-12-a0ac1f5036",
+    "stored_speech_rate": 1
+  },
+  "contract": {
+    "single_rate_authority": "speech_rate stored on the existing qwen_bundle voice record",
+    "preview": "Qwen-Audio preview reads the same voice record speech_rate",
+    "conversation_text_tts": "qwen_audio_tts_worker reads the same speech_rate and coalesces until flush so rate semantics match full-preview synthesis",
+    "realtime": "Qwen3.8 Omni PCM passes through pitch-preserving QwenRealtimeTempoStream using the same stored speech_rate",
+    "hot_update": "PUT /api/characters/voices/{voice_id}/speech_rate persists the value and retires matching active TTS runtime so the next reply uses it",
+    "range": [
+      0.5,
+      2
+    ]
+  },
+  "regression": {
+    "qwen_reply_gate_turn_suite": "74/74 PASS on 2026-11-21",
+    "pitch_preservation_test": "0.8x tempo produces about 1.25x samples while 440 Hz remains within 438-442 Hz",
+    "overlay_full_gate": "70/70 PASS",
+    "patch_chain": "0001..0008 managed patch chain previously replayed from pinned 6261a5f6"
+  },
+  "reuse": {
+    "voice_store": "existing N.E.K.O voice storage remains authority",
+    "ui": "existing N.E.K.O voice library gains only a Qwen bundle rate control",
+    "audio_processing": "existing audiolab AudioPipe/atempo is reused for pitch-preserving tempo; no custom DSP engine",
+    "provider": "no new remote provider/model is introduced"
+  },
+  "user_issue_closed": "The prior mismatch 'preview speed is normal but conversation is fast' is no longer representable by separate rate paths; both paths read the same stored rate."
+}

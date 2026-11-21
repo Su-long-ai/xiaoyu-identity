@@ -90,19 +90,19 @@
     {
       "id": "patch:0006-private-speech-output-gate.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-20",
-      "problem": "Semantic quiet did not suppress already-native TTS/Realtime audible output.",
+      "reviewed_at": "2026-11-21",
+      "problem": "An independent assistant-speech mute can create policy-induced text-only replies; the required contract is one whole-reply quiet gate before text/TTS split.",
       "decision": "thin_adapter",
       "candidates": [
         {
-          "name": "N.E.K.O TTS and realtime output paths",
+          "name": "N.E.K.O existing text publication + TTS output paths",
           "type": "native",
-          "outcome": "reused; no global speech mute boundary exposed",
-          "evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+          "outcome": "reused; no native single admission boundary exposed to the private plugin",
+          "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json"
         }
       ],
-      "why_reuse_insufficient": "No external component can reliably enforce mute after all N.E.K.O speech producers without replacing them; the patch is a single opt-in output boundary.",
-      "acceptance_evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+      "why_reuse_insufficient": "The native text and TTS pipelines are reused unchanged after admission. The narrow patch only supplies the missing opt-in common boundary so private quiet intent cannot split text from its paired audio.",
+      "acceptance_evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json"
     },
     {
       "id": "patch:0007-private-first-round-tool-route.patch",
@@ -153,26 +153,38 @@
     {
       "id": "patch:0008-qwen-clone-provider-routing.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-20",
-      "problem": "XiaoYu should expose the preferred old-project voice quality as a selectable voice without reviving the retired qwen3-tts-vc model or building a second TTS/voice subsystem.",
+      "reviewed_at": "2026-11-21",
+      "problem": "XiaoYu needs a first-class paired Qwen clone, and preview/conversation/realtime must share one persisted speech-rate authority rather than diverging.",
       "decision": "thin_adapter",
       "candidates": [
         {
-          "name": "N.E.K.O existing Qwen3.8 Omni realtime transport",
-          "type": "native",
-          "outcome": "selected for realtime speech; current cloned Omni voice passed through only on exact model/provider match",
-          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
-        },
-        {
           "name": "N.E.K.O existing structured character voice storage/picker",
           "type": "native",
-          "outcome": "selected as the only voice binding and UI authority",
+          "outcome": "selected as the only local voice binding and UI authority",
           "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
         },
         {
-          "name": "Alibaba Model Studio Qwen-Audio 3.1 TTS HTTP API",
-          "type": "external",
-          "outcome": "selected for ordinary text TTS using the paired clone; thin adapter only",
+          "name": "N.E.K.O existing Qwen3.8 Omni realtime transport",
+          "type": "native",
+          "outcome": "selected for realtime speech; paired cloned voice is passed only on exact provider/model match",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "Alibaba Model Studio Qwen-Audio voice enrollment and TTS HTTP APIs",
+          "type": "provider_native",
+          "outcome": "selected for ordinary clone creation, text synthesis and preview",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "Alibaba Model Studio Qwen Omni voice enrollment API",
+          "type": "provider_native",
+          "outcome": "selected for the matching Qwen3.8 Omni realtime clone created from the same reference sample",
+          "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "Generic N.E.K.O CosyVoice preview path",
+          "type": "native",
+          "outcome": "rejected for qwen_bundle after live preview returned InvalidParameter / engine 418",
           "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
         },
         {
@@ -180,10 +192,16 @@
           "type": "external",
           "outcome": "rejected after live provider response: model no longer exists",
           "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+        },
+        {
+          "name": "N.E.K.O / audiolab existing tempo pipeline",
+          "type": "native_dependency",
+          "outcome": "selected for pitch-preserving speech-rate application; no custom DSP implementation",
+          "evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
         }
       ],
-      "why_reuse_insufficient": "All identity, UI, storage and realtime synthesis are reused. The only missing native piece is ordinary text synthesis for the new Qwen-Audio clone bundle, so patch 0008 adds a narrow HTTP provider adapter and exact-match realtime routing glue.",
-      "acceptance_evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+      "why_reuse_insufficient": "Durable authorities remain reused: N.E.K.O owns voice storage/picking/runtime, Alibaba owns enrollment and synthesis, and audiolab owns pitch-preserving tempo. The thin patch only exposes paired enrollment/routing, binds one shared speech_rate to those native paths, and refreshes the matching TTS worker when it changes.",
+      "acceptance_evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
     }
   ]
 }

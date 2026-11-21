@@ -79,43 +79,44 @@ class EnsurePrivatePluginTests(unittest.TestCase):
         ))
 
 
-    def test_known_v1_owner_state_migration_is_tightly_scoped(self):
+    def test_v060_migration_clears_legacy_audio_only_mute_without_changing_quiet(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             state = root / "plugins" / mod.PLUGIN_ID / "data" / "state.json"
             state.parent.mkdir(parents=True)
             state.write_text(
-                '{"version":1,"quiet":true,"last_action":"quiet:user"}',
+                '{"version":3,"quiet":false,"speech_muted":true}',
                 encoding="utf-8",
             )
-            changed = mod._migrate_known_v1_owner_state(
+            changed = mod._migrate_reply_output_state(
                 root,
-                from_version="0.1.3",
-                target_version="0.2.0",
+                from_version="0.5.1",
+                target_version="0.6.0",
             )
             self.assertTrue(changed)
-            self.assertTrue(__import__("json").loads(state.read_text(encoding="utf-8"))["speech_muted"])
+            value = __import__("json").loads(state.read_text(encoding="utf-8"))
+            self.assertEqual(value["version"], 4)
+            self.assertFalse(value["quiet"])
+            self.assertFalse(value["speech_muted"])
 
-    def test_ambiguous_legacy_quiet_is_not_promoted(self):
+    def test_non_v060_install_does_not_rewrite_legacy_state(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             state = root / "plugins" / mod.PLUGIN_ID / "data" / "state.json"
             state.parent.mkdir(parents=True)
             state.write_text(
-                '{"version":1,"quiet":true,"last_action":"quiet:expired"}',
+                '{"version":3,"quiet":true,"speech_muted":true}',
                 encoding="utf-8",
             )
-            changed = mod._migrate_known_v1_owner_state(
+            changed = mod._migrate_reply_output_state(
                 root,
-                from_version="0.1.3",
-                target_version="0.2.0",
+                from_version="0.5.1",
+                target_version="0.5.2",
             )
             self.assertFalse(changed)
-            self.assertNotIn(
-                "speech_muted",
-                __import__("json").loads(state.read_text(encoding="utf-8")),
+            self.assertTrue(
+                __import__("json").loads(state.read_text(encoding="utf-8"))["speech_muted"]
             )
-
 
 if __name__ == "__main__":
     unittest.main()

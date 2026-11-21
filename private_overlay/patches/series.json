@@ -28,8 +28,8 @@
     },
     {
       "file": "0006-private-speech-output-gate.patch",
-      "reason": "Live use showed that semantic quiet correctly disabled proactive delivery but did not suppress audible TTS/native Realtime replies when the owner actively sent a message. N.E.K.O has no native global assistant-speech mute or plugin API for that output boundary. Add an opt-in file gate enabled only by the XiaoYu launcher: explicit whole-utterance commands close the current-turn race, external TTS is dropped before provider enqueue, and cached/native audio is dropped before frontend delivery. Persistent intent remains owned by the private semantic interaction plugin.",
-      "evidence": "evals/evidence/2026-11-20-private-speech-output-gate.json"
+      "reason": "Live use and follow-up debugging showed that an independent speech-mute bit could publish assistant text while suppressing its audio. The owner contract is simpler: quiet suppresses the whole reply; any admitted normal reply text must stay paired with TTS. Reuse the existing XiaoYu state-file bridge but move admission before the text/TTS split, remove audio-only TTS/send gates, and keep exact whole-utterance commands only as a synchronous race-closing override. Persistent intent remains owned by the private interaction-policy plugin.",
+      "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json"
     },
     {
       "file": "0007-private-first-round-tool-route.patch",
@@ -38,8 +38,8 @@
     },
     {
       "file": "0008-qwen-clone-provider-routing.patch",
-      "reason": "The legacy XiaoYu Qwen3-TTS VC model is retired, but the preferred reference audio remains available. Reuse N.E.K.O's existing character voice store/picker and native Qwen3.8 Omni realtime transport: a single qwen_bundle voice routes matching realtime sessions to the paired Omni clone, while ordinary text TTS uses a thin official Qwen-Audio 3.1 HTTP adapter. CosyVoice remains intact as a selectable fallback; no second voice database or custom realtime transport is introduced.",
-      "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json"
+      "reason": "The legacy XiaoYu Qwen3-TTS VC model is retired, but the preferred reference audio remains available. Reuse N.E.K.O's existing character voice store/picker and native Qwen3.8 Omni realtime transport, and expose Alibaba Qwen as a first-class qwen_bundle provider. One reference sample creates paired official Qwen-Audio 3.1 TTS and Qwen3.8 Omni clone IDs stored in one existing voice record. Preview, ordinary text TTS and Realtime all read the same per-voice speech_rate; text TTS and Realtime reuse existing audio processing to apply pitch-preserving tempo, while rate changes retire only the matching active TTS runtime. CosyVoice remains intact as a selectable fallback; no second voice database, transport or DSP engine is introduced.",
+      "evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

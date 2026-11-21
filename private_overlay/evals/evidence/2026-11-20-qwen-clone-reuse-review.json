@@ -2,7 +2,7 @@
   "schema_version": 1,
   "observed_date_local": "2026-11-20",
   "feature": "XiaoYu switchable Qwen clone voice bundle",
-  "verdict": "PASS_REUSE_EXISTING_NEKO_VOICE_PICKER_AND_NATIVE_QWEN_OMNI_WITH_THIN_QWEN_AUDIO_ADAPTER",
+  "verdict": "PASS_REUSE_NEKO_VOICE_AUTHORITY_WITH_FIRST_CLASS_PAIRED_QWEN_PROVIDER_AND_SHARED_QWEN_AUDIO_PREVIEW",
   "legacy_source": {
     "script": "D:/cpod/desktop_pet.py",
     "settings": "D:/cpod/pet_settings.json",
@@ -18,8 +18,9 @@
     "voice_store_and_picker": "N.E.K.O existing character voice storage and source-first picker remain authority",
     "realtime_synthesis": "N.E.K.O existing qwen3.8-omni-flash-realtime transport remains authority; only the paired cloned voice id is passed to session.update",
     "text_synthesis": "Thin HTTP adapter to Alibaba Model Studio Qwen-Audio TTS; no second TTS engine, no new voice database",
-    "clone_creation": "Official Alibaba HTTP customization endpoint used once; no shared DashScope SDK upgrade",
-    "why_not_upgrade_shared_sdk": "Installed DashScope 1.27.7 already supports current Omni realtime. Its legacy tts_v2 VoiceEnrollmentService rejected qwen3.8 Omni enrollment; upgrading the shared SDK could affect existing CosyVoice paths, while the official HTTP creation API worked directly."
+    "clone_creation": "First-class N.E.K.O qwen_bundle registration calls Alibaba official HTTP customization endpoints once per paired enrollment; the same sample creates Qwen-Audio TTS and Qwen3.8 Omni realtime voice IDs and stores them under one existing N.E.K.O voice record.",
+    "why_not_upgrade_shared_sdk": "Installed DashScope 1.27.7 already supports current Omni realtime. Its legacy tts_v2 VoiceEnrollmentService rejected qwen3.8 Omni enrollment; upgrading the shared SDK could affect existing CosyVoice paths, while the official HTTP creation API worked directly.",
+    "preview": "qwen_bundle preview uses the same Qwen-Audio HTTP synthesis helper as ordinary text TTS; it must not fall through to generic CosyVoice SpeechSynthesizer."
   },
   "created_voices": {
     "realtime": {
@@ -59,10 +60,12 @@
     "cosyvoice_preserved": true
   },
   "tests": {
-    "qwen_bundle_unit": "10/10 PASS",
+    "qwen_bundle_unit": "14/14 PASS",
     "related_tts_and_voice": "83/83 PASS",
     "full_overlay_gate": "PASS",
-    "release_readiness": "20/20 PASS after acceptance-matrix update"
+    "release_readiness": "20/20 PASS after acceptance-matrix update",
+    "qwen_glm_related_regression": "37/37 PASS",
+    "managed_patch_chain_replay": "0001..0008 PASS from clean 6261a5f6"
   },
   "official_references": [
     "https://www.alibabacloud.com/help/en/model-studio/qwen-omni",
@@ -85,6 +88,48 @@
       "text_worker": "qwen_audio_tts_worker",
       "qwen_key_resolved": true
     },
-    "picker": "existing N.E.K.O source-first voice picker; display_name is used; CosyVoice entries remain present"
+    "picker": "existing N.E.K.O source-first voice picker; display_name is used; CosyVoice entries remain present",
+    "preview_after_fix": {
+      "status": "PASS",
+      "http_status": 200,
+      "success": true,
+      "mime_type": "audio/wav",
+      "audio_bytes": 203564,
+      "played_audio": false
+    },
+    "first_class_registration_page": {
+      "status": "PASS",
+      "http_status": 200,
+      "provider_option_present": true,
+      "provider_key": "qwen_bundle",
+      "label_present": true
+    },
+    "hard_speech_state_preserved": {
+      "quiet": true,
+      "speech_muted": true
+    }
+  },
+  "first_class_registration": {
+    "provider_key": "qwen_bundle",
+    "provider_label": "阿里百炼 Qwen（Qwen-Audio + Qwen3.8 Omni）",
+    "ui_location": "voice clone provider dropdown",
+    "one_reference_creates_two_remote_ids": true,
+    "one_local_voice_record": true
+  },
+  "preview_bug": {
+    "pre_fix_live_http_status": 500,
+    "pre_fix_wrong_backend": "CosyVoice SpeechSynthesizer",
+    "pre_fix_error": "InvalidParameter / Engine return error code 418",
+    "fix": "route qwen_bundle preview to shared Qwen-Audio synthesis helper"
+  },
+  "live_pcm_smoke": {
+    "status": "PASS",
+    "played_audio": false,
+    "audio_bytes": 38444,
+    "pcm_samples": 19200,
+    "sample_rate_hz": 24000,
+    "duration_seconds_from_decoded_pcm": 0.8,
+    "peak_abs_pcm": 6655,
+    "note": "Non-zero audio was generated without playing it, preserving the owner's active hard speech mute."
   }
 }

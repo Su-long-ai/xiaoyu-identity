@@ -1,100 +1,8 @@
 diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
-index bb3553b6..ccdc7aa6 100644
+index ec0d6d92..af1af236 100644
 --- a/main_logic/core/tts_runtime.py
 +++ b/main_logic/core/tts_runtime.py
-@@ -23,6 +23,7 @@ import asyncio
- import hashlib
- import json
- import math
-+import os
- import re
- import time
- from typing import Optional
-@@ -315,6 +316,68 @@ class TtsRuntimeMixin:
-             [(speech_id, remaining)] if remaining else []
-         )
- 
-+    def _arm_private_speech_fast_control(self, text: str | None) -> None:
-+        """Current-turn fast path for explicit XiaoYu speech mute/unmute commands.
-+
-+        Persistent authority remains the private plugin state file. This only
-+        closes the race before the asynchronous semantic classifier updates it.
-+        It is disabled completely unless NEKO_PRIVATE_SPEECH_GATE_FILE is set.
-+        """
-+        if not os.getenv("NEKO_PRIVATE_SPEECH_GATE_FILE", "").strip():
-+            self._private_speech_fast_override = None
-+            return
-+        value = re.sub(r"[\s，。！？、,.!?;；:：~～…]+", "", str(text or "").strip().lower())
-+        changed = True
-+        while changed:
-+            changed = False
-+            for prefix in ("小鱼小鱼", "小鱼", "请", "麻烦"):
-+                if value.startswith(prefix) and len(value) > len(prefix):
-+                    value = value[len(prefix):]
-+                    changed = True
-+                    break
-+        mute = {
-+            "不说话", "别说话", "不要说话", "先别说话", "先不要说话",
-+            "安静", "安静一下", "先安静", "闭嘴", "别出声", "不要出声",
-+        }
-+        unmute = {
-+            "可以说话了", "说话吧", "继续说", "继续说话", "恢复说话", "解除静音",
-+        }
-+        if value in mute:
-+            self._private_speech_fast_override = True
-+        elif value in unmute:
-+            self._private_speech_fast_override = False
-+        else:
-+            self._private_speech_fast_override = None
-+
-+    def _private_speech_output_muted(self) -> bool:
-+        """Read an optional private speech gate without changing native config."""
-+        override = getattr(self, "_private_speech_fast_override", None)
-+        if isinstance(override, bool):
-+            return override
-+
-+        path = os.getenv("NEKO_PRIVATE_SPEECH_GATE_FILE", "").strip()
-+        if not path:
-+            return False
-+        cached = getattr(self, "_private_speech_gate_cache", None)
-+        try:
-+            stat = os.stat(path)
-+            key = (path, stat.st_mtime_ns, stat.st_size)
-+            if isinstance(cached, tuple) and len(cached) == 2 and cached[0] == key:
-+                return bool(cached[1])
-+            with open(path, "r", encoding="utf-8") as handle:
-+                payload = json.load(handle)
-+            muted = bool(payload.get("speech_muted", False)) if isinstance(payload, dict) else False
-+            self._private_speech_gate_cache = (key, muted)
-+            return muted
-+        except (OSError, ValueError, TypeError):
-+            # If a rewrite is momentarily unreadable, keep the last known gate
-+            # for this same path; otherwise preserve normal N.E.K.O behavior.
-+            if isinstance(cached, tuple) and len(cached) == 2:
-+                key, value = cached
-+                if isinstance(key, tuple) and key and key[0] == path:
-+                    return bool(value)
-+            return False
-+
-     def _put_tts_text(self, speech_id, text: str) -> None:
-         """Put one cleaned text chunk on the TTS request queue (the only place text is queued).
- 
-@@ -347,6 +410,14 @@ class TtsRuntimeMixin:
-         ``tts_request_queue.put``, calling ``_reset_tts_stream_normalizer`` at the
-         appropriate moment.
-         """
-+        if self._private_speech_output_muted():
-+            logger.debug(
-+                "[voice-chain] stage=tts_gate speech_id=%s action=drop_text text_len=%d",
-+                speech_id,
-+                len(text or ""),
-+            )
-+            return
-+
-         # Retain pre-normalized text because the replacement may use another protocol class.
-         # Preserve raw pre-normalization text; fallback worker may use another protocol class and need original-text replay.
-         self._remember_tts_replay_chunk(speech_id, text)
-@@ -2092,6 +2163,32 @@ class TtsRuntimeMixin:
+@@ -2160,6 +2160,32 @@ class TtsRuntimeMixin:
                      logger.debug("_flush_tts_pending_chunks: pending 文本已刷出，补发 TTS done 信号")
  
      
@@ -127,7 +35,7 @@ index bb3553b6..ccdc7aa6 100644
      def _resolve_session_use_tts(
          self,
          input_mode: str,
-@@ -2136,6 +2233,13 @@ class TtsRuntimeMixin:
+@@ -2204,6 +2230,13 @@ class TtsRuntimeMixin:
                  configured_provider,
              )
              return True
@@ -141,7 +49,7 @@ index bb3553b6..ccdc7aa6 100644
          hosted_provider = _core_facade.selected_realtime_output_tts_provider_key(
              core_config_snapshot, self._config_manager, self.voice_id,
          )
-@@ -2237,6 +2341,9 @@ class TtsRuntimeMixin:
+@@ -2305,6 +2338,9 @@ class TtsRuntimeMixin:
             remapped via free_intl by resolve_native_voice_for_routing and hit
             step 1 directly.
          """
@@ -151,24 +59,97 @@ index bb3553b6..ccdc7aa6 100644
          base_url = realtime_config.get('base_url', '')
          voice_name, uses_provider_native_voice = resolve_native_voice_for_routing(
              self.core_api_type,
-@@ -2408,6 +2515,8 @@ class TtsRuntimeMixin:
+diff --git a/main_logic/core/turn.py b/main_logic/core/turn.py
+index 9be8b41f..56c1b4d1 100644
+--- a/main_logic/core/turn.py
++++ b/main_logic/core/turn.py
+@@ -2051,20 +2051,57 @@ class TurnMixin:
+             else:
+                 await self._finalize_turn_after_emit()
  
-         Returns ``(audio_sent, done_sent)``.
++    def _reset_qwen_realtime_tempo(self) -> None:
++        self._qwen_realtime_tempo_stream = None
++        self._qwen_realtime_tempo_speech_id = None
++
++    def _qwen_bundle_realtime_speech_rate(self) -> float:
++        """Read the selected Qwen bundle's shared TTS/Realtime speech rate."""
++        try:
++            voices = self._config_manager.get_voices_for_current_api()
++            voice_data = voices.get(str(getattr(self, "voice_id", "") or ""))
++            if not isinstance(voice_data, dict) or voice_data.get("provider") != "qwen_bundle":
++                return 1.0
++            rate = float(voice_data.get("speech_rate", 1.0))
++            return max(0.5, min(2.0, rate))
++        except (AttributeError, TypeError, ValueError):
++            return 1.0
++
++    def _get_qwen_realtime_tempo_stream(self):
++        """Return one pitch-preserving tempo stream per native-audio response."""
++        speech_id = str(getattr(self, "current_speech_id", "") or "")
++        if getattr(self, "_qwen_realtime_tempo_speech_id", None) != speech_id:
++            self._reset_qwen_realtime_tempo()
++            self._qwen_realtime_tempo_speech_id = speech_id
++        stream = getattr(self, "_qwen_realtime_tempo_stream", None)
++        if stream is None:
++            from main_logic.tts_client.workers.qwen_audio import QwenRealtimeTempoStream
++
++            stream = QwenRealtimeTempoStream(self._qwen_bundle_realtime_speech_rate())
++            self._qwen_realtime_tempo_stream = stream
++        return stream
++
++    async def _send_qwen_realtime_float_audio(self, audio_float: np.ndarray) -> None:
++        if audio_float.size == 0:
++            return
++        # Stateful 24 kHz -> 48 kHz resampler remains the single frontend rate adapter.
++        resampled_float = self.audio_resampler.resample_chunk(audio_float)
++        if resampled_float.size == 0:
++            return
++        audio = (resampled_float * 32767.0).clip(-32768, 32767).astype(np.int16)
++        await self.send_speech(audio.tobytes())
++
+     async def handle_audio_data(self, audio_data: bytes):
+         """Qwen audio callback: push audio to the WebSocket frontend"""
+         if self._takeover_active:
++            self._reset_qwen_realtime_tempo()
+             logger.info("[%s] session takeover active: dropping ordinary realtime audio bytes=%d", self.lanlan_name, len(audio_data or b""))
+             return
+         if not self.use_tts:
+             if self.websocket and hasattr(self.websocket, 'client_state') and self.websocket.client_state == self.websocket.client_state.CONNECTED:
+-                # Treat audio_data as PCM16 bytes and use streaming resampling.
+-                audio = np.frombuffer(audio_data, dtype=np.int16)
+-                audio_float = audio.astype(np.float32) / 32768.0
+-                # Stateful streaming resampler avoids discontinuities at chunk boundaries.
+-                resampled_float = self.audio_resampler.resample_chunk(audio_float)
+-                audio = (resampled_float * 32767.0).clip(-32768, 32767).astype(np.int16)
+-                await self.send_speech(audio.tobytes())
++                stream = self._get_qwen_realtime_tempo_stream()
++                for audio_float in stream.push_pcm16(audio_data):
++                    await self._send_qwen_realtime_float_audio(audio_float)
+             else:
+                 pass  # Ignore disconnected WebSockets.
+ 
+@@ -2081,6 +2118,7 @@ class TurnMixin:
+         the response has been awaited, so the notice can never overtake audio.
          """
-+        if self._private_speech_output_muted():
-+            return False, False
-         chunks = list(audio_chunks or ())
-         try:
-             websocket = self.websocket
-@@ -2462,6 +2571,8 @@ class TtsRuntimeMixin:
+         if self._takeover_active:
++            self._reset_qwen_realtime_tempo()
+             logger.info("[%s] session takeover active: dropping ordinary realtime audio-done notice", self.lanlan_name)
+             return
+         # Emit only for native audio. use_tts=True discards provider-native audio entirely
+@@ -2088,6 +2126,13 @@ class TurnMixin:
+         # whose __audio_done__ sentinel signals completion. Another signal here has wrong sid
+         # or duplicates completion.
+         if not self.use_tts:
++            stream = getattr(self, "_qwen_realtime_tempo_stream", None)
++            try:
++                if stream is not None:
++                    for audio_float in stream.finish():
++                        await self._send_qwen_realtime_float_audio(audio_float)
++            finally:
++                self._reset_qwen_realtime_tempo()
+             await self.send_audio_done(self.current_speech_id)
  
-     async def send_speech(self, tts_audio, speech_id: Optional[str] = None):
-         """Send speech data to the frontend, sending the speech_id header first for precise interruption control"""
-+        if self._private_speech_output_muted():
-+            return False
-         try:
-             # Pinned once. The lock keeps other SENDERS out, but ``self.websocket``
-             # is reassigned by reconnect/teardown, which are not senders and do not
+     def _publish_user_utterance_to_plugin_bus(
 diff --git a/main_logic/tts_client/__init__.py b/main_logic/tts_client/__init__.py
 index 8969cf4d..6fcb7ce3 100644
 --- a/main_logic/tts_client/__init__.py
@@ -225,12 +206,92 @@ index 8969cf4d..6fcb7ce3 100644
  _tts_providers.register(_tts_providers.TTSProvider(
      key='cosyvoice',
      kind='hosted',
+diff --git a/main_logic/tts_client/_infra.py b/main_logic/tts_client/_infra.py
+index 3694fdc0..54f74416 100644
+--- a/main_logic/tts_client/_infra.py
++++ b/main_logic/tts_client/_infra.py
+@@ -449,6 +449,7 @@ async def _non_bistream_tts_main_loop(
+     max_concurrent: int = 3,
+     sentence_trace_fn=None,
+     safe_error_provider: str | None = None,
++    coalesce_until_flush: bool = False,
+ ):
+     """Generic main loop for non-bistream-input TTS (sentence splitting + parallel synthesis + in-order delivery).
+ 
+@@ -490,6 +491,12 @@ async def _non_bistream_tts_main_loop(
+     """
+     sentence_buf = SentenceBuffer()
+     current_speech_id = None
++    # Some providers (notably Qwen-Audio voice clones) choose substantially
++    # faster prosody when short sentences are synthesized independently.
++    # Keep an opt-in whole-turn text buffer so those providers can preserve
++    # the same natural cadence as preview/full-text synthesis without changing
++    # the low-latency sentence streaming used by everyone else.
++    turn_text_parts: list[str] = []
+ 
+     # ── Proxy detection ──
+     is_proxy = isinstance(response_queue, _AudioQueueProxy)
+@@ -749,6 +756,7 @@ async def _non_bistream_tts_main_loop(
+             finally:
+                 audio_done.end_interrupt()
+             sentence_buf.clear()
++            turn_text_parts.clear()
+             current_speech_id = None
+             continue
+ 
+@@ -756,9 +764,15 @@ async def _non_bistream_tts_main_loop(
+             await _cancel_all()
+             current_speech_id = sid
+             sentence_buf.clear()
++            turn_text_parts.clear()
+ 
+         if sid is None:
+-            remaining = sentence_buf.flush()
++            if coalesce_until_flush:
++                remaining = "".join(turn_text_parts)
++                turn_text_parts.clear()
++                remaining = remaining if remaining.strip() else None
++            else:
++                remaining = sentence_buf.flush()
+             if remaining and current_speech_id is not None:
+                 _enqueue_sentence(remaining, current_speech_id)
+             # Capture this turn's sid first: _drain_remaining yields control, so do not rely on the loop variable during it.
+@@ -776,8 +790,11 @@ async def _non_bistream_tts_main_loop(
+             continue
+ 
+         if tts_text and tts_text.strip():
+-            for sent in sentence_buf.append(tts_text):
+-                _enqueue_sentence(sent, current_speech_id)
++            if coalesce_until_flush:
++                turn_text_parts.append(tts_text)
++            else:
++                for sent in sentence_buf.append(tts_text):
++                    _enqueue_sentence(sent, current_speech_id)
+ 
+     await _cancel_all()
+ 
+@@ -789,6 +806,7 @@ def _run_sentence_tts_worker(
+     label: str,
+     sentence_trace_fn=None,
+     safe_error_provider: str | None = None,
++    coalesce_until_flush: bool = False,
+ ):
+     """Generic skeleton for HTTP per-sentence synthesis TTS workers.
+ 
+@@ -843,6 +861,7 @@ def _run_sentence_tts_worker(
+                 label=label,
+                 sentence_trace_fn=sentence_trace_fn,
+                 safe_error_provider=safe_error_provider,
++                coalesce_until_flush=coalesce_until_flush,
+             )
+         except Exception as exc:
+             if safe_error_provider:
 diff --git a/main_logic/tts_client/workers/qwen_audio.py b/main_logic/tts_client/workers/qwen_audio.py
 new file mode 100644
-index 00000000..38faf9c7
+index 00000000..8ea403bf
 --- /dev/null
 +++ b/main_logic/tts_client/workers/qwen_audio.py
-@@ -0,0 +1,196 @@
+@@ -0,0 +1,294 @@
 +# Copyright 2025-2026 Project N.E.K.O. Team
 +#
 +# Licensed under the Apache License, Version 2.0 (the "License");
@@ -264,6 +325,65 @@ index 00000000..38faf9c7
 +QWEN_AUDIO_TTS_DEFAULT_MODEL = "qwen-audio-3.1-tts-flash"
 +
 +
++class QwenRealtimeTempoStream:
++    """Pitch-preserving streaming tempo adjustment for Qwen Realtime PCM16.
++
++    Alibaba's Qwen-Omni-Realtime session schema exposes voice selection but no
++    speech-speed field.  Reuse N.E.K.O's pinned audiolab/FFmpeg dependency
++    instead of implementing a private time-stretch algorithm.
++    """
++
++    def __init__(self, speech_rate: float = 1.0, *, sample_rate: int = 24000):
++        try:
++            rate = float(speech_rate)
++        except (TypeError, ValueError):
++            rate = 1.0
++        self.speech_rate = max(0.5, min(2.0, rate))
++        self.sample_rate = int(sample_rate)
++        self._pipe = None
++        self._started = False
++        if abs(self.speech_rate - 1.0) > 1e-6:
++            from audiolab.av import filter as audio_filter
++            from audiolab.pipe import AudioPipe
++
++            self._pipe = AudioPipe(
++                in_rate=self.sample_rate,
++                filters=[audio_filter.atempo(self.speech_rate)],
++                dtype=np.float32,
++                frame_size=1024,
++                always_2d=True,
++            )
++
++    @staticmethod
++    def _pcm16_to_float(audio_data: bytes) -> np.ndarray:
++        audio = np.frombuffer(audio_data or b"", dtype=np.int16)
++        return audio.astype(np.float32) / 32768.0
++
++    def push_pcm16(self, audio_data: bytes) -> list[np.ndarray]:
++        audio_float = self._pcm16_to_float(audio_data)
++        if audio_float.size == 0:
++            return []
++        if self._pipe is None:
++            return [audio_float]
++
++        self._pipe.push(audio_float[None, :])
++        self._started = True
++        return [
++            frame.reshape(-1).astype(np.float32, copy=False)
++            for frame, _rate in self._pipe.pull()
++        ]
++
++    def finish(self) -> list[np.ndarray]:
++        if self._pipe is None or not self._started:
++            return []
++        chunks = [
++            frame.reshape(-1).astype(np.float32, copy=False)
++            for frame, _rate in self._pipe.pull(partial=True)
++        ]
++        self._started = False
++        return chunks
++
++
 +def _qwen_audio_http_url(base_url: str | None) -> str:
 +    base = str(base_url or QWEN_AUDIO_TTS_DEFAULT_BASE_URL).strip().rstrip("/")
 +    suffix = "/services/audio/tts/SpeechSynthesizer"
@@ -289,6 +409,76 @@ index 00000000..38faf9c7
 +    return audio, sample_rate
 +
 +
++async def synthesize_qwen_audio_bytes(
++    api_key: str,
++    text: str,
++    *,
++    base_url: str | None = None,
++    model: str = QWEN_AUDIO_TTS_DEFAULT_MODEL,
++    remote_voice: str,
++    speech_rate: float = 1.0,
++    client=None,
++) -> bytes:
++    """Synthesize one utterance through Qwen-Audio and return WAV bytes."""
++    import httpx
++
++    api_url = _qwen_audio_http_url(base_url)
++    effective_model = str(model or QWEN_AUDIO_TTS_DEFAULT_MODEL).strip()
++    effective_voice = str(remote_voice or "").strip()
++    if not api_key:
++        raise RuntimeError("Qwen-Audio TTS API key is not configured")
++    if not effective_voice:
++        raise RuntimeError("Qwen-Audio clone voice is not configured")
++    try:
++        rate = float(speech_rate)
++    except (TypeError, ValueError):
++        rate = 1.0
++    rate = max(0.5, min(2.0, rate))
++
++    owns_client = client is None
++    if client is None:
++        client = httpx.AsyncClient(
++            timeout=httpx.Timeout(connect=10, read=60, write=15, pool=10),
++            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
++            trust_env=False,
++        )
++    try:
++        response = await client.post(
++            api_url,
++            headers={
++                "Authorization": f"Bearer {api_key}",
++                "Content-Type": "application/json",
++            },
++            json={
++                "model": effective_model,
++                "input": {
++                    "text": text,
++                    "voice": effective_voice,
++                    "format": "wav",
++                    "sample_rate": 24000,
++                    "rate": rate,
++                },
++            },
++        )
++        if response.status_code != 200:
++            raise RuntimeError(f"Qwen-Audio TTS HTTP {response.status_code}: {response.text[:300]}")
++        body = response.json()
++        output = body.get("output") if isinstance(body, dict) else None
++        audio_meta = output.get("audio") if isinstance(output, dict) else None
++        audio_url = audio_meta.get("url") if isinstance(audio_meta, dict) else None
++        if not isinstance(audio_url, str) or not audio_url.startswith(("http://", "https://")):
++            raise RuntimeError("Qwen-Audio TTS response did not contain an audio URL")
++        audio_response = await client.get(audio_url)
++        if audio_response.status_code != 200:
++            raise RuntimeError(f"Qwen-Audio audio download HTTP {audio_response.status_code}")
++        audio_bytes = bytes(audio_response.content)
++        _decode_qwen_audio_wav(audio_bytes)
++        return audio_bytes
++    finally:
++        if owns_client:
++            await client.aclose()
++
++
 +def qwen_audio_tts_worker(
 +    request_queue,
 +    response_queue,
@@ -302,7 +492,6 @@ index 00000000..38faf9c7
 +):
 +    import httpx
 +
-+    api_url = _qwen_audio_http_url(base_url)
 +    effective_model = str(model or QWEN_AUDIO_TTS_DEFAULT_MODEL).strip()
 +    effective_voice = str(remote_voice or "").strip()
 +    try:
@@ -334,52 +523,17 @@ index 00000000..38faf9c7
 +        )
 +
 +        async def synthesize(text: str, speech_id: str) -> None:
-+            payload = {
-+                "model": effective_model,
-+                "input": {
-+                    "text": text,
-+                    "voice": effective_voice,
-+                    "format": "wav",
-+                    "sample_rate": 24000,
-+                    "rate": rate,
-+                },
-+            }
-+            headers = {
-+                "Authorization": f"Bearer {audio_api_key}",
-+                "Content-Type": "application/json",
-+            }
 +            try:
-+                response = await client.post(api_url, headers=headers, json=payload)
-+                if response.status_code != 200:
-+                    _enqueue_error(
-+                        response_queue,
-+                        {
-+                            "code": "QWEN_AUDIO_TTS_UPSTREAM_ERROR",
-+                            "provider": "qwen_bundle",
-+                            "message": f"Qwen-Audio TTS HTTP {response.status_code}",
-+                        },
-+                    )
-+                    return
-+                body = response.json()
-+                output = body.get("output") if isinstance(body, dict) else None
-+                audio_meta = output.get("audio") if isinstance(output, dict) else None
-+                audio_url = audio_meta.get("url") if isinstance(audio_meta, dict) else None
-+                if not isinstance(audio_url, str) or not audio_url.startswith(("http://", "https://")):
-+                    _enqueue_error(response_queue, {
-+                        "code": "QWEN_AUDIO_TTS_AUDIO_URL_MISSING",
-+                        "provider": "qwen_bundle",
-+                        "message": "Qwen-Audio TTS response did not contain an audio URL",
-+                    })
-+                    return
-+                audio_response = await client.get(audio_url)
-+                if audio_response.status_code != 200:
-+                    _enqueue_error(response_queue, {
-+                        "code": "QWEN_AUDIO_TTS_AUDIO_FETCH_FAILED",
-+                        "provider": "qwen_bundle",
-+                        "message": f"Qwen-Audio audio download HTTP {audio_response.status_code}",
-+                    })
-+                    return
-+                audio, sample_rate = _decode_qwen_audio_wav(audio_response.content)
++                audio_bytes = await synthesize_qwen_audio_bytes(
++                    audio_api_key,
++                    text,
++                    base_url=base_url,
++                    model=effective_model,
++                    remote_voice=effective_voice,
++                    speech_rate=rate,
++                    client=client,
++                )
++                audio, sample_rate = _decode_qwen_audio_wav(audio_bytes)
 +                resampler = soxr.ResampleStream(sample_rate, 48000, 1, dtype="float32")
 +                response_queue.put(_resample_audio(audio, sample_rate, 48000, resampler, last=True))
 +                _record_tts_telemetry(effective_model, len(text))
@@ -399,6 +553,11 @@ index 00000000..38faf9c7
 +        setup,
 +        label="Qwen-Audio TTS",
 +        safe_error_provider="qwen_bundle",
++        # Qwen-Audio chooses a materially faster cadence for short isolated
++        # sentences. Preview synthesizes the full text in one request, so keep
++        # runtime replies whole-turn as well to make the saved speech_rate mean
++        # the same thing in preview and conversation.
++        coalesce_until_flush=True,
 +    )
 +
 +
@@ -427,12 +586,487 @@ index 00000000..38faf9c7
 +        speech_rate=vm.get("speech_rate", 1.0),
 +    )
 +    return worker, api_key, "qwen_bundle"
+diff --git a/main_routers/characters_router/voice_cloning.py b/main_routers/characters_router/voice_cloning.py
+index 541a758d..cbaed3a5 100644
+--- a/main_routers/characters_router/voice_cloning.py
++++ b/main_routers/characters_router/voice_cloning.py
+@@ -45,6 +45,7 @@ from fastapi.responses import JSONResponse
+ import httpx
+ from ..shared_state import (
+     get_config_manager,
++    get_session_manager,
+ )
+ from utils.config_manager import _as_bool
+ from utils.audio import normalize_voice_clone_api_audio, validate_audio_file
+@@ -71,6 +72,11 @@ from utils.voice_clone import (
+     MimoVoiceCloneError,
+     QwenVoiceCloneClient,
+     QwenVoiceCloneError,
++    QwenBundleVoiceCloneClient,
++    QwenBundleVoiceCloneError,
++    QWEN_BUNDLE_DEFAULT_BASE_URL,
++    QWEN_BUNDLE_TTS_MODEL,
++    QWEN_BUNDLE_REALTIME_MODEL,
+     qwen_language_hints,
+ )
+ from utils.tts.providers.minimax import (
+@@ -84,6 +90,91 @@ from config import (
+ )
+ 
+ 
++@router.put('/voices/{voice_id}/speech_rate')
++async def update_qwen_bundle_speech_rate(voice_id: str, request: Request):
++    """Update the per-voice speaking rate for a Qwen cloned voice bundle."""
++    try:
++        data = await request.json()
++    except Exception:
++        return JSONResponse(
++            {'success': False, 'error': 'TTS_SPEECH_RATE_INVALID', 'code': 'TTS_SPEECH_RATE_INVALID'},
++            status_code=400,
++        )
++
++    raw_rate = data.get('speech_rate') if isinstance(data, dict) else None
++    try:
++        speech_rate = float(raw_rate)
++    except (TypeError, ValueError):
++        return JSONResponse(
++            {'success': False, 'error': 'TTS_SPEECH_RATE_INVALID', 'code': 'TTS_SPEECH_RATE_INVALID'},
++            status_code=400,
++        )
++    if not (0.5 <= speech_rate <= 2.0):
++        return JSONResponse(
++            {
++                'success': False,
++                'error': 'TTS_SPEECH_RATE_OUT_OF_RANGE',
++                'code': 'TTS_SPEECH_RATE_OUT_OF_RANGE',
++                'min': 0.5,
++                'max': 2.0,
++            },
++            status_code=400,
++        )
++
++    config_manager = get_config_manager()
++    try:
++        voice_data = await asyncio.to_thread(
++            config_manager.update_qwen_bundle_speech_rate,
++            voice_id,
++            speech_rate,
++        )
++    except ValueError as exc:
++        code = str(exc) or 'TTS_SPEECH_RATE_INVALID'
++        return JSONResponse(
++            {'success': False, 'error': code, 'code': code},
++            status_code=400,
++        )
++    if not voice_data:
++        return JSONResponse(
++            {
++                'success': False,
++                'error': 'TTS_QWEN_BUNDLE_VOICE_NOT_FOUND',
++                'code': 'TTS_QWEN_BUNDLE_VOICE_NOT_FOUND',
++            },
++            status_code=404,
++        )
++
++    refreshed = []
++    try:
++        session_manager = get_session_manager()
++        items = session_manager.items() if hasattr(session_manager, 'items') else ()
++        for name, manager in items:
++            if str(getattr(manager, 'voice_id', '') or '').strip() != str(voice_id).strip():
++                continue
++            snapshot = getattr(manager, '_snapshot_tts_runtime', None)
++            retire = getattr(manager, '_retire_tts_runtime', None)
++            is_current = getattr(manager, '_tts_runtime_is_current', None)
++            if not callable(snapshot) or not callable(retire):
++                continue
++            runtime = snapshot()
++            if runtime is None:
++                continue
++            if callable(is_current) and not is_current(runtime):
++                continue
++            retire(runtime)
++            refreshed.append(str(name))
++    except Exception:
++        logger.warning("Qwen 音色语速已保存，但刷新活动 TTS worker 失败", exc_info=True)
++
++    return {
++        'success': True,
++        'voice_id': voice_id,
++        'speech_rate': speech_rate,
++        'tts_runtime_refreshed': bool(refreshed),
++        'refreshed_characters': refreshed,
++    }
++
++
+ # ==================== Intelligent silence removal ====================
+ # Global dictionary storing trim-task state.
+ _trim_tasks: dict[str, dict] = {}
+@@ -325,7 +416,7 @@ async def voice_clone(
+         prefix: voice prefix name
+         ref_language: language of the reference audio; one of: ch, en, fr, de, ja, ko, ru
+                       Note: this is the language of the reference audio, not the target voice
+-        provider: service provider; one of: cosyvoice (Alibaba Bailian), cosyvoice_intl (Alibaba international), minimax (China), minimax_intl (international), elevenlabs, mimo, vllm_omni, doubao_tts, glm_tts (Zhipu GLM voice clone)
++        provider: service provider; one of: qwen_bundle (Alibaba Qwen-Audio + Qwen3.8 Omni), cosyvoice (Alibaba Bailian), cosyvoice_intl (Alibaba international), minimax (China), minimax_intl (international), elevenlabs, mimo, vllm_omni, doubao_tts, glm_tts (Zhipu GLM voice clone)
+         ref_text: transcript of the reference audio (vLLM-Omni inline clone only; must
+                   correspond strictly to the audio content)
+     """
+@@ -388,7 +479,7 @@ async def voice_clone(
+     # Same for GLM: a glm_tts clone registers remotely at bigmodel.cn — routing
+     # it into the local /v1/speakers/register flow would silently produce a
+     # local-speaker clone instead of calling the GLM voice-clone API.
+-    if is_local_tts and provider not in ('vllm_omni', 'glm_tts'):
++    if is_local_tts and provider not in ('qwen_bundle', 'vllm_omni', 'glm_tts'):
+         # ==================== Local TTS registration ====================
+         # Deduplicate by MD5 + ref_language, finding voices registered with identical audio and language.
+         existing = _config_manager.find_voice_by_audio_md5('__LOCAL_TTS__', audio_md5, ref_language)
+@@ -484,7 +575,19 @@ async def voice_clone(
+     cosyvoice_runtime = None
+     api_key = _config_manager.get_tts_api_key(provider)
+ 
+-    if provider in ('minimax', 'minimax_intl'):
++    if provider == 'qwen_bundle':
++        if not api_key:
++            return JSONResponse({
++                'error': 'QWEN_API_KEY_MISSING',
++                'code': 'QWEN_API_KEY_MISSING',
++                'message': '未配置阿里百炼 Qwen API Key，请先在设置中填写'
++            }, status_code=400)
++        base_url = QWEN_BUNDLE_DEFAULT_BASE_URL
++        key_tag = hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:12]
++        storage_key = f'__QWEN_BUNDLE__{key_tag}'
++        provider_label = '阿里百炼Qwen'
++
++    elif provider in ('minimax', 'minimax_intl'):
+         # ---------- MiniMax domestic / international ----------
+         if not api_key:
+             return JSONResponse({
+@@ -643,7 +746,37 @@ async def voice_clone(
+ 
+     # ---------- Call provider-specific cloning APIs ----------
+     try:
+-        if provider in ('minimax', 'minimax_intl'):
++        if provider == 'qwen_bundle':
++            sample_bytes = normalized_buffer.getvalue()
++            client = QwenBundleVoiceCloneClient(api_key=api_key, base_url=base_url)
++            tts_voice_id, realtime_voice_id = await client.clone_bundle(
++                sample_bytes,
++                prefix=prefix,
++                ref_language=ref_language,
++            )
++            safe_prefix = ''.join(ch for ch in prefix if ch.isascii() and ch.isalnum())[:10]
++            key_tag = hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:8]
++            voice_id = f'qwen-bundle-{key_tag}-{safe_prefix}-{audio_md5[:10]}'
++            voice_data = {
++                'voice_id': voice_id,
++                'prefix': prefix,
++                'audio_md5': audio_md5,
++                'ref_language': ref_language,
++                'provider': 'qwen_bundle',
++                'provider_label': '阿里百炼 Qwen',
++                'source': 'clone',
++                'display_name': f'{prefix} · Qwen 克隆',
++                'tts_model': QWEN_BUNDLE_TTS_MODEL,
++                'tts_voice_id': tts_voice_id,
++                'tts_base_url': base_url,
++                'realtime_provider': 'qwen',
++                'realtime_model': QWEN_BUNDLE_REALTIME_MODEL,
++                'realtime_voice_id': realtime_voice_id,
++                'speech_rate': 1.0,
++                'created_at': datetime.now().isoformat(),
++            }
++
++        elif provider in ('minimax', 'minimax_intl'):
+             original_prefix, minimax_prefix = build_minimax_request_voice_id(prefix, provider_label)
+ 
+             minimax_lang = minimax_normalize_language(ref_language)
+@@ -863,7 +996,7 @@ async def voice_clone(
+             'code': 'ELEVENLABS_UPSTREAM_ERROR',
+             'provider': provider,
+         }, status_code=502)
+-    except (MinimaxVoiceCloneError, QwenVoiceCloneError, MimoVoiceCloneError, DoubaoTtsError, GlmTtsError) as e:
++    except (MinimaxVoiceCloneError, QwenVoiceCloneError, QwenBundleVoiceCloneError, MimoVoiceCloneError, DoubaoTtsError, GlmTtsError) as e:
+         logger.error(f"{provider_label} 音色注册失败: {e}")
+         error_detail = str(e)
+         if '超时' in error_detail:
+diff --git a/main_routers/characters_router/voice_preview.py b/main_routers/characters_router/voice_preview.py
+index 1e01d99b..2eb62eef 100644
+--- a/main_routers/characters_router/voice_preview.py
++++ b/main_routers/characters_router/voice_preview.py
+@@ -586,6 +586,52 @@ async def get_voice_preview(
+                 'code': 'PRESET_VOICE_PREVIEW_UNSUPPORTED',
+             }, status_code=400)
+ 
++        # Qwen bundle preview: use the paired Qwen-Audio clone, never the generic
++        # CosyVoice SpeechSynthesizer path. Runtime text TTS uses the same helper.
++        if provider == 'qwen_bundle':
++            qwen_api_key = _config_manager.get_tts_api_key('qwen_bundle')
++            if not qwen_api_key:
++                return JSONResponse({
++                    'success': False,
++                    'error': 'QWEN_API_KEY_MISSING',
++                    'code': 'QWEN_API_KEY_MISSING',
++                }, status_code=400)
++            tts_voice_id = str((voice_data or {}).get('tts_voice_id') or '').strip()
++            if not tts_voice_id:
++                return JSONResponse({
++                    'success': False,
++                    'error': f'Qwen 克隆音色缺少 TTS voice_id: {voice_id}',
++                    'code': 'QWEN_BUNDLE_TTS_VOICE_MISSING',
++                }, status_code=400)
++            from main_logic.tts_client.workers.qwen_audio import (
++                QWEN_AUDIO_TTS_DEFAULT_BASE_URL,
++                QWEN_AUDIO_TTS_DEFAULT_MODEL,
++                synthesize_qwen_audio_bytes,
++            )
++            try:
++                audio_data = await synthesize_qwen_audio_bytes(
++                    qwen_api_key,
++                    text,
++                    base_url=(voice_data or {}).get('tts_base_url') or QWEN_AUDIO_TTS_DEFAULT_BASE_URL,
++                    model=(voice_data or {}).get('tts_model') or QWEN_AUDIO_TTS_DEFAULT_MODEL,
++                    remote_voice=tts_voice_id,
++                    speech_rate=(voice_data or {}).get('speech_rate', 1.0),
++                )
++                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
++                logger.info(f"Qwen 克隆音色 {voice_id} 预览音频生成成功，大小: {len(audio_data)} 字节")
++                return await preview_response(imported_preview, {
++                    'success': True,
++                    'audio': audio_base64,
++                    'mime_type': 'audio/wav',
++                })
++            except Exception as e:
++                logger.error(f"Qwen 克隆音色 {voice_id} 预览失败: {e}")
++                return JSONResponse({
++                    'success': False,
++                    'error': f'Qwen 预览生成失败: {str(e)}',
++                    'code': 'QWEN_BUNDLE_PREVIEW_FAILED',
++                }, status_code=502)
++
+         # MiMo clone preview (provider=='mimo'): read base64 samples from voice_meta and synthesize
+         # one preview sentence with voiceclone, symmetric with MiniMax clone preview; avoid the generic
+         # CosyVoice/DashScope branch misusing mimo-clone-* IDs.
+diff --git a/static/js/voice_clone.js b/static/js/voice_clone.js
+index 347af76e..e9665f85 100644
+--- a/static/js/voice_clone.js
++++ b/static/js/voice_clone.js
+@@ -9,6 +9,7 @@ let activeVoicePreviewNotice = null;
+ // 防止并发应用音色的可重入守卫
+ let isApplyingVoice = false;
+ const VOICE_CLONE_PROVIDER_REGISTRY_KEYS = Object.freeze({
++    qwen_bundle: 'qwen',
+     cosyvoice: 'qwen',
+     cosyvoice_intl: 'qwen_intl',
+     minimax: 'minimax',
+@@ -25,6 +26,7 @@ const VOICE_CLONE_RESTRICTED_REGISTRY_KEYS = new Set([
+     'elevenlabs',
+ ]);
+ const VOICE_CLONE_PROVIDER_KEY_FIELDS = Object.freeze([
++    ['qwen_bundle', 'assistApiKeyQwen'],
+     ['cosyvoice', 'assistApiKeyQwen'],
+     ['cosyvoice_intl', 'assistApiKeyQwenIntl'],
+     ['minimax', 'assistApiKeyMinimax'],
+@@ -484,6 +486,10 @@ function isMiniMaxProvider(provider) {
+     return provider === 'minimax' || provider === 'minimax_intl';
+ }
+ 
++function isQwenBundleProvider(provider) {
++    return provider === 'qwen_bundle';
++}
++
+ function isDoubaoTtsProvider(provider) {
+     return provider === 'doubao_tts';
+ }
+@@ -1026,6 +1032,7 @@ function updateVoiceCloneProviderNoticeText(noticeDiv, provider) {
+     if (!span) return;
+ 
+     const keyMap = {
++        'qwen_bundle': 'voice.alibabaApiRequired',
+         'cosyvoice_intl': 'voice.alibabaIntlApiRequired',
+         'minimax': 'voice.minimaxApiRequired',
+         'minimax_intl': 'voice.minimaxIntlApiRequired',
+@@ -1036,6 +1043,7 @@ function updateVoiceCloneProviderNoticeText(noticeDiv, provider) {
+         'glm_tts': 'voice.glmTtsApiRequired',
+     };
+     const fallbackMap = {
++        'qwen_bundle': '请先在 API 设置中填写阿里百炼 Qwen API Key',
+         'cosyvoice_intl': '请先在 API 设置中填写阿里国际版 API Key',
+         'elevenlabs': '请先在 API 设置中填写 ElevenLabs API Key',
+         'mimo': '请先在 API 设置中填写 MiMo API Key',
+@@ -1082,7 +1090,7 @@ function normalizePrefixInputForProvider() {
+         return prefixInput.value.trim();
+     }
+ 
+-    if (!isMiniMaxProvider(provider)) {
++    if (!isMiniMaxProvider(provider) && !isQwenBundleProvider(provider)) {
+         prefixInput.removeAttribute('maxlength');
+         return prefixInput.value.trim();
+     }
+@@ -1567,7 +1575,7 @@ function updateVoiceDesignHint(provider) {
+ // valid_providers 不含 mimo，直链会直接 TTS_PROVIDER_INVALID）。选中 MiMo 时禁用直链方式。
+ function isDirectLinkUnsupportedProvider(provider) {
+     // glm_tts 已支持直链（后端 /voice_clone_direct 下载音频后走两步注册），不再禁用。
+-    return provider === 'mimo' || provider === 'vllm_omni' || provider === 'doubao_tts';
++    return provider === 'qwen_bundle' || provider === 'mimo' || provider === 'vllm_omni' || provider === 'doubao_tts';
+ }
+ 
+ function updateCloneMethodForProvider(provider) {
+@@ -2526,6 +2534,104 @@ async function playPreview(voiceId, btn, options = {}) {
+     }
+ }
+ 
++async function saveQwenSpeechRate(voiceId, speechRate, input, valueLabel, voiceName) {
++    const previous = Number((input && input.dataset && input.dataset.savedRate) || 1.0);
++    const normalized = Math.max(0.5, Math.min(2.0, Number(speechRate) || 1.0));
++    if (input) input.disabled = true;
++
++    try {
++        const response = await fetch('/api/characters/voices/' + encodeURIComponent(voiceId) + '/speech_rate', {
++            method: 'PUT',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ speech_rate: normalized })
++        });
++        const parsed = await safeReadResponse(response);
++        const data = parsed.data;
++        if (!response.ok) {
++            if (data && (data.error || data.detail)) {
++                throw new Error(data.error || data.detail);
++            }
++            throw new Error(buildNonJsonError(response, parsed.text));
++        }
++        if (parsed.nonJson || !data || data.success === false) {
++            throw new Error((data && data.error) || buildNonJsonError(response, parsed.text));
++        }
++
++        const savedRate = Number(data.speech_rate);
++        if (input) {
++            input.value = String(savedRate);
++            input.dataset.savedRate = String(savedRate);
++        }
++        if (valueLabel) valueLabel.textContent = savedRate.toFixed(2) + 'x';
++
++        const session = activeVoicePreviewSessions.get(String(voiceId));
++        if (session) finishVoicePreviewSession(session);
++        localStorage.removeItem('voice_preview_' + voiceId);
++
++        const resultDiv = document.getElementById('result');
++        if (resultDiv) {
++            resultDiv.className = 'result success';
++            resultDiv.textContent = voiceName + ' 语速已设为 ' + savedRate.toFixed(2) + 'x';
++        }
++    } catch (error) {
++        if (input) {
++            input.value = String(previous);
++            input.dataset.savedRate = String(previous);
++        }
++        if (valueLabel) valueLabel.textContent = previous.toFixed(2) + 'x';
++        const resultDiv = document.getElementById('result');
++        if (resultDiv) {
++            resultDiv.className = 'result error';
++            resultDiv.textContent = '语速保存失败: ' + ((error && error.message) || String(error));
++        }
++    } finally {
++        if (input) input.disabled = false;
++    }
++}
++
++function appendQwenSpeechRateControl(infoDiv, voiceId, speechRate, voiceName) {
++    const initialRate = Math.max(0.5, Math.min(2.0, Number(speechRate) || 1.0));
++    const row = document.createElement('div');
++    row.className = 'qwen-speech-rate-control';
++    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;max-width:320px;';
++
++    const label = document.createElement('span');
++    label.textContent = window.t ? window.t('voice.speechRate') : '语速';
++    if (!label.textContent || label.textContent === 'voice.speechRate') label.textContent = '语速';
++    label.style.cssText = 'font-size:12px;color:#667;white-space:nowrap;';
++
++    const input = document.createElement('input');
++    input.type = 'range';
++    input.min = '0.5';
++    input.max = '2.0';
++    input.step = '0.05';
++    input.value = String(initialRate);
++    input.dataset.savedRate = String(initialRate);
++    input.setAttribute('aria-label', label.textContent);
++    input.style.cssText = 'width:150px;min-width:110px;cursor:pointer;';
++
++    const valueLabel = document.createElement('span');
++    valueLabel.textContent = initialRate.toFixed(2) + 'x';
++    valueLabel.style.cssText = 'font-size:12px;color:#40C5F1;font-variant-numeric:tabular-nums;min-width:42px;';
++
++    const stopApply = event => event.stopPropagation();
++    ['click', 'pointerdown', 'keydown'].forEach(eventName => {
++        row.addEventListener(eventName, stopApply);
++    });
++    input.addEventListener('input', () => {
++        const value = Number(input.value) || initialRate;
++        valueLabel.textContent = value.toFixed(2) + 'x';
++    });
++    input.addEventListener('change', () => {
++        saveQwenSpeechRate(voiceId, Number(input.value), input, valueLabel, voiceName);
++    });
++
++    row.appendChild(label);
++    row.appendChild(input);
++    row.appendChild(valueLabel);
++    infoDiv.appendChild(row);
++}
++
+ // 加载音色列表
+ let voiceListLoadGeneration = 0;
+ async function loadVoices() {
+@@ -2672,7 +2778,7 @@ async function loadVoices() {
+         });
+ 
+         // 创建音色列表项
+-        voicesArray.forEach(({ voiceId, prefix, display_name, remote_voice_id, created_at, source, provider, origin, can_overwrite, availability, overwrite_status, overwrite_operation_id, remote_revision }) => {
++        voicesArray.forEach(({ voiceId, prefix, display_name, remote_voice_id, created_at, source, provider, origin, can_overwrite, availability, overwrite_status, overwrite_operation_id, remote_revision, speech_rate }) => {
+             const item = document.createElement('div');
+             item.className = 'voice-list-item';
+             item.dataset.voiceId = voiceId;
+@@ -2795,6 +2901,10 @@ async function loadVoices() {
+                 infoDiv.appendChild(dateDiv);
+             }
+ 
++            if (provider === 'qwen_bundle' && origin !== 'import') {
++                appendQwenSpeechRateControl(infoDiv, voiceId, speech_rate, displayName);
++            }
++
+             item.appendChild(infoDiv);
+             item.appendChild(voiceActions);
+             item.addEventListener('click', () => { if (available) applyVoiceToCurrentCharacter(voiceId, displayName, item); });
+diff --git a/templates/voice_clone.html b/templates/voice_clone.html
+index 9d1b4fee..5094ce96 100644
+--- a/templates/voice_clone.html
++++ b/templates/voice_clone.html
+@@ -44,6 +44,7 @@
+                     <label for="voiceProvider" data-i18n="voice.providerLabel">语音克隆服务商</label>
+                     <div class="remote-voice-provider-controls">
+                     <select id="voiceProvider" class="api-provider-select">
++                        <option value="qwen_bundle">阿里百炼 Qwen（Qwen-Audio + Qwen3.8 Omni）</option>
+                         <option value="cosyvoice" data-i18n="voice.provider.cosyvoice">阿里百炼 CosyVoice</option>
+                         <option value="cosyvoice_intl" data-i18n="voice.provider.cosyvoice_intl">阿里国际版 CosyVoice</option>
+                         <option value="minimax" data-i18n="voice.provider.minimax">MiniMax（国服）</option>
+diff --git a/tests/unit/test_glm_tts.py b/tests/unit/test_glm_tts.py
+index 1e19478d..2bd9f8f9 100644
+--- a/tests/unit/test_glm_tts.py
++++ b/tests/unit/test_glm_tts.py
+@@ -786,7 +786,7 @@ def test_glm_tts_frontend_and_backend_are_wired():
+     assert "GLM_VOICE_CLONE_MAX_AUDIO_BYTES" in router_py
+     assert "GLM_TTS_AUDIO_TOO_LARGE" in router_py
+     # Active local WebSocket TTS must not send glm_tts clones through local /v1/speakers/register registration.
+-    assert "provider not in ('vllm_omni', 'glm_tts')" in router_py
++    assert "provider not in ('qwen_bundle', 'vllm_omni', 'glm_tts')" in router_py
+     assert "GLM_TTS_PREVIEW_FAILED" in preview_py
+     assert "provider == 'glm_tts'" in preview_py
+     assert "get_tts_api_key('glm_tts')" in storage_py
 diff --git a/tests/unit/test_qwen_voice_bundle.py b/tests/unit/test_qwen_voice_bundle.py
 new file mode 100644
-index 00000000..9106cac1
+index 00000000..550a7bad
 --- /dev/null
 +++ b/tests/unit/test_qwen_voice_bundle.py
-@@ -0,0 +1,137 @@
+@@ -0,0 +1,598 @@
 +from __future__ import annotations
 +
 +from unittest.mock import Mock
@@ -570,3 +1204,750 @@ index 00000000..9106cac1
 +    assert qwen_audio._qwen_audio_http_url("https://dashscope.aliyuncs.com/api/v1") == (
 +        "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer"
 +    )
++
++@pytest.mark.unit
++async def test_qwen_bundle_clone_client_builds_official_pair_payloads(monkeypatch):
++    from utils.voice_clone import (
++        QwenBundleVoiceCloneClient,
++        QWEN_BUNDLE_REALTIME_MODEL,
++        QWEN_BUNDLE_TTS_MODEL,
++    )
++
++    client = QwenBundleVoiceCloneClient("test-key")
++    payloads = []
++
++    async def fake_post(payload):
++        payloads.append(payload)
++        if payload["model"] == "voice-enrollment":
++            return {"output": {"voice_id": "tts-clone-id"}}
++        return {"output": {"voice": "omni-clone-id"}}
++
++    monkeypatch.setattr(client, "_post", fake_post)
++
++    tts_voice, realtime_voice = await client.clone_bundle(
++        b"RIFFfake-wav",
++        prefix="XiaoYu",
++        ref_language="ch",
++    )
++
++    assert tts_voice == "tts-clone-id"
++    assert realtime_voice == "omni-clone-id"
++    tts_payload, realtime_payload = payloads
++    assert tts_payload["model"] == "voice-enrollment"
++    assert tts_payload["input"]["action"] == "create_voice"
++    assert tts_payload["input"]["target_model"] == QWEN_BUNDLE_TTS_MODEL
++    assert tts_payload["input"]["prefix"] == "XiaoYu"
++    assert tts_payload["input"]["audio"].startswith("data:audio/wav;base64,")
++    assert tts_payload["input"]["language_hints"] == ["zh"]
++    assert realtime_payload["model"] == "qwen-voice-enrollment"
++    assert realtime_payload["parameters"]["voice_clone_mode"] == "normal"
++    assert realtime_payload["input"]["action"] == "create"
++    assert realtime_payload["input"]["target_model"] == QWEN_BUNDLE_REALTIME_MODEL
++    assert realtime_payload["input"]["preferred_name"] == "XiaoYu"
++    assert realtime_payload["input"]["audio"]["data"].startswith("data:audio/wav;base64,")
++
++
++@pytest.mark.unit
++async def test_qwen_bundle_voice_clone_route_registers_one_library_entry(monkeypatch):
++    import io
++    from types import SimpleNamespace
++    from main_routers.characters_router import voice_cloning as router
++
++    saved = {}
++
++    class ConfigManager:
++        async def aget_core_config(self):
++            return {}
++
++        async def aget_model_api_config(self, _model_type, core_config=None):
++            return {}
++
++        def get_tts_api_key(self, provider):
++            assert provider == "qwen_bundle"
++            return "qwen-test-key"
++
++        def find_voice_by_audio_md5(self, *_args):
++            return None
++
++        def save_voice_for_api_key(self, storage_key, voice_id, voice_data):
++            saved.update(storage_key=storage_key, voice_id=voice_id, voice_data=voice_data)
++
++    async def fake_read(_file, _limit):
++        return io.BytesIO(b"reference-audio")
++
++    def fake_normalize(_buffer, _filename):
++        return io.BytesIO(b"normalized-wav"), "reference.wav", {
++            "original": {"sample_rate": 24000, "channels": 1},
++            "normalized": {"sample_rate": 24000},
++        }
++
++    calls = {}
++
++    async def fake_clone_bundle(self, audio_bytes, *, prefix, ref_language):
++        calls.update(audio_bytes=audio_bytes, prefix=prefix, ref_language=ref_language)
++        return "tts-remote-id", "realtime-remote-id"
++
++    monkeypatch.setattr(router, "get_config_manager", lambda: ConfigManager())
++    monkeypatch.setattr(router, "_read_limited_stream", fake_read)
++    monkeypatch.setattr(router, "normalize_voice_clone_api_audio", fake_normalize)
++    monkeypatch.setattr(router, "_is_local_voice_clone_tts_config", lambda *_args: False)
++    monkeypatch.setattr(router.QwenBundleVoiceCloneClient, "clone_bundle", fake_clone_bundle)
++
++    response = await router.voice_clone(
++        file=SimpleNamespace(filename="reference.wav"),
++        prefix="XiaoYu",
++        ref_language="ch",
++        provider="qwen_bundle",
++        ref_text="",
++    )
++
++    assert response.status_code == 200
++    assert calls == {
++        "audio_bytes": b"normalized-wav",
++        "prefix": "XiaoYu",
++        "ref_language": "ch",
++    }
++    assert saved["storage_key"].startswith("__QWEN_BUNDLE__")
++    assert saved["voice_data"]["provider"] == "qwen_bundle"
++    assert saved["voice_data"]["tts_voice_id"] == "tts-remote-id"
++    assert saved["voice_data"]["realtime_voice_id"] == "realtime-remote-id"
++    assert saved["voice_data"]["realtime_model"] == REALTIME_MODEL
++    assert saved["voice_data"]["tts_model"] == TTS_MODEL
++
++
++@pytest.mark.unit
++def test_qwen_bundle_is_first_class_voice_clone_provider_ui():
++    from pathlib import Path
++
++    html = Path("templates/voice_clone.html").read_text(encoding="utf-8")
++    js = Path("static/js/voice_clone.js").read_text(encoding="utf-8")
++
++    assert 'value="qwen_bundle"' in html
++    assert "阿里百炼 Qwen（Qwen-Audio + Qwen3.8 Omni）" in html
++    assert "qwen_bundle: 'qwen'" in js
++    assert "['qwen_bundle', 'assistApiKeyQwen']" in js
++    assert "provider === 'qwen_bundle'" in js
++
++@pytest.mark.unit
++async def test_qwen_bundle_preview_uses_qwen_audio_not_cosyvoice(monkeypatch):
++    import base64
++    from starlette.requests import Request
++    from main_routers.characters_router import voice_preview as preview_router
++    from main_logic.tts_client.workers import qwen_audio as qwen_audio_worker
++
++    class ConfigManager:
++        async def aensure_region_resolved(self):
++            return True
++
++        def get_voices_for_current_api(self):
++            return {LOCAL_REF: bundle_meta()}
++
++        async def aget_model_api_config(self, _name):
++            return {}
++
++        async def aget_core_config(self):
++            return {}
++
++        def get_tts_api_key(self, provider):
++            assert provider == "qwen_bundle"
++            return "qwen-key"
++
++    calls = {}
++
++    async def fake_synthesize(api_key, text, **kwargs):
++        calls.update(api_key=api_key, text=text, **kwargs)
++        return b"RIFF-qwen-preview"
++
++    monkeypatch.setattr(preview_router, "get_config_manager", lambda: ConfigManager())
++    monkeypatch.setattr(preview_router, "_is_free_preset_voice_id", lambda _voice_id: False)
++    monkeypatch.setattr(preview_router, "_is_unpreviewable_selected_preset_voice", lambda *_args: False)
++    monkeypatch.setattr(qwen_audio_worker, "synthesize_qwen_audio_bytes", fake_synthesize)
++
++    request = Request({"type": "http", "headers": []})
++    response = await preview_router.get_voice_preview(
++        request=request,
++        voice_id=LOCAL_REF,
++        language="zh",
++        i18n_language="zh",
++    )
++
++    assert response["success"] is True
++    assert base64.b64decode(response["audio"]) == b"RIFF-qwen-preview"
++    assert calls["api_key"] == "qwen-key"
++    assert calls["model"] == TTS_MODEL
++    assert calls["remote_voice"] == TTS_VOICE
++    assert calls["base_url"] == "https://dashscope.aliyuncs.com/api/v1"
++
++
++@pytest.mark.unit
++def test_qwen_bundle_storage_bucket_merges_into_current_api_view():
++    import hashlib
++    from utils.config_manager.voice_storage import VoiceStorageMixin
++
++    api_key = "qwen-test-key"
++    bucket = "__QWEN_BUNDLE__" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
++    voice_id = "qwen-bundle-test"
++    storage = {
++        bucket: {
++            voice_id: {
++                "voice_id": voice_id,
++                "provider": "qwen_bundle",
++                "tts_voice_id": "tts-remote",
++                "realtime_voice_id": "rt-remote",
++            }
++        }
++    }
++
++    class Dummy(VoiceStorageMixin):
++        def load_voice_storage(self):
++            return storage
++        def get_tts_api_key(self, provider):
++            assert provider == "qwen_bundle"
++            return api_key
++        def get_model_api_config(self, _name):
++            return {}
++        def get_core_config(self):
++            return {}
++        def _is_local_tts_storage_active(self, *_args, **_kwargs):
++            return False
++        def is_free_voice(self):
++            return False
++        def _get_cosyvoice_storage_keys(self, _voice_storage=None):
++            return []
++        def _get_minimax_storage_keys(self):
++            return []
++        def _get_elevenlabs_storage_keys(self):
++            return []
++        def _get_mimo_storage_keys(self):
++            return []
++        def _get_doubao_tts_storage_keys(self):
++            return []
++        def _get_glm_tts_storage_keys(self):
++            return []
++        def _get_vllm_omni_storage_keys(self):
++            return []
++        def _imported_voices_from_storage(self, *_args, **_kwargs):
++            return {}
++
++    cm = Dummy()
++    voices = cm.get_voices_for_current_api()
++    assert voice_id in voices
++    assert voices[voice_id]["provider"] == "qwen_bundle"
++    assert cm._infer_provider_from_storage_key(bucket) == "qwen_bundle"
++
++
++@pytest.mark.unit
++def test_qwen_bundle_speech_rate_update_is_scoped_and_persisted():
++    import hashlib
++    from utils.config_manager.voice_storage import VoiceStorageMixin
++
++    api_key = "qwen-test-key"
++    bucket = "__QWEN_BUNDLE__" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
++    voice_id = "qwen-bundle-speed-test"
++    storage = {
++        bucket: {
++            voice_id: bundle_meta(voice_id=voice_id, speech_rate=1.0),
++        },
++        "__QWEN_BUNDLE__othercredential": {
++            voice_id: bundle_meta(voice_id=voice_id, speech_rate=1.9),
++        },
++    }
++    writes = []
++
++    class Dummy(VoiceStorageMixin):
++        def load_voice_storage(self):
++            return storage
++
++        def save_voice_storage(self, data):
++            writes.append(data)
++
++        def get_tts_api_key(self, provider):
++            assert provider == "qwen_bundle"
++            return api_key
++
++        def _current_voice_storage_key(self):
++            return "current-legacy-bucket"
++
++    cm = Dummy()
++    updated = cm.update_qwen_bundle_speech_rate(voice_id, 0.75)
++
++    assert updated["speech_rate"] == 0.75
++    assert storage[bucket][voice_id]["speech_rate"] == 0.75
++    assert storage["__QWEN_BUNDLE__othercredential"][voice_id]["speech_rate"] == 1.9
++    assert len(writes) == 1
++
++    with pytest.raises(ValueError, match="TTS_SPEECH_RATE_OUT_OF_RANGE"):
++        cm.update_qwen_bundle_speech_rate(voice_id, 0.49)
++
++
++@pytest.mark.unit
++async def test_qwen_bundle_speech_rate_route_retires_matching_tts_runtime(monkeypatch):
++    from types import SimpleNamespace
++    from main_routers.characters_router import voice_cloning as router
++
++    saved = {}
++    retired = []
++    runtime_record = object()
++
++    class ConfigManager:
++        def update_qwen_bundle_speech_rate(self, voice_id, speech_rate):
++            saved.update(voice_id=voice_id, speech_rate=speech_rate)
++            return bundle_meta(speech_rate=speech_rate)
++
++    class Manager:
++        voice_id = LOCAL_REF
++
++        def _snapshot_tts_runtime(self):
++            return runtime_record
++
++        def _tts_runtime_is_current(self, runtime):
++            return runtime is runtime_record
++
++        def _retire_tts_runtime(self, runtime):
++            retired.append(runtime)
++
++    async def json_body():
++        return {"speech_rate": 0.8}
++
++    monkeypatch.setattr(router, "get_config_manager", lambda: ConfigManager())
++    monkeypatch.setattr(router, "get_session_manager", lambda: {"XiaoYu": Manager()})
++
++    result = await router.update_qwen_bundle_speech_rate(
++        LOCAL_REF,
++        SimpleNamespace(json=json_body),
++    )
++
++    assert result["success"] is True
++    assert result["speech_rate"] == 0.8
++    assert result["tts_runtime_refreshed"] is True
++    assert result["refreshed_characters"] == ["XiaoYu"]
++    assert saved == {"voice_id": LOCAL_REF, "speech_rate": 0.8}
++    assert retired == [runtime_record]
++
++
++@pytest.mark.unit
++def test_qwen_bundle_speech_rate_slider_is_exposed_in_voice_library():
++    from pathlib import Path
++
++    js = Path("static/js/voice_clone.js").read_text(encoding="utf-8")
++    assert "appendQwenSpeechRateControl" in js
++    assert "/speech_rate" in js
++    assert "input.type = 'range'" in js
++    assert "input.min = '0.5'" in js
++    assert "input.max = '2.0'" in js
++    assert "input.step = '0.05'" in js
++
++
++@pytest.mark.unit
++def test_qwen_bundle_speech_rate_update_supports_current_legacy_bucket():
++    from utils.config_manager.voice_storage import VoiceStorageMixin
++
++    api_key = "qwen-test-key"
++    voice_id = "legacy-qwen-bundle"
++    current_bucket = "legacy-current-api-key"
++    storage = {
++        current_bucket: {
++            voice_id: bundle_meta(voice_id=voice_id, speech_rate=1.0),
++        },
++        "unrelated-key": {
++            voice_id: bundle_meta(voice_id=voice_id, speech_rate=1.7),
++        },
++    }
++
++    class Dummy(VoiceStorageMixin):
++        def get_tts_api_key(self, provider):
++            assert provider == "qwen_bundle"
++            return api_key
++
++        def _current_voice_storage_key(self):
++            return current_bucket
++
++        def load_voice_storage(self):
++            return storage
++
++        def save_voice_storage(self, data):
++            self.saved = data
++
++    cm = Dummy()
++    updated = cm.update_qwen_bundle_speech_rate(voice_id, 0.85)
++    assert updated["speech_rate"] == 0.85
++    assert storage[current_bucket][voice_id]["speech_rate"] == 0.85
++    assert storage["unrelated-key"][voice_id]["speech_rate"] == 1.7
++
++
++@pytest.mark.unit
++def test_qwen_realtime_tempo_stream_slows_without_pitch_shift():
++    import numpy as np
++    from main_logic.tts_client.workers.qwen_audio import QwenRealtimeTempoStream
++
++    sample_rate = 24000
++    seconds = 1.0
++    t = np.arange(int(sample_rate * seconds), dtype=np.float32) / sample_rate
++    pcm = (0.2 * np.sin(2 * np.pi * 440.0 * t) * 32767.0).astype(np.int16)
++
++    stream = QwenRealtimeTempoStream(0.8, sample_rate=sample_rate)
++    chunks = []
++    raw = pcm.tobytes()
++    bytes_per_chunk = 960 * 2
++    for offset in range(0, len(raw), bytes_per_chunk):
++        chunks.extend(stream.push_pcm16(raw[offset:offset + bytes_per_chunk]))
++    chunks.extend(stream.finish())
++
++    output = np.concatenate(chunks)
++    assert 1.20 < (len(output) / len(pcm)) < 1.30
++    freq = np.fft.rfftfreq(len(output), 1.0 / sample_rate)
++    peak_hz = float(freq[np.argmax(np.abs(np.fft.rfft(output)))])
++    assert 438.0 < peak_hz < 442.0
++
++
++@pytest.mark.unit
++def test_turn_realtime_tempo_reads_selected_bundle_rate():
++    from main_logic.core.turn import TurnMixin
++
++    obj = TurnMixin.__new__(TurnMixin)
++    obj.voice_id = LOCAL_REF
++    obj.current_speech_id = "speech-1"
++    obj._config_manager = Mock()
++    obj._config_manager.get_voices_for_current_api.return_value = {
++        LOCAL_REF: bundle_meta(speech_rate=0.8),
++    }
++
++    assert obj._qwen_bundle_realtime_speech_rate() == 0.8
++    first = obj._get_qwen_realtime_tempo_stream()
++    second = obj._get_qwen_realtime_tempo_stream()
++    assert first is second
++    assert first.speech_rate == 0.8
++
++    obj.current_speech_id = "speech-2"
++    third = obj._get_qwen_realtime_tempo_stream()
++    assert third is not first
++    assert third.speech_rate == 0.8
++
++
++@pytest.mark.unit
++async def test_non_bistream_coalesce_until_flush_preserves_full_turn():
++    import queue
++    from main_logic.tts_client._infra import (
++        TTS_SHUTDOWN_SENTINEL,
++        _non_bistream_tts_main_loop,
++    )
++
++    request_queue = queue.Queue()
++    response_queue = queue.Queue()
++    calls = []
++
++    async def synthesize(text, speech_id):
++        calls.append((speech_id, text))
++        response_queue.put(b"audio")
++
++    request_queue.put(("speech-1", "第一句。"))
++    request_queue.put(("speech-1", "第二句。"))
++    request_queue.put(("speech-1", "第三句。"))
++    request_queue.put((None, None))
++    request_queue.put((TTS_SHUTDOWN_SENTINEL, None))
++
++    await _non_bistream_tts_main_loop(
++        request_queue,
++        response_queue,
++        synthesize,
++        label="test",
++        coalesce_until_flush=True,
++    )
++
++    assert calls == [("speech-1", "第一句。第二句。第三句。")]
++
++
++@pytest.mark.unit
++def test_qwen_bundle_runtime_coalesces_full_reply_for_preview_cadence():
++    from pathlib import Path
++
++    worker_source = Path(
++        "main_logic/tts_client/workers/qwen_audio.py"
++    ).read_text(encoding="utf-8")
++    assert "coalesce_until_flush=True" in worker_source
+diff --git a/utils/config_manager/voice_storage.py b/utils/config_manager/voice_storage.py
+index 53da1447..b2693f53 100644
+--- a/utils/config_manager/voice_storage.py
++++ b/utils/config_manager/voice_storage.py
+@@ -19,6 +19,7 @@ voice_storage.json access, per-provider storage-key resolution, voice_id
+ validation/normalization and the invalid voice_id cleanup pass.
+ """
+ import asyncio
++import hashlib
+ from copy import deepcopy
+ 
+ from config import DEFAULT_CONFIG_DATA
+@@ -130,6 +131,7 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+     def get_tts_api_key(self, provider: str) -> str | None:
+         """Return the configured TTS API key for a provider, or None.
+ 
++        - qwen_bundle: ASSIST_API_KEY_QWEN (Alibaba Model Studio)
+         - cosyvoice: api_key from the tts_custom model config
+         - cosyvoice_intl: API key resolved by the CosyVoice intl runtime
+         - minimax:   ASSIST_API_KEY_MINIMAX → MINIMAX_API_KEY fallback
+@@ -141,6 +143,12 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+         - glm_tts: ASSIST_API_KEY_GLM (assist GLM keybook entry; core/assist=glm
+           falls back to coreApiKey via the core_config snapshot)
+         """
++        if provider == 'qwen_bundle':
++            core_config = self.get_core_config()
++            key = str(core_config.get('ASSIST_API_KEY_QWEN') or '').strip()
++            if '***' in key or key == '__NEKO_SECRET_MASKED__' or (key and set(key) == {'•'}):
++                return None
++            return key or None
+         if provider in ('glm_tts', 'deepseek'):
+             core_config = self.get_core_config()
+             field = 'ASSIST_API_KEY_GLM' if provider == 'glm_tts' else 'ASSIST_API_KEY_DEEPSEEK'
+@@ -324,6 +332,22 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+ 
+         return result
+ 
++    def _get_qwen_bundle_storage_keys(self) -> list[str]:
++        """Return the qwen_bundle bucket for the configured Qwen API key.
++
++        qwen_bundle voices use a hashed partition key so the raw provider
++        credential is never persisted in voice_storage.json. Runtime dispatch
++        is selected by voice_meta.provider, so this bucket belongs in the same
++        current-API view used by validation and the voice picker.
++        """
++        voice_storage = self.load_voice_storage()
++        key = self.get_tts_api_key('qwen_bundle')
++        if not key:
++            return []
++        key_tag = hashlib.sha256(key.encode('utf-8')).hexdigest()[:12]
++        bucket = f'__QWEN_BUNDLE__{key_tag}'
++        return [bucket] if bucket in voice_storage else []
++
+     def _get_minimax_storage_keys(self) -> list[str]:
+         """Return the list of voice_storage keys for the current MiniMax API keys.
+ 
+@@ -431,6 +455,8 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+             return 'local'
+         if storage_key.startswith('__VLLM_OMNI__'):
+             return 'vllm_omni'
++        if storage_key.startswith('__QWEN_BUNDLE__'):
++            return 'qwen_bundle'
+         if storage_key.startswith('__MIMO__'):
+             return 'mimo'
+         if storage_key.startswith(DOUBAO_VOICE_STORAGE_KEY):
+@@ -532,6 +558,17 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+                         vdata['provider'] = cosy_provider
+                     result[vid] = vdata
+ 
++        # Merge paired Qwen clone bundles. These live in a hashed provider
++        # partition independent of the active tts_custom provider; runtime
++        # dispatch is selected by voice_meta.provider.
++        for qwen_key in self._get_qwen_bundle_storage_keys():
++            qwen_voices = voice_storage.get(qwen_key, {})
++            for vid, vdata in qwen_voices.items():
++                if vid not in result:
++                    if isinstance(vdata, dict) and 'provider' not in vdata:
++                        vdata['provider'] = 'qwen_bundle'
++                    result[vid] = vdata
++
+         # Merge MiniMax voices and ensure provider.
+         for mk in self._get_minimax_storage_keys():
+             mm_provider = self._infer_provider_from_storage_key(mk)
+@@ -647,6 +684,46 @@ class VoiceStorageMixin(ImportedVoiceStorageMixin):
+             voice_data,
+         )
+ 
++    @voice_storage_transaction
++    def update_qwen_bundle_speech_rate(self, voice_id: str, speech_rate: float):
++        """Persist one Qwen bundle's speech rate in its current credential scope."""
++        voice_id = str(voice_id or "").strip()
++        try:
++            rate = float(speech_rate)
++        except (TypeError, ValueError):
++            raise ValueError("TTS_SPEECH_RATE_INVALID") from None
++        if not (0.5 <= rate <= 2.0):
++            raise ValueError("TTS_SPEECH_RATE_OUT_OF_RANGE")
++
++        api_key = self.get_tts_api_key("qwen_bundle")
++        if not api_key or not voice_id:
++            return None
++
++        hashed_bucket = "__QWEN_BUNDLE__" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
++        current_bucket = self._current_voice_storage_key()
++        allowed_buckets = [hashed_bucket]
++        if current_bucket and current_bucket not in allowed_buckets:
++            # Compatibility with early qwen_bundle records that were stored
++            # in the then-current TTS bucket before the hashed partition was
++            # introduced.  Never scan unrelated buckets/credentials.
++            allowed_buckets.append(current_bucket)
++
++        voice_storage = self._load_voice_storage_for_write()
++        for bucket in allowed_buckets:
++            voices = voice_storage.get(bucket)
++            if not isinstance(voices, dict):
++                continue
++            voice_data = voices.get(voice_id)
++            if not isinstance(voice_data, dict) or voice_data.get("provider") != "qwen_bundle":
++                continue
++
++            updated = dict(voice_data)
++            updated["speech_rate"] = rate
++            voices[voice_id] = updated
++            self.save_voice_storage(voice_storage)
++            return dict(updated)
++        return None
++
+     def voice_id_exists_in_any_storage(self, voice_id: str) -> bool:
+         """Whether voice_id appears under any bucket of voice_storage.json.
+ 
+diff --git a/utils/voice_clone.py b/utils/voice_clone.py
+index 42aa8e25..80aae649 100644
+--- a/utils/voice_clone.py
++++ b/utils/voice_clone.py
+@@ -453,6 +453,151 @@ class MimoVoiceCloneClient:
+         return audio
+ 
+ 
++
++# ============================================================================
++# Qwen-Audio + Qwen3.8 Omni paired voice cloning
++# ============================================================================
++
++QWEN_BUNDLE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
++QWEN_BUNDLE_TTS_MODEL = "qwen-audio-3.1-tts-flash"
++QWEN_BUNDLE_REALTIME_MODEL = "qwen3.8-omni-flash-realtime"
++
++
++class QwenBundleVoiceCloneError(VoiceCloneError):
++    """Qwen-Audio / Qwen-Omni paired voice-clone error."""
++
++
++def _qwen_bundle_prefix(prefix: str) -> str:
++    value = ''.join(ch for ch in str(prefix or '').strip() if ch.isascii() and ch.isalnum())[:10]
++    if not value:
++        raise QwenBundleVoiceCloneError("Qwen 声音复刻前缀只能包含英文字母和数字，长度 1-10")
++    return value
++
++
++def _qwen_bundle_language(ref_language: str) -> str:
++    return {
++        'ch': 'zh', 'zh': 'zh', 'en': 'en', 'fr': 'fr', 'de': 'de',
++        'ja': 'ja', 'ko': 'ko', 'ru': 'ru',
++    }.get(str(ref_language or 'ch').strip().lower(), 'zh')
++
++
++class QwenBundleVoiceCloneClient:
++    """Create a paired Qwen-Audio-TTS + Qwen3.8-Omni clone from one sample.
++
++    Both calls use Alibaba Model Studio's official customization endpoint.
++    The returned remote IDs are stored under one N.E.K.O voice-library entry.
++    """
++
++    def __init__(self, api_key: str, base_url: str = QWEN_BUNDLE_DEFAULT_BASE_URL):
++        self.api_key = str(api_key or '').strip()
++        self.base_url = str(base_url or QWEN_BUNDLE_DEFAULT_BASE_URL).strip().rstrip('/')
++
++    @property
++    def endpoint(self) -> str:
++        return self.base_url + "/services/audio/tts/customization"
++
++    @staticmethod
++    def _data_uri(audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
++        return f"data:{mime_type};base64," + base64.b64encode(audio_bytes).decode("ascii")
++
++    async def _post(self, payload: dict) -> dict:
++        headers = {
++            "Authorization": f"Bearer {self.api_key}",
++            "Content-Type": "application/json",
++        }
++        try:
++            async with httpx.AsyncClient(
++                timeout=httpx.Timeout(connect=10, read=90, write=30, pool=10),
++                trust_env=False,
++            ) as client:
++                response = await client.post(self.endpoint, headers=headers, json=payload)
++        except httpx.TimeoutException as exc:
++            raise QwenBundleVoiceCloneError("Qwen 声音复刻请求超时") from exc
++        except Exception as exc:
++            raise QwenBundleVoiceCloneError(f"Qwen 声音复刻请求失败: {type(exc).__name__}") from exc
++        if response.status_code != 200:
++            detail = response.text[:500]
++            raise QwenBundleVoiceCloneError(
++                f"Qwen 声音复刻 HTTP {response.status_code}: {detail}"
++            )
++        try:
++            data = response.json()
++        except ValueError as exc:
++            raise QwenBundleVoiceCloneError("Qwen 声音复刻返回了无法解析的响应") from exc
++        if not isinstance(data, dict):
++            raise QwenBundleVoiceCloneError("Qwen 声音复刻返回格式异常")
++        return data
++
++    async def create_tts_voice(
++        self,
++        audio_bytes: bytes,
++        *,
++        prefix: str,
++        ref_language: str = "ch",
++        target_model: str = QWEN_BUNDLE_TTS_MODEL,
++    ) -> str:
++        safe_prefix = _qwen_bundle_prefix(prefix)
++        payload = {
++            "model": "voice-enrollment",
++            "input": {
++                "action": "create_voice",
++                "target_model": target_model,
++                "prefix": safe_prefix,
++                "audio": self._data_uri(audio_bytes),
++                "language_hints": [_qwen_bundle_language(ref_language)],
++                "enable_volume_normalization": "false",
++            },
++        }
++        data = await self._post(payload)
++        voice_id = str(((data.get("output") or {}).get("voice_id") or "")).strip()
++        if not voice_id:
++            raise QwenBundleVoiceCloneError("Qwen-Audio 复刻成功响应中没有 voice_id")
++        return voice_id
++
++    async def create_realtime_voice(
++        self,
++        audio_bytes: bytes,
++        *,
++        prefix: str,
++        target_model: str = QWEN_BUNDLE_REALTIME_MODEL,
++    ) -> str:
++        safe_prefix = _qwen_bundle_prefix(prefix)
++        payload = {
++            "model": "qwen-voice-enrollment",
++            "parameters": {"voice_clone_mode": "normal"},
++            "input": {
++                "action": "create",
++                "target_model": target_model,
++                "preferred_name": safe_prefix,
++                "audio": {"data": self._data_uri(audio_bytes)},
++            },
++        }
++        data = await self._post(payload)
++        voice = str(((data.get("output") or {}).get("voice") or "")).strip()
++        if not voice:
++            raise QwenBundleVoiceCloneError("Qwen3.8 Omni 复刻成功响应中没有 voice")
++        return voice
++
++    async def clone_bundle(
++        self,
++        audio_bytes: bytes,
++        *,
++        prefix: str,
++        ref_language: str = "ch",
++    ) -> tuple[str, str]:
++        # TTS first: it is used by ordinary text replies; Omni is the realtime half.
++        tts_voice = await self.create_tts_voice(
++            audio_bytes,
++            prefix=prefix,
++            ref_language=ref_language,
++        )
++        realtime_voice = await self.create_realtime_voice(
++            audio_bytes,
++            prefix=prefix,
++        )
++        return tts_voice, realtime_voice
++
++
+ # ============================================================================
+ # Qwen / CosyVoice voice cloning
+ # ============================================================================

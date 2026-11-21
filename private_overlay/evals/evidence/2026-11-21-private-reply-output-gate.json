@@ -1,0 +1,33 @@
+{
+  "evidence_id": "2026-11-21-private-reply-output-gate",
+  "date": "2026-11-21",
+  "verdict": "PASS_SINGLE_REPLY_OUTPUT_GATE",
+  "contract": {
+    "quiet_true": "Suppress the assistant reply before the UI/TTS split: no assistant text is published and no paired TTS is enqueued.",
+    "quiet_false": "If normal assistant text is admitted, the same reply path also admits its paired TTS; policy cannot intentionally produce text-only output.",
+    "legacy_speech_muted": "Compatibility field only; normalized to false and ignored by the core output gate.",
+    "fast_commands": "Exact commands such as 别说话 and 说吧 keep the synchronous current-turn override to close classifier/plugin latency."
+  },
+  "implementation": {
+    "plugin_version": "0.6.0",
+    "plugin_authority": "xiaoyu_interaction_policy quiet state",
+    "core_boundary": "N.E.K.O reply-output admission before text/TTS split",
+    "config_reuse": "Existing NEKO_PRIVATE_SPEECH_GATE_FILE is reused; no second state/config path added.",
+    "tts_behavior": "Independent TTS enqueue/send mute checks removed."
+  },
+  "regression": {
+    "neko_reply_gate_and_turn_races": "51/51 PASS",
+    "overlay_interaction_policy": "26/26 PASS",
+    "combined_reply_gate_qwen_voice": "97/97 PASS",
+    "managed_patch_replay": "0001..0008 CHAIN_PASS from pinned 6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "replay_matches_current_tree": [
+      "main_logic/core/tts_runtime.py",
+      "main_logic/core/turn.py",
+      "tests/unit/test_private_speech_output_gate.py",
+      "tests/unit/test_proactive_sid_guard.py",
+      "main_logic/tts_client/workers/qwen_audio.py",
+      "tests/unit/test_qwen_voice_bundle.py"
+    ]
+  },
+  "failure_prevented": "The prior design allowed speech_muted=true while UI text remained enabled, creating a policy-induced 'text visible but no voice' state. v0.6 makes that state unrepresentable."
+}
