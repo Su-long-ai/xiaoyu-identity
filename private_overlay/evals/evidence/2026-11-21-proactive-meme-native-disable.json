@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "feature": "Disable failing proactive meme channel through native N.E.K.O setting",
+  "verdict": "PASS_NATIVE_CONFIG_NO_NEW_PATCH",
+  "before": {
+    "proactiveMemeEnabled": true,
+    "proactiveChatEnabled": true,
+    "proactiveChatInterval_seconds": 40,
+    "observed_behavior": "Each proactive cycle probed up to three meme candidates; proxy rejected image/jpg candidates and repeated fetch setup coincided with main_server loop stalls around 1.0-1.35 seconds."
+  },
+  "action": {
+    "api": "POST /api/config/conversation-settings with CAS If-Match",
+    "revision_before": 17,
+    "revision_after": 18,
+    "proactiveMemeEnabled": false,
+    "source_changes": 0
+  },
+  "after": {
+    "proactiveMemeEnabled": false,
+    "proactiveChatEnabled": true,
+    "proactiveChatInterval_seconds": 40,
+    "observation_window_seconds": 50,
+    "meme_proxy_or_meme_failures_observed": 0,
+    "loop_stalls_observed": 0
+  },
+  "reuse_decision": "Use the existing N.E.K.O proactiveMemeEnabled authority rather than patching meme_fetcher or building a replacement fetcher."
+}

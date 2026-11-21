@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "component": "desktop GPU power preference",
+  "verdict": "PASS_NATIVE_WINDOWS_GPU_PREFERENCE",
+  "reuse_decision": {
+    "selected": "Windows per-app UserGpuPreferences",
+    "rejected_core_patch": "Do not patch Electron app.asar or disable hardware acceleration",
+    "preference": "GpuPreference=1;",
+    "executable": "D:\\xiaoyu_external_audit\\neko-nightly-desktop\\shell\\N.E.K.O.exe"
+  },
+  "before": {
+    "nvidia_neko_present": true,
+    "gpu_pstate": "P0",
+    "gpu_power_w": 22.09,
+    "gpu_util_percent": 16,
+    "gpu_memory_used_mb": 1615
+  },
+  "after": {
+    "nvidia_neko_present": false,
+    "gpu_pstate": "P4",
+    "gpu_power_w": 10.62,
+    "gpu_util_percent": 0,
+    "gpu_memory_used_mb": 430,
+    "note": "Whole-GPU measurements include other applications; decisive evidence is that N.E.K.O disappears from nvidia-smi process list."
+  },
+  "behavior": {
+    "hardware_acceleration_disabled": false,
+    "live2d_rendering_path_preserved": true,
+    "persistent_via_oneclick_launcher": true
+  }
+}

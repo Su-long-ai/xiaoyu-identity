@@ -197,6 +197,17 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("copy2(", script)
 
 
+    def test_oneclick_uses_native_windows_power_saving_gpu_preference(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("UserGpuPreferences", script)
+        self.assertIn("GpuPreference=1;", script)
+        self.assertIn("Ensure-XiaoYuDesktopGpuPreference", script)
+        self.assertNotIn("disableHardwareAcceleration", script)
+        self.assertNotIn("disable-gpu", script)
+
+
     def test_shortcut_installer_is_relocatable_and_covers_product_entries(self):
         script = (ROOT / "tools" / "install_xiaoyu_shortcuts.ps1").read_text(
             encoding="utf-8-sig"

@@ -33,6 +33,27 @@ function Get-XiaoYuDesktopProcess {
         Select-Object -First 1
 }
 
+function Ensure-XiaoYuDesktopGpuPreference {
+    # Reuse Windows native per-app GPU policy instead of patching Electron.
+    # GpuPreference=1 selects the power-saving adapter while retaining GPU acceleration.
+    if ($env:OS -ne "Windows_NT") { return }
+    if (-not (Test-Path -LiteralPath $DesktopExe)) { return }
+
+    $resolvedDesktop = (Resolve-Path -LiteralPath $DesktopExe).Path
+    $gpuPreferenceKey = "HKCU:\Software\Microsoft\DirectX\UserGpuPreferences"
+    $desiredPreference = "GpuPreference=1;"
+    New-Item -Path $gpuPreferenceKey -Force | Out-Null
+
+    $currentPreference = $null
+    try {
+        $currentPreference = Get-ItemPropertyValue -Path $gpuPreferenceKey -Name $resolvedDesktop -ErrorAction Stop
+    } catch {}
+
+    if ($currentPreference -ne $desiredPreference) {
+        New-ItemProperty -Path $gpuPreferenceKey -Name $resolvedDesktop -Value $desiredPreference -PropertyType String -Force | Out-Null
+    }
+}
+
 if (-not (Test-XiaoYuBackendReady)) {
     Start-Process -FilePath "powershell.exe" -ArgumentList @(
         "-NoLogo",
@@ -69,6 +90,8 @@ if (-not (Test-Path -LiteralPath $DesktopExe)) {
     )
     exit 2
 }
+
+Ensure-XiaoYuDesktopGpuPreference
 
 if (-not (Get-XiaoYuDesktopProcess)) {
     Start-Process -FilePath $DesktopExe -WorkingDirectory (Split-Path -Parent $DesktopExe) | Out-Null
