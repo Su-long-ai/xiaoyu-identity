@@ -76,10 +76,11 @@ function Ensure-NekoUiAssets {
     $TemplateIndex = Join-Path $NekoRoot "templates\index.html"
     $PluginManagerPackage = Join-Path $NekoRoot "frontend\plugin-manager\package.json"
     $ChatPackage = Join-Path $NekoRoot "frontend\react-neko-chat\package.json"
+    $SteamworksPackage = Join-Path $NekoRoot "steamworks\__init__.py"
     $PluginManagerDist = Join-Path $NekoRoot "frontend\plugin-manager\dist\index.html"
     $ChatBundle = Join-Path $NekoRoot "static\react\neko-chat\neko-chat-window.iife.js"
 
-    $SourceAssets = @($TemplateIndex, $PluginManagerPackage, $ChatPackage)
+    $SourceAssets = @($TemplateIndex, $PluginManagerPackage, $ChatPackage, $SteamworksPackage)
     $MissingSource = @($SourceAssets | Where-Object { -not (Test-Path $_) })
 
     if ($MissingSource.Count -gt 0) {
@@ -93,8 +94,8 @@ function Ensure-NekoUiAssets {
         }
 
         Write-Host "== Expand pinned N.E.K.O checkout for native UI =="
-        git -C $NekoRoot sparse-checkout add frontend templates
-        Assert-LastExitCode "git sparse-checkout add frontend templates"
+        git -C $NekoRoot sparse-checkout add frontend templates steamworks
+        Assert-LastExitCode "git sparse-checkout add frontend templates steamworks"
 
         $MissingSource = @($SourceAssets | Where-Object { -not (Test-Path $_) })
         if ($MissingSource.Count -gt 0) {
@@ -153,7 +154,7 @@ function Ensure-NekoUiAssets {
         }
     }
 
-    Write-Host "PASS: native N.E.K.O UI source and build artifacts are ready"
+    Write-Host "PASS: native N.E.K.O UI/runtime source and build artifacts are ready"
 }
 
 Ensure-NekoCorePatches

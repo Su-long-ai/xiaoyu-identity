@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "observed_date_local": "2026-11-21",
+  "feature": "Pinned native Steamworks sparse asset repair and private cloudsave fence",
+  "verdict": "PASS_NATIVE_ASSET_REPAIR_AND_PRIVATE_CLOUDSAVE_FENCE",
+  "before": {
+    "sparse_checkout_missing": "steamworks",
+    "pinned_tree_contains_steamworks": true,
+    "runtime_error": "No module named 'steamworks'",
+    "source_launch_cloudsave": "attempted Steam Auto-Cloud source-launch bootstrap / remote bundle path despite XiaoYu using a private local authority root"
+  },
+  "reuse": {
+    "sparse_repair": "git sparse-checkout add frontend templates steamworks through existing setup_local.ps1",
+    "steamworks_source": "same pinned N.E.K.O commit 6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "third_party_pip_install": false,
+    "core_patch_added": false,
+    "cloudsave_control": "native NEKO_CLOUDSAVE_DISABLED environment fence"
+  },
+  "after": {
+    "steamworks_import": "PASS from D:\\xiaoyu_external_audit\\N.E.K.O\\steamworks\\__init__.py",
+    "steamworks_class": "STEAMWORKS",
+    "cloudsave_startup_log": "Steam Auto-Cloud startup skipped because cloudsave is disabled for this session",
+    "missing_module_error": false,
+    "steam_environment_result": "Native STEAMWORKS initialization reached its real API and gracefully failed because the current Steam environment is unavailable; N.E.K.O continued with Steam functionality skipped.",
+    "services": [
+      48911,
+      48912,
+      48915,
+      48916
+    ]
+  },
+  "startup_behavior": {
+    "normal_start": "If steamworks/__init__.py is missing, start_xiaoyu invokes existing setup_local repair once; otherwise setup remains verify-only.",
+    "preflight_only": "never repairs or mutates sparse checkout; fails closed if required native assets are absent.",
+    "private_cloudsave_reason": "xiaoyu_private_local_authority",
+    "steamworks_other_features_preserved": true
+  },
+  "watchdog_triage": {
+    "startup_only_stall_1": "~878 ms; first Jinja2 template compilation in pages_router.get_default_index",
+    "startup_only_stall_2": "~1112 ms; Windows asyncio Proactor response write during desktop first connection",
+    "persistent_runtime_stall_observed": false,
+    "decision": "No ninth core patch; startup-only warm paths do not justify more invasive changes."
+  }
+}

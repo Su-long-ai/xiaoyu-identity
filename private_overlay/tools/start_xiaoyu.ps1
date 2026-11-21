@@ -22,6 +22,10 @@ $ResolvedStorage = (Resolve-Path $StorageRoot).Path
 $env:NEKO_STORAGE_SELECTED_ROOT = $ResolvedStorage
 $env:NEKO_STORAGE_ANCHOR_ROOT = $ResolvedStorage
 $env:NEKO_RUNTIME_STATE_DIR = Join-Path $ResolvedStorage ".runtime"
+# XiaoYu's private overlay uses this local storage root as the authority. Reuse
+# N.E.K.O's native session fence so Steam Auto-Cloud cannot import/export this
+# private state while still leaving Steamworks available to other native features.
+$env:NEKO_CLOUDSAVE_DISABLED = "xiaoyu_private_local_authority"
 
 # Private product routing: N.E.K.O core only exposes the generic first-round
 # forced-tool bridge. XiaoYu owns the tool name and conservative retrospective
@@ -73,7 +77,14 @@ if ($PreflightOnly) {
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== Verify pinned external components =="
-& (Join-Path $ToolsRoot "setup_local.ps1") -NekoRoot $NekoRoot -VerifyOnly
+$SetupLocal = Join-Path $ToolsRoot "setup_local.ps1"
+$NativeSteamworks = Join-Path $NekoRoot "steamworks\__init__.py"
+if (-not $PreflightOnly -and -not (Test-Path $NativeSteamworks)) {
+    Write-Host "== Repair pinned sparse checkout for native runtime assets =="
+    & $SetupLocal -NekoRoot $NekoRoot
+} else {
+    & $SetupLocal -NekoRoot $NekoRoot -VerifyOnly
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== Ensure native N.E.K.O storage selection =="
