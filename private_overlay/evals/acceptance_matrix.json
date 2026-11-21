@@ -130,6 +130,13 @@
       "status": "qwen_omni_realtime_and_qwen_audio_text_bundle_live_pass_cosyvoice_preserved",
       "evidence": "evals/evidence/2026-11-20-qwen-clone-reuse-review.json",
       "note": "The retired legacy qwen3-tts-vc model is not revived. The existing reference audio was re-enrolled into current Qwen3.8 Omni realtime and Qwen-Audio 3.1 TTS clones. One qwen_bundle picker entry routes by surface; CosyVoice remains selectable."
+    },
+    {
+      "id": "proactive_game_timing",
+      "goal": "mini-game invitations do not interrupt focused or ambiguous active states, and focused-work break reminders remain rest reminders rather than game invitations",
+      "status": "native_activity_preference_and_leisure_only_gate_pass",
+      "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json",
+      "note": "XiaoYu keeps proactiveMiniGameInviteEnabled=true. Native activity preference sets work_break_game_invite_probability=0.0, while ordinary canned invitations are eligible only in ActivitySnapshot states casual_browsing or idle."
     }
   ]
 }

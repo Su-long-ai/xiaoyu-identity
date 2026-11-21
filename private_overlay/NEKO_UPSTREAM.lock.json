@@ -7,7 +7,7 @@
   "persona_storage_authority": "neko_native",
   "evolution_authority": "neko_native",
   "task_authority": "neko_native",
-  "core_patch_budget": 8,
+  "core_patch_budget": 9,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Eight evidence-backed managed patches are currently required. Patch 0008 reuses N.E.K.O's existing Qwen TTS worker and voice picker; it adds only missing provider-aware clone routing. Revisit the budget whenever an upstream/native replacement lets a managed patch be removed."
+  "core_patch_budget_reason": "Nine evidence-backed managed patches are currently required. Patch 0009 closes the upstream-known mini-game invitation interruption gap by reusing N.E.K.O's native ActivitySnapshot and allowing proactive game invites only in explicit leisure states. The separate work-break-to-game branch is disabled through N.E.K.O's supported activity preference instead of another core patch. Revisit the budget whenever an upstream/native replacement lets a managed patch be removed."
 }

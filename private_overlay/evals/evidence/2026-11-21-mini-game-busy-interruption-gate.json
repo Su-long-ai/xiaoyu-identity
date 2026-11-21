@@ -1,0 +1,72 @@
+{
+  "evidence_id": "2026-11-21-mini-game-busy-interruption-gate",
+  "date": "2026-11-21",
+  "verdict": "PASS_NATIVE_CONFIG_PLUS_LEISURE_ONLY_INVITE_GATE",
+  "symptom": "XiaoYu periodically proposed a mini-game while the owner still had work to do.",
+  "upstream_diagnosis": {
+    "known_gap": "N.E.K.O proactive-chat user-directives reference documents #3013: rest reminders, mini-game invitations and voice reminders do not pass the directive output gate.",
+    "ordinary_invite_before": "Canned mini-game delivery blocked missing activity, restricted_screen_only, away and unfinished_thread, but otherwise a 10-second delivery idle window could admit transitioning/chatting/voice_engaged/stale_returning states.",
+    "work_break_before": {
+      "native_default_probability": 0.5,
+      "meaning": "A focused-work water/stretch break reminder had a 50% branch into a rest-plus-mini-game invitation."
+    }
+  },
+  "live_observation": {
+    "proactiveMiniGameInviteEnabled": true,
+    "recent_decline": "2026-11-21 20:34:55 mini-game invite declined via button",
+    "ordinary_delivery_marker_for_same_invite_seen": false,
+    "interpretation": "The missing ordinary 'Mini-game invite delivered' marker makes the work-break combo the strongest match, but the log does not prove the source path with certainty."
+  },
+  "reuse_first_fix": {
+    "work_break": {
+      "authority": "N.E.K.O native user_preferences activity settings",
+      "setting": "activity.work_break_game_invite_probability",
+      "before": "default 0.5",
+      "after": 0.0,
+      "ordinary_mini_game_toggle_preserved": true
+    },
+    "ordinary_invite": {
+      "authority": "N.E.K.O ActivitySnapshot.state",
+      "allowed_states": [
+        "casual_browsing",
+        "idle"
+      ],
+      "blocked_states": [
+        "focused_work",
+        "focused_video",
+        "gaming",
+        "transitioning",
+        "chatting",
+        "voice_engaged",
+        "stale_returning",
+        "away",
+        "private"
+      ],
+      "new_model_call": false,
+      "new_activity_store": false
+    }
+  },
+  "regression": {
+    "tests_unit_test_mini_game_invite": "161/161 PASS",
+    "native_preference_helper": "ensures only work_break_game_invite_probability=0.0 in the existing user_preferences.json activity section; verify-only is non-mutating",
+    "private_activity_preference_helper": "3/3 PASS",
+    "overlay_full_gate": "83/83 PASS",
+    "release_readiness": "21/21 PASS",
+    "managed_patch_replay": "0001..0009 CHAIN_PASS from pinned 6261a5f653af066d2a7da8e265f624e3df03e3f7"
+  },
+  "live_deployment": {
+    "status": "PASS",
+    "main_memory_agent_plugin_http": "48911/48912/48915/48916 all HTTP 200",
+    "desktop": "all N.E.K.O processes Responding=True",
+    "native_preference": {
+      "proactiveMiniGameInviteEnabled": true,
+      "work_break_game_invite_probability": 0.0
+    },
+    "source_gate_marker": "_MINI_GAME_INVITE_LEISURE_STATES={casual_browsing,idle}",
+    "napcat_processes_preserved": true,
+    "known_nonblocking_startup_signals": [
+      "Steamworks API initialization failure continues as native nonblocking fallback",
+      "startup-only loop stalls around 1-2 seconds recovered automatically"
+    ]
+  }
+}

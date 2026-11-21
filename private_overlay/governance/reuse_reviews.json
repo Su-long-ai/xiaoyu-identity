@@ -202,6 +202,35 @@
       ],
       "why_reuse_insufficient": "Durable authorities remain reused: N.E.K.O owns voice storage/picking/runtime, Alibaba owns enrollment and synthesis, and audiolab owns pitch-preserving tempo. The thin patch only exposes paired enrollment/routing, binds one shared speech_rate to those native paths, and refreshes the matching TTS worker when it changes.",
       "acceptance_evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
+    },
+    {
+      "id": "patch:0009-mini-game-leisure-only-gate.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-21",
+      "problem": "Mini-game invitations can interrupt the owner while they are still doing work; the work-break path additionally defaults to a 50% chance of turning a rest reminder into a game invitation.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O ActivityPreferences.work_break_game_invite_probability",
+          "type": "native_config",
+          "outcome": "selected for the work-break combo; XiaoYu sets the supported native preference to 0.0 and keeps the ordinary mini-game feature enabled",
+          "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+        },
+        {
+          "name": "N.E.K.O ActivitySnapshot state / propensity",
+          "type": "native",
+          "outcome": "selected as the only ordinary-invite availability authority; casual_browsing and idle are the explicit leisure allowlist",
+          "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+        },
+        {
+          "name": "N.E.K.O proactive Phase-2 user-directive gate",
+          "type": "native",
+          "outcome": "insufficient for canned mini-game invitations because that delivery path bypasses Phase 2; upstream documentation already records this as #3013",
+          "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native config fully solves the work-break combo and is used there. For ordinary canned invitations, no existing plugin/config hook narrows eligibility to explicit leisure states before delivery. The patch adds only that state admission check and reuses all existing invitation, probability, cooldown, delivery and game logic.",
+      "acceptance_evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
     }
   ]
 }

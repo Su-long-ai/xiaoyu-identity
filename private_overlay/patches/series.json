@@ -40,6 +40,11 @@
       "file": "0008-qwen-clone-provider-routing.patch",
       "reason": "The legacy XiaoYu Qwen3-TTS VC model is retired, but the preferred reference audio remains available. Reuse N.E.K.O's existing character voice store/picker and native Qwen3.8 Omni realtime transport, and expose Alibaba Qwen as a first-class qwen_bundle provider. One reference sample creates paired official Qwen-Audio 3.1 TTS and Qwen3.8 Omni clone IDs stored in one existing voice record. Preview, ordinary text TTS and Realtime all read the same per-voice speech_rate; text TTS and Realtime reuse existing audio processing to apply pitch-preserving tempo, while rate changes retire only the matching active TTS runtime. CosyVoice remains intact as a selectable fallback; no second voice database, transport or DSP engine is introduced.",
       "evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
+    },
+    {
+      "file": "0009-mini-game-leisure-only-gate.patch",
+      "reason": "N.E.K.O's own proactive-chat documentation tracks mini-game invitations as a known user-directive coverage gap (#3013). The ordinary canned invite path already blocks restricted_screen_only and away, but otherwise treats a short input gap as enough evidence of free time, so transitioning/chatting/voice-engaged/returning states can still be interrupted. Reuse the native ActivitySnapshot authority and admit proactive game invitations only for explicit leisure states casual_browsing and idle. The focused-work break reminder's game branch is not patched: XiaoYu sets the supported native activity.work_break_game_invite_probability preference to 0.0.",
+      "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

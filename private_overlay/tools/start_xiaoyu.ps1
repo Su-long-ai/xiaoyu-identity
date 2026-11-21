@@ -91,6 +91,21 @@ Write-Host "== Ensure native N.E.K.O storage selection =="
 & $Python (Join-Path $ToolsRoot "ensure_neko_storage_policy.py") --neko-root $NekoRoot --storage-root $ResolvedStorage
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== Ensure XiaoYu private activity preferences =="
+$ActivityPrefsEnsure = Join-Path $ToolsRoot "ensure_xiaoyu_activity_preferences.py"
+if (-not (Test-Path $ActivityPrefsEnsure)) {
+    throw "XiaoYu activity preference ensure helper not found: $ActivityPrefsEnsure"
+}
+$ActivityPrefsArgs = @(
+    $ActivityPrefsEnsure,
+    "--storage-root", $ResolvedStorage
+)
+if ($PreflightOnly) {
+    $ActivityPrefsArgs += "--verify-only"
+}
+& $Python @ActivityPrefsArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== Ensure XiaoYu private plugin through N.E.K.O package workflow =="
 $PrivatePluginEnsure = Join-Path $ToolsRoot "ensure_private_plugin.py"
 if (-not (Test-Path $PrivatePluginEnsure)) {
