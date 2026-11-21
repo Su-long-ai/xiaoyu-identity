@@ -2,7 +2,10 @@ param(
     [string]$MainUrl = "http://127.0.0.1:48911/",
     [string]$MemoryHealthUrl = "http://127.0.0.1:48912/health",
     [string]$AgentHealthUrl = "http://127.0.0.1:48915/health",
-    [string]$DesktopExe = "D:\xiaoyu_external_audit\neko-nightly-desktop\shell\N.E.K.O.exe"
+    [string]$DesktopExe = "D:\xiaoyu_external_audit\neko-nightly-desktop\shell\N.E.K.O.exe",
+    [string]$StorageRoot = "D:\xiaoyu_private_overlay_state\neko-sandbox",
+    [string]$NapCatDesktopExe = "C:\Program Files\NapCatQQ Desktop\NapCatQQ-Desktop.exe",
+    [switch]$SuppressNapCatNotice
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +24,69 @@ function Test-XiaoYuBackendReady {
     return (Test-Http200 $MainUrl) -and
            (Test-Http200 $MemoryHealthUrl) -and
            (Test-Http200 $AgentHealthUrl)
+}
+
+function Test-TcpEndpoint([string]$HostName, [int]$Port, [int]$TimeoutMs = 250) {
+    $client = $null
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $async = $client.BeginConnect($HostName, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) {
+            return $false
+        }
+        $client.EndConnect($async)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if ($client) { $client.Close() }
+    }
+}
+
+function Get-XiaoYuNapCatForwardTarget {
+    $configPath = Join-Path $StorageRoot "plugins\qq_auto_reply\data\business_config.json"
+    if (-not (Test-Path -LiteralPath $configPath)) { return $null }
+    try {
+        $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+    if ([string]$config.qq_connection_mode -ne "napcat_forward") { return $null }
+
+    $rawUrl = [string]$config.onebot_url
+    if (-not $rawUrl) { return $null }
+    try {
+        $uri = [Uri]$rawUrl
+    } catch {
+        return $null
+    }
+    if ($uri.Scheme -notin @("ws", "wss")) { return $null }
+    if ($uri.Host -notin @("127.0.0.1", "localhost", "::1")) {
+        # A remote OneBot runtime is not this launcher's process authority.
+        return $null
+    }
+    $port = if ($uri.Port -gt 0) { $uri.Port } elseif ($uri.Scheme -eq "wss") { 443 } else { 80 }
+    return [pscustomobject]@{
+        Host = $uri.Host
+        Port = [int]$port
+        ConfigPath = $configPath
+    }
+}
+
+function Ensure-XiaoYuNapCatForwardRuntime {
+    # Reuse the already-installed NapCat Desktop.  This launcher owns only
+    # process availability; QQ authentication remains NapCat's authority.
+    $target = Get-XiaoYuNapCatForwardTarget
+    if (-not $target) { return "not-configured" }
+    if (Test-TcpEndpoint $target.Host $target.Port) { return "ready" }
+
+    $existing = Get-Process -Name "NapCatQQ-Desktop" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($existing) { return "waiting-onebot" }
+    if (-not (Test-Path -LiteralPath $NapCatDesktopExe)) { return "desktop-missing" }
+
+    Start-Process -FilePath $NapCatDesktopExe -WorkingDirectory (Split-Path -Parent $NapCatDesktopExe) | Out-Null
+    return "started"
 }
 
 function Get-XiaoYuDesktopProcess {
@@ -53,6 +119,9 @@ function Ensure-XiaoYuDesktopGpuPreference {
         New-ItemProperty -Path $gpuPreferenceKey -Name $resolvedDesktop -Value $desiredPreference -PropertyType String -Force | Out-Null
     }
 }
+
+$NapCatRuntimeStatus = Ensure-XiaoYuNapCatForwardRuntime
+Write-Output ("XiaoYu NapCat forward runtime: {0}" -f $NapCatRuntimeStatus)
 
 if (-not (Test-XiaoYuBackendReady)) {
     Start-Process -FilePath "powershell.exe" -ArgumentList @(
@@ -112,6 +181,31 @@ if (-not (Get-XiaoYuDesktopProcess)) {
         0x10
     )
     exit 3
+}
+
+$NapCatTarget = Get-XiaoYuNapCatForwardTarget
+if ($NapCatTarget -and $NapCatRuntimeStatus -eq "started") {
+    # Give a freshly launched external runtime a short chance to restore a
+    # still-valid QQ session before deciding that user action is needed.
+    $napcatDeadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $napcatDeadline) {
+        if (Test-TcpEndpoint $NapCatTarget.Host $NapCatTarget.Port) { break }
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+if (
+    -not $SuppressNapCatNotice -and
+    $NapCatTarget -and
+    -not (Test-TcpEndpoint $NapCatTarget.Host $NapCatTarget.Port)
+) {
+    $wshell = New-Object -ComObject WScript.Shell
+    $null = $wshell.Popup(
+        "XiaoYu is running, but QQ is waiting for NapCat/QQ login. Open NapCatQQ Desktop and complete login once; OneBot will reconnect automatically.",
+        8,
+        "XiaoYu QQ needs login",
+        0x40
+    )
 }
 
 exit 0

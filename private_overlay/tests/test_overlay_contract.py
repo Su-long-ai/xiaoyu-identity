@@ -232,6 +232,35 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("disable-gpu", script)
 
 
+    def test_oneclick_reuses_native_napcat_forward_runtime_without_owning_login(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "Ensure-XiaoYuNapCatForwardRuntime",
+            "Get-XiaoYuNapCatForwardTarget",
+            "napcat_forward",
+            "business_config.json",
+            "NapCatQQ-Desktop.exe",
+            "Test-TcpEndpoint",
+            "waiting-onebot",
+            "desktop-missing",
+            "A remote OneBot runtime is not this launcher's process authority.",
+            "QQ authentication remains NapCat's authority",
+            "SuppressNapCatNotice",
+            "XiaoYu QQ needs login",
+            "AddSeconds(15)",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+
+        # The overlay launches the external authority but does not copy QQ auth
+        # or implement a second login/OneBot stack.
+        self.assertNotIn("/QQLogin/SetQuickLogin", script)
+        self.assertNotIn("/QQLogin/PasswordLogin", script)
+        self.assertNotIn("NapCatWinBootHook.dll", script)
+
+
     def test_shortcut_installer_is_relocatable_and_covers_product_entries(self):
         script = (ROOT / "tools" / "install_xiaoyu_shortcuts.ps1").read_text(
             encoding="utf-8-sig"

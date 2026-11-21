@@ -1,0 +1,46 @@
+{
+  "evidence_id": "2026-11-21-native-napcat-oneclick-reuse",
+  "date": "2026-11-21",
+  "verdict": "PASS_NATIVE_NAPCAT_AUTOSTART_REUSE_LOGIN_REAUTH_REQUIRED",
+  "scope": "XiaoYu one-click QQ transport lifecycle; no QQ credential ownership",
+  "native_authorities": {
+    "qq_plugin": "pinned N.E.K.O qq_auto_reply plugin",
+    "onebot_transport": "installed NapCatQQ Desktop 3.2.2",
+    "qq_authentication": "NapCat/QQ",
+    "overlay_role": "detect configured local napcat_forward endpoint, start existing NapCat Desktop only when needed, surface bounded login-required notice"
+  },
+  "live_evidence": {
+    "qq_connection_mode": "napcat_forward",
+    "onebot_endpoint": "ws://127.0.0.1:3001",
+    "napcat_install": "C:\\Program Files\\NapCatQQ Desktop\\NapCatQQ-Desktop.exe",
+    "napcat_hook_loaded": true,
+    "napcat_webui_port_6099_http_200": true,
+    "configured_ws_server_3001_enabled": true,
+    "oneclick_runtime_status": "waiting-onebot",
+    "duplicate_process_probe": "NapCatQQ-Desktop count 1 -> 1",
+    "current_qq_login_state": "expired; NapCat native SetQuickLogin returned login session expired / re-login required",
+    "port_3001_currently_ready": false
+  },
+  "implementation": {
+    "file": "private_overlay/tools/start_xiaoyu_oneclick.ps1",
+    "behavior": [
+      "Read existing qq_auto_reply business_config.json only.",
+      "Act only when qq_connection_mode=napcat_forward and the OneBot URL is loopback.",
+      "Do nothing when configured endpoint is already reachable.",
+      "Do not duplicate an existing NapCatQQ-Desktop process.",
+      "Start installed NapCatQQ-Desktop.exe when local OneBot is configured but the external runtime is absent.",
+      "Wait at most 15 seconds after a fresh NapCat launch before declaring OneBot unready.",
+      "Show an 8-second login-required notice when OneBot remains unavailable; -SuppressNapCatNotice disables the notice for tests/automation.",
+      "Never call QQLogin/PasswordLogin or QQLogin/SetQuickLogin from the overlay."
+    ]
+  },
+  "regression": {
+    "contract_test": "test_oneclick_reuses_native_napcat_forward_runtime_without_owning_login PASS",
+    "live_no_duplicate_probe": "PASS"
+  },
+  "blocker": {
+    "type": "USER_REAUTH_EXTERNAL_SESSION",
+    "detail": "The saved QQ quick-login session in NapCat is expired. A one-time login in NapCatQQ Desktop is required before OneBot port 3001 can become ready.",
+    "code_change_required": false
+  }
+}

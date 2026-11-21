@@ -112,10 +112,10 @@
     },
     {
       "id": "semantic_interaction_policy",
-      "goal": "explicit natural-language interaction controls become deterministic proactive, audible-speech, and autonomous-screen hard state while preserving N.E.K.O native authorities",
-      "status": "live_quiet_resume_speech_mute_restart_and_native_screen_privacy_roundtrip_pass",
-      "evidence": "evals/evidence/2026-11-20-natural-language-hard-controls-live.json",
-      "note": "Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; audible output uses the sixth managed N.E.K.O boundary patch. Private plugin 0.5.0 is live; the hard-control state survived the cutover, while retrospective activity now delegates to ActivityWatch instead of a private timeline."
+      "goal": "explicit natural-language interaction controls become deterministic whole-reply quiet/resume and autonomous-screen hard state while preserving N.E.K.O native authorities",
+      "status": "live_whole_reply_quiet_resume_restart_and_native_screen_privacy_roundtrip_pass",
+      "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json",
+      "note": "Private plugin 0.6.0 is live. Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; reply output now has one durable quiet authority before the UI/TTS split, so policy cannot intentionally publish text without its paired voice. Legacy speech_muted is compatibility-only and normalized false. Retrospective activity delegates to ActivityWatch instead of a private timeline."
     },
     {
       "id": "recent_activity_recall",
