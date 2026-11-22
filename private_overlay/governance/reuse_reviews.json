@@ -640,6 +640,35 @@
       ],
       "why_reuse_insufficient": "The candidate reuses N.E.K.O's existing SQLite ledger, durable outbox, host retry loop, and main transport. The missing product primitive is a durable distinction between transport handoff, main effect claim, uncertain visible effect, and confirmed completion. No native extension point currently supplies that distinction.",
       "acceptance_evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+    },
+    {
+      "id": "candidate:qq/live_inbound_idempotency.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The pinned QQ plugin persists recent message_ids for reconnect catch-up, but live OneBot receive schedules handler tasks before claiming the same stable message_id and starts the live receive loop before persisted recent_ids are loaded.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "QQMessageCatchupService persisted recent_ids",
+          "type": "external_pinned_native_asset",
+          "outcome": "selected as the single inbound idempotency authority; candidate reuses the existing persisted set for live and catch-up claims",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        {
+          "name": "Existing live handler/session locking",
+          "type": "external_pinned",
+          "outcome": "insufficient for duplicate suppression because duplicate events can each schedule a handler task before later serialization",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        {
+          "name": "New XiaoYu inbound database or transport proxy",
+          "type": "private_duplicate",
+          "outcome": "rejected; duplicates pinned QQ plugin transport/state authority",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        }
+      ],
+      "why_reuse_insufficient": "The candidate does not introduce new state. It reuses the pinned plugin's existing persisted recent_ids, but extends the claim boundary to the live receive path before create_task and orders persisted-state loading before the receive loop.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
     }
   ]
 }
