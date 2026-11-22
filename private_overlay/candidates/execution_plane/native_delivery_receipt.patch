@@ -861,7 +861,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                          logger.warning(
                              "[EventBus] render_chat_blocks failed; continuing delivery: %s",
                              e,
-@@ -1503,7 +1638,9 @@
+@@ -1503,8 +1638,10 @@
                      if delivered:
 +                        if isinstance(delivery_claim, _NekoClawDeliveryClaim):
 +                            await _settle_nekoclaw_delivery(delivery_claim, True)
