@@ -81,6 +81,7 @@ def main() -> int:
         "policy_layer_must_not_publish_directly",
         "native_delivery_remains_effect_authority",
         "surface_specific_interruptibility_is_allowed",
+        "plugin_visible_sinks_require_final_surface_admission",
     }
     if any(global_req.get(key) is not True for key in required_true):
         raise SystemExit("delivery floor global requirements were weakened")
@@ -120,6 +121,43 @@ def main() -> int:
         patch_name = adapter.removeprefix("patch:")
         if patch_name not in patch_files:
             raise SystemExit(f"declared delivery adapter missing: {patch_name}")
+
+    uncovered = delivery.get("blocked_uncovered_output_classes", {})
+    if uncovered:
+        raise SystemExit(
+            "delivery floor still has blocked/uncovered user-visible output classes: "
+            + ", ".join(sorted(uncovered))
+        )
+
+    managed = delivery.get("managed_extension_output_classes", {})
+    required_managed = {"desktop_notification", "plugin_triggered_output"}
+    if set(managed) != required_managed:
+        raise SystemExit("managed delivery extension output class inventory drifted")
+    for output_class in sorted(required_managed):
+        item = managed[output_class]
+        if item.get("coverage_status") != "MANAGED_EXTENSION_ACTIVE":
+            raise SystemExit(f"{output_class} managed delivery coverage is not active")
+        adapter = str(item.get("current_enforcement_adapter") or "")
+        if not adapter:
+            raise SystemExit(f"{output_class} managed delivery adapter missing")
+        evidence = str(item.get("evidence") or "")
+        if not evidence or not (ROOT / evidence).is_file():
+            raise SystemExit(f"{output_class} managed delivery evidence missing: {evidence}")
+        promotion = item.get("promotion_evidence") or {}
+        if (
+            promotion.get("conclusion") != "success"
+            or not promotion.get("run_id")
+            or not promotion.get("head_sha")
+        ):
+            raise SystemExit(f"{output_class} managed delivery promotion evidence is not green")
+        if not str(item.get("retirement_condition") or "").strip():
+            raise SystemExit(f"{output_class} managed delivery retirement condition missing")
+        if adapter.startswith("patch:"):
+            patch_name = adapter.removeprefix("patch:")
+            if patch_name not in patch_files:
+                raise SystemExit(
+                    f"{output_class} managed delivery patch missing: {patch_name}"
+                )
 
     qq_lock = json.loads((ROOT / "QQ_PLUGIN_UPSTREAM.lock.json").read_text(encoding="utf-8-sig"))
     if qq_lock.get("tested_commit") != "54acf36bf978edad4757e5fffc743c5618360700":

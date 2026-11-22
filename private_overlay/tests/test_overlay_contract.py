@@ -1186,8 +1186,36 @@ class OverlayContractTests(unittest.TestCase):
             "text_and_paired_tts_must_share_one_admission",
             "policy_layer_must_not_publish_directly",
             "native_delivery_remains_effect_authority",
+            "plugin_visible_sinks_require_final_surface_admission",
         ):
             self.assertTrue(requirements[key], key)
+
+        self.assertEqual(delivery["blocked_uncovered_output_classes"], {})
+        managed = delivery["managed_extension_output_classes"]
+        self.assertEqual(
+            set(managed),
+            {"desktop_notification", "plugin_triggered_output"},
+        )
+        patch_files = {path.name for path in (ROOT / "patches").glob("*.patch")}
+        for name, item in managed.items():
+            with self.subTest(managed_output_class=name):
+                self.assertEqual(
+                    item["coverage_status"],
+                    "MANAGED_EXTENSION_ACTIVE",
+                )
+                adapter = item["current_enforcement_adapter"]
+                self.assertTrue(adapter)
+                self.assertTrue((ROOT / item["evidence"]).is_file())
+                promotion = item["promotion_evidence"]
+                self.assertEqual(promotion["conclusion"], "success")
+                self.assertTrue(promotion["run_id"])
+                self.assertTrue(promotion["head_sha"])
+                self.assertTrue(item["retirement_condition"].strip())
+                if adapter.startswith("patch:"):
+                    self.assertIn(
+                        adapter.removeprefix("patch:"),
+                        patch_files,
+                    )
 
     def test_external_execution_contract_reuses_neko_native_authorities(self):
         execution = json.loads(

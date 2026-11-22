@@ -67,5 +67,20 @@
     "new_router": false,
     "new_dependency": false
   },
-  "retirement_condition": "Retire this overlay-specific invariant only when N.E.K.O exposes one native authoritative delivery-surface manifest that includes extension publications and the XiaoYu architecture gate can consume it directly without losing private final-admission semantics."
+  "retirement_condition": "Retire this overlay-specific invariant only when N.E.K.O exposes one native authoritative delivery-surface manifest that includes extension publications and the XiaoYu architecture gate can consume it directly without losing private final-admission semantics.",
+  "implementation_status": "STAGED_UNPUSHED_PENDING_MACHINE_GATE",
+  "implementation": {
+    "architecture_gate": "private_overlay/tools/check_architecture_freeze.py",
+    "regression_gate": "private_overlay/tests/test_overlay_contract.py",
+    "runtime_code_changed": false,
+    "managed_patch_changed": false,
+    "branch_ref_moved": false,
+    "checks": [
+      "plugin_visible_sinks_require_final_surface_admission must remain true",
+      "blocked_uncovered_output_classes must be empty for green architecture gate",
+      "managed extension inventory is explicit",
+      "each managed extension requires active coverage, adapter, evidence, green promotion evidence and retirement condition",
+      "patch-backed managed adapters must reference an existing managed patch"
+    ]
+  }
 }
