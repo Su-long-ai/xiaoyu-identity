@@ -29,6 +29,8 @@ Startup:
 
 The desired steady state is data + policy + conformance around N.E.K.O, not a second XiaoYu runtime.
 
+For long-running validation, `tools/companion_runtime_soak.py` is a read-only observer over the existing runtime. It samples the four local N.E.K.O service surfaces, host-declared auto-start plugin health, and optional process/RSS/CPU-time metrics without conversation text, credentials, window titles, restart/heal actions, or publication authority. It is an evidence tool, not another watchdog or runtime.
+
 ## Native identity/persona authority
 
 identity/persona.md is a data-only private identity seed, not a runtime persona database. Runtime persona authority remains N.E.K.O's native memory/XiaoYu/persona.json and its evidence/reflection/correction/archive machinery. migration/seed_native_persona.py defaults to verify-only, extracts only explicitly admitted identity/growth/non-goal bullets, and on --commit sends them through N.E.K.O's existing live external-memory persona fusion so token budgets, contradiction checks, CAS, atomic save and folded-fingerprint idempotence remain native. Engineering constraints and character-card-owned fields are not imported as persona facts.
