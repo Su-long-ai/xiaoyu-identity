@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "evidence_id": "XIAOYU_EXECUTION_EFFECT_STATE_CANDIDATE_20261123",
-  "recorded_at_local": "2026-11-23T01:02:00+08:00",
+  "recorded_at_local": "2026-11-23T02:58:00+08:00",
   "scope": "candidate-only durable delivery/effect handoff semantics on pinned N.E.K.O",
   "pinned_neko": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
   "product_gaps": [
@@ -16,10 +16,10 @@
     "external_queue_or_workflow_engine": "REJECTED_FOR_THIS_GAP; would duplicate the native commission/result authority rather than repair its effect boundary"
   },
   "candidate_semantics": {
-    "delivery_handoff": "transport accepted the durable outbox row; not yet a visible effect",
-    "delivery_claimed": "main process durably claimed the effect boundary; retry is no longer automatically safe",
-    "delivery_uncertain": "claim existed but no confirmed effect receipt survived; do not blindly retry",
-    "sent": "reserved for a confirmed completion path"
+    "delivery_handoff": "sender durably leases the exact outbox row before transport; native send_report still returns bool and receives only an immutable payload copy carrying private delivery identity",
+    "delivery_claimed": "main process durably claims the exact attempt before crossing the visible-effect boundary; retry is no longer automatically safe",
+    "delivery_uncertain": "a claim survived without a confirmed effect receipt, including main/agent restart ambiguity; automatic effect retry is fenced",
+    "sent": "exact positive receipt is terminal; replayed claim/release/failure cannot reopen it"
   },
   "candidate_status": {
     "live_product_patch": false,
@@ -34,36 +34,59 @@
       "full reuse/architecture/release gates"
     ],
     "product_main_machine_validation": {
-      "branch": "private/neko-overlay-v1",
-      "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
-      "workflow": "XiaoYu private overlay gate",
-      "run_id": 45051619743,
-      "job_id": 137297783624,
-      "conclusion": "success",
-      "fresh_neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
-      "verified": [
-        "fresh outbox rows enter sender",
-        "durable handoff lease and exact claim/release",
-        "main-process epoch freezes claimed effects as uncertain",
-        "restart retries pre-claim handoff but freezes claimed effects",
-        "late exact positive receipt can settle uncertain claim",
-        "ambiguous transport after durable handoff is not blindly retried",
-        "generic failure cannot overwrite handoff/claimed/uncertain state",
-        "unrecorded DeliveryHandoff is rejected"
-      ]
+      "superseded": true,
+      "note": "Superseded by latest_agent_machine_validation below; retained key only for schema/backward compatibility."
     },
     "promotion_allowed": false,
-    "promotion_note": "CI proof is candidate-only; live N.E.K.O managed patch series remains unchanged at 10 and promotion still requires explicit end-to-end release decision."
+    "promotion_note": "Candidate is promotion-ready on correctness evidence but not live: the frozen managed N.E.K.O patch budget is 10/10 and core-patch retirement audit v4 found zero honest full retirements. Do not create an 11th patch, hide it inside an unrelated patch, or relax architecture gates.",
+    "latest_agent_machine_validation": {
+      "branch": "agent/execution-plane-v1",
+      "commit": "89f49a39d8992568aab4bc9985c7ec90885564fc",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45062165409,
+      "job_id": 137330368175,
+      "conclusion": "success",
+      "product_main_base": "c4b165e13649d84db1abc5b6cb81f0e9b3ae2409",
+      "fresh_neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "ordinary_agent_push_gates": [
+        "product-main freshness",
+        "reuse-first",
+        "architecture freeze",
+        "plugin admission",
+        "overlay contract/compile",
+        "release evidence"
+      ],
+      "verified": [
+        "native SendReport Awaitable[bool] compatibility seam is preserved",
+        "only opted-in native NekoClaw delivery callback enters durable effect-receipt mode",
+        "durable handoff is written before transport and carries stable outbox delivery id plus attempt id without a second ledger/outbox",
+        "proven transport rejection exact-releases only the matching pre-effect handoff and preserves native retry/backoff",
+        "ambiguous transport exception/cancellation keeps handoff/claimed/uncertain fenced instead of synthesizing FAILED",
+        "pre-claim handoff lease is restart-retryable; claimed effect is converted to uncertain on restart",
+        "stale/no-effect release cannot reopen uncertain",
+        "exact positive late receipt can reconcile uncertain to sent",
+        "sent is terminal under replayed claim/release and late generic failure",
+        "legacy non-opted-in send callbacks keep the original bool delivery behavior",
+        "effect candidate applies exactly to fresh pinned N.E.K.O and its verifier passes"
+      ]
+    }
   },
   "current_targeted_tests": [
-    "tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery",
-    "tests/unit/nekoclaw/test_host_robustness.py::test_sender_refuses_an_unrecorded_effect_handoff",
-    "tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect"
+    "private_overlay/tools/verify_execution_effect_state_candidate.py",
+    "paired native regression: 508 cases, baseline_failures=14, patched_failures=14, fixed=0, introduced=0"
   ],
-  "conclusion": "KEEP_AS_CANDIDATE_GREEN_ON_PRODUCT_MAIN. Native NekoClaw ledger/outbox remain authority. The candidate chain passed the product branch machine gate on a fresh pinned N.E.K.O checkout, but remains non-live and must not become an 11th managed patch without explicit end-to-end promotion evidence.",
+  "conclusion": "KEEP_AS_CANDIDATE_FULL_GREEN. Native NekoClaw ledger/outbox remain sole authority. Latest agent push completed all product gates, effect verifier, real-ZMQ receipt chain, paired native regression and release evidence with zero introduced native failures; live promotion remains blocked only by the frozen 10/10 managed-patch budget.",
   "ci_verifier": {
     "tool": "tools/verify_execution_effect_state_candidate.py",
     "dependency_mode": "stdlib_plus_pinned_neko_ledger_outbox_only",
     "purpose": "exercise handoff, claim-token, restart-uncertain, exact late receipt, and unrecorded-handoff rejection without installing the full N.E.K.O runtime dependency graph"
+  },
+  "promotion_blocker": {
+    "code": "MANAGED_PATCH_BUDGET_10_OF_10",
+    "architecture_budget": 10,
+    "current_managed_patches": 10,
+    "retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v4.json",
+    "honest_full_retirements": 0,
+    "implication": "keep candidate non-live until upstream absorbs equivalent behavior or the main integrator makes an explicit architecture-budget decision"
   }
 }
