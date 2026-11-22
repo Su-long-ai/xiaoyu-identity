@@ -193,8 +193,9 @@ async def _verify_main_restart_epoch(root: Path) -> None:
     assert await to_b == "reconciled:2"
     assert await to_c == "reconciled:2"
     assert raced_ledger.calls == 2
-    assert raced._nekoclaw_main_epoch == "race-c"
-    assert raced._nekoclaw_retired_main_epochs >= {"race-a", "race-b"}
+    raced_globals = raced_observe.__globals__
+    assert raced_globals["_nekoclaw_main_epoch"] == "race-c"
+    assert raced_globals["_nekoclaw_retired_main_epochs"] >= {"race-a", "race-b"}
     assert await raced_observe("race-b") == "stale"
     assert raced_ledger.calls == 2
 

@@ -5,13 +5,13 @@
   "status": "STABLE",
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
-  "refreshed_at_local": "2026-11-23T03:14:00+08:00",
-  "basis_commit": "62f4cb9e546b79ca42cbcf6cdbadc229c93ff6a4",
+  "refreshed_at_local": "2026-11-23T03:20:00+08:00",
+  "basis_commit": "4434e5b11ed70f65296aac6cb5222ac54a9a9263",
   "basis_commit_verification": {
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45058502494,
+    "run_id": 45059768210,
     "conclusion": "success",
-    "note": "Last fully green product-main runtime/governance basis before this metadata refresh."
+    "note": "Fully green product-main basis including hierarchical reuse, race-safe agent freshness, release-manifest consistency, patched product-state regression, Execution/QQ candidates and release readiness."
   },
   "product_branch": "private/neko-overlay-v1",
   "no_open_release_blockers": true,
