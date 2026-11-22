@@ -40,15 +40,9 @@
     "tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect"
   ],
   "conclusion": "KEEP_AS_CANDIDATE. The native ledger/outbox remain authority. The candidate may prove missing effect-state semantics in CI, but must not become an 11th live managed patch until the end-to-end main-server receipt/reconciliation chain is closed.",
-  "ci_bootstrap": {
-    "runner": "python-3.11",
-    "packages": [
-      "pytest",
-      "pytest-asyncio",
-      "pytest-randomly",
-      "nest-asyncio",
-      "uvicorn"
-    ],
-    "policy": "honor pinned N.E.K.O pytest.ini deterministic seed; do not disable upstream plugins/config"
+  "ci_verifier": {
+    "tool": "tools/verify_execution_effect_state_candidate.py",
+    "dependency_mode": "stdlib_plus_pinned_neko_ledger_outbox_only",
+    "purpose": "exercise handoff, claim-token, restart-uncertain, exact late receipt, and unrecorded-handoff rejection without installing the full N.E.K.O runtime dependency graph"
   }
 }
