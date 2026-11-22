@@ -74,12 +74,10 @@ jobs:
 
       - name: Exercise effect-state candidate on fresh native pin
         run: |
-          git -C _neko_upstream apply --check ../private_overlay/candidates/execution_plane/outbox_effect_state.patch
-          git -C _neko_upstream apply ../private_overlay/candidates/execution_plane/outbox_effect_state.patch
-          python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py             _neko_upstream/tests/unit/nekoclaw/test_host_robustness.py
-          python -m pip install -q pytest pytest-asyncio nest-asyncio uvicorn pytest-randomly
-          cd _neko_upstream
-          python -m pytest -q             tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery             tests/unit/nekoclaw/test_host_robustness.py::test_sender_refuses_an_unrecorded_effect_handoff             tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/outbox_effect_state.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/outbox_effect_state.patch"
+          python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_upstream
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
@@ -93,6 +91,7 @@ jobs:
         run: |
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"
+          python -m pip install -q pytest
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" python -m pytest -q             _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py
 
       - name: Release evidence gate
