@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_QQ_SURFACE_PUSH_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T01:49:00+08:00",
+  "implementation_status": "REVIEWED_BEFORE_PRODUCT_MAIN_IMPLEMENTATION",
+  "observed_gap": {
+    "local_release_suite": "private_overlay/tools/run_checks.ps1",
+    "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "github_push_suite": "only narrow qq inbound-idempotency candidate currently executes",
+    "first_class_surface_at_risk": "QQ"
+  },
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_pin_is_latest": true,
+    "qq_current_pin": "54acf36bf978edad4757e5fffc743c5618360700",
+    "qq_latest_upstream": "54acf36bf978edad4757e5fffc743c5618360700",
+    "qq_pin_is_latest": true,
+    "native_extension_planes": [
+      "N.E.K.O Plugin SDK",
+      "PluginStore",
+      "native delivery"
+    ],
+    "existing_external_component": "qq_auto_reply",
+    "selected_ci": "existing private-overlay-gate.yml"
+  },
+  "upstream_ci_audit": {
+    "qq_verify_workflow": ".github/workflows/verify.yml",
+    "reusable_workflow": "Project-N-E-K-O/N.E.K.O/.github/workflows/plugin-market-verify.yml",
+    "behavior_tests_executed": false,
+    "observed_steps": [
+      "Ruff check",
+      "Sync plugin dependencies",
+      "Release check",
+      "Write Market evidence"
+    ]
+  },
+  "authoritative_tests": [
+    "test_qq_outbound_guard.py",
+    "test_group_send_safety.py",
+    "test_proactive_budget_integration.py",
+    "test_qq_proactive_initiative.py",
+    "test_qq_auto_reply_forward_client.py",
+    "test_qq_connection_status_refresh.py",
+    "test_qq_buffer_no_append_after_delivery.py",
+    "test_qq_buffer_send_time_floor.py",
+    "test_qq_runtime_transition_lock.py",
+    "test_qq_reply_buffer_switch.py"
+  ],
+  "implementation_constraints": {
+    "copy_existing_test_list": true,
+    "new_test_framework": false,
+    "new_runtime": false,
+    "new_qq_transport": false,
+    "no_desktop_quns_on_qq": true,
+    "fail_closed_ci": true
+  },
+  "retirement_condition": "Retire the overlay CI wiring when the pinned QQ upstream verification workflow itself executes an equivalent behavioral surface contract against the same N.E.K.O pin and XiaoYu can consume that result without duplicating the suite.",
+  "preimplementation_review": {
+    "branch": "agent/companion-runtime-v1",
+    "commit": "17f1c71145ab2afc81a15ad7cf785a6482d16262",
+    "workflow_run": 45051423084,
+    "conclusion": "success"
+  },
+  "behavior_probe": {
+    "branch": "agent/companion-runtime-v1",
+    "commit": "451dc09f2717408d6aed5eb555aa6da4e2dbca4d",
+    "workflow_run": 45052059880,
+    "surface_step": "Exercise pinned QQ delivery/floor surface regression",
+    "surface_step_conclusion": "success",
+    "result": "173 passed, 3 warnings",
+    "overall_run_conclusion": "failure",
+    "overall_run_failure_scope": "subsequent isolated inbound-idempotency test invoked global python without pytest; unrelated to the 173-test surface result"
+  },
+  "product_main_implementation": "pending_after_review_gate"
+}

@@ -753,6 +753,59 @@
       ],
       "why_reuse_insufficient": "The existing gate is the correct reusable enforcement plane, but its artifact inventory is narrower than the new hard rule. The residual change is limited to static repository classification plus review linkage inside the same script and JSON review registry; it adds no runtime process, daemon, state store, permission database or product dependency.",
       "acceptance_evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+    },
+    {
+      "id": "governance:qq-surface-push-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The pinned QQ surface already has the required delivery/floor/reconnect regression tests, but XiaoYu's agent/** GitHub push gate only executes the narrow inbound-idempotency candidate slice. The broader pinned QQ surface suite remains local-release-only, so ordinary cloud development can regress the first-class QQ surface while local operator access is unavailable.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; supplies the host Plugin SDK and is already checked out by the XiaoYu push gate",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second and resolves to the same c3fc33ff commit; no newer native CI seam is required",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / PluginStore / native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the runtime authority exercised by the existing QQ tests; no XiaoYu QQ runtime is introduced",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "Pinned qq_auto_reply 54acf36bf978edad4757e5fffc743c5618360700",
+          "type": "external_pinned",
+          "outcome": "selected; this is also current upstream main and already contains the exact XiaoYu release test files",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "qq_auto_reply upstream Verify N.E.K.O Plugin workflow",
+          "type": "external_native_ci",
+          "outcome": "reused for package/release validation but insufficient for XiaoYu because it performs Ruff, dependency sync and plugin release check without executing the surface behavior tests",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing private_overlay/tools/run_checks.ps1 QQ delivery/floor regression list",
+          "type": "existing_governance",
+          "outcome": "selected as the single authoritative test list; GitHub should invoke the same files rather than inventing a second suite",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing private-overlay-gate.yml pinned N.E.K.O + QQ checkouts and pytest runner",
+          "type": "native_ci",
+          "outcome": "selected as the execution plane; extend the existing job instead of creating another workflow or test framework",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "All runtime and test capabilities already exist. The only residual gap is CI wiring: the existing push gate must execute the already-frozen QQ surface regression files against the existing pinned N.E.K.O and QQ checkouts. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
     }
   ]
 }
