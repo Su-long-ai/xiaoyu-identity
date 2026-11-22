@@ -1,0 +1,27 @@
+{
+  "evidence_id": "2026-11-23-native-runtime-health-self-heal",
+  "scope": "bounded one-click N.E.K.O runtime health and single repair",
+  "authority": "N.E.K.O host HTTP APIs and existing reconcile_neko_plugin_runtime.reconcile",
+  "acceptance": {
+    "healthy_path_read_only": true,
+    "missing_plugin_reconcile_calls": 1,
+    "reprobe_after_repair": true,
+    "agent_master_analyzer_computer_browser_must_remain_disabled": true,
+    "daemon_added": false
+  },
+  "healthy_path_timing": {
+    "measurement": "mocked local unit path",
+    "observed_ms": 0.0,
+    "upper_bound_ms": 250,
+    "test": "test_healthy_path_is_read_only_fast_and_does_not_reconcile",
+    "measured_at": "2026-11-23T00:20:00+08:00"
+  },
+  "verification": {
+    "focused_tests": "30 passed (runtime health + reconcile + overlay contract)",
+    "full_overlay_unit_tests": "118 passed",
+    "compileall": "PASS",
+    "reuse_first": "PASS",
+    "architecture_freeze": "PASS",
+    "full_run_checks": "BLOCKED only by pre-existing unmanaged change in external N.E.K.O checkout: main_routers/agent_router.py"
+  }
+}

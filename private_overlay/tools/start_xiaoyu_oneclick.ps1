@@ -2,6 +2,7 @@ param(
     [string]$MainUrl = "http://127.0.0.1:48911/",
     [string]$MemoryHealthUrl = "http://127.0.0.1:48912/health",
     [string]$AgentHealthUrl = "http://127.0.0.1:48915/health",
+    [string]$Python = "python",
     [string]$DesktopExe = "D:\xiaoyu_external_audit\neko-nightly-desktop\shell\N.E.K.O.exe",
     [string]$StorageRoot = "D:\xiaoyu_private_overlay_state\neko-sandbox",
     [string]$NapCatDesktopExe = "C:\Program Files\NapCatQQ Desktop\NapCatQQ-Desktop.exe",
@@ -147,6 +148,27 @@ if (-not (Test-XiaoYuBackendReady)) {
         0x10
     )
     exit 1
+}
+
+# Run one bounded read-only-first native runtime check after all backend
+# services are reachable and before exposing the desktop UI. It repairs only
+# missing host-declared autostart plugins, once, through N.E.K.O's HTTP APIs.
+$RuntimeHealthProbe = Join-Path $PSScriptRoot "probe_neko_runtime_health.py"
+$RuntimeHealthResult = Join-Path $StorageRoot "runtime-health\latest.json"
+& $Python $RuntimeHealthProbe `
+    --main-health-url ($MainUrl.TrimEnd('/') + "/health") `
+    --memory-health-url $MemoryHealthUrl `
+    --agent-health-url $AgentHealthUrl `
+    --result-path $RuntimeHealthResult
+if ($LASTEXITCODE -ne 0) {
+    $wshell = New-Object -ComObject WScript.Shell
+    $null = $wshell.Popup(
+        "XiaoYu backend is reachable, but the native runtime health/self-heal check failed. See $RuntimeHealthResult.",
+        0,
+        "XiaoYu runtime health failed",
+        0x10
+    )
+    exit 4
 }
 
 if (-not (Test-Path -LiteralPath $DesktopExe)) {
