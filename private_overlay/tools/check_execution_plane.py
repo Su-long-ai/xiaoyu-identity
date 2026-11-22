@@ -86,6 +86,52 @@ SOURCE_CONTRACTS: dict[str, tuple[str, tuple[str, ...]]] = {
             "builtin",
         ),
     ),
+    "agent_master_native_preflight_switches": (
+        "app/agent_server/api_runtime.py",
+        (
+            "def _check_agent_api_gate()",
+            "async def _console_switches()",
+            '"gate": _agent_server_facade._check_agent_api_gate()',
+            '"capabilities": dict(Modules.capability_cache or {})',
+        ),
+    ),
+    "agent_master_native_runtime_permissions": (
+        "app/agent_server/api_console.py",
+        (
+            '@router.get("/switches")',
+            '@router.get("/runtime")',
+            '@router.get("/permissions")',
+            '@router.post("/runtime/dsh/install")',
+        ),
+    ),
+    "agent_master_restart_intent_reuses_native_enable_paths": (
+        "app/agent_runtime_intent.py",
+        (
+            "INTENT_KEYS:",
+            "def set_intent(",
+            "def load_intent(",
+            "set_agent_enabled",
+            "set_agent_flags",
+        ),
+    ),
+    "agent_master_power_routes_through_main": (
+        "plugin/server/routes/console_proxy.py",
+        (
+            '@router.post("/switch"',
+            '"command": "set_agent_enabled"',
+            'f"{_main_base()}/api/agent/command"',
+            '"switch_failed"',
+        ),
+    ),
+    "agent_master_failure_reason_is_user_visible": (
+        "frontend/plugin-manager/src/components/power/home/PowerBar.vue",
+        (
+            "await setPower(enabled)",
+            "flipError.value = describeConsoleError(failure, t, te)",
+            "now.gate?.ready !== false",
+            "now.gate.reasons",
+        ),
+    ),
 }
 
 def _read(path: Path) -> str:
