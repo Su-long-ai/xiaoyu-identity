@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,143 @@ def _git_head(path: Path) -> str:
     except Exception as exc:
         raise RuntimeError(f"cannot read git HEAD for {path}: {exc}") from exc
     return proc.stdout.strip()
+
+
+def _manifest(path: Path) -> dict[str, Any]:
+    manifest_path = path / "plugin.toml"
+    if not manifest_path.is_file():
+        raise RuntimeError(f"admitted plugin manifest missing: {manifest_path}")
+    try:
+        data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"cannot parse plugin manifest {manifest_path}: {exc}") from exc
+    plugin = data.get("plugin")
+    if not isinstance(plugin, dict):
+        raise RuntimeError(f"plugin manifest lacks [plugin]: {manifest_path}")
+    return plugin
+
+
+def _dict_list(value: Any, label: str) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise RuntimeError(f"malformed {label}")
+    return value
+
+
+def _string_set(value: Any, label: str) -> set[str]:
+    if value is None:
+        return set()
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise RuntimeError(f"malformed {label}")
+    return set(value)
+
+
+def _dependency_key(item: dict[str, Any]) -> str:
+    try:
+        return json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"malformed plugin.dependency: {exc}") from exc
+
+
+def validate_manifest_allowance(
+    plugin_id: str,
+    manifest: dict[str, Any],
+    allowance: dict[str, Any],
+) -> None:
+    if not isinstance(allowance, dict):
+        raise RuntimeError(f"missing reviewed manifest allowance: {plugin_id}")
+    for field in ("entry", "type"):
+        if manifest.get(field) != allowance.get(field):
+            raise RuntimeError(f"{plugin_id} manifest {field} drifted beyond reviewed allowance")
+
+    current_dependencies = {
+        _dependency_key(item)
+        for item in _dict_list(manifest.get("dependency"), "plugin.dependency")
+    }
+    allowed_dependencies = {
+        _dependency_key(item)
+        for item in _dict_list(allowance.get("dependency"), "reviewed plugin.dependency")
+    }
+    if not current_dependencies <= allowed_dependencies:
+        raise RuntimeError(f"{plugin_id} dependency expansion beyond reviewed allowance")
+
+    current_models = manifest.get("models") or {}
+    allowed_models = allowance.get("models") or {}
+    if not isinstance(current_models, dict) or not isinstance(allowed_models, dict):
+        raise RuntimeError(f"malformed plugin.models allowance: {plugin_id}")
+    if not set(current_models) <= set(allowed_models):
+        raise RuntimeError(f"{plugin_id} model capability expansion beyond reviewed allowance")
+    for model_id, model in current_models.items():
+        if not isinstance(model, dict) or not isinstance(allowed_models[model_id], dict):
+            raise RuntimeError(f"malformed plugin.models.{model_id}: {plugin_id}")
+        capabilities = _string_set(
+            model.get("capabilities"), f"plugin.models.{model_id}.capabilities"
+        )
+        allowed = _string_set(
+            allowed_models[model_id].get("capabilities"),
+            f"reviewed plugin.models.{model_id}.capabilities",
+        )
+        if not capabilities <= allowed:
+            raise RuntimeError(f"{plugin_id} model capability expansion beyond reviewed allowance")
+
+    current_ui = manifest.get("ui") or {}
+    allowed_ui = allowance.get("ui") or {}
+    if not isinstance(current_ui, dict) or not isinstance(allowed_ui, dict):
+        raise RuntimeError(f"malformed plugin.ui allowance: {plugin_id}")
+    if current_ui.get("enabled") is True and allowed_ui.get("enabled") is not True:
+        raise RuntimeError(f"{plugin_id} UI expansion beyond reviewed allowance")
+    surface_kinds = {
+        key for key, value in current_ui.items() if isinstance(value, list)
+    } | {
+        key for key, value in allowed_ui.items() if isinstance(value, list)
+    }
+    for surface_kind in sorted(surface_kinds):
+        current_surfaces = _dict_list(
+            current_ui.get(surface_kind), f"plugin.ui.{surface_kind}"
+        )
+        allowed_surfaces = _dict_list(
+            allowed_ui.get(surface_kind), f"reviewed plugin.ui.{surface_kind}"
+        )
+        allowed_by_identity = {
+            (item.get("id"), item.get("entry"), item.get("context")): item
+            for item in allowed_surfaces
+        }
+        for surface in current_surfaces:
+            identity = (surface.get("id"), surface.get("entry"), surface.get("context"))
+            reviewed = allowed_by_identity.get(identity)
+            if reviewed is None:
+                raise RuntimeError(f"{plugin_id} UI surface expansion beyond reviewed allowance")
+            permissions = _string_set(surface.get("permissions"), "plugin.ui permissions")
+            allowed_permissions = _string_set(
+                reviewed.get("permissions"), "reviewed plugin.ui permissions"
+            )
+            if not permissions <= allowed_permissions:
+                raise RuntimeError(f"{plugin_id} UI permission expansion beyond reviewed allowance")
+
+    # N.E.K.O declares host-managed actions under [plugin.install.kinds]. Compare
+    # the real kind names only when present; do not synthesize private grants.
+    current_install = manifest.get("install") or {}
+    allowed_install = allowance.get("install") or {}
+    if not isinstance(current_install, dict) or not isinstance(allowed_install, dict):
+        raise RuntimeError(f"malformed plugin.install allowance: {plugin_id}")
+    current_kinds = current_install.get("kinds") or {}
+    allowed_kinds = allowed_install.get("kinds") or {}
+    if not isinstance(current_kinds, dict) or not isinstance(allowed_kinds, dict):
+        raise RuntimeError(f"malformed plugin.install.kinds allowance: {plugin_id}")
+    if not set(current_kinds) <= set(allowed_kinds):
+        raise RuntimeError(f"{plugin_id} install kind expansion beyond reviewed allowance")
+
+
+def validate_active_manifests(
+    policy: dict[str, Any], active: set[str], neko_root: Path
+) -> None:
+    entries = policy.get("admitted_autostart_plugins") or {}
+    for plugin_id in sorted(active):
+        item = entries[plugin_id]
+        base = ROOT if item.get("provenance") == "private_reviewed" else neko_root
+        plugin = _manifest(base / str(item.get("source") or ""))
+        validate_manifest_allowance(plugin_id, plugin, item.get("reviewed_manifest"))
 
 
 def validate_provenance(policy: dict[str, Any], neko_root: Path) -> None:
@@ -140,6 +278,7 @@ def main() -> int:
     pending_path = config_root / "plugin_autostart_pending.json"
     pending = _load(pending_path) if pending_path.is_file() else {"pending": []}
     active = validate_state(policy, overrides, pending)
+    validate_active_manifests(policy, active, neko_root)
 
     print(
         "PASS: plugin autostart admission "

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import unittest
@@ -51,6 +52,10 @@ class PluginAdmissionTests(unittest.TestCase):
         self.assertEqual(admitted["web_search"]["provenance"], "neko_native")
         self.assertEqual(admitted["qq_auto_reply"]["provenance"], "pinned_external")
         self.assertEqual(
+            admitted["qq_auto_reply"]["tested_commit"],
+            "54acf36bf978edad4757e5fffc743c5618360700",
+        )
+        self.assertEqual(
             admitted["xiaoyu_interaction_policy"]["provenance"],
             "private_reviewed",
         )
@@ -85,6 +90,51 @@ class PluginAdmissionTests(unittest.TestCase):
                 {"qq_auto_reply": {"enabled": True, "auto_start": True}},
                 {"pending": ["qq_auto_reply"]},
             )
+
+    def test_current_reviewed_manifests_pass(self):
+        neko_root = Path(r"D:\xiaoyu_external_audit\N.E.K.O")
+        if not neko_root.is_dir():
+            self.skipTest("local N.E.K.O checkout is unavailable")
+        checker.validate_active_manifests(
+            self.policy,
+            set(self.policy["admitted_autostart_plugins"]),
+            neko_root,
+        )
+
+    def test_ui_permission_expansion_fails(self):
+        allowance = self.policy["admitted_autostart_plugins"]["qq_auto_reply"][
+            "reviewed_manifest"
+        ]
+        manifest = copy.deepcopy(allowance)
+        manifest["ui"]["panel"][0]["permissions"].append("filesystem:write")
+        with self.assertRaisesRegex(RuntimeError, "UI permission expansion"):
+            checker.validate_manifest_allowance("qq_auto_reply", manifest, allowance)
+
+    def test_dependency_expansion_fails(self):
+        allowance = self.policy["admitted_autostart_plugins"][
+            "xiaoyu_interaction_policy"
+        ]["reviewed_manifest"]
+        manifest = copy.deepcopy(allowance)
+        manifest["dependency"].append({"id": "surprise_plugin", "untested": ">=0"})
+        with self.assertRaisesRegex(RuntimeError, "dependency expansion"):
+            checker.validate_manifest_allowance("xiaoyu_interaction_policy", manifest, allowance)
+
+    def test_model_capability_expansion_fails(self):
+        allowance = self.policy["admitted_autostart_plugins"][
+            "xiaoyu_interaction_policy"
+        ]["reviewed_manifest"]
+        manifest = copy.deepcopy(allowance)
+        manifest["models"]["interaction_classifier"]["capabilities"].append("vision")
+        with self.assertRaisesRegex(RuntimeError, "model capability expansion"):
+            checker.validate_manifest_allowance("xiaoyu_interaction_policy", manifest, allowance)
+
+    def test_manual_only_manifest_drift_is_unaffected(self):
+        active = checker.validate_state(
+            self.policy,
+            {"qq_auto_reply": {"enabled": True, "auto_start": False}},
+            {"pending": []},
+        )
+        self.assertEqual(active, set())
 
 
 if __name__ == "__main__":

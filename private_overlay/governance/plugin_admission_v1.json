@@ -13,11 +13,25 @@
     "proactive_controller": {
       "provenance": "neko_native",
       "source": "plugin/plugins/proactive_controller",
+      "reviewed_manifest": {
+        "entry": "plugin.plugins.proactive_controller:ProactiveControllerPlugin",
+        "type": null,
+        "dependency": [],
+        "models": {},
+        "ui": {}
+      },
       "rationale": "N.E.K.O native proactive execution authority"
     },
     "web_search": {
       "provenance": "neko_native",
       "source": "plugin/plugins/web_search",
+      "reviewed_manifest": {
+        "entry": "plugin.plugins.web_search:WebSearchPlugin",
+        "type": null,
+        "dependency": [],
+        "models": {},
+        "ui": {}
+      },
       "rationale": "N.E.K.O native bundled search plugin"
     },
     "qq_auto_reply": {
@@ -25,12 +39,50 @@
       "source": "plugin/plugins/qq_auto_reply",
       "lock": "QQ_PLUGIN_UPSTREAM.lock.json",
       "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+      "reviewed_manifest": {
+        "entry": "plugin.plugins.qq_auto_reply:QQAutoReplyPlugin",
+        "type": "plugin",
+        "dependency": [],
+        "models": {},
+        "ui": {
+          "enabled": true,
+          "panel": [
+            {
+              "id": "main",
+              "entry": "static/index.html",
+              "context": "qq_auto_reply",
+              "permissions": [
+                "state:read",
+                "action:call"
+              ]
+            }
+          ]
+        }
+      },
       "rationale": "Pinned external QQ surface reused through N.E.K.O plugin lifecycle"
     },
     "xiaoyu_interaction_policy": {
       "provenance": "private_reviewed",
       "source": "plugins/xiaoyu_interaction_policy",
       "reuse_review_id": "plugin:xiaoyu_interaction_policy",
+      "reviewed_manifest": {
+        "entry": "plugin.plugins.xiaoyu_interaction_policy:XiaoYuInteractionPolicyPlugin",
+        "type": "plugin",
+        "dependency": [
+          {
+            "id": "proactive_controller",
+            "untested": ">=0"
+          }
+        ],
+        "models": {
+          "interaction_classifier": {
+            "capabilities": [
+              "text"
+            ]
+          }
+        },
+        "ui": {}
+      },
       "rationale": "Only admitted private runtime policy adapter"
     }
   },
@@ -38,6 +90,8 @@
     "any_enabled_autostart_plugin_must_be_admitted": true,
     "autostart_pending_is_not_started": true,
     "unknown_or_unreviewed_autostart_fails_closed": true,
+    "autostart_manifest_authority_expansion_fails_closed": true,
+    "autostart_manifest_authority_reduction_is_allowed": true,
     "disabled_or_manual_only_plugin_does_not_require_autostart_admission": true
   }
 }

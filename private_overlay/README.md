@@ -82,6 +82,8 @@ This freeze does not enable Agent master or install dsh. Runtime activation rema
 
 `governance/plugin_admission_v1.json` controls only which plugins may become implicit XiaoYu runtime residents. `tools/check_plugin_admission.py` fails closed when an enabled + auto-start plugin is not in the reviewed admission set, and it verifies the pinned QQ checkout against its lock. Native N.E.K.O plugins and the reviewed private interaction-policy plugin keep their existing host lifecycle; no XiaoYu plugin host or permission database is introduced.
 
+For admitted auto-start residents, the same gate parses the current `plugin.toml` and rejects entry/type drift or expansion of reviewed dependencies, model capabilities, UI surfaces/permissions, and declared install kinds. Capability reductions remain valid, and disabled/manual-only plugins remain unrestricted by this auto-start gate. This is admission drift control, not malicious-plugin sandboxing.
+
 This is deliberately **not** a malicious-plugin sandbox. N.E.K.O capability grants and process boundaries remain host-owned, and explicit owner-started/manual-only plugins stay outside this auto-start policy. The admission gate prevents a newly installed third-party plugin from silently becoming a permanent XiaoYu resident; finer-grained hostile-plugin isolation should be reused from a future native N.E.K.O capability boundary rather than emulated in the overlay.
 
 ## Reuse-first gate

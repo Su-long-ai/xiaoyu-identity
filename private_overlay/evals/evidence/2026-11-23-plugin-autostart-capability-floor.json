@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-23",
+  "subject": "plugin autostart least-privilege capability floor",
+  "scope": "admitted enabled and auto-start N.E.K.O plugins only",
+  "result": "pass_with_unrelated_overlay_blocker",
+  "controls": [
+    "exact plugin entry and type identity",
+    "no reviewed dependency expansion",
+    "no reviewed model slot or capability expansion",
+    "no reviewed UI surface or permission expansion",
+    "no reviewed install-kind expansion when declared"
+  ],
+  "reductions_allowed": true,
+  "manual_or_disabled_out_of_scope": true,
+  "security_limitation": "Admission drift control only; this is not malicious-plugin sandboxing.",
+  "qq_auto_reply_tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+  "verification": {
+    "focused_tests": {
+      "command": "python -m unittest private_overlay.tests.test_plugin_admission -v",
+      "result": "PASS (10 tests)"
+    },
+    "admission_check": {
+      "command": "python private_overlay/tools/check_plugin_admission.py --neko-root D:/xiaoyu_external_audit/N.E.K.O --storage-root D:/xiaoyu_private_overlay_state/neko-sandbox",
+      "result": "PASS (4 active reviewed plugins)"
+    },
+    "overlay_checks": {
+      "results": [
+        "PASS: 23 overlay contract tests",
+        "PASS: compileall for changed checker and tests",
+        "PASS: reuse-first gate",
+        "PASS: architecture/delivery/execution contracts",
+        "BLOCKED: check_overlay.py found pre-existing unmanaged external N.E.K.O change main_routers/agent_router.py"
+      ]
+    }
+  }
+}
