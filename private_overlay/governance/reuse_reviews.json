@@ -2345,6 +2345,73 @@
       },
       "retirement_condition": "Re-evaluate this blocker when the pinned N.E.K.O version exposes host-derived plugin PID/exitcode through an existing supported native read surface or another already-admitted component becomes the process-identity authority.",
       "promotion_policy": "BLOCKED_NATIVE_PID_SURFACE_NO_IMPLEMENTATION"
+    },
+    {
+      "id": "governance:managed-patch-product-regression-coverage-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A managed N.E.K.O patch can carry regression tests in its diff while the XiaoYu patched-product cloud gate or local release gate forgets to execute any test from that touched file, allowing product acceptance to drift away from the patch itself.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Existing managed patch series + patch diff test headers",
+          "type": "private_existing_authority",
+          "outcome": "selected as the only patch membership and patch-to-test source; no second registry",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        {
+          "name": "Existing overlay contract test suite",
+          "type": "existing_machine_gate",
+          "outcome": "selected for the invariant because it already gates workflow/release wiring on ordinary agent pushes",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        {
+          "name": "pytest / Node / GitHub Actions",
+          "type": "existing_external",
+          "outcome": "retained only as execution mechanisms; no new test framework",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing assets contain all required truth, but there was no machine relationship requiring a managed patch's touched test file to remain represented in both product acceptance paths. The residual work is one static invariant in the existing overlay contract.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "series.json remains the managed-patch membership authority; patch diff headers remain the source of touched test files.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin owns underlying regression behavior but does not know XiaoYu private patch/product-gate wiring.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3 and supplies no replacement private-overlay patch acceptance manifest.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing pytest/Node/GitHub Actions are sufficient execution surfaces and are retained.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external CI/coverage product can infer this private patch-to-gate contract without duplicating project metadata; no new dependency selected.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: a file-level invariant inside existing test_overlay_contract.py, scoped to existing cloud/local product acceptance segments.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Reject new tool/manifest/daemon/store/router/test framework. No runtime code is introduced.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this invariant when managed patches disappear or N.E.K.O/private overlay gains one native authoritative patch-to-acceptance manifest that both cloud and local release gates consume directly."
     }
   ],
   "hierarchy_policy": {

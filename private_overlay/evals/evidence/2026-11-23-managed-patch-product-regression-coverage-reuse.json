@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "evidence_id": "2026-11-23-managed-patch-product-regression-coverage-reuse",
+  "reviewed_at": "2026-11-23",
+  "problem": "A managed N.E.K.O patch can carry regression tests in its diff while the XiaoYu patched-product cloud gate or local release gate forgets to execute any test from that touched file, allowing product acceptance to drift away from the patch itself.",
+  "verdict": "SELECT_EXISTING_OVERLAY_CONTRACT_FILE_LEVEL_COVERAGE_INVARIANT",
+  "authority": {
+    "product_patch_manifest": "private_overlay/patches/series.json",
+    "managed_patch_bodies": "private_overlay/patches/*.patch",
+    "cloud_product_acceptance": ".github/workflows/private-overlay-gate.yml / Exercise patched companion switch/audio ownership regression",
+    "local_release_acceptance": "private_overlay/tools/run_checks.ps1 / XiaoYu native companion switch/audio ownership regression",
+    "machine_contract": "private_overlay/tests/test_overlay_contract.py"
+  },
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "result": "N.E.K.O provides the underlying tests, but cannot know XiaoYu's private managed-patch series or which private product gates must replay them."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream main equals current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5; no private-overlay patch/test manifest integration exists."
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / PluginStore / NekoClaw / MCP / native delivery",
+      "checked": true,
+      "result": "Not an execution-plane extension problem; these surfaces must not become a second test registry."
+    },
+    {
+      "layer": "current pinned external components",
+      "checked": true,
+      "result": "Existing pytest, Node test runner and GitHub Actions remain execution mechanisms; no new test framework or CI service is needed."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "Generic coverage/CI tooling cannot infer the semantic relationship between XiaoYu's private patch series and the two product acceptance segments without an explicit local manifest rule."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Reuse series.json, patch diff headers and the existing overlay contract test file. Enforce only that every test file touched by a managed patch is represented in both cloud patched-product and local release segments; targeted node IDs remain allowed."
+    },
+    {
+      "layer": "managed patch / private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "Reject a new tool, test registry, daemon, state store, router, workflow framework or patch metadata database."
+    }
+  ],
+  "acceptance_contract": {
+    "scope": "file-level presence, not full-file execution",
+    "cloud_segment_start": "Exercise patched companion switch/audio ownership regression",
+    "cloud_segment_end": "Verify pinned native Execution Plane seams",
+    "local_segment_start": "XiaoYu native companion switch/audio ownership regression",
+    "local_segment_end": "XiaoYu native execution-plane regression",
+    "extraction": "For each patch named by series.json, parse diff headers matching tests/** and require each touched test basename in both acceptance segments.",
+    "zero_test_patch_policy": "A managed patch that touches no tests is not fabricated into coverage; existing patch evidence/reuse gates remain responsible for its acceptance record.",
+    "targeted_test_policy": "A basename may be represented by a targeted pytest node ID; the invariant deliberately does not force complete upstream test files into every push."
+  },
+  "observed_matrix": {
+    "managed_patch_count": 10,
+    "patches_with_touched_tests": 9,
+    "cloud_missing_test_files": 0,
+    "local_release_missing_test_files": 0,
+    "note": "Matrix evaluated on the staged Companion Runtime chain ending at 7fabc9b7; branch ref is intentionally not moved while GitHub hosted jobs fail before runner steps start."
+  },
+  "rejected": [
+    "new CI framework",
+    "new test manifest duplicating series.json",
+    "new daemon/watchdog",
+    "new state store/router",
+    "requiring every upstream test file in full on ordinary push"
+  ],
+  "retirement_condition": "Retire this invariant when managed patches disappear or N.E.K.O/private overlay gains one native authoritative patch-to-acceptance manifest that both cloud and local release gates consume directly.",
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  }
+}
