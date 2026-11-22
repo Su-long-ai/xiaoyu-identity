@@ -24,7 +24,10 @@ async def _verify(neko_root: Path) -> None:
         ledger = Ledger(path)
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "done"})
 
+        send_calls: list[int] = []
+
         async def send(item):
+            send_calls.append(item.id)
             assert await ledger.outbox_mark_handoff(item.id, "attempt-a")
             inside = await ledger.outbox_delivery_state(item.id)
             assert inside == "handoff", ("inside-send", inside)
@@ -32,6 +35,7 @@ async def _verify(neko_root: Path) -> None:
 
         sender = OutboxSender(ledger, send)
         assert await sender.flush() == 0
+        assert send_calls == [item_id], send_calls
         state = await ledger.outbox_delivery_state(item_id)
         debug_rows = await ledger.outbox_pending(due_by=2**62)
         debug = [(row.id, row.attempts, row.last_error, row.next_attempt_at) for row in debug_rows]
