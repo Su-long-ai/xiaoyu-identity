@@ -94,7 +94,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
  
      async def outbox_question_state(self, item_id: int) -> str:
          """Say whether an unsent question may still go out, read in one transaction.
-@@ -3778,21 +3798,144 @@
+@@ -3778,20 +3798,154 @@
          """Remove an unsent report that is out of date."""
          await self.run(lambda conn: conn.execute("DELETE FROM outbox WHERE id = ? AND sent_at IS NULL", (item_id,)))
  
@@ -206,6 +206,17 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +            return "released"
 +        return await self.run(work)
 +
++    async def outbox_mark_main_restart_uncertain(self) -> int:
++        """Freeze in-flight main claims after a proven main-process epoch change."""
++        def work(conn: sqlite3.Connection) -> int:
++            cursor = conn.execute(
++                "UPDATE outbox SET last_error = REPLACE(last_error, ?, ?) "
++                "WHERE sent_at IS NULL AND last_error LIKE ?",
++                (_OUTBOX_DELIVERY_CLAIMED, _OUTBOX_DELIVERY_UNCERTAIN, _OUTBOX_DELIVERY_CLAIMED + "%"),
++            )
++            return max(0, int(cursor.rowcount or 0))
++        return await self.run(work)
++
 +    async def outbox_mark_sent(self, item_id: int) -> None:
 +        await self.run(
 +            lambda conn: conn.execute(
@@ -247,7 +258,6 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
              )
              and None
          )
- 
 diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 --- a/nekoclaw/host/outbox.py
 +++ b/nekoclaw/host/outbox.py
