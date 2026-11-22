@@ -102,6 +102,15 @@ if (-not $StartupPreflight) {
         Pop-Location
     }
     if ($CompanionNodeExit -ne 0) { exit $CompanionNodeExit }
+
+    Write-Host "== XiaoYu native execution-plane regression =="
+    $ExecutionEvidence = Join-Path $OverlayRoot "evals\evidence\latest-execution-plane.json"
+    & $NekoPython (Join-Path $OverlayRoot "tools\check_execution_plane.py") `
+        --neko-root $NekoRoot `
+        --python $NekoPython `
+        --full `
+        --json-out $ExecutionEvidence
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 Write-Host "== XiaoYu reuse-first admission gate =="
