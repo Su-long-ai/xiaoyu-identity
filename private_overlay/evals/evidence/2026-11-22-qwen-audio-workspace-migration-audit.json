@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:03:00+08:00",
+  "scope": "managed patch 0008 Qwen bundle reuse audit",
+  "candidate": {
+    "name": "DashScope 1.27.7 HttpSpeechSynthesizer",
+    "goal": "replace XiaoYu-authored Qwen-Audio HTTP request construction/response parsing while preserving paired Qwen-Audio + Omni clone bundle semantics",
+    "unit_verification": "25/25 Qwen bundle PASS; broader voice/TTS 290 passed, 4 skipped",
+    "clean_series_replay": "0001..0010 apply clean with candidate 0008; Qwen 25/25 PASS; key voice regression 142 passed, 4 skipped"
+  },
+  "live_probe": {
+    "legacy_endpoint_family": "dashscope.aliyuncs.com/api/v1",
+    "sdk_clone_voice_result": "HTTP 400 InvalidParameter",
+    "legacy_direct_clone_voice_result": "HTTP 400 InvalidParameter",
+    "sdk_system_voice_result": "HTTP 400 InvalidParameter",
+    "interpretation": "provider endpoint/account routing issue, not SDK refactor and not XiaoYu clone-specific"
+  },
+  "provider_change": {
+    "current_official_http_requires_workspace_scoped_domain": true,
+    "native_neko_workspace_fields": [
+      "assistWorkspaceIdQwen",
+      "assistWorkspaceIdQwenIntl"
+    ],
+    "native_workspace_url_validation_present": true,
+    "current_xiaoyu_workspace_id_configured": false,
+    "current_resolved_qwen_hosts_workspace_scoped": false,
+    "browser_session_had_model_studio_tab": false,
+    "workspace_id_inferred_from_api_key": false
+  },
+  "decision": {
+    "verdict": "HOLD_SDK_CUTOVER_UNTIL_NATIVE_WORKSPACE_ID_IS_CONFIGURED",
+    "current_managed_patch_restored": true,
+    "temporary_patch_candidate_removed": true,
+    "new_private_workspace_config_added": false,
+    "reason": "Do not invent or duplicate workspace/account configuration. Reuse N.E.K.O native workspace fields when an actual workspace ID becomes available."
+  },
+  "privacy": {
+    "api_keys_persisted": false,
+    "remote_voice_ids_persisted": false,
+    "user_content_persisted": false
+  }
+}

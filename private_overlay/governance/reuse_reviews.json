@@ -171,7 +171,7 @@
     {
       "id": "patch:0008-qwen-clone-provider-routing.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-21",
+      "reviewed_at": "2026-11-22",
       "problem": "XiaoYu needs a first-class paired Qwen clone, and preview/conversation/realtime must share one persisted speech-rate authority rather than diverging.",
       "decision": "thin_adapter",
       "candidates": [
@@ -216,10 +216,16 @@
           "type": "native_dependency",
           "outcome": "selected for pitch-preserving speech-rate application; no custom DSP implementation",
           "evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
+        },
+        {
+          "name": "DashScope HttpSpeechSynthesizer + N.E.K.O native Bailian workspace fields",
+          "type": "provider_native_plus_native_config",
+          "outcome": "candidate validated in unit/clean replay, live cutover deferred because no real Workspace ID is configured and current Qwen-Audio HTTP now requires workspace-scoped domain",
+          "evidence": "evals/evidence/2026-11-22-qwen-audio-workspace-migration-audit.json"
         }
       ],
-      "why_reuse_insufficient": "Durable authorities remain reused: N.E.K.O owns voice storage/picking/runtime, Alibaba owns enrollment and synthesis, and audiolab owns pitch-preserving tempo. The thin patch only exposes paired enrollment/routing, binds one shared speech_rate to those native paths, and refreshes the matching TTS worker when it changes.",
-      "acceptance_evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
+      "why_reuse_insufficient": "Paired clone bundle semantics remain necessary because Qwen-Audio-TTS and Qwen-Omni-Realtime cloned voices are target-model-bound. The request layer can move to the pinned official SDK, but current Qwen-Audio HTTP requires a real Bailian Workspace ID. N.E.K.O already owns safe workspace fields/URL validation, so cutover is held rather than inventing a XiaoYu workspace configuration or guessing an ID.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-qwen-audio-workspace-migration-audit.json"
     },
     {
       "id": "patch:0009-proactive-interruptibility-gate.patch",
