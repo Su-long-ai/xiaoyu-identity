@@ -864,22 +864,26 @@
         {
           "name": "N.E.K.O current pin/latest upstream",
           "type": "native_upstream",
-          "outcome": "runtime authority retained; no overlay PowerShell syntax admission seam"
+          "outcome": "runtime authority retained; no overlay PowerShell syntax admission seam",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
         },
         {
           "name": "Historical companion runtime PowerShell parse",
           "type": "existing_governance",
-          "outcome": "selected pattern"
+          "outcome": "selected pattern",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
         },
         {
           "name": "System.Management.Automation.Language.Parser",
           "type": "native_tooling",
-          "outcome": "selected"
+          "outcome": "selected",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
         },
         {
           "name": "PSScriptAnalyzer/custom parser",
           "type": "external_or_private_tooling",
-          "outcome": "rejected as unnecessary"
+          "outcome": "rejected as unnecessary",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
         }
       ],
       "why_reuse_insufficient": "The parser already exists and is reused directly; the only missing product behavior is wiring it into the current global push gate for all overlay PowerShell entrypoints.",
