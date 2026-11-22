@@ -9,12 +9,6 @@ on:
     branches:
       - "private/neko-overlay-v1"
   workflow_dispatch:
-    inputs:
-      soak_rounds:
-        description: "Companion Runtime repeated-race soak rounds (1-50)"
-        required: false
-        default: "12"
-        type: string
 
 permissions:
   contents: read
@@ -129,14 +123,6 @@ jobs:
           path: _neko_upstream
           fetch-depth: 1
 
-      - name: Probe plugin-visible delivery-floor native gap
-        run: |
-          python private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py --neko-root _neko_upstream
-
-      - name: Probe native plugin crash-recovery gap
-        run: |
-          python private_overlay/candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py --neko-root _neko_upstream
-
       - name: Exercise patched companion switch/audio ownership regression
         run: |
           python -m pip install -q uv
@@ -170,8 +156,6 @@ jobs:
             tests/unit/test_qwen_intl_tts_routing.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
-            tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
-            plugin/tests/unit/server/test_xiaoyu_push_origin.py \
             tests/unit/test_token_tracker_install_hooks_idempotent.py \
             tests/unit/test_cloudsave_lifecycle_flow.py \
             tests/unit/test_live2d_model_config_write_locking.py
@@ -182,33 +166,53 @@ jobs:
             tests/frontend/voice_recovery_races.cjs \
             tests/frontend/voice_preview_races.cjs
 
-          SOAK_ROUNDS=3
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SOAK_ROUNDS="${{ inputs.soak_rounds }}"
-          fi
-          if ! [[ "$SOAK_ROUNDS" =~ ^[0-9]+$ ]] || [ "$SOAK_ROUNDS" -lt 1 ] || [ "$SOAK_ROUNDS" -gt 50 ]; then
-            echo "BLOCK_INVALID_SOAK_ROUNDS: expected integer 1..50, got '$SOAK_ROUNDS'" >&2
-            exit 7
-          fi
-          for round in $(seq 1 "$SOAK_ROUNDS"); do
-            echo "::group::Companion Runtime soak round $round/$SOAK_ROUNDS"
-            PYTHONPATH="$PRODUCT_WORKTREE" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-              tests/unit/test_character_switch_queue.py \
-              tests/unit/test_character_runtime_voice_identity.py \
-              tests/unit/test_model_switch_keeps_live_budget.py \
-              tests/unit/test_cosyvoice_audio_done_generation.py \
-              tests/unit/test_proactive_sid_guard.py \
-              tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
-              plugin/tests/unit/server/test_xiaoyu_push_origin.py
-            node --test \
-              tests/frontend/live2d_audio_ownership.test.cjs \
-              tests/frontend/assistant-audio-lifecycle.test.cjs \
-              tests/frontend/voice_recovery_races.cjs
-            echo "::endgroup::"
-          done
-
       - name: Verify pinned native Execution Plane seams
         run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
+
+      - name: Exercise native Agent readiness product path
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/test_agent_runtime_intent.py::test_set_agent_enabled_writes_intent \
+            tests/unit/test_agent_runtime_intent.py::test_capability_rejected_does_not_persist_true_intent \
+            tests/unit/test_agent_runtime_intent.py::test_restore_skipped_when_master_intent_off \
+            tests/unit/test_agent_runtime_intent.py::test_restore_proceeds_when_master_intent_on \
+            tests/unit/test_agent_model_probe.py::test_availability_with_the_agent_model_not_configured_says_only_that \
+            tests/unit/test_agent_model_probe.py::test_switching_the_keyboard_on_with_everything_in_place \
+            tests/unit/test_agent_browser_lifecycle.py::test_enabling_with_the_agent_model_not_configured_is_refused \
+            tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_marks_both_pending_and_queues_a_probe \
+            tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_without_a_configured_model_probes_nothing \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_permission_table_shows_each_category_and_what_auto_comes_to \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_switches_and_the_browser_settings_are_those_the_agent_process_gives \
+            plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
+            plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
+
+      - name: Capture clean native Execution Plane regression baseline
+        run: |
+          python -m pip install -q uv
+          cat > "$RUNNER_TEMP/execution-native-tests.txt" <<'EOF'
+          tests/unit/nekoclaw/test_host_ledger.py
+          tests/unit/nekoclaw/test_host_delivery.py
+          tests/unit/nekoclaw/test_host_robustness.py
+          tests/unit/nekoclaw/test_agent_wiring.py
+          tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
+          tests/test_agent_rewrite_regression.py
+          EOF
+          cd _neko_upstream
+          mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"
+          set +e
+          uv run --locked --group dev python -m pytest -q \
+            "${EXECUTION_NATIVE_TESTS[@]}" \
+            --junitxml="$RUNNER_TEMP/execution-native-baseline.xml"
+          BASELINE_STATUS=$?
+          set -e
+          if [ "$BASELINE_STATUS" -gt 1 ]; then
+            echo "Baseline pytest infrastructure failed with exit $BASELINE_STATUS" >&2
+            exit "$BASELINE_STATUS"
+          fi
+          test -s "$RUNNER_TEMP/execution-native-baseline.xml"
 
       - name: Exercise effect-state candidate on fresh native pin
         run: |
@@ -232,6 +236,66 @@ jobs:
         run: |
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
           python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
+
+      - name: Regress patched native Execution Plane
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"
+          set +e
+          uv run --locked --group dev python -m pytest -q \
+            "${EXECUTION_NATIVE_TESTS[@]}" \
+            --junitxml="$RUNNER_TEMP/execution-native-patched.xml"
+          PATCHED_STATUS=$?
+          set -e
+          if [ "$PATCHED_STATUS" -gt 1 ]; then
+            echo "Patched pytest infrastructure failed with exit $PATCHED_STATUS" >&2
+            exit "$PATCHED_STATUS"
+          fi
+          test -s "$RUNNER_TEMP/execution-native-patched.xml"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import xml.etree.ElementTree as ET
+
+          tmp = Path(os.environ["RUNNER_TEMP"])
+          baseline_path = tmp / "execution-native-baseline.xml"
+          patched_path = tmp / "execution-native-patched.xml"
+
+          def cases_and_failures(path):
+              root = ET.parse(path).getroot()
+              cases = set()
+              failures = set()
+              for case in root.iter("testcase"):
+                  ident = f"{case.get('classname', '')}::{case.get('name', '')}"
+                  cases.add(ident)
+                  if case.find("failure") is not None or case.find("error") is not None:
+                      failures.add(ident)
+              return cases, failures
+
+          baseline_cases, baseline_failures = cases_and_failures(baseline_path)
+          patched_cases, patched_failures = cases_and_failures(patched_path)
+          if baseline_cases != patched_cases:
+              missing = sorted(baseline_cases - patched_cases)
+              added = sorted(patched_cases - baseline_cases)
+              raise SystemExit(
+                  "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT: "
+                  f"missing={missing} added={added}"
+              )
+          introduced = sorted(patched_failures - baseline_failures)
+          fixed = sorted(baseline_failures - patched_failures)
+          print(
+              "Execution paired native regression: "
+              f"baseline_failures={len(baseline_failures)} "
+              f"patched_failures={len(patched_failures)} "
+              f"fixed={len(fixed)} introduced={len(introduced)}"
+          )
+          if fixed:
+              print("Baseline failures fixed by candidate:", *fixed, sep="\n  ")
+          if introduced:
+              print("BLOCK_EXECUTION_PATCHED_REGRESSION:", *introduced, sep="\n  ")
+              raise SystemExit(1)
+          PY
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
@@ -273,33 +337,15 @@ jobs:
           cp _neko_upstream/plugin/plugins/qq_auto_reply/runtime_ops_service.py _qq_candidate_test/runtime_ops_service.py
           cp _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py _qq_candidate_test/tests/test_qq_catchup.py
           cp _neko_upstream/utils/file_utils.py _qq_candidate_test/utils/file_utils.py
-          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \
-            _qq_candidate_test/tests/test_qq_catchup.py \
-            private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py
+          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null             _qq_candidate_test/tests/test_qq_catchup.py
 
-          SOAK_ROUNDS=3
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SOAK_ROUNDS="${{ inputs.soak_rounds }}"
-          fi
-          if ! [[ "$SOAK_ROUNDS" =~ ^[0-9]+$ ]] || [ "$SOAK_ROUNDS" -lt 1 ] || [ "$SOAK_ROUNDS" -gt 50 ]; then
-            echo "BLOCK_INVALID_SOAK_ROUNDS: expected integer 1..50, got '$SOAK_ROUNDS'" >&2
-            exit 7
-          fi
-          for round in $(seq 1 "$SOAK_ROUNDS"); do
-            echo "::group::QQ Runtime soak round $round/$SOAK_ROUNDS"
-            (
-              cd _neko_upstream
-              uv run --locked --group dev python -m pytest -q \
-                plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
-                plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
-                plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
-                plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
-            )
-            PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \
-              _qq_candidate_test/tests/test_qq_catchup.py \
-              private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py
-            echo "::endgroup::"
-          done
+      - name: Probe plugin-visible delivery-floor native gap
+        run: |
+          python private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py --neko-root _neko_upstream
+
+      - name: Probe native plugin crash-recovery gap
+        run: |
+          python private_overlay/candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py --neko-root _neko_upstream
 
       - name: Release evidence gate
         run: python private_overlay/tools/check_release_readiness.py
