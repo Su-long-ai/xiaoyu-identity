@@ -45,7 +45,8 @@
     "test_qq_buffer_no_append_after_delivery.py",
     "test_qq_buffer_send_time_floor.py",
     "test_qq_runtime_transition_lock.py",
-    "test_qq_reply_buffer_switch.py"
+    "test_qq_reply_buffer_switch.py",
+    "test_qq_catchup.py"
   ],
   "implementation_constraints": {
     "copy_existing_test_list": true,
@@ -76,7 +77,7 @@
     "selected_boundary": "existing private-overlay-gate.yml",
     "runtime_authority": "pinned N.E.K.O + pinned qq_auto_reply",
     "test_environment": "N.E.K.O uv --locked --group dev",
-    "authoritative_test_count": 10,
+    "authoritative_test_count": 11,
     "agent_probe": "173 passed, 3 warnings",
     "agent_probe_run_id": 45052059880,
     "replay": {
@@ -87,7 +88,8 @@
       "job_id": 137303416505,
       "conclusion": "success",
       "note": "pinned QQ delivery/floor surface regression and inbound-idempotency candidate both passed in the same product-main run"
-    }
+    },
+    "catchup_extension_status": "STAGED_UNPUSHED_PENDING_MACHINE_GATE"
   },
   "product_main_review_gate": {
     "branch": "private/neko-overlay-v1",
@@ -96,5 +98,23 @@
     "run_id": 45052233965,
     "job_id": 137299686243,
     "conclusion": "success"
+  },
+  "catchup_extension": {
+    "selected_existing_test": "test_qq_catchup.py",
+    "run_on_unmodified_pinned_base": true,
+    "candidate_step_remains_separate": true,
+    "high_value_contracts": [
+      "first login and reconnect run exactly one bounded catch-up round",
+      "connection flapping defers a round instead of silently dropping it",
+      "cursor and disconnect bookmark survive restart",
+      "already handled/overlapping history messages are not replayed twice",
+      "live messages racing history fetch do not hide missed messages",
+      "failed injection can retry on the next valid catch-up opportunity",
+      "switching back to OneBot resumes from the prior cursor",
+      "Open Platform never incorrectly uses OneBot history catch-up"
+    ],
+    "no_new_transport": true,
+    "no_new_state_store": true,
+    "no_new_retry_daemon": true
   }
 }

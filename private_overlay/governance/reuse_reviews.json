@@ -939,7 +939,7 @@
       "id": "governance:qq-surface-push-regression-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "The pinned QQ surface already has the required delivery/floor/reconnect regression tests, but XiaoYu's agent/** GitHub push gate only executes the narrow inbound-idempotency candidate slice. The broader pinned QQ surface suite remains local-release-only, so ordinary cloud development can regress the first-class QQ surface while local operator access is unavailable.",
+      "problem": "The pinned QQ surface already has the required delivery/floor/reconnect/catch-up regression tests, but XiaoYu must ensure ordinary agent/** cloud CI and local release execute the same stable pinned-base behavior before any inbound-idempotency candidate is applied.",
       "decision": "thin_adapter",
       "candidates": [
         {
@@ -985,7 +985,7 @@
           "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "All runtime and test capabilities already exist. The only residual gap is CI wiring: the existing push gate must execute the already-frozen QQ surface regression files against the existing pinned N.E.K.O and QQ checkouts. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
+      "why_reuse_insufficient": "All runtime and test capabilities already exist. The residual gap is CI wiring: the frozen pinned QQ product suite must include the existing catch-up/reconnect regression file and execute it against the unmodified pinned base before the candidate patch step. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
       "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json",
       "search_layers": {
         "L0_authority": {
@@ -1023,6 +1023,12 @@
           "outcome": "A new QQ runtime, transport, state store or second test framework is unnecessary and rejected.",
           "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
         }
+      },
+      "extension_2026_11_23": {
+        "gap": "Pinned base test_qq_catchup.py is currently exercised only after the inbound-idempotency candidate patch is applied, so a stable-base reconnect/cursor/replay regression can be masked by candidate behavior.",
+        "selected_existing_test": "tests/test_qq_catchup.py",
+        "implementation": "add the same pinned file to cloud QQ surface suite and local $QQSurfaceTests before the candidate step",
+        "no_runtime_change": true
       }
     },
     {
