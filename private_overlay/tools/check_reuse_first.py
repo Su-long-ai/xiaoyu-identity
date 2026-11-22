@@ -33,6 +33,20 @@ NON_RUNTIME_SCAN_ROOTS = {
 }
 
 
+HIERARCHY_POLICY_ID = "HIERARCHICAL_REUSE_V1"
+HIERARCHY_LAYERS = (
+    "L0_authority",
+    "L1_neko_current_pin",
+    "L2_neko_upstream_extensions",
+    "L3_existing_pinned_external",
+    "L4_broader_external_ecosystem",
+    "L5_thin_integration",
+    "L6_private_implementation",
+)
+HIERARCHY_LAYER_STATUSES = {"checked", "not_applicable"}
+HIERARCHY_DISCOVERY_LAYERS = HIERARCHY_LAYERS[:5]
+
+
 def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
@@ -41,6 +55,151 @@ def require(condition: bool, message: str, errors: list[str]) -> None:
     if not condition:
         errors.append(message)
 
+
+
+def _local_or_url_evidence_exists(raw: str) -> bool:
+    value = raw.strip()
+    if not value:
+        return False
+    if value.startswith(("http://", "https://")):
+        return True
+    return (ROOT / value).is_file()
+
+
+def validate_hierarchy_policy(data: dict, errors: list[str]) -> str:
+    policy = data.get("hierarchy_policy")
+    require(
+        isinstance(policy, dict),
+        "reuse reviews missing hierarchy_policy",
+        errors,
+    )
+    if not isinstance(policy, dict):
+        return ""
+
+    require(
+        policy.get("id") == HIERARCHY_POLICY_ID,
+        f"hierarchy policy id must be {HIERARCHY_POLICY_ID}",
+        errors,
+    )
+    require(
+        policy.get("layer_order") == list(HIERARCHY_LAYERS),
+        "hierarchy policy layer_order must match the frozen reuse hierarchy",
+        errors,
+    )
+    cutoff = str(policy.get("enforce_reviewed_at_or_after") or "").strip()
+    require(
+        bool(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", cutoff)),
+        "hierarchy policy enforcement cutoff must be YYYY-MM-DD",
+        errors,
+    )
+    return cutoff
+
+
+def validate_search_layers(
+    item: dict,
+    cutoff: str,
+    errors: list[str],
+) -> None:
+    reviewed_at = str(item.get("reviewed_at") or "").strip()
+    if not cutoff or not reviewed_at or reviewed_at < cutoff:
+        return
+
+    rid = str(item.get("id") or "")
+    layers = item.get("search_layers")
+    require(
+        isinstance(layers, dict),
+        f"hierarchical reuse review missing search_layers: {rid}",
+        errors,
+    )
+    if not isinstance(layers, dict):
+        return
+
+    expected = set(HIERARCHY_LAYERS)
+    actual = set(layers)
+    for missing in sorted(expected - actual):
+        errors.append(f"hierarchical reuse layer missing {missing}: {rid}")
+    for extra in sorted(actual - expected):
+        errors.append(f"unknown hierarchical reuse layer {extra}: {rid}")
+
+    def checked(layer_name: str) -> bool:
+        entry = layers.get(layer_name)
+        return isinstance(entry, dict) and entry.get("status") == "checked"
+
+    for layer_name in HIERARCHY_LAYERS:
+        entry = layers.get(layer_name)
+        if not isinstance(entry, dict):
+            continue
+        status = str(entry.get("status") or "")
+        require(
+            status in HIERARCHY_LAYER_STATUSES,
+            f"invalid hierarchy status for {layer_name}: {rid}",
+            errors,
+        )
+        if status == "checked":
+            outcome = str(entry.get("outcome") or "").strip()
+            evidence = str(entry.get("evidence") or "").strip()
+            require(
+                bool(outcome),
+                f"checked hierarchy layer missing outcome {layer_name}: {rid}",
+                errors,
+            )
+            require(
+                bool(evidence),
+                f"checked hierarchy layer missing evidence {layer_name}: {rid}",
+                errors,
+            )
+            if evidence:
+                require(
+                    _local_or_url_evidence_exists(evidence),
+                    f"hierarchy evidence missing for {layer_name}: {rid}: {evidence}",
+                    errors,
+                )
+        elif status == "not_applicable":
+            rationale = str(entry.get("rationale") or "").strip()
+            require(
+                len(rationale) >= 20,
+                f"not_applicable hierarchy layer needs concrete rationale {layer_name}: {rid}",
+                errors,
+            )
+
+    require(
+        checked("L0_authority"),
+        f"hierarchical reuse must check authority ownership first: {rid}",
+        errors,
+    )
+    discovery_checked = sum(1 for layer in HIERARCHY_DISCOVERY_LAYERS if checked(layer))
+    require(
+        discovery_checked >= 2,
+        f"hierarchical reuse is too local; fewer than two discovery layers were checked: {rid}",
+        errors,
+    )
+
+    decision = item.get("decision")
+    if decision == "reuse_native":
+        require(
+            checked("L1_neko_current_pin") or checked("L2_neko_upstream_extensions"),
+            f"reuse_native must check N.E.K.O current pin or upstream/extensions: {rid}",
+            errors,
+        )
+    elif decision == "reuse_external":
+        require(
+            checked("L3_existing_pinned_external")
+            or checked("L4_broader_external_ecosystem"),
+            f"reuse_external must check a pinned or broader external layer: {rid}",
+            errors,
+        )
+    elif decision == "thin_adapter":
+        require(
+            checked("L5_thin_integration"),
+            f"thin_adapter must check the thin-integration layer: {rid}",
+            errors,
+        )
+    elif decision == "self_implement":
+        require(
+            checked("L6_private_implementation"),
+            f"self_implement must check the private-implementation layer: {rid}",
+            errors,
+        )
 
 
 def _normalize_artifact_path(raw: str) -> str | None:
@@ -216,6 +375,8 @@ def main() -> int:
     data = load(REVIEWS)
     require(data.get("schema_version") == 1, "reuse review schema_version must be 1", errors)
 
+    hierarchy_cutoff = validate_hierarchy_policy(data, errors)
+
     items = data.get("reviews")
     require(isinstance(items, list), "reuse reviews must be a list", errors)
     items = items if isinstance(items, list) else []
@@ -228,6 +389,7 @@ def main() -> int:
         require(item.get("status") == "approved", f"reuse review not approved: {rid}", errors)
         require(str(item.get("reviewed_at") or "").strip() != "", f"reuse review missing reviewed_at: {rid}", errors)
         require(item.get("decision") in ALLOWED_DECISIONS, f"invalid reuse decision: {rid}", errors)
+        validate_search_layers(item, hierarchy_cutoff, errors)
         candidates = item.get("candidates")
         require(isinstance(candidates, list) and len(candidates) > 0, f"reuse review has no native/external candidates: {rid}", errors)
         if isinstance(candidates, list):
