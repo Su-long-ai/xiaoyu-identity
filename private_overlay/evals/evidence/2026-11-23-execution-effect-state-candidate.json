@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_EFFECT_STATE_CANDIDATE_20261123",
+  "recorded_at_local": "2026-11-23T01:02:00+08:00",
+  "scope": "candidate-only durable delivery/effect handoff semantics on pinned N.E.K.O",
+  "pinned_neko": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "product_gaps": [
+    "delivery.main_process_effect_receipt",
+    "delivery.main_restart_before_effect",
+    "delivery.duplicate_replay_after_ambiguous_effect"
+  ],
+  "reuse_findings": {
+    "neko_host_ledger_and_outbox": "REUSED_AS_AUTHORITY",
+    "neko_main_event_bus": "REUSED_AS_TRANSPORT",
+    "xiaoyu_second_ledger_or_outbox": "REJECTED_DUPLICATE_AUTHORITY",
+    "external_queue_or_workflow_engine": "REJECTED_FOR_THIS_GAP; would duplicate the native commission/result authority rather than repair its effect boundary"
+  },
+  "candidate_semantics": {
+    "delivery_handoff": "transport accepted the durable outbox row; not yet a visible effect",
+    "delivery_claimed": "main process durably claimed the effect boundary; retry is no longer automatically safe",
+    "delivery_uncertain": "claim existed but no confirmed effect receipt survived; do not blindly retry",
+    "sent": "reserved for a confirmed completion path"
+  },
+  "candidate_status": {
+    "live_product_patch": false,
+    "managed_patch_series_member": false,
+    "allowed_to_mutate_live_neko": false,
+    "ci_apply_to_fresh_pinned_checkout_only": true,
+    "promotion_requires": [
+      "stable delivery identity across host/main boundary",
+      "main-process claim and effect receipt protocol",
+      "main restart reconciliation",
+      "duplicate replay proof under ambiguous visible effect",
+      "full reuse/architecture/release gates"
+    ]
+  },
+  "current_targeted_tests": [
+    "tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery",
+    "tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect"
+  ],
+  "conclusion": "KEEP_AS_CANDIDATE. The native ledger/outbox remain authority. The candidate may prove missing effect-state semantics in CI, but must not become an 11th live managed patch until the end-to-end main-server receipt/reconciliation chain is closed."
+}
