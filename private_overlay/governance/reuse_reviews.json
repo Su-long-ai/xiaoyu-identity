@@ -500,6 +500,35 @@
       ],
       "why_reuse_insufficient": "Current embedded mode exposes no lifecycle-start route independent of Agent master. A thin loopback adapter is still required only to invoke existing host APIs and replay user_plugin_enabled; it does not reimplement plugin lifecycle internals.",
       "acceptance_evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+    },
+    {
+      "id": "upstream:neko-99b479a0",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "Latest N.E.K.O origin/main 99b479a0 was re-evaluated after the prior 1e8ff0d0 frontend hold; promotion must pass clean upstream startup and UI acceptance without adding XiaoYu workaround debt.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O 6fccfb72 current stable pin",
+          "type": "native_upstream",
+          "outcome": "selected for continued live use",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-6fccfb72-upgrade.json"
+        },
+        {
+          "name": "N.E.K.O 99b479a0 upstream candidate",
+          "type": "native_upstream",
+          "outcome": "deferred: clean upstream repeatedly misses its own 10-second main-server startup acceptance before the API-settings UI assertion can run; no relevant settings-geometry fix landed since 1e8ff0d0",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-99b479a0-audit.json"
+        },
+        {
+          "name": "XiaoYu private startup/UI workaround expansion",
+          "type": "private_patch",
+          "outcome": "rejected; keep the existing narrowly evidenced startup patch and do not add more private debt merely to chase upstream HEAD",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-99b479a0-audit.json"
+        }
+      ],
+      "why_reuse_insufficient": "The newest native candidate is not promotion-ready on its own acceptance surface. The current stable native pin remains the selected reusable implementation; patch 0010 remains independently justified because latest clean upstream reproduces startup responsiveness failure.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-99b479a0-audit.json"
     }
   ]
 }

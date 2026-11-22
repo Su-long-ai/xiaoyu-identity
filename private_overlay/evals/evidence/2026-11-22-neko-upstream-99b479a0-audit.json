@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:46:00+08:00",
+  "phase": "isolated_clean_upstream_audit",
+  "candidate": {
+    "current_live_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "candidate_commit": "99b479a075f33b456458558cf220d430e7967a64",
+    "prior_audited_candidate": "1e8ff0d02a249bf19064879d985e9aeab43c2a62",
+    "delta_from_prior_files": 19,
+    "api_settings_geometry_related_delta": false,
+    "notable_new_changes": [
+      "memory-browser follow-up behavior and diagnostics",
+      "plugin unique-memory metrics",
+      "locale/cache-bust adjustments"
+    ]
+  },
+  "clean_upstream_runs": [
+    {
+      "kind": "cold targeted frontend acceptance",
+      "result": "ERROR_BEFORE_UI_ASSERTION",
+      "reason": "main test server did not become reachable within the upstream 10-second fixture deadline",
+      "evidence": [
+        "OpenAI SDK import/hook work blocked the main event loop",
+        "later httpx/SSL context construction also blocked startup",
+        "agent event bridge port contention was observed but is not needed to establish the independent startup regression"
+      ],
+      "elapsed_seconds": 58.9
+    },
+    {
+      "kind": "immediate targeted rerun",
+      "result": "ERROR_BEFORE_UI_ASSERTION",
+      "reason": "main test server again missed the upstream 10-second fixture deadline",
+      "evidence": [
+        "startup completed only after the fixture had already failed",
+        "main loop recovered after approximately 8.7 seconds blocked in the observed trace",
+        "httpx SSL-context creation produced another startup stall"
+      ],
+      "elapsed_seconds": 27.22
+    },
+    {
+      "kind": "same-process heavy-module preimport targeted rerun",
+      "result": "ERROR_BEFORE_UI_ASSERTION",
+      "reason": "preimporting openai/dashscope/bilibili/httpx still did not make clean upstream satisfy the 10-second startup acceptance",
+      "evidence": [
+        "startup still stalled in initialization including Steamworks import/initialization paths",
+        "the test never reached the dropdown geometry assertion"
+      ],
+      "elapsed_seconds": 107.36
+    }
+  ],
+  "prior_frontend_blocker": {
+    "test": "tests/frontend/test_api_settings.py::test_custom_model_headers_own_their_capsule_shape[chromium]",
+    "at_1e8ff0d0": "clean upstream reached UI and failed exposedMenuCenterIsVisible",
+    "relevant_source_changed_since_1e8ff0d0": false,
+    "current_status": "NOT_REQUALIFIED_BECAUSE_CLEAN_STARTUP_ACCEPTANCE_FAILS_FIRST",
+    "private_workaround_added": false
+  },
+  "patch_retirement": {
+    "0010-startup-event-loop-responsiveness.patch": "KEEP; latest clean upstream independently reproduces startup responsiveness failure",
+    "frontend_private_workaround": "REJECT"
+  },
+  "decision": {
+    "verdict": "HOLD_CURRENT_PIN",
+    "selected_native_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "reason": "99b479a0 cannot pass clean upstream startup acceptance, so it is not a valid promotion candidate. No relevant API-settings geometry fix landed since the prior frontend failure. Do not chase HEAD with more private debt."
+  },
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  }
+}
