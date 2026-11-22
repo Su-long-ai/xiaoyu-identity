@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_PLUGIN_CANDIDATE_COMPOSITION_ORDER_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "CI composition order only for candidate-only plugin run idempotency + unknown-effect patches; no runtime behavior is promoted by this change.",
+  "product_main": "4a34dc69c4e17802b427b3f5dea6aa5480215f0a",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "observed_failure": {
+    "order": [
+      "plugin_run_idempotency.patch",
+      "plugin_run_unknown_effect.patch"
+    ],
+    "result": "PATCH_CONTEXT_CONFLICT",
+    "file": "nekoclaw/host/plugin_runs.py",
+    "detail": "idempotency modifies the _create_run region around the clean-pin 795 hunk; unknown-effect later expects clean-pin polling/create context in the same region and fails after four earlier hunks apply."
+  },
+  "replay": {
+    "order": [
+      "plugin_run_unknown_effect.patch",
+      "plugin_run_idempotency.patch"
+    ],
+    "result": "CLEAN_APPLY_BOTH",
+    "method": "Exact unified-diff replay against pinned N.E.K.O plugin_runs.py; unknown-effect applies clean first, then both idempotency hunks apply clean to the resulting file.",
+    "semantic_reason": "Unknown-effect changes result interpretation/polling semantics; idempotency then layers stable host-call identity and bounded keyed create retry. The second patch's context remains compatible in this order."
+  },
+  "reuse_decision": {
+    "selected": "Reuse the same candidate patches and the existing private-overlay GitHub Actions job; change only application/test order.",
+    "rejected": [
+      "regenerate either candidate patch without need",
+      "combine candidates into a new private mega-patch",
+      "create another CI workflow",
+      "introduce a XiaoYu run ledger/idempotency store"
+    ]
+  },
+  "acceptance": [
+    "workflow executes unknown-effect candidate before idempotency candidate",
+    "both candidates remain before paired patched-native regression",
+    "overlay contract freezes this relative order",
+    "no continue-on-error is introduced",
+    "both candidates remain candidate-only"
+  ],
+  "retirement_condition": "Delete this composition-specific evidence/order contract when either candidate retires or upstream N.E.K.O natively covers both semantics so the candidate sequence disappears."
+}
