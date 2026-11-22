@@ -87,6 +87,30 @@ def probe(
     }
 
 
+def safety_preflight(
+    *, service_urls: dict[str, str], plugin_url: str, agent_url: str,
+    request_timeout: float = 1.0,
+) -> dict[str, Any]:
+    """Fail closed on unsafe/unreachable core runtime, but defer optional plugin recovery."""
+    started = time.monotonic()
+    observed = probe(
+        service_urls=service_urls,
+        plugin_url=plugin_url,
+        agent_url=agent_url,
+        request_timeout=request_timeout,
+    )
+    safe = not observed["errors"] and not observed["forbidden_agent_capabilities_enabled"]
+    return {
+        "schema_version": 1,
+        "verdict": "PASS" if safe else "FAIL",
+        "authority": "neko_native_http_api",
+        "mode": "safety_only",
+        "plugin_recovery_deferred": list(observed["not_running"]),
+        "observed": observed,
+        "duration_ms": round((time.monotonic() - started) * 1000, 3),
+    }
+
+
 def check_and_repair(
     *, service_urls: dict[str, str], plugin_url: str, agent_url: str,
     lanlan_name: str = "XiaoYu", request_timeout: float = 1.0,
@@ -138,21 +162,31 @@ def main() -> int:
     parser.add_argument("--lanlan-name", default="XiaoYu")
     parser.add_argument("--request-timeout", type=float, default=1.0)
     parser.add_argument("--repair-timeout", type=float, default=30.0)
+    parser.add_argument("--safety-only", action="store_true")
     parser.add_argument("--result-path", type=Path)
     args = parser.parse_args()
-    result = check_and_repair(
-        service_urls={
-            "main": args.main_health_url,
-            "memory": args.memory_health_url,
-            "agent": args.agent_health_url,
-            "plugin": args.plugin_health_url,
-        },
-        plugin_url=args.plugin_url,
-        agent_url=args.agent_url,
-        lanlan_name=args.lanlan_name,
-        request_timeout=max(0.05, args.request_timeout),
-        repair_timeout=max(1.0, args.repair_timeout),
-    )
+    service_urls = {
+        "main": args.main_health_url,
+        "memory": args.memory_health_url,
+        "agent": args.agent_health_url,
+        "plugin": args.plugin_health_url,
+    }
+    if args.safety_only:
+        result = safety_preflight(
+            service_urls=service_urls,
+            plugin_url=args.plugin_url,
+            agent_url=args.agent_url,
+            request_timeout=max(0.05, args.request_timeout),
+        )
+    else:
+        result = check_and_repair(
+            service_urls=service_urls,
+            plugin_url=args.plugin_url,
+            agent_url=args.agent_url,
+            lanlan_name=args.lanlan_name,
+            request_timeout=max(0.05, args.request_timeout),
+            repair_timeout=max(1.0, args.repair_timeout),
+        )
     output = json.dumps(result, ensure_ascii=False, indent=2)
     print(output)
     if args.result_path:
