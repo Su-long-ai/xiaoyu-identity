@@ -40,6 +40,9 @@ jobs:
       - name: Frozen architecture hard gate
         run: python private_overlay/tools/check_architecture_freeze.py
 
+      - name: Repository-only plugin admission gate
+        run: python private_overlay/tools/check_plugin_admission_repo.py
+
       - name: Overlay contract tests
         run: |
           python -m unittest -v \
