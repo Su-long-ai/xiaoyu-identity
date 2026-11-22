@@ -235,6 +235,118 @@ index 3e1613ce..6da3ebca 100644
          def guarded_delivery_is_current() -> bool:
              if publish_if is not None and not publish_if():
                  return False
+diff --git a/tests/unit/test_private_speech_output_gate.py b/tests/unit/test_private_speech_output_gate.py
+new file mode 100644
+index 00000000..fffbc65c
+--- /dev/null
++++ b/tests/unit/test_private_speech_output_gate.py
+@@ -0,0 +1,106 @@
++import json
++import os
++import tempfile
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import AsyncMock, patch
++
++from main_logic.core.tts_runtime import TtsRuntimeMixin
++
++
++class PrivateReplyGateTests(unittest.IsolatedAsyncioTestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.state = Path(self.tmp.name) / "state.json"
++        self.obj = TtsRuntimeMixin()
++
++    def _write(self, quiet, *, speech_muted=False):
++        self.state.write_text(
++            json.dumps({"quiet": bool(quiet), "speech_muted": bool(speech_muted)}),
++            encoding="utf-8",
++        )
++
++    def _env(self):
++        return patch.dict(os.environ, {"NEKO_PRIVATE_SPEECH_GATE_FILE": str(self.state)}, clear=False)
++
++    def test_gate_is_disabled_without_env(self):
++        with patch.dict(os.environ, {}, clear=True):
++            self.assertFalse(self.obj._private_reply_output_blocked())
++
++    def test_file_gate_tracks_quiet_state(self):
++        self._write(True)
++        with self._env():
++            self.assertTrue(self.obj._private_reply_output_blocked())
++            self._write(False)
++            self.assertFalse(self.obj._private_reply_output_blocked())
++
++    def test_legacy_speech_muted_field_cannot_block_reply(self):
++        self._write(False, speech_muted=True)
++        with self._env():
++            self.assertFalse(self.obj._private_reply_output_blocked())
++
++    def test_last_known_gate_survives_atomic_rewrite_gap(self):
++        self._write(True)
++        with self._env():
++            self.assertTrue(self.obj._private_reply_output_blocked())
++            self.state.unlink()
++            self.assertTrue(self.obj._private_reply_output_blocked())
++
++    def test_fast_exact_quiet_closes_current_turn_race(self):
++        self._write(False)
++        with self._env():
++            self.obj._arm_private_speech_fast_control("小鱼，请别说话。")
++            self.assertTrue(self.obj._private_reply_output_blocked())
++            self.obj._arm_private_speech_fast_control("朋友让我别说话是什么意思")
++            self.assertFalse(self.obj._private_reply_output_blocked())
++
++    async def test_quiet_truncation_recovery_settles_turn_without_text_or_tts(self):
++        from tests.unit.test_offline_late_completion_turn_ownership import (
++            _core_manager,
++            _sync,
++            _ws,
++        )
++
++        mgr = _core_manager()
++        mgr.session = SimpleNamespace(_conversation_history=[])
++        mgr.use_tts = True
++        mgr.feed_tts_chunk = AsyncMock()
++        mgr._request_tts_done_for_turn = AsyncMock(return_value="queued")
++        mgr._private_reply_output_blocked = lambda: True
++        reply_turn = mgr._begin_reply_turn(
++            speech_id=mgr.current_speech_id,
++            request_id="req-quiet",
++        )
++        reply_turn.session = mgr.session
++        mgr._active_text_request_id = "req-quiet"
++
++        await mgr.handle_response_discarded(
++            "length_truncated",
++            1,
++            1,
++            False,
++            json.dumps({"code": "RESPONSE_LENGTH_TRUNCATED", "text": "hidden recovery"}),
++            request_id="req-quiet",
++            reply_turn=reply_turn,
++        )
++
++        self.assertEqual(_ws(mgr, "gemini_response"), [])
++        mgr.feed_tts_chunk.assert_not_awaited()
++        mgr._request_tts_done_for_turn.assert_not_awaited()
++        self.assertEqual([m["request_id"] for m in _ws(mgr, "turn end")], ["req-quiet"])
++        self.assertEqual([m["request_id"] for m in _sync(mgr, "turn end")], ["req-quiet"])
++        self.assertEqual(mgr.session._conversation_history, [])
++        self.assertEqual(mgr._activity_tracker.ai_messages, [])
++    def test_fast_resume_overrides_stale_file_for_current_turn(self):
++        for phrase in ("可以说话了", "说吧", "你说吧", "那你说吧", "那就说吧", "可以说了"):
++            self._write(True)
++            self.obj._private_speech_fast_override = None
++            with self._env():
++                self.obj._arm_private_speech_fast_control(phrase)
++                self.assertFalse(self.obj._private_reply_output_blocked(), phrase)
++
++
++if __name__ == "__main__":
++    unittest.main()
 diff --git a/tests/unit/test_proactive_sid_guard.py b/tests/unit/test_proactive_sid_guard.py
 index 579545ce..f425dba1 100644
 --- a/tests/unit/test_proactive_sid_guard.py
