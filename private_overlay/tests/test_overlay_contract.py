@@ -504,6 +504,27 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(candidate, regression)
         self.assertNotIn("continue-on-error", workflow[uncertain:regression])
 
+    def test_github_gate_probes_host_restart_continuity_gap(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Probe native host-restart commission continuity gap",
+            "candidates/execution_plane/probe_host_restart_continuity_gap.py",
+            "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
+            "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
+            "test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away",
+            "test_a_blocked_commission_is_taken_up_again_where_it_stopped",
+            "test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        probe = workflow.index("Probe native host-restart commission continuity gap")
+        dsh = workflow.index("Exercise native dsh optional-runtime product acceptance")
+        self.assertLess(probe, dsh)
+        self.assertNotIn("continue-on-error", workflow[probe:dsh])
+
     def test_github_gate_executes_native_dsh_optional_runtime_acceptance(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
