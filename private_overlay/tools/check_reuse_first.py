@@ -175,6 +175,22 @@ def validate_search_layers(
     )
 
     decision = item.get("decision")
+    if decision in {"thin_adapter", "self_implement"}:
+        require(
+            any(
+                checked(layer)
+                for layer in (
+                    "L2_neko_upstream_extensions",
+                    "L3_existing_pinned_external",
+                    "L4_broader_external_ecosystem",
+                )
+            ),
+            (
+                "custom implementation search stayed inside the local component; "
+                f"check upstream/extensions, pinned external, or broader ecosystem: {rid}"
+            ),
+            errors,
+        )
     if decision == "reuse_native":
         require(
             checked("L1_neko_current_pin") or checked("L2_neko_upstream_extensions"),
