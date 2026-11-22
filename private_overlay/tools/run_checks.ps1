@@ -37,6 +37,71 @@ if (-not $StartupPreflight) {
     }
     & $NekoPython (Join-Path $OverlayRoot "tools\ensure_native_embedding_assets.py") --neko-root $NekoRoot --verify-only
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    Write-Host "== XiaoYu pinned QQ delivery/floor regression =="
+    $QQPluginRoot = Join-Path $NekoRoot "plugin\plugins\qq_auto_reply"
+    $QQSurfaceTests = @(
+        (Join-Path $QQPluginRoot "tests\test_qq_outbound_guard.py"),
+        (Join-Path $QQPluginRoot "tests\test_group_send_safety.py"),
+        (Join-Path $QQPluginRoot "tests\test_proactive_budget_integration.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_proactive_initiative.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_auto_reply_forward_client.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_connection_status_refresh.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_buffer_no_append_after_delivery.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_buffer_send_time_floor.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_runtime_transition_lock.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_reply_buffer_switch.py")
+    )
+    foreach ($QQSurfaceTest in $QQSurfaceTests) {
+        if (-not (Test-Path -LiteralPath $QQSurfaceTest)) {
+            throw "Pinned QQ delivery/floor regression test missing: $QQSurfaceTest"
+        }
+    }
+    Push-Location $NekoRoot
+    try {
+        & $NekoPython -m pytest -q $QQSurfaceTests
+        $QQSurfaceExit = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($QQSurfaceExit -ne 0) { exit $QQSurfaceExit }
+
+    Write-Host "== XiaoYu native companion switch/audio ownership regression =="
+    $CompanionPythonTests = @(
+        (Join-Path $NekoRoot "tests\unit\test_character_switch_queue.py"),
+        (Join-Path $NekoRoot "tests\unit\test_character_runtime_voice_identity.py"),
+        (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
+        (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_sid_guard.py"),
+        (Join-Path $NekoRoot "tests\unit\test_assistant_speech_finalize_static.py")
+    )
+    $CompanionNodeTests = @(
+        (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),
+        (Join-Path $NekoRoot "tests\frontend\live2d_audio_ownership.test.cjs"),
+        (Join-Path $NekoRoot "tests\frontend\assistant-audio-lifecycle.test.cjs"),
+        (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
+        (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
+    )
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionNodeTests)) {
+        if (-not (Test-Path -LiteralPath $CompanionTest)) {
+            throw "Native companion regression test missing: $CompanionTest"
+        }
+    }
+    Push-Location $NekoRoot
+    try {
+        & $NekoPython -m pytest -q $CompanionPythonTests
+        $CompanionPythonExit = $LASTEXITCODE
+        if ($CompanionPythonExit -ne 0) { exit $CompanionPythonExit }
+
+        $NodeCommand = Get-Command node -ErrorAction Stop
+        & $NodeCommand.Source --test $CompanionNodeTests
+        $CompanionNodeExit = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($CompanionNodeExit -ne 0) { exit $CompanionNodeExit }
 }
 
 Write-Host "== XiaoYu reuse-first admission gate =="
