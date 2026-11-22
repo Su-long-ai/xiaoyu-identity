@@ -12,7 +12,10 @@
       "runtime_ops_service starts _process_messages()",
       "then catchup.start() loads persisted state",
       "message_dispatcher creates _run_message_handler task without a stable message_id claim"
-    ]
+    ],
+    "neko_upstream_main_rechecked_at_local": "2026-11-23T03:00:00+08:00",
+    "neko_current_pin_equals_upstream_main": true,
+    "qq_plugin_current_pin_equals_upstream_main": true
   },
   "reuse_decision": {
     "selected": "reuse QQMessageCatchupService._recent_ids as the single inbound idempotency authority",
@@ -30,9 +33,13 @@
     "promotion_requires": [
       "fresh pinned QQ apply check",
       "patched catchup regression suite",
-      "full XiaoYu reuse/architecture gates",
-      "live repeated-event fault injection when local operator is available"
-    ]
+      "synthetic repeated-event fault injection on every agent/** push",
+      "full XiaoYu reuse/architecture/plugin-admission/release-readiness gates",
+      "live repeated-event OneBot replay evidence on the local product runtime"
+    ],
+    "machine_gate": ".github/workflows/private-overlay-gate.yml::Exercise QQ inbound idempotency candidate",
+    "synthetic_fault_injection": "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py",
+    "retirement_condition": "Delete the candidate/external patch when the pinned QQ upstream natively claims stable live message_id before handler task creation and loads persisted recent_ids before the live receive loop, with the same regressions passing unpatched."
   },
-  "conclusion": "KEEP_AS_CANDIDATE. Do not set QQ_PLUGIN_UPSTREAM.external_patch_required and do not create a managed qq_patches series until the candidate passes executable and live replay evidence."
+  "conclusion": "KEEP_AS_CANDIDATE. Cloud fault injection is now machine-gated, but do not set QQ_PLUGIN_UPSTREAM.external_patch_required and do not create a managed qq_patches series until local live OneBot repeated-event replay evidence closes the final promotion requirement."
 }
