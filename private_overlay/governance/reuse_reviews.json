@@ -1213,6 +1213,329 @@
           "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
         }
       }
+    },
+    {
+      "id": "governance:startup-product-state-push-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Managed patch 0010 owns measured startup/event-loop responsiveness fixes, but ordinary agent/** cloud pushes only prove the patched product state with switch/audio tests. The startup-specific regressions that protect off-loop imports, cloud-save lifecycle, Live2D/config locking and startup responsiveness can therefore regress without failing the product push gate.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; remains the product kernel and supplies the uv environment plus three of the four startup regression files",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; latest upstream is still the same c3fc33ff commit, while patch 0010 still cleanly applies in the green product-state gate, so there is no newer upstream replacement to retire 0010",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing patch:0010-startup-event-loop-responsiveness review and managed patch series",
+          "type": "existing_governance",
+          "outcome": "reused as the implementation authority; no new startup implementation is introduced",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing patched-product ephemeral worktree step in private-overlay-gate.yml",
+          "type": "native_ci",
+          "outcome": "selected; extend the already-green product-state pytest invocation rather than creating a second worktree, service launcher, dependency environment or test harness",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing N.E.K.O/patch startup tests",
+          "type": "native_test_runtime",
+          "outcome": "selected; reuse test_xiaoyu_startup_performance, token tracker idempotency, cloud-save lifecycle and Live2D model config locking tests",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        {
+          "name": "New startup daemon/benchmark service/custom dependency environment",
+          "type": "private_implementation",
+          "outcome": "rejected; it would duplicate runtime and test authority for a gap that is only missing CI execution",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The runtime fix and regression tests already exist. Only cloud execution coverage is missing. The minimal residual change is to add the four existing startup test files to the already-established patched-product pytest invocation and lock that wiring with the existing overlay contract suite.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains startup/runtime authority; the existing XiaoYu product gate only replays the managed product state.",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pinned N.E.K.O startup implementation and tests are reused directly.",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked before retaining the managed startup patch/product replay.",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns N.E.K.O process startup or XiaoYu managed product-state replay."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "The gap is cloud replay of already-selected native startup behavior, not a missing startup capability requiring an external runtime."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing ephemeral product worktree and native tests are wired into the existing gate; no new test framework is introduced.",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new startup daemon, benchmark service or custom dependency environment was considered and rejected.",
+          "evidence": "evals/evidence/2026-11-23-startup-product-state-push-regression-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:bootstrap-runtime-helper-push-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Four deterministic Companion Runtime bootstrap/helper regression modules already exist but are omitted from ordinary agent/** push CI: private-plugin exact install/model-slot handling, native activity preference mutation, N.E.K.O-owned plugin runtime reconciliation, and XiaoYu interaction-policy Plugin SDK behavior. These paths execute during real startup/runtime policy and can regress while the repository push gate stays green.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; remains the runtime authority for Plugin SDK, PluginStore, model slots, plugin package/install planning, preference files and plugin HTTP lifecycle",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; upstream main is still the same c3fc33ff pin, so no newer native implementation replaces the existing XiaoYu thin bootstrap helpers",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing plugin:xiaoyu_interaction_policy model-slot/store/native Plugin SDK reviews",
+          "type": "existing_governance",
+          "outcome": "reused; the tests exercise native model usage, PluginStore authority, event-driven conversations_v2, bounded ActivityWatch evidence and whole-reply control without introducing a parallel policy runtime",
+          "evidence": "evals/evidence/2026-11-21-interaction-policy-event-driven-performance.json"
+        },
+        {
+          "name": "Existing startup:native-plugin-runtime-reconcile review",
+          "type": "existing_governance",
+          "outcome": "reused; the adapter only refreshes the host registry and delegates approved autostart/process/dependency authority to N.E.K.O native HTTP APIs while Agent master remains intentionally off",
+          "evidence": "evals/evidence/2026-11-22-c3-native-plugin-autostart-batch-audit.json"
+        },
+        {
+          "name": "Existing proactive interruptibility/final-delivery evidence",
+          "type": "existing_governance",
+          "outcome": "reused; ActivityWatch remains retrospective/shadow evidence while native Windows/QUNS and final delivery admission remain authoritative",
+          "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+        },
+        {
+          "name": "Existing private-overlay-gate.yml Overlay contract tests step",
+          "type": "native_ci",
+          "outcome": "selected; execute the four already-written unittest modules in the existing repository-only Python test invocation rather than creating another workflow, harness or service",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        {
+          "name": "New plugin supervisor, preference database, policy daemon, runtime router or polling loop",
+          "type": "private_implementation",
+          "outcome": "rejected; those would duplicate N.E.K.O authority and are unnecessary for a missing-CI-coverage gap",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The product helpers and their deterministic tests already exist and already have reuse decisions. The only residual gap is that ordinary cloud pushes do not execute those tests. The minimal change is CI wiring inside the existing Overlay contract tests command; no runtime artifact is added.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O Plugin SDK/lifecycle and existing XiaoYu policy contracts remain authoritative; this change only adds push-time regression coverage.",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O pin and existing helper contracts are reused.",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream plus existing plugin/model/store/lifecycle seams were checked before adding CI coverage.",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns the bootstrap helper or N.E.K.O plugin lifecycle regression surface."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "This is regression wiring around already-selected native helpers, not a missing capability that benefits from another external service."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing private-overlay gate invokes the already-existing helper regressions; no second runtime or runner is created.",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new plugin supervisor, preference database, policy daemon, runtime router or polling loop was explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-bootstrap-runtime-helper-push-regression-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:native-embedding-asset-push-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XiaoYu startup relies on a pinned N.E.K.O native local embedding profile, but the deterministic regression that proves zero-action when ready, fail-closed pin validation, delegation to N.E.K.O's official prepare script, and absence of an overlay downloader is omitted from ordinary agent/** push CI.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; owns memory embeddings, profile completeness checks, worker/hybrid recall and scripts/prepare_embedding_model.py",
+          "evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; latest upstream is still c3fc33ff, so there is no newer native asset-preparation authority to adopt",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        },
+        {
+          "name": "Existing ensure_native_embedding_assets.py thin helper",
+          "type": "existing_adapter",
+          "outcome": "reused unchanged; it inspects the native profile, pins repo/revision, delegates preparation to N.E.K.O's native script and contains no urllib/httpx/requests downloader",
+          "evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json"
+        },
+        {
+          "name": "Existing private_overlay.tests.test_native_embedding_assets",
+          "type": "existing_test_runtime",
+          "outcome": "selected; four deterministic tempfile/mock tests already cover the authority boundary and should be added to the existing Overlay contract tests command",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        },
+        {
+          "name": "New model downloader, mirror, embedding runtime or asset daemon",
+          "type": "private_implementation",
+          "outcome": "rejected; duplicates N.E.K.O native asset/runtime authority and would add network/runtime ownership XiaoYu does not need",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The product behavior and regression tests already exist. Only push-gate execution coverage is missing. The residual change is one existing unittest module in the existing gate plus a static contract preventing silent removal; no product runtime code changes.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O native embedding asset preparation remains the sole asset/runtime authority; XiaoYu only verifies the pin and delegation path.",
+          "evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin's native embedding preparation path is reused.",
+          "evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked before retaining the existing native-asset delegation helper.",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "The external model asset is already consumed through N.E.K.O's pinned native preparation path; no separate external runtime owns this regression gate."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "The gap is push-time verification of an existing native asset path, not model-download or embedding-runtime selection."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing ensure_native_embedding_assets.py and its tests are wired into the push gate without adding download logic.",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new downloader, mirror, embedding runtime or asset daemon was considered and rejected.",
+          "evidence": "evals/evidence/2026-11-23-native-embedding-asset-push-regression-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:startup-hidden-console-contract-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XiaoYu's Windows startup chain currently hides every XiaoYu-owned console-bearing process, but the repository only machine-checks PowerShell syntax and startup ordering. Removing a WindowStyle Hidden flag could therefore reintroduce visible terminal popups while all current cloud gates remain green.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; the native Windows desktop/backend build itself uses Start-Process -WindowStyle Hidden for projectneko_server.exe smoke/wake execution",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; latest upstream is c3fc33ff0d32e4a79fd905d1add22d45725071f5, equal to the current pin, so there is no newer native launcher seam to adopt",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        {
+          "name": "Windows native PowerShell/shortcut hidden-window semantics already used by XiaoYu",
+          "type": "native_os",
+          "outcome": "selected unchanged; main desktop shortcut passes -WindowStyle Hidden, one-click backend child Start-Process uses -WindowStyle Hidden, and restore-state Python Start-Process uses -WindowStyle Hidden",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        {
+          "name": "Existing governance:startup-powershell-parse-v1 gate",
+          "type": "existing_governance",
+          "outcome": "reused as syntax coverage but insufficient alone because a syntactically valid script may still drop the hidden-window flags",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        {
+          "name": "VBS wrapper / NirCmd / third-party launcher / resident console suppression daemon",
+          "type": "external_or_private_launcher",
+          "outcome": "rejected; would duplicate Windows/N.E.K.O launcher behavior and add another startup authority for a regression that only needs a static contract",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The runtime behavior is already correct and uses native Windows semantics. The only missing capability is regression enforcement. One static overlay contract can bind the three XiaoYu-owned console-bearing launch points without changing startup runtime behavior.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Existing XiaoYu startup entrypoints plus Windows process/shortcut semantics remain the startup authority; no resident suppressor is introduced.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O pin was checked for startup behavior and does not require a second console-control runtime.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked before retaining the current Windows-native launch approach.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns Windows console visibility for XiaoYu launch entrypoints."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "VBS wrappers, NirCmd and third-party launchers were considered and rejected because native PowerShell/shortcut semantics already cover the requirement.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing native PowerShell and shortcut hidden-window semantics are reused with contract tests only.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A resident console-suppression daemon/custom launcher was considered and rejected.",
+          "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
