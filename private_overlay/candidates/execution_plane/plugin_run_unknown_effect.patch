@@ -1,0 +1,300 @@
+diff --git a/nekoclaw/host/plugin_runs.py b/nekoclaw/host/plugin_runs.py
+--- a/nekoclaw/host/plugin_runs.py
++++ b/nekoclaw/host/plugin_runs.py
+@@ -151,18 +151,22 @@
+ # ---------------------------------------------------------------------------
+ 
+ 
+-def plugin_terminal_status(success: bool, run_data: Any) -> str:
+-    """Return ``completed``, ``blocked`` or ``failed`` for a finished run.
+-
+-    A run that failed stays failed whatever its data says. A run that
+-    succeeded can report otherwise through its data: ``status == "error"``
+-    means failed; ``needs_confirmation``, ``action == "clarify"`` or a status
+-    of ``blocked`` / ``clarify`` / ``confirm_required`` means blocked.
+-    ``observation_only`` switches these overrides off, and ``executed: false``
+-    alone blocks nothing.
+-    """
+-    if not success:
+-        return "failed"
++def plugin_terminal_status(success: bool, run_data: Any, *, run_status: str | None = None) -> str:
++    """Return ``completed``, ``blocked`` or ``failed`` for a run outcome.
++
++    A run whose terminal effect could not be read is blocked, not failed:
++    treating an unknown effect as a confirmed failure would make a fresh
++    execution look safe. A confirmed failed run stays failed whatever its
++    data says. A succeeded run can report otherwise through its data:
++    ``status == "error"`` means failed; ``needs_confirmation``,
++    ``action == "clarify"`` or a status of ``blocked`` / ``clarify`` /
++    ``confirm_required`` means blocked. ``observation_only`` switches these
++    overrides off, and ``executed: false`` alone blocks nothing.
++    """
++    if run_status == "unknown":
++        return "blocked"
++    if not success:
++        return "failed"
+     if isinstance(run_data, dict) and not bool(run_data.get("observation_only")):
+         status = str(run_data.get("status") or "").strip().lower()
+         action = str(run_data.get("action") or "").strip().lower()
+@@ -425,8 +429,11 @@
+         if refusal == "entry_changed":
+             record.status, record.reason = "denied", "settings"
+         else:
+-            record.status = ("cancelled" if refusal == "not_wanted"
+-                             else plugin_terminal_status(outcome.success, outcome.data))
++            record.status = (
++                "cancelled"
++                if refusal == "not_wanted"
++                else plugin_terminal_status(outcome.success, outcome.data, run_status=outcome.status)
++            )
+         return outcome
+ 
+ 
+@@ -775,13 +782,14 @@
+             self._lost[run_id] = commission_id
+             self._cancel_in_background(run_id, "polling failed")
+ 
+-        success = bool(completion.get("success"))
+-        return RunOutcome(
+-            plugin_id=plugin_id,
+-            entry_id=resolved_entry,
+-            accepted=True,
+-            success=success,
+-            status=completion.get("status"),
++        success = bool(completion.get("success"))
++        status = completion.get("status")
++        return RunOutcome(
++            plugin_id=plugin_id,
++            entry_id=resolved_entry,
++            accepted=True,
++            success=success,
++            status=status,
+             run_id=run_id,
+             run_token=run_token,
+             expires_at=expires_at,
+@@ -790,7 +798,13 @@
+             message=completion.get("message"),
+             error=None if success else completion.get("error"),
+             run_error=completion.get("run_error", completion.get("error")),
+-            reason="run_succeeded" if success else "run_failed",
++            reason=(
++                "run_succeeded"
++                if success
++                else "effect_uncertain"
++                if status == "unknown"
++                else "run_failed"
++            ),
+             progress=completion.get("progress"),
+             stage=completion.get("stage"),
+         )
+@@ -887,17 +901,17 @@
+                         }
+                     if response.status_code != 200:
+                         consecutive_errors += 1
+-                        if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
+-                            return {
+-                                "status": "failed",
+-                                "success": False,
+-                                "data": None,
+-                                "error": (
+-                                    f"Run {run_id} polling failed "
+-                                    f"({consecutive_errors} consecutive HTTP {response.status_code})"
+-                                ),
+-                                "lost": True,
+-                            }
++                        if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
++                            return {
++                                "status": "unknown",
++                                "success": False,
++                                "data": None,
++                                "error": (
++                                    f"Run {run_id} polling failed "
++                                    f"({consecutive_errors} consecutive HTTP {response.status_code})"
++                                ),
++                                "lost": True,
++                            }
+                     else:
+                         parsed = response.json()
+                         if not isinstance(parsed, dict):
+@@ -927,18 +941,18 @@
+                 except Exception as exc:  # noqa: BLE001 - counted; three in a row end the wait
+                     _reraise_swallowed_cancellation()
+                     consecutive_errors += 1
+-                    if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
+-                        logger.warning("polling run %s failed: %s", run_id, type(exc).__name__)
+-                        return {
+-                            "status": "failed",
+-                            "success": False,
+-                            "data": None,
+-                            "error": (
+-                                f"Run {run_id} polling failed "
+-                                f"({consecutive_errors} consecutive transport errors)"
+-                            ),
+-                            "lost": True,
+-                        }
++                    if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
++                        logger.warning("polling run %s failed: %s", run_id, type(exc).__name__)
++                        return {
++                            "status": "unknown",
++                            "success": False,
++                            "data": None,
++                            "error": (
++                                f"Run {run_id} polling failed "
++                                f"({consecutive_errors} consecutive transport errors)"
++                            ),
++                            "lost": True,
++                        }
+                 pause = self._poll_interval if remaining is None else min(self._poll_interval, remaining)
+                 await asyncio.sleep(pause)
+ 
+diff --git a/nekoclaw/host/task_brain.py b/nekoclaw/host/task_brain.py
+--- a/nekoclaw/host/task_brain.py
++++ b/nekoclaw/host/task_brain.py
+@@ -936,7 +936,7 @@
+                 matches_entry=capability.matches_entry,
+                 still_wanted=still_wanted,
+             )
+-        direct.status = plugin_terminal_status(outcome.success, outcome.data)
++        direct.status = plugin_terminal_status(outcome.success, outcome.data, run_status=outcome.status)
+         if turned_away:
+             direct.status = "cancelled"
+             # Nothing was called: put down as what it is, and not as a
+@@ -961,9 +961,9 @@
+         from config.nekoclaw_settings import DEFERRED_COMMISSION_SECONDS, TASK_AGENT_RESULT_SUMMARY_MAX_TOKENS
+         from utils.tokenize import truncate_to_tokens
+ 
+-        detail = describe_result(entry, outcome, lang=commission.lang)
+-        terminal = plugin_terminal_status(outcome.success, outcome.data)
+-        result_kind, expires_in_s = resolve_result_contract(entry, outcome.envelope)
++        detail = describe_result(entry, outcome, lang=commission.lang)
++        terminal = plugin_terminal_status(outcome.success, outcome.data, run_status=outcome.status)
++        result_kind, expires_in_s = resolve_result_contract(entry, outcome.envelope)
+         delivery = resolve_delivery_mode(outcome.envelope)
+         plugin = next((item for item in plugins if item.get("id") == outcome.plugin_id), None)
+         source_name = str((plugin or {}).get("name") or outcome.plugin_id)
+@@ -987,10 +987,16 @@
+                 )
+             return
+ 
+-        completed = terminal == "completed"
+-        failed_text = (detail or str(outcome.error or "")).strip()
+-        summary = detail if outcome.success else failed_text
+-        if outcome.success:
++        completed = terminal == "completed"
++        uncertain = outcome.status == "unknown"
++        failed_text = (detail or str(outcome.error or "")).strip()
++        if uncertain:
++            failed_text = (
++                "Effect uncertain; do not repeat this action automatically. "
++                + (failed_text or "The plugin run's final state could not be confirmed.")
++            )
++        summary = detail if outcome.success else failed_text
++        if outcome.success:
+             report = self._reporter.task_result_report(
+                 commission,
+                 channel=CHANNEL_PLUGIN,
+@@ -1005,19 +1011,32 @@
+                 result_kind=result_kind if completed else "task_result",
+                 expires_in_s=expires_in_s if completed else None,
+             )
+-        else:
+-            report = self._reporter.task_result_report(
+-                commission,
+-                channel=CHANNEL_PLUGIN,
+-                success=False,
+-                summary=failed_text,
+-                detail=failed_text,
+-                error_message=failed_text,
+-                status="failed",
+-                source_kind="plugin",
+-                source_name=source_name,
+-                delivery_mode=delivery,
+-            )
++        elif uncertain:
++            report = self._reporter.task_result_report(
++                commission,
++                channel=CHANNEL_PLUGIN,
++                success=False,
++                summary=failed_text,
++                detail=failed_text,
++                error_message=failed_text,
++                status="blocked",
++                source_kind="plugin",
++                source_name=source_name,
++                delivery_mode=delivery,
++            )
++        else:
++            report = self._reporter.task_result_report(
++                commission,
++                channel=CHANNEL_PLUGIN,
++                success=False,
++                summary=failed_text,
++                detail=failed_text,
++                error_message=failed_text,
++                status="failed",
++                source_kind="plugin",
++                source_name=source_name,
++                delivery_mode=delivery,
++            )
+         # The status and the report are stored together. When the commission
+         # was stopped while the plugin was at work, the stop stands and
+         # nothing is reported.
+diff --git a/nekoclaw/host/gateway.py b/nekoclaw/host/gateway.py
+--- a/nekoclaw/host/gateway.py
++++ b/nekoclaw/host/gateway.py
+@@ -1284,7 +1284,7 @@
+             record.status, record.reason = "denied", "settings"
+             return _text(str(outcome.error), error=True)
+         text = describe_result(entry, outcome, lang=commission.lang)
+-        terminal = plugin_terminal_status(outcome.success, outcome.data)
++        terminal = plugin_terminal_status(outcome.success, outcome.data, run_status=outcome.status)
+         await self._ledger.append_event(
+             commission.id,
+             "plugin_run_ended",
+@@ -1290,8 +1290,17 @@
+             "plugin_run_ended",
+             {"run_id": outcome.run_id, "status": outcome.status, "result": terminal, "via": "gateway"},
+         )
+-        if terminal == "failed":
+-            return _text(truncate_to_tokens(text or str(outcome.error or "failed"), GATEWAY_RESULT_MAX_TOKENS), error=True)
++        if outcome.status == "unknown":
++            uncertain = (
++                "[Effect uncertain: the plugin run may already have taken effect. "
++                "Do not repeat the same action automatically. Report the uncertainty "
++                "or reconcile the external state before deciding on another action.]"
++            )
++            if text:
++                uncertain += "\n" + text
++            return _text(truncate_to_tokens(uncertain, GATEWAY_RESULT_MAX_TOKENS))
++        if terminal == "failed":
++            return _text(truncate_to_tokens(text or str(outcome.error or "failed"), GATEWAY_RESULT_MAX_TOKENS), error=True)
+         if entry is not None and llm_result_fields(entry) is None and outcome.data is not None:
+             # The entry does not say which fields a model should read; a
+             # task agent gets the data itself so it can go on working with it.
+diff --git a/tests/unit/nekoclaw/test_host_plugin_runs.py b/tests/unit/nekoclaw/test_host_plugin_runs.py
+--- a/tests/unit/nekoclaw/test_host_plugin_runs.py
++++ b/tests/unit/nekoclaw/test_host_plugin_runs.py
+@@ -157,8 +157,9 @@
+     polls_before = faults.polls
+     outcome = await asyncio.wait_for(calling, 5)
+ 
+-    assert outcome.success is False and outcome.status == "failed"
+-    assert "polling failed" in str(outcome.error)
++    assert outcome.success is False and outcome.status == "unknown"
++    assert outcome.reason == "effect_uncertain"
++    assert "polling failed" in str(outcome.error)
+     assert faults.polls - polls_before == MAX_CONSECUTIVE_POLL_ERRORS
+     # Given up on, the run is cancelled rather than left going.
+     await wait_until(lambda: server.cancelled == [("weather", run_id)], what="the run being cancelled")
+@@ -180,8 +181,9 @@
+     await wait_until(lambda: faults.cancel_requests == 1, what="the first cancel request")
+     await runner.aclose()
+ 
+-    assert outcome.status == "failed"
+-    assert server.cancelled == []
++    assert outcome.status == "unknown"
++    assert outcome.reason == "effect_uncertain"
++    assert server.cancelled == []
+     # The cancel did not go through: stopping the commission must still find the run.
+     assert runner.active_runs("c1") == [run_id]
+ 
