@@ -853,7 +853,7 @@ new file mode 100644
 index 00000000..0590e63b
 --- /dev/null
 +++ b/tests/unit/test_windows_interruptibility_signal.py
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,255 @@
 +from __future__ import annotations
 +
 +import time
@@ -1451,8 +1451,14 @@ new file mode 100644
 +from unittest.mock import AsyncMock, MagicMock
 +
 +import pytest
++from starlette.websockets import WebSocketState
 +
-+from main_logic.plugin_cards import _targets, deliver_plugin_card
++from main_logic.plugin_cards import (
++    _active_views,
++    _targets,
++    _view_targets,
++    deliver_plugin_card,
++)
 +from main_logic.proactive_delivery import plugin_visible_output_block_reason
 +
 +
@@ -1615,6 +1621,10 @@ new file mode 100644
 +    class Manager:
 +        def __init__(self):
 +            self.frames = []
++            self.websocket = SimpleNamespace(
++                client_state=WebSocketState.CONNECTED,
++                send_json=AsyncMock(),
++            )
 +            self._private_reply_output_blocked = MagicMock(return_value=False)
 +            self._proactive_interruptibility_block_reason = MagicMock(
 +                return_value="gaming"
@@ -1625,8 +1635,10 @@ new file mode 100644
 +            return True
 +
 +    _targets.clear()
++    _view_targets.clear()
++    _active_views.clear()
 +    mgr = Manager()
-+    create = {
++    chat_create = {
 +        "plugin_id": "demo",
 +        "_host_push_origin_kind": "plugin_self",
 +        "card": {
@@ -1637,13 +1649,34 @@ new file mode 100644
 +            "summary": "hello",
 +        },
 +    }
-+    assert not await deliver_plugin_card(create, {"Test": mgr}, "Test")
++    assert not await deliver_plugin_card(chat_create, {"Test": mgr}, "Test")
 +    assert not mgr.frames
 +
-+    # A solicited create establishes routing; a later close must not be held
-+    # hostage by a newly busy/quiet state.
-+    create["_host_push_origin_kind"] = "ui_action"
-+    assert await deliver_plugin_card(create, {"Test": mgr}, "Test")
++    # A solicited AgentHUD create establishes native routing even while the
++    # owner is gaming; it is an explicitly requested result, not ambient push.
++    agent_create = {
++        "plugin_id": "demo",
++        "_host_push_origin_kind": "ui_action",
++        "card": {
++            "type": "html_card",
++            "presentation": "agent",
++            "card_id": "view",
++            "operation": "create",
++            "html": "hello",
++            "title": "Requested",
++        },
++    }
++    assert await deliver_plugin_card(agent_create, {"Test": mgr}, "Test")
++    assert _active_views[("demo", "Test")] == "view"
++    assert _view_targets[("demo", "view")] == "Test"
++    mgr.websocket.send_json.assert_awaited_once()
++
++    # Cleanup must remain deliverable even after quiet/busy flips. If close
++    # consulted either admission helper it would block here and leave stale UI.
++    mgr._private_reply_output_blocked = MagicMock(return_value=True)
++    mgr._proactive_interruptibility_block_reason = MagicMock(
++        return_value="gaming"
++    )
 +    close = {
 +        "plugin_id": "demo",
 +        "_host_push_origin_kind": "plugin_self",
@@ -1654,12 +1687,19 @@ new file mode 100644
 +            "operation": "close",
 +        },
 +    }
-+    # Unknown AgentHUD route is still a normal False; cleanup bypass is tested
-+    # through the policy helper contract rather than inventing a route here.
-+    assert plugin_visible_output_block_reason(
-+        mgr, {"_host_push_origin_kind": "plugin_self"}
-+    ) == "gaming"
++    assert await deliver_plugin_card(close, {"Test": mgr}, "Test")
++    assert ("demo", "Test") not in _active_views
++    assert ("demo", "view") not in _view_targets
++    assert mgr.websocket.send_json.await_count == 2
++    assert (
++        mgr.websocket.send_json.await_args_list[-1].args[0]["view"]["operation"]
++        == "close"
++    )
++    mgr._private_reply_output_blocked.assert_not_called()
++    mgr._proactive_interruptibility_block_reason.assert_not_called()
 +    _targets.clear()
++    _view_targets.clear()
++    _active_views.clear()
 diff --git a/plugin/tests/unit/server/test_xiaoyu_push_origin.py b/plugin/tests/unit/server/test_xiaoyu_push_origin.py
 new file mode 100644
 --- /dev/null
