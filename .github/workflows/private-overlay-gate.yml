@@ -150,6 +150,8 @@ jobs:
             tests/unit/test_qwen_intl_tts_routing.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
+            tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
+            plugin/tests/unit/server/test_xiaoyu_push_origin.py \
             tests/unit/test_token_tracker_install_hooks_idempotent.py \
             tests/unit/test_cloudsave_lifecycle_flow.py \
             tests/unit/test_live2d_model_config_write_locking.py
