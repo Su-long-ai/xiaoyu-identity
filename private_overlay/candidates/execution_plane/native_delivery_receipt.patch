@@ -356,7 +356,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,100 @@
+@@ -539,9 +539,111 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
@@ -416,30 +416,41 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +
 +async def _handle_nekoclaw_delivery_barrier(event: Dict[str, Any]) -> None:
-+    """Persist an effect barrier before acknowledging main_server."""
++    """Persist one exact effect barrier under the same epoch serialization."""
 +    event_id = str(event.get("event_id") or "")
 +    action = str(event.get("action") or "")
 +    attempt_id = str(event.get("delivery_attempt_id") or "")
 +    claim_id = str(event.get("delivery_claim_id") or "")
 +    raw_delivery_id = event.get("delivery_id")
-+    epoch_state = await _observe_nekoclaw_main_epoch(event.get("main_epoch"))
 +    result = "invalid"
 +    try:
-+        if epoch_state == "stale":
-+            result = "stale_epoch"
-+        else:
-+            if isinstance(raw_delivery_id, bool):
-+                raise ValueError("boolean delivery id")
-+            delivery_id = int(raw_delivery_id)
-+            if delivery_id <= 0 or not attempt_id or not claim_id:
-+                raise ValueError("invalid delivery barrier identity")
++        if isinstance(raw_delivery_id, bool):
++            raise ValueError("boolean delivery id")
++        delivery_id = int(raw_delivery_id)
++        if delivery_id <= 0 or not attempt_id or not claim_id:
++            raise ValueError("invalid delivery barrier identity")
++        async with _nekoclaw_main_epoch_lock:
++            epoch_state = await _observe_nekoclaw_main_epoch_locked(
++                event.get("main_epoch")
++            )
 +            host = await ready_host()
-+            if action == "claim":
-+                result = await host.ledger.outbox_claim_delivery(delivery_id, attempt_id, claim_id)
++            if epoch_state == "stale" and action != "commit":
++                result = "stale_epoch"
++            elif action == "claim":
++                result = await host.ledger.outbox_claim_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
 +            elif action == "commit":
-+                result = await host.ledger.outbox_commit_delivery(delivery_id, attempt_id, claim_id)
++                # A retired process cannot acquire/release effect rights, but
++                # its exact late positive receipt may reconcile the claim that
++                # the restart fence already moved to uncertain.
++                result = await host.ledger.outbox_commit_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
 +            elif action == "release":
-+                result = await host.ledger.outbox_release_delivery(delivery_id, attempt_id, claim_id)
++                result = await host.ledger.outbox_release_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
 +    except Exception as exc:
 +        logger.warning("[NekoClaw] delivery barrier failed: action=%s type=%s", action, type(exc).__name__)
 +        result = "error"
@@ -460,7 +471,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
      event_type = (event or {}).get("event_type")
      if event_type == "agent_intent_restore_signal":
          # First-real-client-session signal from main_server (sent on
-@@ -570,8 +654,14 @@
+@@ -570,8 +665,14 @@
      if event_type == "conversation_fact_observed":
          _forward_conversation_fact(event)
          return

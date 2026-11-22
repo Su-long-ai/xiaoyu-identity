@@ -147,6 +147,181 @@ def _load_epoch_observer(root: Path, *, hold_first_reconcile: bool = False):
     return SimpleNamespace(**namespace), ledger
 
 
+def _load_atomic_barrier(root: Path):
+    source = _text(root, "app/agent_server/api_runtime.py")
+    module = ast.parse(source)
+    wanted = {
+        "_observe_nekoclaw_main_epoch",
+        "_observe_nekoclaw_main_epoch_locked",
+        "_handle_nekoclaw_delivery_barrier",
+    }
+    body = [
+        item
+        for item in module.body
+        if isinstance(item, ast.AsyncFunctionDef) and item.name in wanted
+    ]
+    found = {item.name for item in body}
+    assert found == wanted, f"missing atomic barrier helpers: {sorted(wanted - found)}"
+
+    class Ledger:
+        def __init__(self):
+            self.state = "handoff"
+            self.identity = None
+            self.restart_calls = 0
+            self.claim_calls = 0
+            self.claim_entered = asyncio.Event()
+            self.release_claim = asyncio.Event()
+
+        async def outbox_mark_main_restart_uncertain(self):
+            self.restart_calls += 1
+            if self.state == "claimed":
+                self.state = "uncertain"
+                return 1
+            return 0
+
+        async def outbox_claim_delivery(self, delivery_id, attempt_id, claim_id):
+            self.claim_calls += 1
+            self.claim_entered.set()
+            await self.release_claim.wait()
+            if self.state == "handoff":
+                self.state = "claimed"
+                self.identity = (delivery_id, attempt_id, claim_id)
+                return "claimed"
+            return self.state
+
+        async def outbox_commit_delivery(self, delivery_id, attempt_id, claim_id):
+            if self.identity == (delivery_id, attempt_id, claim_id) and self.state in {
+                "claimed",
+                "uncertain",
+            }:
+                self.state = "sent"
+                return "committed"
+            return self.state
+
+        async def outbox_release_delivery(self, delivery_id, attempt_id, claim_id):
+            if self.identity == (delivery_id, attempt_id, claim_id) and self.state == "claimed":
+                self.state = "pending"
+                return "released"
+            return self.state
+
+    ledger = Ledger()
+    emitted = []
+
+    async def ready_host():
+        return SimpleNamespace(ledger=ledger)
+
+    async def emit_main_event(event_type, lanlan_name=None, **payload):
+        emitted.append(
+            {
+                "event_type": event_type,
+                "lanlan_name": lanlan_name,
+                **payload,
+            }
+        )
+        return True
+
+    namespace = {
+        "Any": object,
+        "Dict": dict,
+        "asyncio": asyncio,
+        "logger": _Logger(),
+        "ready_host": ready_host,
+        "_emit_main_event": emit_main_event,
+        "_nekoclaw_main_epoch": None,
+        "_nekoclaw_retired_main_epochs": set(),
+        "_nekoclaw_main_epoch_lock": asyncio.Lock(),
+    }
+    helper_module = ast.Module(body=body, type_ignores=[])
+    ast.fix_missing_locations(helper_module)
+    exec(compile(helper_module, "<atomic-delivery-barrier>", "exec"), namespace)
+    return namespace, ledger, emitted
+
+
+async def _verify_atomic_barrier_epoch(root: Path) -> None:
+    namespace, ledger, emitted = _load_atomic_barrier(root)
+    observe = namespace["_observe_nekoclaw_main_epoch"]
+    handle = namespace["_handle_nekoclaw_delivery_barrier"]
+
+    assert await observe("main-a") == "initialized"
+
+    claim_task = asyncio.create_task(
+        handle(
+            {
+                "event_type": "nekoclaw_delivery_barrier",
+                "event_id": "claim-a",
+                "main_epoch": "main-a",
+                "action": "claim",
+                "delivery_id": 1,
+                "delivery_attempt_id": "attempt-a",
+                "delivery_claim_id": "claim-a",
+            }
+        )
+    )
+    await ledger.claim_entered.wait()
+
+    # The restart must wait for the in-flight exact claim to finish under the
+    # same epoch lock. Once the claim lands, restart immediately fences it.
+    restart_task = asyncio.create_task(observe("main-b"))
+    await asyncio.sleep(0)
+    assert not restart_task.done()
+    assert ledger.restart_calls == 0
+
+    ledger.release_claim.set()
+    await claim_task
+    assert emitted[-1]["result"] == "claimed"
+    assert await restart_task == "reconciled:1"
+    assert ledger.state == "uncertain"
+    assert namespace["_nekoclaw_main_epoch"] == "main-b"
+    assert "main-a" in namespace["_nekoclaw_retired_main_epochs"]
+
+    claim_calls = ledger.claim_calls
+    await handle(
+        {
+            "event_type": "nekoclaw_delivery_barrier",
+            "event_id": "stale-claim",
+            "main_epoch": "main-a",
+            "action": "claim",
+            "delivery_id": 1,
+            "delivery_attempt_id": "attempt-a",
+            "delivery_claim_id": "claim-a",
+        }
+    )
+    assert emitted[-1]["result"] == "stale_epoch"
+    assert ledger.claim_calls == claim_calls
+    assert ledger.state == "uncertain"
+
+    # A retired process may not release/reopen the row either.
+    await handle(
+        {
+            "event_type": "nekoclaw_delivery_barrier",
+            "event_id": "stale-release",
+            "main_epoch": "main-a",
+            "action": "release",
+            "delivery_id": 1,
+            "delivery_attempt_id": "attempt-a",
+            "delivery_claim_id": "claim-a",
+        }
+    )
+    assert emitted[-1]["result"] == "stale_epoch"
+    assert ledger.state == "uncertain"
+
+    # But an exact positive receipt is safe and useful after restart: it only
+    # reconciles the already-fenced uncertain claim and cannot reacquire rights.
+    await handle(
+        {
+            "event_type": "nekoclaw_delivery_barrier",
+            "event_id": "late-commit",
+            "main_epoch": "main-a",
+            "action": "commit",
+            "delivery_id": 1,
+            "delivery_attempt_id": "attempt-a",
+            "delivery_claim_id": "claim-a",
+        }
+    )
+    assert emitted[-1]["result"] == "committed"
+    assert ledger.state == "sent"
+
+
 async def _verify_main_restart_epoch(root: Path) -> None:
     helpers, ledger = _load_epoch_observer(root)
     observe = helpers._observe_nekoclaw_main_epoch
@@ -342,8 +517,19 @@ def _verify_wiring(root: Path) -> None:
     assert '_nekoclaw_retired_main_epochs.add(previous)' in api
     assert "async def _handle_nekoclaw_main_epoch" in api
     assert "outbox_mark_main_restart_uncertain" in api
-    assert 'if epoch_state == "stale":' in api
-    assert 'result = "stale_epoch"' in api
+    barrier_start = api.index("async def _handle_nekoclaw_delivery_barrier")
+    barrier_end = api.index("async def _on_session_event", barrier_start)
+    barrier = api[barrier_start:barrier_end]
+    _ordered(
+        barrier,
+        "async with _nekoclaw_main_epoch_lock:",
+        "epoch_state = await _observe_nekoclaw_main_epoch_locked(",
+        "outbox_claim_delivery",
+    )
+    assert 'if epoch_state == "stale" and action != "commit":' in barrier
+    assert 'elif action == "commit":' in barrier
+    assert "outbox_commit_delivery" in barrier
+    assert 'result = "stale_epoch"' in barrier
     assert 'if event_type == "nekoclaw_main_epoch":' in api
     assert "_create_tracked_task(_handle_nekoclaw_main_epoch(event))" in api
     restore_start = api.index('if event_type == "agent_intent_restore_signal":')
@@ -400,6 +586,7 @@ async def _verify(root: Path) -> None:
     await _verify_native_ack(root)
     await _verify_receipt_faults(root)
     await _verify_main_restart_epoch(root)
+    await _verify_atomic_barrier_epoch(root)
 
 
 def main() -> int:
