@@ -68,6 +68,18 @@ class OverlayContractTests(unittest.TestCase):
             "XiaoYu overlay must not grow a second persona/evolution runtime",
         )
 
+    def test_plugin_runtime_reconcile_delegates_lifecycle_to_neko(self):
+        source = (ROOT / "tools" / "reconcile_neko_plugin_runtime.py").read_text(encoding="utf-8-sig")
+        self.assertIn("/plugins/refresh", source)
+        self.assertIn("runtime_auto_start", source)
+        self.assertIn("autostart_pending", source)
+        self.assertIn("/start", source)
+        self.assertNotIn("plugin.toml", source)
+        self.assertNotIn("tomllib", source)
+        self.assertNotIn("subprocess", source)
+        self.assertNotIn("topological", source)
+        self.assertNotIn("rglob(", source)
+
     def test_private_runtime_plugins_are_exception_only_and_delegate_authority(self):
         plugins_dir = ROOT / "plugins"
         manifest = json.loads(
@@ -131,7 +143,7 @@ class OverlayContractTests(unittest.TestCase):
             "--source",
             "plugins\\xiaoyu_interaction_policy",
             "run_checks.ps1",
-            "restore_neko_plugin_autostart.py",
+            "reconcile_neko_plugin_runtime.py",
             "NEKO_STORAGE_SELECTED_ROOT",
             "NEKO_STORAGE_ANCHOR_ROOT",
             "NEKO_RUNTIME_STATE_DIR",

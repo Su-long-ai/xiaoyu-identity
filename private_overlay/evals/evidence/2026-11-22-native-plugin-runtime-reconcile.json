@@ -1,0 +1,77 @@
+﻿{
+    "schema_version":  1,
+    "observed_at_local":  "2026-11-22T20:30:36+08:00",
+    "goal":  "Restore N.E.K.O runtime_auto_start plugins after product restart while keeping Agent master disabled, without a private plugin lifecycle implementation.",
+    "before":  {
+                   "old_helper":  "restore_neko_plugin_autostart.py",
+                   "old_behavior":  "private helper refreshed registry, derived dependency order and orchestrated plugin starts in addition to restoring the User Plugin relay",
+                   "reason_for_change":  "N.E.K.O already owns registry discovery, plugin metadata, permission fences, dependency validation, process startup and runtime_auto_start intent."
+               },
+    "native_boundary":  {
+                            "embedded_plugin_server_manage_lifecycle":  false,
+                            "agent_master_intent":  false,
+                            "native_agent_restore_skips_user_plugin_subflag_when_master_off":  true,
+                            "no_public_embedded_lifecycle_start_route":  true,
+                            "adapter":  "reconcile_neko_plugin_runtime.py",
+                            "adapter_uses":  [
+                                                 "POST /plugins/refresh",
+                                                 "GET /plugins?summary=true",
+                                                 "POST /plugin/{id}/start",
+                                                 "GET/POST /agent/flags"
+                                             ],
+                            "adapter_does_not_own":  [
+                                                         "manifest discovery",
+                                                         "plugin dependency graph",
+                                                         "plugin process host",
+                                                         "plugin permission/grant store",
+                                                         "plugin durable runtime preferences"
+                                                     ],
+                            "autostart_selection":  "host metadata only: runtime_enabled=true, runtime_auto_start=true, autostart_pending!=true"
+                        },
+    "cold_restart":  {
+                         "services_ready":  true,
+                         "health_ports":  [
+                                              48911,
+                                              48912,
+                                              48915,
+                                              48916
+                                          ],
+                         "napcat_6099_remained_listening":  true,
+                         "reconcile_verdict":  "PASS",
+                         "host_selected_candidates":  [
+                                                          "xiaoyu_interaction_policy",
+                                                          "proactive_controller",
+                                                          "qq_auto_reply",
+                                                          "web_search"
+                                                      ],
+                         "running_after_reconcile":  [
+                                                         "xiaoyu_interaction_policy",
+                                                         "proactive_controller",
+                                                         "qq_auto_reply",
+                                                         "web_search"
+                                                     ],
+                         "not_running":  [
+
+                                         ],
+                         "xiaoyu_tool_registration":  "xiaoyu_recent_activity registered at 2026-11-22 20:30:22",
+                         "agent_flags":  {
+                                             "analyzer_enabled":  false,
+                                             "computer_use_enabled":  false,
+                                             "browser_use_enabled":  false,
+                                             "user_plugin_enabled":  true
+                                         }
+                     },
+    "regression":  {
+                       "targeted_tests":  "20/20 PASS",
+                       "overlay_unit_tests":  "104/104 PASS",
+                       "reuse_first_gate":  "PASS",
+                       "authority_contract":  "PASS",
+                       "provider_privacy":  "PASS",
+                       "release_readiness":  "23/23 PASS"
+                   },
+    "privacy":  {
+                    "user_content_persisted":  false,
+                    "credentials_persisted":  false
+                },
+    "verdict":  "PASS_LIVE_NATIVE_PLUGIN_RUNTIME_RECONCILE"
+}

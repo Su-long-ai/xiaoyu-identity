@@ -22,9 +22,9 @@
     {
       "id": "plugin_autostart_restart",
       "goal": "N.E.K.O native runtime_auto_start plugins restore after product restart without enabling the Agent master",
-      "status": "native_registry_refresh_autostart_and_qq_reconnect_live_pass",
-      "evidence": "evals/evidence/2026-11-19-live-plugin-autostart-reconcile.json",
-      "note": "N.E.K.O native runtime_auto_start remains the lifecycle authority. The overlay recovery helper only restores persisted autostart state through native lifecycle APIs and the independent User Plugin relay through the native Agent flags API; it does not enable Agent analyzer/computer/browser."
+      "status": "native_plugin_api_reconcile_and_independent_relay_live_pass",
+      "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json",
+      "note": "N.E.K.O remains the plugin lifecycle authority. The overlay no longer scans manifests, computes dependency order, or hosts plugin processes; because embedded lifecycle is intentionally dormant while Agent master is off, a thin local adapter asks N.E.K.O to refresh its own registry, selects only host-declared approved runtime_auto_start plugins, invokes native start routes, and restores only the independent User Plugin relay. Agent analyzer/computer/browser remain disabled."
     },
     {
       "id": "private_group_isolation",

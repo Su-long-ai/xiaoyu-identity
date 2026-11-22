@@ -465,6 +465,35 @@
       ],
       "why_reuse_insufficient": "The newest upstream remains unsuitable for promotion because its own clean frontend acceptance is red. The stable native pin remains the reusable implementation; no private workaround is justified.",
       "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-1e8ff0d0-audit.json"
+    },
+    {
+      "id": "startup:native-plugin-runtime-reconcile",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "Source-launch XiaoYu keeps Agent master off, so N.E.K.O deliberately does not start the embedded plugin lifecycle or replay user_plugin_enabled even though plugin HTTP is healthy. The old overlay helper duplicated registry/dependency/start orchestration.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O embedded lifecycle via Agent master",
+          "type": "native",
+          "outcome": "not selected: would require enabling analyzer master, contrary to product policy",
+          "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+        },
+        {
+          "name": "N.E.K.O native plugin HTTP APIs",
+          "type": "native",
+          "outcome": "selected: host refresh/list/start remains authority for registry, runtime intent, permission/dependency checks and process startup",
+          "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+        },
+        {
+          "name": "private manifest/dependency/process recovery",
+          "type": "private_legacy",
+          "outcome": "retired",
+          "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current embedded mode exposes no lifecycle-start route independent of Agent master. A thin loopback adapter is still required only to invoke existing host APIs and replay user_plugin_enabled; it does not reimplement plugin lifecycle internals.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
     }
   ]
 }
