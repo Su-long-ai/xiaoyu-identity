@@ -38,9 +38,9 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 -            sql = "SELECT * FROM outbox WHERE sent_at IS NULL"
 +            sql = (
 +                "SELECT * FROM outbox WHERE sent_at IS NULL "
-+                "AND last_error NOT LIKE 'delivery_handoff:%' "
-+                "AND last_error NOT LIKE 'delivery_claimed:%' "
-+                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
 +            )
              params: list[Any] = []
 @@ -3751,3 +3776,8 @@
@@ -48,9 +48,9 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 -            row = conn.execute("SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL").fetchone()
 +            row = conn.execute(
 +                "SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL "
-+                "AND last_error NOT LIKE 'delivery_handoff:%' "
-+                "AND last_error NOT LIKE 'delivery_claimed:%' "
-+                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
 +            ).fetchone()
              return None if row is None or row["due"] is None else float(row["due"])
 @@ -3780,10 +3810,119 @@
