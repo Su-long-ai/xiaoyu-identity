@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_RUNTIME_RUNNER_BLOCKED_CANDIDATE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+  "candidate_head_before_evidence": "3e3f0766e124d31eb907f7d81436c2702563d62a",
+  "product_main_at_split": "4a34dc69c4e17802b427b3f5dea6aa5480215f0a",
+  "agent_branch": "agent/companion-runtime-v1",
+  "last_agent_branch_head": "c275cbda5bd0d9f3f99915c6142b109af7c09e6f",
+  "status": "PROMOTION_PROHIBITED_PENDING_AGENT_MACHINE_GATE",
+  "why_candidate_ref_exists": "GitHub can garbage-collect unreferenced commit objects; one staged commit was already lost and had to be reconstructed. A durable candidate ref preserves reviewed but unvalidated work while the required agent/** hosted machine gate cannot start.",
+  "blocker": {
+    "kind": "GITHUB_ACTIONS_JOB_FAILS_BEFORE_RUNNER_STEPS",
+    "observed_characteristics": [
+      "job completes failure in roughly 2-4 seconds",
+      "steps list is empty/null",
+      "job logs are unavailable / BlobNotFound",
+      "same symptom observed on multiple independent agent/** branches",
+      "local MCP tunnel is also disconnected, so local Windows validation cannot substitute"
+    ],
+    "observed_runs": [
+      45066568252,
+      45067895394,
+      45067993088,
+      45068369557
+    ],
+    "cause_claim": "UNKNOWN_DO_NOT_GUESS"
+  },
+  "invariants": [
+    "candidate ref is storage/development only and does not satisfy ordinary agent/** push gate",
+    "do not merge candidate ref into private/neko-overlay-v1",
+    "do not update stable release manifest from candidate evidence",
+    "do not mark candidate work green from static review alone",
+    "when execution recovers, resync latest private/neko-overlay-v1 before replaying candidate increments",
+    "agent/companion-runtime-v1 must then run reuse-first, architecture-freeze, plugin-admission, overlay, patched-product, QQ and micro-soak gates on ordinary push",
+    "gate failures must be fixed in implementation/evidence; never remove or weaken a gate"
+  ],
+  "candidate_promotion_requirements": [
+    "latest product-main resync",
+    "formal reuse review/evidence for each implementation unit or existing explicit coverage",
+    "all targeted regression tests present",
+    "ordinary agent/** push actually starts and completes machine gate",
+    "reuse and architecture gates green",
+    "plugin admission and release-readiness invariants green",
+    "product regression/micro-soak green",
+    "main Agent performs final integration"
+  ]
+}
