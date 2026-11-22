@@ -157,7 +157,18 @@
       "no_identity_store": true,
       "no_transport_change": true
     },
-    "implementation_status": "REVIEWED_PENDING_CANDIDATE_IMPLEMENTATION"
+    "implementation_status": "CANDIDATE_REF_PRESERVED_PENDING_AGENT_MACHINE_GATE",
+    "implementation": {
+      "cloud_step": "Exercise pinned QQ identity/context continuity regression",
+      "local_step": "XiaoYu pinned QQ identity/context continuity regression",
+      "targeted_node_count": 11,
+      "whole_file_surface_suite_unchanged": true,
+      "cloud_local_target_parity": true,
+      "run_before_inbound_idempotency_candidate": true,
+      "runtime_code_changed": false,
+      "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+      "promotion_prohibited_until_agent_gate_green": true
+    }
   },
   "authoritative_targeted_identity_tests": [
     "tests/test_companion_context.py::test_live_binding_revocation",

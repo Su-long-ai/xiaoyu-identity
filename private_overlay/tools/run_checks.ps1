@@ -69,6 +69,41 @@ if (-not $StartupPreflight) {
     }
     if ($QQSurfaceExit -ne 0) { exit $QQSurfaceExit }
 
+    Write-Host "== XiaoYu pinned QQ identity/context continuity regression =="
+    $QQIdentityFiles = @(
+        (Join-Path $QQPluginRoot "tests\test_companion_context.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_free_route_persona.py"),
+        (Join-Path $QQPluginRoot "tests\test_group_owner_identity.py"),
+        (Join-Path $QQPluginRoot "tests\test_account_identity.py")
+    )
+    $QQIdentityTargets = @(
+        ("{0}::test_live_binding_revocation" -f (Join-Path $QQPluginRoot "tests\test_companion_context.py")),
+        ("{0}::test_generation_and_both_delivery_paths_recheck_same_token" -f (Join-Path $QQPluginRoot "tests\test_companion_context.py")),
+        ("{0}::test_buffer_union_and_rebinding_never_resurrect_old_draft" -f (Join-Path $QQPluginRoot "tests\test_companion_context.py")),
+        ("{0}::test_external_section_is_never_frozen_in_session_base" -f (Join-Path $QQPluginRoot "tests\test_companion_context.py")),
+        ("{0}::test_persona_comes_from_the_host_not_from_a_new_prompt" -f (Join-Path $QQPluginRoot "tests\test_qq_free_route_persona.py")),
+        ("{0}::test_every_self_built_request_asks_the_shared_helper" -f (Join-Path $QQPluginRoot "tests\test_qq_free_route_persona.py")),
+        ("{0}::test_switching_speaker_does_not_inherit_owner_identity" -f (Join-Path $QQPluginRoot "tests\test_group_owner_identity.py")),
+        ("{0}::test_revoked_owner_is_rechecked_after_await" -f (Join-Path $QQPluginRoot "tests\test_group_owner_identity.py")),
+        ("{0}::test_shared_session_refreshes_identity_for_each_turn" -f (Join-Path $QQPluginRoot "tests\test_group_owner_identity.py")),
+        ("{0}::test_identity_never_uses_private_companion_configuration" -f (Join-Path $QQPluginRoot "tests\test_group_owner_identity.py")),
+        ("{0}::test_only_live_onebot_identity_is_shared" -f (Join-Path $QQPluginRoot "tests\test_account_identity.py"))
+    )
+    foreach ($QQIdentityFile in $QQIdentityFiles) {
+        if (-not (Test-Path -LiteralPath $QQIdentityFile)) {
+            throw "Pinned QQ identity/context regression test missing: $QQIdentityFile"
+        }
+    }
+    Push-Location $NekoRoot
+    try {
+        & $NekoPython -m pytest -q $QQIdentityTargets
+        $QQIdentityExit = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($QQIdentityExit -ne 0) { exit $QQIdentityExit }
+
     Write-Host "== XiaoYu native companion switch/audio ownership regression =="
     $CompanionPythonTests = @(
         (Join-Path $NekoRoot "tests\unit\test_character_switch_queue.py"),

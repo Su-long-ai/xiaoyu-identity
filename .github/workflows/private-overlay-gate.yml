@@ -440,6 +440,22 @@ jobs:
             plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
 
+      - name: Exercise pinned QQ identity/context continuity regression
+        run: |
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_live_binding_revocation \
+            plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token \
+            plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft \
+            plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_external_section_is_never_frozen_in_session_base \
+            plugin/plugins/qq_auto_reply/tests/test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt \
+            plugin/plugins/qq_auto_reply/tests/test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper \
+            plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity \
+            plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await \
+            plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn \
+            plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration \
+            plugin/plugins/qq_auto_reply/tests/test_account_identity.py::test_only_live_onebot_identity_is_shared
+
       - name: Exercise QQ inbound idempotency candidate
         run: |
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"

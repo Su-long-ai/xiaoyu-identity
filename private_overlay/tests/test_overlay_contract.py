@@ -560,6 +560,65 @@ class OverlayContractTests(unittest.TestCase):
             checked_segment,
         )
 
+    def test_cloud_and_release_qq_identity_targets_stay_in_lockstep(self):
+        release = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+
+        release_start = release.index("$QQIdentityTargets = @(")
+        release_end = release.index("\n    )", release_start)
+        release_segment = release[release_start:release_end]
+        local_targets = {
+            f"{match.group(2)}::{match.group(1)}"
+            for match in re.finditer(
+                r'\("\{0\}::(test_[A-Za-z0-9_]+)" -f '
+                r'\(Join-Path \$QQPluginRoot "tests\\(test_[A-Za-z0-9_]+\.py)"\)\)',
+                release_segment,
+            )
+        }
+
+        cloud_start = workflow.index(
+            "Exercise pinned QQ identity/context continuity regression"
+        )
+        cloud_end = workflow.index(
+            "Exercise QQ inbound idempotency candidate",
+            cloud_start,
+        )
+        cloud_segment = workflow[cloud_start:cloud_end]
+        cloud_targets = {
+            f"{match.group(1)}::{match.group(2)}"
+            for match in re.finditer(
+                r"plugin/plugins/qq_auto_reply/tests/"
+                r"(test_[A-Za-z0-9_]+\.py)::(test_[A-Za-z0-9_]+)",
+                cloud_segment,
+            )
+        }
+
+        expected = {
+                "test_companion_context.py::test_live_binding_revocation",
+                "test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token",
+                "test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft",
+                "test_companion_context.py::test_external_section_is_never_frozen_in_session_base",
+                "test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt",
+                "test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper",
+                "test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity",
+                "test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await",
+                "test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn",
+                "test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration",
+                "test_account_identity.py::test_only_live_onebot_identity_is_shared"
+        }
+        self.assertEqual(local_targets, expected)
+        self.assertEqual(cloud_targets, expected)
+        self.assertEqual(
+            cloud_targets,
+            local_targets,
+            "ordinary agent pushes must execute the same pinned QQ identity/context "
+            "targets as the local release gate",
+        )
+
     def test_release_gate_executes_pinned_qq_surface_contracts_but_startup_does_not(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"
@@ -579,6 +638,19 @@ class OverlayContractTests(unittest.TestCase):
             "test_qq_runtime_transition_lock.py",
             "test_qq_reply_buffer_switch.py",
             "$NekoPython -m pytest -q $QQSurfaceTests",
+            "XiaoYu pinned QQ identity/context continuity regression",
+            "$NekoPython -m pytest -q $QQIdentityTargets",
+            "test_live_binding_revocation",
+            "test_generation_and_both_delivery_paths_recheck_same_token",
+            "test_buffer_union_and_rebinding_never_resurrect_old_draft",
+            "test_external_section_is_never_frozen_in_session_base",
+            "test_persona_comes_from_the_host_not_from_a_new_prompt",
+            "test_every_self_built_request_asks_the_shared_helper",
+            "test_switching_speaker_does_not_inherit_owner_identity",
+            "test_revoked_owner_is_rechecked_after_await",
+            "test_shared_session_refreshes_identity_for_each_turn",
+            "test_identity_never_uses_private_companion_configuration",
+            "test_only_live_onebot_identity_is_shared",
         }
         for item in required:
             self.assertIn(item, script)
@@ -1079,7 +1151,7 @@ class OverlayContractTests(unittest.TestCase):
             "Exercise pinned QQ delivery/floor surface regression"
         )
         cloud_end = workflow.index(
-            "Exercise QQ inbound idempotency candidate",
+            "Exercise pinned QQ identity/context continuity regression",
             cloud_start,
         )
         cloud_segment = workflow[cloud_start:cloud_end]
@@ -1098,6 +1170,37 @@ class OverlayContractTests(unittest.TestCase):
             "ordinary agent pushes must execute the same pinned QQ surface files "
             "as the local release gate",
         )
+
+    def test_github_gate_runs_pinned_qq_identity_before_candidate(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        surface = workflow.index(
+            "Exercise pinned QQ delivery/floor surface regression"
+        )
+        identity = workflow.index(
+            "Exercise pinned QQ identity/context continuity regression"
+        )
+        candidate = workflow.index(
+            "Exercise QQ inbound idempotency candidate"
+        )
+        self.assertLess(surface, identity)
+        self.assertLess(identity, candidate)
+        segment = workflow[identity:candidate]
+        for target in (
+            "plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_live_binding_revocation",
+            "plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token",
+            "plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft",
+            "plugin/plugins/qq_auto_reply/tests/test_companion_context.py::test_external_section_is_never_frozen_in_session_base",
+            "plugin/plugins/qq_auto_reply/tests/test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt",
+            "plugin/plugins/qq_auto_reply/tests/test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper",
+            "plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity",
+            "plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await",
+            "plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn",
+            "plugin/plugins/qq_auto_reply/tests/test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration",
+            "plugin/plugins/qq_auto_reply/tests/test_account_identity.py::test_only_live_onebot_identity_is_shared",
+        ):
+            self.assertIn(target, segment)
 
     def test_github_gate_replays_pinned_qq_surface_regression(self):
         workflow = (
