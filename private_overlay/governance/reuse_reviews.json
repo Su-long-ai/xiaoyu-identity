@@ -436,6 +436,35 @@
       ],
       "why_reuse_insufficient": "PluginStore fully replaces private durable state. A two-field projection file remains only because patch 0006 makes a synchronous final reply-admission decision in the main chat process and intentionally does not depend on plugin IPC/SQLite; the projection is derived and can be rebuilt from PluginStore.",
       "acceptance_evidence": "evals/evidence/2026-11-22-plugin-store-interaction-policy.json"
+    },
+    {
+      "id": "upstream:neko-1e8ff0d0",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "Thirteen upstream commits after stable 6fccfb72 were re-evaluated after the earlier e4f87d32 frontend hold.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O 6fccfb72 current stable pin",
+          "type": "native_upstream",
+          "outcome": "selected for continued live use",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-6fccfb72-upgrade.json"
+        },
+        {
+          "name": "N.E.K.O 1e8ff0d0 upstream candidate",
+          "type": "native_upstream",
+          "outcome": "deferred: clean upstream still fails the same API-settings dropdown geometry acceptance",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-1e8ff0d0-audit.json"
+        },
+        {
+          "name": "XiaoYu private frontend workaround",
+          "type": "private_patch",
+          "outcome": "rejected; do not compensate for an upstream-only regression",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-1e8ff0d0-audit.json"
+        }
+      ],
+      "why_reuse_insufficient": "The newest upstream remains unsuitable for promotion because its own clean frontend acceptance is red. The stable native pin remains the reusable implementation; no private workaround is justified.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-1e8ff0d0-audit.json"
     }
   ]
 }

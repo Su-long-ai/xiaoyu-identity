@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T20:12:00+08:00",
+  "phase": "isolated_upstream_audit",
+  "candidate": {
+    "current_live_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "candidate_commit": "1e8ff0d02a249bf19064879d985e9aeab43c2a62",
+    "upstream_delta_commits": 13,
+    "notable_changes": [
+      "vision follows chat model and standalone vision config becomes deprecated fallback",
+      "plugin grant store uses shared permission vocabulary",
+      "Live2D config endpoints enforce model-directory bounds",
+      "system router avoids triggering Steam initialization for playtime reports",
+      "VRM deletion tolerates entries whose type cannot be checked",
+      "Steam late initialization cannot repopulate reset main-server global state"
+    ]
+  },
+  "blocker": {
+    "test": "tests/frontend/test_api_settings.py::test_custom_model_headers_own_their_capsule_shape[chromium]",
+    "clean_upstream_result": "FAIL",
+    "assertion": "exposedMenuCenterIsVisible expected true, observed false",
+    "same_as_prior_e4f87d32_blocker": true,
+    "xiaoyu_patches_applied": false,
+    "classification": "UPSTREAM_FRONTEND_REGRESSION_NOT_FIXED_AT_1E8FF0D0",
+    "private_workaround_added": false
+  },
+  "additional_observation": {
+    "clean_upstream_openai_import_loop_stall_reproduced": true,
+    "clean_upstream_client_registration_ssl_loop_stall_reproduced": true,
+    "interpretation": "Confirms managed patch 0010 still covers real upstream startup gaps; this is not a regression in the live patched runtime."
+  },
+  "reuse_assessment": {
+    "decision": "HOLD_CURRENT_PIN",
+    "selected_native_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "reason": "Latest upstream still fails its own frontend acceptance without XiaoYu patches. Do not add private UI debt merely to chase HEAD."
+  },
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  },
+  "verdict": "PASS_AUDIT_HOLD_PROMOTION_UPSTREAM_FRONTEND_BLOCKER"
+}
