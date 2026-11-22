@@ -106,9 +106,9 @@
     {
       "id": "neko_upstream_upgrade",
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
-      "status": "origin_main_6261_patch_replay_dependency_regression_and_canonical_live_restart_pass",
-      "evidence": "evals/evidence/2026-11-20-neko-upstream-6261a5f6-upgrade.json",
-      "note": "The 6261a5f6 upgrade established deterministic replay for the original five patches. Later evidence-backed patches add speech-output gating and a generic provider-native first-round tool-choice bridge; all managed patches remain authority-checked by startup preflight."
+      "status": "origin_main_899a_patch_replay_regression_and_canonical_live_restart_pass",
+      "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json",
+      "note": "Upgraded the N.E.K.O mother-project from 6261a5f6 to 899a08ce (76 upstream commits). 0001-0008 and 0010 replay unchanged; 0009 required only an import-context rebase. Upstream system_presence is reused for sleep/lock/display-off while the residual QUNS/activity final-delivery gate remains distinct. Canonical live restart reached 200 on 48911/48912/48915/48916, XiaoYu plugin 0.6.4 restored, and EmbeddingService reached ready."
     },
     {
       "id": "semantic_interaction_policy",
@@ -141,9 +141,9 @@
     {
       "id": "startup_event_loop_responsiveness",
       "goal": "desktop startup/page-config heavy SDK import, model discovery, storage path resolution, and holiday SSL initialization do not block the main FastAPI event loop",
-      "status": "live_reuse_consolidated_startup_zero_stall_events_pass",
+      "status": "live_no_application_sync_blocking_stall_after_899a_reuse_fix_pass",
       "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json",
-      "note": "2026-11-22 reuse audit removed a redundant private search SSLContext cache, migrated localhost/external calls to N.E.K.O's shared HTTP clients, and moved remaining main/agent/memory first-import work off-loop while retaining native TokenTracker and the embedded plugin-server thread. Intermediate live restarts surfaced client-registration/OpenAI/plugin-monitoring stalls; the final 15:17 restart had only watchdog-start INFO and zero blocked/recovered events in Main and Agent, with 48911/48912/48915/48916 health all 200."
+      "note": "Reuse consolidation keeps N.E.K.O native TokenTracker/plugin host/shared HTTP pools and moves only blocking first-import/filesystem/config/client-construction boundaries off-loop. On the 899a08ce cold restart, the previous client_registration -> SSLContext application stall did not recur. Main emitted one watchdog warning while its stack was entirely inside Windows asyncio IOCP accept/poll; Agent emitted no blocked/recovered warning."
     },
     {
       "id": "proactive_interruptibility_authority",

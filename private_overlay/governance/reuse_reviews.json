@@ -306,7 +306,7 @@
           "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
         }
       ],
-      "why_reuse_insufficient": "The underlying network pools, plugin host/thread, TokenTracker, storage, TTS and UI authorities are reused. The patch only moves uncovered first-import/filesystem work off the event loop and migrates remaining call sites to the existing shared clients. A previously added private SSLContext cache was removed as redundant.",
+      "why_reuse_insufficient": "N.E.K.O native TokenTracker, embedded plugin thread, internal HTTP client and external pooled HTTP client are reused directly. The residual patch only moves their uncovered first-import/filesystem/config/lazy-client construction boundaries off the event loop. The 899a08ce live cold restart proved the former client_registration -> SSLContext application stall no longer recurs; no private HTTP pool or SSL cache exists.",
       "acceptance_evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ]

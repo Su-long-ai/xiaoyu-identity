@@ -48,7 +48,7 @@
     },
     {
       "file": "0010-startup-event-loop-responsiveness.patch",
-      "reason": "Live watchdog stacks exposed synchronous startup/event-loop hot paths across main, agent and memory processes: first OpenAI SDK/token-hook imports, plugin-server module imports, filesystem/model discovery, storage path resolution and first HTTP/TLS client construction. Reuse N.E.K.O's existing background/off-loop patterns, isolated plugin-server thread, pooled internal/external HTTP clients and native TokenTracker; use asyncio.to_thread only at blocking boundaries. No XiaoYu HTTP pool, SSLContext cache, plugin host, model runtime or second lifecycle authority is introduced.",
+      "reason": "Live watchdog stacks exposed synchronous startup/event-loop hot paths across main, agent and memory processes: first OpenAI/plugin imports, filesystem/model discovery, config/storage resolution and lazy HTTP/TLS client construction. Reuse N.E.K.O's existing background/off-loop patterns, isolated plugin-server thread, native TokenTracker, get_internal_http_client and external pooled client; use asyncio.to_thread only at blocking boundaries, including first shared-client resolution. No XiaoYu HTTP pool, SSLContext cache, plugin host, model runtime or second lifecycle authority is introduced.",
       "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ],

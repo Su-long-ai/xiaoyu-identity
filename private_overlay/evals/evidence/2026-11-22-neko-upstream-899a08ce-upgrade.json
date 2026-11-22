@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "observed_at_local": "2026-11-22T15:59:00+08:00",
-  "phase": "candidate_pre_live",
+  "phase": "canonical_live",
   "upgrade": {
     "from_neko_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
     "to_neko_commit": "899a08ce221115233665364cbde049d86a7b1c2f",
@@ -56,6 +56,13 @@
       "clean_worktree_base": "899a08ce221115233665364cbde049d86a7b1c2f",
       "git_apply_check_all": "PASS",
       "git_diff_check": "PASS"
+    },
+    "startup_patch_final": {
+      "patch": "0010-startup-event-loop-responsiveness.patch",
+      "sha256": "149069a62b61a8192effac913fa967f3b1105d520ecf379008d3d72c6d552249",
+      "bytes": 60049,
+      "change": "Resolve N.E.K.O's existing shared internal/external HTTP client off the event loop on first client-registration use; no new HTTP client, SSL cache or pool was added.",
+      "targeted_regression": "43 passed"
     }
   },
   "candidate_verification": {
@@ -68,14 +75,61 @@
     "native_first_round_main_conversation_tool_arbitration_hook_found": false
   },
   "pre_live_status": {
-    "live_checkout_changed": false,
-    "live_runtime_restarted_on_target": false,
+    "live_checkout_changed": true,
+    "live_runtime_restarted_on_target": true,
     "candidate_gate": "PASS",
-    "canonical_promotion": "PENDING"
+    "canonical_promotion": "PASS"
   },
   "privacy": {
     "user_content_persisted_in_upgrade_evidence": false,
     "access_tokens_persisted_in_upgrade_evidence": false
   },
-  "verdict": "PASS_CANDIDATE_LIVE_PROMOTION_PENDING"
+  "verdict": "PASS_CANONICAL_LIVE_PROMOTION",
+  "live_promotion": {
+    "live_checkout_head": "899a08ce221115233665364cbde049d86a7b1c2f",
+    "managed_patch_replay": "PASS 10/10 through setup_local.ps1",
+    "private_plugin": {
+      "id": "xiaoyu_interaction_policy",
+      "version": "0.6.4",
+      "official_package_reinstall": "PASS",
+      "payload_hash": "41ffa4ba41891f8cd2c032157360e8d4679bf781600ed4c10a5b934c8afb7693",
+      "live_tool_registration": "xiaoyu_recent_activity registered at 2026-11-22 16:09:46"
+    },
+    "first_live_start": {
+      "health": {
+        "48911": 200,
+        "48912": 200,
+        "48915": 200,
+        "48916": 200
+      },
+      "startup": "2026-11-22 16:05",
+      "finding": "One 1.14s synchronous application stall remained while lazily constructing the reused external HTTP client in client_registration.",
+      "action": "kept the native pooled client and moved only its first resolution/construction through asyncio.to_thread; folded into managed patch 0010"
+    },
+    "cold_restart_after_fix": {
+      "restart_requested": "2026-11-22 16:09:09",
+      "ready": "2026-11-22 16:09:35",
+      "health": {
+        "48911": 200,
+        "48912": 200,
+        "48915": 200,
+        "48916": 200
+      },
+      "client_registration_ssl_stall_recurred": false,
+      "agent_application_loop_stalls": 0,
+      "main_application_sync_blocking_stalls": 0,
+      "watchdog_scheduler_warnings": [
+        {
+          "time": "2026-11-22 16:09:34",
+          "blocked_ms_reported": 1093,
+          "recovered_ms_reported": 909,
+          "stack": "asyncio.windows_events IOCP poll -> finish_accept",
+          "classification": "OS/IO scheduling jitter; no synchronous N.E.K.O/XiaoYu application frame present"
+        }
+      ],
+      "embedding_service": "ready at 2026-11-22 16:09:58",
+      "privacy_note": "No user message content or credentials written into upgrade evidence."
+    },
+    "rollback_snapshot": "D:\\xiaoyu_private_overlay_state\\upgrade_backups\\pre-899a08ce-20261122-1601"
+  }
 }

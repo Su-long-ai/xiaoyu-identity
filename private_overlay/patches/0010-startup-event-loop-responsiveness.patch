@@ -1,8 +1,8 @@
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
-index 20d76cf1..b66bfe4f 100644
+index 39a8f28c..73c24240 100644
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -607,13 +607,16 @@ async def startup():
+@@ -609,13 +609,16 @@ async def startup():
          except Exception as e:
              logger.warning(f"[loop-stall] watchdog start failed: {e}")
  
@@ -246,10 +246,10 @@ index e5046618..6eac2098 100644
          import httpx
          import asyncio
 diff --git a/app/memory_server/runtime.py b/app/memory_server/runtime.py
-index c16666cc..da3a093f 100644
+index de78e251..82066e97 100644
 --- a/app/memory_server/runtime.py
 +++ b/app/memory_server/runtime.py
-@@ -1194,10 +1194,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
+@@ -1199,10 +1199,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
          try:
              from utils.token_tracker import TokenTracker, install_hooks
  
@@ -267,7 +267,7 @@ index c16666cc..da3a093f 100644
              logger.warning(f"[Memory] Token tracker init failed: {e}")
  
 diff --git a/main_logic/client_registration.py b/main_logic/client_registration.py
-index c24382c8..2e5cc985 100644
+index c24382c8..c77be5f5 100644
 --- a/main_logic/client_registration.py
 +++ b/main_logic/client_registration.py
 @@ -17,6 +17,8 @@ import logging
@@ -295,7 +295,7 @@ index c24382c8..2e5cc985 100644
  def looks_unregistered(status_code: int, detail: object) -> bool:
      """Whether a cloud rejection is consistent with a missing client row."""
      if status_code not in (401, 403, 404):
-@@ -118,11 +129,13 @@ async def ensure_client_registered(
+@@ -118,11 +129,16 @@ async def ensure_client_registered(
              return True
          url = f"{base_url}/api/clients/register"
          try:
@@ -304,7 +304,10 @@ index c24382c8..2e5cc985 100644
 -                    url,
 -                    json={"client_id": client_id, "client_proof": client_proof},
 -                )
-+            client = _registration_http_client(base_url)
++            # The shared native HTTP clients are lazy singletons.  Their first
++            # construction can synchronously build a Windows SSLContext, so
++            # resolve the already-authoritative pool off the event loop.
++            client = await asyncio.to_thread(_registration_http_client, base_url)
 +            response = await client.post(
 +                url,
 +                json={"client_id": client_id, "client_proof": client_proof},
@@ -795,7 +798,7 @@ index 6eb8eda5..48dd7771 100644
  
      assert not await R.ensure_client_registered(CLOUD)
 diff --git a/tests/unit/test_cloudsave_lifecycle_flow.py b/tests/unit/test_cloudsave_lifecycle_flow.py
-index db6e8c27..9a5c03c6 100644
+index ae0e2e50..5e236f7a 100644
 --- a/tests/unit/test_cloudsave_lifecycle_flow.py
 +++ b/tests/unit/test_cloudsave_lifecycle_flow.py
 @@ -377,7 +377,9 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
@@ -861,10 +864,10 @@ index 82799ae6..77046a8f 100644
  async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
 diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
 new file mode 100644
-index 00000000..83bd9774
+index 00000000..7f359d2d
 --- /dev/null
 +++ b/tests/unit/test_xiaoyu_startup_performance.py
-@@ -0,0 +1,304 @@
+@@ -0,0 +1,313 @@
 +from __future__ import annotations
 +
 +import asyncio
@@ -1119,6 +1122,15 @@ index 00000000..83bd9774
 +    assert "await self._aresolve_tts_worker_spec()" in ensure_source
 +    assert "resolved_spec=resolved_spec" in ensure_source
 +    assert "resolved_spec if resolved_spec is not None" in start_source
++
++
++@pytest.mark.unit
++def test_client_registration_resolves_shared_http_client_off_event_loop():
++    from main_logic import client_registration
++
++    source = inspect.getsource(client_registration.ensure_client_registered)
++    assert "await asyncio.to_thread(_registration_http_client, base_url)" in source
++    assert "httpx.AsyncClient(" not in inspect.getsource(client_registration)
 +
 +
 +@pytest.mark.unit
