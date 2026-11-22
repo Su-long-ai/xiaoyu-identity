@@ -1681,6 +1681,84 @@
           "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
         }
       }
+    },
+    {
+      "id": "governance:plugin-visible-final-admission-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "N.E.K.O Plugin SDK push_message can publish direct plugin chat blocks and HUD notifications outside the proactive callback's final delivery admission. XiaoYu must close that native acceptance gap without treating user-solicited plugin results as ambient proactive chatter and without adding an eleventh managed patch or a second delivery authority.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O CallRegistry + capability_gate MESSAGE_PUSH attribution",
+          "type": "native_current_pin",
+          "outcome": "selected as the trusted origin authority; existing host records already distinguish chat_tool, chat_hook, ui_action, run, system and plugin_self while retaining recent calls for delayed push attribution",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to the current pin; no newer native final-admission seam exists",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "Existing 0006 whole-reply quiet gate",
+          "type": "existing_managed_patch",
+          "outcome": "selected for explicit quiet across both solicited and unsolicited companion-authored plugin-visible output",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "Existing 0009 proactive interruptibility final recheck",
+          "type": "existing_managed_patch",
+          "outcome": "selected for nonessential/unattributed direct plugin publication; extend the same patch rather than creating patch 0011",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "AIRI notification/event delivery patterns",
+          "type": "broader_external",
+          "outcome": "checked but not selected because replacing or interposing on the N.E.K.O host would widen authority and violate the architecture freeze",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The needed authorities already exist but are not connected at the direct plugin chat/HUD publication sinks. The residual implementation is limited to propagating one host-derived bounded origin kind through the existing N.E.K.O message path and consulting the existing 0006/0009 final-admission helpers immediately before those sinks. No new state store, router, daemon, plugin runtime, publisher, polling loop, model call or eleventh managed patch is introduced.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains publication/call-chain authority; XiaoYu only owns private admission policy and acceptance.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies CallRegistry, capability_gate, authenticated MESSAGE_PUSH routing, Plugin SDK sinks and native proactive delivery used by the design.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and has no equivalent final-admission seam for direct plugin chat/HUD sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "No pinned external component owns desktop Plugin SDK publication; existing 0006/0009 private managed seams are reused instead of adding external runtime authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "AIRI notification/event delivery patterns were examined; they do not provide a drop-in seam for N.E.K.O's existing host sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: host-derived origin propagation plus final calls to existing 0006/0009 admission helpers; keep managed patch count at 10.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New origin store/router/daemon/publisher and an eleventh patch were considered and rejected as duplicate authority or architecture-freeze violations.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
