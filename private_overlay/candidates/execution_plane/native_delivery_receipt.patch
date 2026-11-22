@@ -356,7 +356,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,87 @@
+@@ -539,9 +539,94 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
