@@ -1,7 +1,32 @@
 diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 --- a/main_logic/agent_event_bus.py
 +++ b/main_logic/agent_event_bus.py
-@@ -518,21 +518,30 @@
+@@ -164,7 +164,8 @@
+         self._recv_thread: Optional[threading.Thread] = None
+         self._stop = threading.Event()
+         self.owner_loop: Optional[asyncio.AbstractEventLoop] = None
+         self.owner_thread_id: Optional[int] = None
++        self.instance_id = uuid.uuid4().hex
+         self.ready = False
+ 
+     async def start(self) -> None:
+@@ -194,7 +195,15 @@
+         self._recv_thread = threading.Thread(
+             target=self._recv_thread_fn, name="zmq-main-recv", daemon=True,
+         )
+         self._recv_thread.start()
++        announced = await self.publish_analyze_request(
++            {
++                "event_type": "nekoclaw_main_epoch",
++                "main_epoch": self.instance_id,
++            }
++        )
++        if not announced:
++            logger.warning("[EventBus] NekoClaw main epoch announcement was not queued")
+         logger.info("[EventBus] Main bridge started (pid=%s)", os.getpid())
+ 
+     # -- Background reception (agent -> main) -------------------------------------------
+@@ -518,21 +527,30 @@
      return await bridge.publish_session_event(event)
  
  
@@ -47,7 +72,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
  
  
  def notify_voice_bridge_result(event_id: str, result: Dict[str, Any]) -> None:
-@@ -636,121 +645,124 @@
+@@ -636,121 +654,125 @@
      return None
  
  
@@ -273,6 +298,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 +    event: Dict[str, Any] = {
 +        "event_type": "nekoclaw_delivery_barrier",
 +        "event_id": uuid.uuid4().hex,
++        "main_epoch": str(getattr(_main_bridge_ref, "instance_id", "") or ""),
 +        "action": action,
 +        "delivery_id": int(delivery_id),
 +        "delivery_attempt_id": attempt,
@@ -290,7 +316,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,47 @@
+@@ -539,9 +539,73 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
@@ -300,6 +326,31 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +
 +
++_nekoclaw_main_epoch: str | None = None
++
++
++async def _observe_nekoclaw_main_epoch(raw_epoch: Any) -> str:
++    """Freeze old main claims when the native MainServerAgentBridge instance changes."""
++    global _nekoclaw_main_epoch
++    epoch = str(raw_epoch or "").strip()
++    if not epoch:
++        return "missing"
++    previous = _nekoclaw_main_epoch
++    if previous is None:
++        _nekoclaw_main_epoch = epoch
++        return "initialized"
++    if previous == epoch:
++        return "same"
++    host = await ready_host()
++    changed = await host.ledger.outbox_mark_main_restart_uncertain()
++    _nekoclaw_main_epoch = epoch
++    logger.info(
++        "[NekoClaw] main delivery epoch changed; froze %d claimed result(s)",
++        changed,
++    )
++    return f"reconciled:{changed}"
++
++
 +async def _handle_nekoclaw_delivery_barrier(event: Dict[str, Any]) -> None:
 +    """Persist an effect barrier before acknowledging main_server."""
 +    event_id = str(event.get("event_id") or "")
@@ -307,6 +358,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +    attempt_id = str(event.get("delivery_attempt_id") or "")
 +    claim_id = str(event.get("delivery_claim_id") or "")
 +    raw_delivery_id = event.get("delivery_id")
++    await _observe_nekoclaw_main_epoch(event.get("main_epoch"))
 +    result = "invalid"
 +    try:
 +        if isinstance(raw_delivery_id, bool):
@@ -341,7 +393,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
      event_type = (event or {}).get("event_type")
      if event_type == "agent_intent_restore_signal":
          # First-real-client-session signal from main_server (sent on
-@@ -570,8 +608,11 @@
+@@ -570,8 +634,14 @@
      if event_type == "conversation_fact_observed":
          _forward_conversation_fact(event)
          return
@@ -349,6 +401,9 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 -        _create_tracked_task(_handle_turn_check_request(event))
 +    if event_type == "turn_check_request":
 +        _create_tracked_task(_handle_turn_check_request(event))
++        return
++    if event_type == "nekoclaw_main_epoch":
++        _create_tracked_task(_observe_nekoclaw_main_epoch(event.get("main_epoch")))
 +        return
 +    if event_type == "nekoclaw_delivery_barrier":
 +        _create_tracked_task(_handle_nekoclaw_delivery_barrier(event))

@@ -113,6 +113,34 @@
       "native callback ack False releases proven no-effect only",
       "ambiguous/cancelled settlement does not synthesize retry",
       "candidate remains outside live managed patch series"
-    ]
+    ],
+    "note": "Base receipt candidate is green on product main. The main-only restart epoch extension is imported from agent commit 8d2bff1a, whose full reuse-architecture-gate passed; product-main replay is required by this integration commit."
+  },
+  "restart_reconciliation_reuse": {
+    "reviewed_before_replay_on_green_base": true,
+    "product_green_base": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "native_findings": [
+      "MainServerAgentBridge.start() is the native main-process lifetime boundary: each main process constructs and starts a fresh bridge.",
+      "MainServerAgentBridge.publish_analyze_request() / AgentServerEventBridge analyze receive path already provide the ordered main→agent PUSH/PULL lane used by turn-check and receipt barrier traffic.",
+      "agent_intent_restore_signal is client-session scoped and occurs on ordinary refresh/reconnect, so it cannot safely identify a main-process restart.",
+      "The green-base effect-state candidate already owns delivery_claimed→delivery_uncertain and provides outbox_mark_main_restart_uncertain(); no new ledger/store is required."
+    ],
+    "decision": "Reuse MainServerAgentBridge lifetime and the existing analyze socket. Give each bridge instance an ephemeral epoch, announce it at bridge startup, and stamp receipt barriers with it. Agent keeps only the last observed epoch in process memory; a changed epoch calls the existing NekoClaw-ledger outbox_mark_main_restart_uncertain() primitive. No new store/router/daemon/outbox/publication authority.",
+    "why_ephemeral_epoch": "If agent_server restarts too, Ledger.open already freezes claimed rows as uncertain. The epoch exists only to detect main-only restart while the agent process survives, so persisting a second epoch authority is unnecessary.",
+    "required_machine_acceptance": [
+      "first/same epoch is idempotent",
+      "changed epoch converts only claimed effects to uncertain",
+      "pre-claim handoff is not frozen by epoch change",
+      "late exact positive receipt may commit uncertain claim",
+      "ordinary browser/session reconnect does not mutate claim state",
+      "fresh pinned N.E.K.O apply/compile/verifier stays green"
+    ],
+    "prior_probe_evidence": {
+      "branch_commit": "8d2bff1a34c6e3c67d88fe5b2d2c7799778daf10",
+      "actions_run": "45051941743",
+      "actions_job": "137298756099",
+      "result": "success_on_agent_green_candidate_chain"
+    },
+    "product_main_replay": "pending_on_integration_commit"
   }
 }

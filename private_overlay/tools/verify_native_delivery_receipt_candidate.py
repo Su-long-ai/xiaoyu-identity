@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 
 
 def _text(root: Path, relative: str) -> str:
@@ -44,6 +48,174 @@ async def _verify_native_ack(root: Path) -> None:
     assert await retracted is False
 
 
+class _Logger:
+    def debug(self, *_args, **_kwargs):
+        pass
+
+    def info(self, *_args, **_kwargs):
+        pass
+
+    def warning(self, *_args, **_kwargs):
+        pass
+
+
+def _load_receipt_helpers(root: Path):
+    """Execute only the thin receipt helpers, not character_runtime's heavy imports."""
+    source = _text(root, "app/main_server/character_runtime.py")
+    module = ast.parse(source)
+    wanted = {
+        "_NekoClawDeliveryClaim",
+        "_claim_nekoclaw_delivery",
+        "_settle_nekoclaw_delivery",
+        "_settle_nekoclaw_callback_ack",
+    }
+    body = []
+    for node in module.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in wanted:
+            body.append(node)
+    found = {node.name for node in body}
+    assert found == wanted, f"missing receipt helpers: {sorted(wanted - found)}"
+
+    calls = []
+
+    async def publish(action, delivery_id, attempt_id, claim_id, *, lanlan_name=None, **_kwargs):
+        calls.append((action, delivery_id, attempt_id, claim_id, lanlan_name))
+        return {
+            "claim": "claimed",
+            "commit": "committed",
+            "release": "released",
+        }[action]
+
+    namespace = {
+        "asyncio": asyncio,
+        "dataclass": dataclass,
+        "uuid4": uuid4,
+        "logger": _Logger(),
+        "publish_nekoclaw_delivery_barrier": publish,
+    }
+    helper_module = ast.Module(body=body, type_ignores=[])
+    ast.fix_missing_locations(helper_module)
+    exec(compile(helper_module, "<receipt-helpers>", "exec"), namespace)
+    return SimpleNamespace(**namespace), calls
+
+
+def _load_epoch_observer(root: Path):
+    source = _text(root, "app/agent_server/api_runtime.py")
+    module = ast.parse(source)
+    node = next(
+        (
+            item
+            for item in module.body
+            if isinstance(item, ast.AsyncFunctionDef)
+            and item.name == "_observe_nekoclaw_main_epoch"
+        ),
+        None,
+    )
+    assert node is not None, "missing main epoch observer"
+
+    class Ledger:
+        def __init__(self):
+            self.calls = 0
+
+        async def outbox_mark_main_restart_uncertain(self):
+            self.calls += 1
+            return 2
+
+    ledger = Ledger()
+
+    async def ready_host():
+        return SimpleNamespace(ledger=ledger)
+
+    namespace = {
+        "Any": object,
+        "logger": _Logger(),
+        "ready_host": ready_host,
+        "_nekoclaw_main_epoch": None,
+    }
+    helper_module = ast.Module(body=[node], type_ignores=[])
+    ast.fix_missing_locations(helper_module)
+    exec(compile(helper_module, "<main-epoch-observer>", "exec"), namespace)
+    return SimpleNamespace(**namespace), ledger
+
+
+async def _verify_main_restart_epoch(root: Path) -> None:
+    helpers, ledger = _load_epoch_observer(root)
+    observe = helpers._observe_nekoclaw_main_epoch
+
+    assert await observe("") == "missing"
+    assert ledger.calls == 0
+    assert await observe("main-a") == "initialized"
+    assert ledger.calls == 0
+    assert await observe("main-a") == "same"
+    assert ledger.calls == 0
+
+    assert await observe("main-b") == "reconciled:2"
+    assert ledger.calls == 1
+    assert await observe("main-b") == "same"
+    assert ledger.calls == 1
+    assert await observe("main-c") == "reconciled:2"
+    assert ledger.calls == 2
+
+
+async def _verify_receipt_faults(root: Path) -> None:
+    helpers, calls = _load_receipt_helpers(root)
+
+    # Legacy/non-NekoClaw events preserve the native path with no new barrier.
+    assert await helpers._claim_nekoclaw_delivery({"event_type": "task_result"}) is None
+    assert calls == []
+
+    # Malformed partial identity is rejected before any effect and before IPC.
+    assert (
+        await helpers._claim_nekoclaw_delivery(
+            {"delivery_id": 7, "delivery_attempt_id": ""}
+        )
+        is False
+    )
+    assert calls == []
+
+    claim = await helpers._claim_nekoclaw_delivery(
+        {
+            "delivery_id": 7,
+            "delivery_attempt_id": "attempt-a",
+            "lanlan_name": "Lan",
+        }
+    )
+    assert isinstance(claim, helpers._NekoClawDeliveryClaim)
+    assert calls[-1][0:3] == ("claim", 7, "attempt-a")
+
+    # Positive native effect receipt commits the exact claim.
+    future = asyncio.get_running_loop().create_future()
+    future.set_result(True)
+    await helpers._settle_nekoclaw_callback_ack(claim, future)
+    assert calls[-1][0] == "commit"
+    assert calls[-1][1:4] == (7, "attempt-a", claim.claim_id)
+
+    # Proven native retraction/no-effect releases only the exact claim.
+    second = await helpers._claim_nekoclaw_delivery(
+        {"delivery_id": 8, "delivery_attempt_id": "attempt-b"}
+    )
+    future = asyncio.get_running_loop().create_future()
+    future.set_result(False)
+    await helpers._settle_nekoclaw_callback_ack(second, future)
+    assert calls[-1][0] == "release"
+    assert calls[-1][1:4] == (8, "attempt-b", second.claim_id)
+
+    # Cancellation is ambiguous. It must not translate into release/FAILED/retry.
+    third = await helpers._claim_nekoclaw_delivery(
+        {"delivery_id": 9, "delivery_attempt_id": "attempt-c"}
+    )
+    before = len(calls)
+    future = asyncio.get_running_loop().create_future()
+    waiter = asyncio.create_task(helpers._settle_nekoclaw_callback_ack(third, future))
+    await asyncio.sleep(0)
+    waiter.cancel()
+    try:
+        await waiter
+    except asyncio.CancelledError:
+        pass
+    assert len(calls) == before, "ambiguous cancellation must not emit commit/release"
+
+
 def _verify_wiring(root: Path) -> None:
     bus = _text(root, "main_logic/agent_event_bus.py")
     api = _text(root, "app/agent_server/api_runtime.py")
@@ -53,6 +225,15 @@ def _verify_wiring(root: Path) -> None:
     assert "def notify_nekoclaw_delivery_barrier_ack" in bus
     assert "async def publish_nekoclaw_delivery_barrier" in bus
     assert 'action not in {"claim", "commit", "release"}' in bus
+    assert "self.instance_id = uuid.uuid4().hex" in bus
+    _ordered(
+        bus,
+        "self._recv_thread.start()",
+        "announced = await self.publish_analyze_request(",
+        '"event_type": "nekoclaw_main_epoch"',
+        '"main_epoch": self.instance_id',
+    )
+    assert '"main_epoch": str(getattr(_main_bridge_ref, "instance_id", "") or "")' in bus
 
     for method in (
         "outbox_claim_delivery",
@@ -62,6 +243,12 @@ def _verify_wiring(root: Path) -> None:
         assert method in api
     assert '"nekoclaw_delivery_barrier"' in api
     assert '"nekoclaw_delivery_barrier_ack"' in api
+    assert "async def _observe_nekoclaw_main_epoch" in api
+    assert "outbox_mark_main_restart_uncertain" in api
+    assert 'if event_type == "nekoclaw_main_epoch":' in api
+    restore_start = api.index('if event_type == "agent_intent_restore_signal":')
+    restore_end = api.index("return", restore_start)
+    assert "_observe_nekoclaw_main_epoch" not in api[restore_start:restore_end]
 
     _ordered(
         mount,
@@ -100,6 +287,8 @@ def _verify_wiring(root: Path) -> None:
 async def _verify(root: Path) -> None:
     _verify_wiring(root)
     await _verify_native_ack(root)
+    await _verify_receipt_faults(root)
+    await _verify_main_restart_epoch(root)
 
 
 def main() -> int:
