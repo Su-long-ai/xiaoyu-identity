@@ -74,6 +74,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_character_switch_queue.py"),
         (Join-Path $NekoRoot "tests\unit\test_character_runtime_voice_identity.py"),
         (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
+        (Join-Path $NekoRoot "tests\unit\test_voice_config.py"),
         (Join-Path $NekoRoot "tests\unit\test_avatar_model_load_race_static_contracts.py"),
         (Join-Path $NekoRoot "tests\unit\test_qwen_voice_bundle.py"),
         (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
@@ -114,7 +115,8 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_voice_session.py"),
         (Join-Path $NekoRoot "tests\unit\test_glm_tts.py"),
         (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py"),
-        (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")
+        (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py"),
+        (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")
     )
     $CompanionVoiceTargets = @(
         ("{0}::test_connect_qwen_server_vad_type_follows_model" -f (Join-Path $NekoRoot "tests\unit\test_voice_session.py")),
@@ -125,7 +127,10 @@ if (-not $StartupPreflight) {
         ("{0}::test_the_onclose_cleanup_does_not_disarm_the_restart_it_schedules" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py")),
         ("{0}::test_retired_created_overlap_with_server_vad_fails_closed" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
         ("{0}::test_late_created_is_one_shot_and_idless_successor_completes" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
-        ("{0}::test_transport_ignores_retired_created_before_exposing_successor" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py"))
+        ("{0}::test_transport_ignores_retired_created_before_exposing_successor" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
+        ("{0}::test_reconnect_retries_without_losing_held_audio" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")),
+        ("{0}::test_stale_pause_cannot_finish_next_provider_turn" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")),
+        ("{0}::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py"))
     )
     $CompanionInteractionFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_tool_calling.py"),

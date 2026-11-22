@@ -155,6 +155,7 @@ jobs:
             tests/unit/test_character_switch_queue.py \
             tests/unit/test_character_runtime_voice_identity.py \
             tests/unit/test_model_switch_keeps_live_budget.py \
+            tests/unit/test_voice_config.py \
             tests/unit/test_avatar_model_load_race_static_contracts.py \
             tests/unit/test_voice_session.py::test_connect_qwen_server_vad_type_follows_model \
             tests/unit/test_qwen_voice_bundle.py \
@@ -166,6 +167,9 @@ jobs:
             tests/unit/test_realtime_response_ownership.py::test_retired_created_overlap_with_server_vad_fails_closed \
             tests/unit/test_realtime_response_ownership.py::test_late_created_is_one_shot_and_idless_successor_completes \
             tests/unit/test_realtime_response_ownership.py::test_transport_ignores_retired_created_before_exposing_successor \
+            tests/unit/test_qwen_provider_fallback.py::test_reconnect_retries_without_losing_held_audio \
+            tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn \
+            tests/unit/test_qwen_provider_fallback.py::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause \
             tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
             tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
             tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
@@ -226,6 +230,7 @@ jobs:
               tests/unit/test_voice_start_teardown_paths.py::test_the_automatic_restart_survives_anything_that_happens_in_its_delay \
               tests/unit/test_realtime_response_ownership.py::test_retired_created_overlap_with_server_vad_fails_closed \
               tests/unit/test_realtime_response_ownership.py::test_transport_ignores_retired_created_before_exposing_successor \
+              tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn \
               tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
               tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
               tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \

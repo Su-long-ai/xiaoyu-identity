@@ -73,5 +73,23 @@
     "new_daemon": false,
     "new_dependency": false
   },
-  "retirement_condition": "Retire this overlay wiring when the pinned N.E.K.O upstream product CI itself executes equivalent voice-config persistence and Qwen fallback ownership regressions on every pin consumed by XiaoYu, and XiaoYu can consume that green result without duplicating test selection."
+  "retirement_condition": "Retire this overlay wiring when the pinned N.E.K.O upstream product CI itself executes equivalent voice-config persistence and Qwen fallback ownership regressions on every pin consumed by XiaoYu, and XiaoYu can consume that green result without duplicating test selection.",
+  "implementation_status": "STAGED_UNPUSHED_PENDING_MACHINE_GATE",
+  "implementation": {
+    "cloud": ".github/workflows/private-overlay-gate.yml / patched Companion product regression",
+    "local": "private_overlay/tools/run_checks.ps1 / Companion Python + Voice targets",
+    "full_file": [
+      "tests/unit/test_voice_config.py"
+    ],
+    "targeted": [
+      "tests/unit/test_qwen_provider_fallback.py::test_reconnect_retries_without_losing_held_audio",
+      "tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn",
+      "tests/unit/test_qwen_provider_fallback.py::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn"
+    ],
+    "runtime_code_changed": false,
+    "branch_ref_moved": false
+  }
 }
