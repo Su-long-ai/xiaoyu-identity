@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_VOICE_ONSET_INTERRUPTION_WRAPUP_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "A user voice onset can correctly interrupt an in-progress text/voice reply while the interrupted turn's deferred wrap-up still runs too early. That can perform final swap or queued agent callbacks while the user is still speaking, or let an older voice turn settle work owned by a newer turn. Pinned N.E.K.O already has an end-to-end independent-ASR regression file for this ownership.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "selected": true,
+      "result": "c3 test_voice_turn_wrap_up_hold.py exercises the real core prepare/dispatch/cancel paths, independent-ASR voice registry and offline reply ownership."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream remains c3; no newer implementation is required."
+    },
+    {
+      "layer": "N.E.K.O voice/realtime/core interruption",
+      "checked": true,
+      "selected": true,
+      "result": "Keep native interruption, voice-turn registry, owed-wrap-up and session authority. No XiaoYu interruption state machine."
+    },
+    {
+      "layer": "current pinned external component",
+      "checked": true,
+      "result": "No external component owns N.E.K.O core turn wrap-up ownership."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "Generic cancellation libraries cannot replace host turn/session ownership and would not preserve native final-swap/agent-callback semantics."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Only wire selected existing N.E.K.O tests into the patched product gate/local release and repeat two race-critical cases in micro-soak."
+    },
+    {
+      "layer": "private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "Reject new interruption router, conversation state machine, callback ledger or TTS/ASR runtime."
+    }
+  ],
+  "selected_tests": {
+    "one_shot": [
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_the_hold_is_taken_before_the_interruption_awaits",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_newer_voice_turn_takes_the_hold_over",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up"
+    ]
+  },
+  "protected_product_risks": [
+    "old typed reply finishes wrap-up while user is still speaking",
+    "interruption awaits transport before establishing the hold, leaving a race window",
+    "older voice turn clears or pays work owned by a newer voice turn",
+    "voice onset cutting an earlier voice reply loses or prematurely runs final swap / queued agent callbacks"
+  ],
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "new_turn_store": false,
+    "new_interruption_router": false,
+    "new_callback_ledger": false,
+    "new_asr_tts_runtime": false
+  },
+  "retirement_condition": "Retire this overlay wiring when pinned N.E.K.O upstream CI runs equivalent voice-onset interruption/wrap-up ownership regressions for every pin XiaoYu consumes and XiaoYu can consume that result without duplicating test selection."
+}

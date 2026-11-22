@@ -2685,6 +2685,73 @@
         }
       },
       "retirement_condition": "Retire this overlay wiring when the pinned N.E.K.O upstream product CI itself executes equivalent voice-config persistence and Qwen fallback ownership regressions on every pin consumed by XiaoYu, and XiaoYu can consume that green result without duplicating test selection."
+    },
+    {
+      "id": "governance:voice-onset-interruption-wrapup-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A user voice onset can correctly interrupt an in-progress text/voice reply while the interrupted turn's deferred wrap-up still runs too early. That can perform final swap or queued agent callbacks while the user is still speaking, or let an older voice turn settle work owned by a newer turn. Pinned N.E.K.O already has an end-to-end independent-ASR regression file for this ownership.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O c3 test_voice_turn_wrap_up_hold.py",
+          "type": "native_current_pin",
+          "outcome": "selected",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        {
+          "name": "Existing patched Companion product/release gate",
+          "type": "existing_governance",
+          "outcome": "selected as execution plane",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        {
+          "name": "New XiaoYu interruption state machine",
+          "type": "private_duplicate",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The host behavior and end-to-end regression already exist. The only missing piece is XiaoYu product acceptance wiring.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O core voice-turn/session ownership remains authority.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Selected existing c3 end-to-end tests.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals c3.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "No external component owns this host turn-lifecycle semantic.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Generic cancellation primitives cannot replace N.E.K.O turn ownership.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected native test wiring only.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private interruption/router/store/runtime rejected.",
+          "evidence": "evals/evidence/2026-11-23-voice-onset-interruption-wrapup-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this overlay wiring when pinned N.E.K.O upstream CI runs equivalent voice-onset interruption/wrap-up ownership regressions for every pin XiaoYu consumes and XiaoYu can consume that result without duplicating test selection."
     }
   ],
   "hierarchy_policy": {
