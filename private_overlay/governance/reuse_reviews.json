@@ -1839,6 +1839,79 @@
           "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:companion-runtime-micro-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Companion Runtime has strong one-shot patched-product and QQ regressions but no repeated soak on ordinary agent pushes, so race/flaky switch, voice, final-delivery and reconnect failures can remain below one-shot detection probability.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Pinned N.E.K.O patched-product regression set",
+          "type": "native_current_pin",
+          "outcome": "selected; repeat the existing switch/voice/proactive/plugin-visible tests instead of building a synthetic runtime",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin; no newer integrated soak replaces the selected tests",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "Pinned QQ reconnect/runtime/idempotency suites",
+          "type": "pinned_external",
+          "outcome": "selected; repeat existing real plugin tests after the existing candidate apply boundary",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "pytest + Node test runner + existing GitHub Actions",
+          "type": "mature_external",
+          "outcome": "selected; simple bounded shell repetition is sufficient, so no pytest-repeat or second CI framework is added",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The tests already exist and are authoritative, but they execute once per push. The only residual work is bounded repetition in the existing gate, with a higher manual workflow_dispatch round count. This introduces no runtime code or authority.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O/QQ remain behavior authorities; XiaoYu only owns product acceptance and private patch integration.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already supplies the selected switch, voice, proactive, Plugin SDK and delivery regression capabilities.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and adds no replacement integrated soak facility.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ plugin supplies the reconnect, runtime-transition, buffering and catch-up tests to repeat.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest, Node test runner and GitHub Actions are sufficient; another soak framework would add dependency/CI complexity without behavior coverage gain.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: bounded loop around existing targeted suites inside the existing push gate, with manual higher-round input.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected synthetic runtime/watchdog/soak daemon/new state store; no product implementation is needed.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire when pinned N.E.K.O and QQ provide an equivalent integrated multi-round soak for the same product race surfaces or the private managed patch surfaces disappear."
     }
   ],
   "hierarchy_policy": {
