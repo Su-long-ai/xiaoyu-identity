@@ -106,9 +106,9 @@
     {
       "id": "neko_upstream_upgrade",
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
-      "status": "origin_main_899a_patch_replay_regression_and_canonical_live_restart_pass",
-      "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json",
-      "note": "Upgraded the N.E.K.O mother-project from 6261a5f6 to 899a08ce (76 upstream commits). 0001-0008 and 0010 replay unchanged; 0009 required only an import-context rebase. Upstream system_presence is reused for sleep/lock/display-off while the residual QUNS/activity final-delivery gate remains distinct. Canonical live restart reached 200 on 48911/48912/48915/48916, XiaoYu plugin 0.6.4 restored, and EmbeddingService reached ready."
+      "status": "origin_main_6fcc_patch_replay_regression_and_canonical_live_restart_pass",
+      "evidence": "evals/evidence/2026-11-22-neko-upstream-6fccfb72-upgrade.json",
+      "note": "Promoted N.E.K.O from 899a08ce to 6fccfb72. All 10 managed patches replay unchanged. The upstream Plugin SDK permission grant store and context/budget propagation are reused directly, and Windows display-state presence now survives session reconnects. Separate targeted gates passed 353/353 main-repo and 108/108 plugin tests; canonical live health is 200 on 48911/48912/48915/48916, overlay 94/94 and release readiness 23/23."
     },
     {
       "id": "semantic_interaction_policy",

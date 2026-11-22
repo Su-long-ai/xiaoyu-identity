@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T17:04:00+08:00",
+  "phase": "canonical_live",
+  "upgrade": {
+    "from_neko_commit": "899a08ce221115233665364cbde049d86a7b1c2f",
+    "to_neko_commit": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "upstream_repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
+    "upstream_branch": "main",
+    "upstream_delta": {
+      "commits": 3,
+      "files_changed": 28,
+      "insertions": 3751,
+      "deletions": 23
+    },
+    "notable_reused_upstream_changes": [
+      "e37250f9 plugin host propagates context through the default executor and bounds top-level entries by their execution budget",
+      "a9a8fa11 plugin permission grant store with read-only import of legacy consents",
+      "6fccfb72 Windows system-presence display-state notifications re-register after session reconnect"
+    ]
+  },
+  "reuse_assessment": {
+    "decision": "PROMOTE_UPSTREAM_MOTHER_PROJECT",
+    "duplicate_private_runtime_added": false,
+    "new_core_patch_added": false,
+    "patch_retirement_count": 0,
+    "reason": "All ten managed patches replay unchanged on 6fccfb72. The three upstream commits strengthen the existing Plugin SDK permission/context boundary and native Windows presence authority, so XiaoYu reuses them directly instead of adding a private permission store, executor wrapper, or display-state reconnect implementation. They do not yet replace any complete managed-patch gap."
+  },
+  "managed_patch_assessment": {
+    "managed_patch_count": 10,
+    "direct_apply_unchanged": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0002-full-chat-native-voice-entry.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0005-latest-character-switch-intent-replay.patch",
+      "0006-private-speech-output-gate.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0009-proactive-interruptibility-gate.patch",
+      "0010-startup-event-loop-responsiveness.patch"
+    ],
+    "deterministic_replay": {
+      "clean_worktree_base": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+      "git_apply_check_all": "PASS",
+      "git_apply_all": "PASS",
+      "git_diff_check": "PASS"
+    },
+    "retirement_notes": {
+      "0009": "Upstream 6fccfb72 improves native display-state continuity, which is reused by the existing presence layer. QUNS busy/fullscreen/presentation admission, latest ActivitySnapshot final-delivery recheck, leisure-only game invites, and capability shadow observation remain distinct.",
+      "0010": "No new private client/pool/cache was added. Existing N.E.K.O shared HTTP clients, TokenTracker and embedded plugin thread remain authoritative; the patch only moves uncovered blocking boundaries off-loop."
+    }
+  },
+  "candidate_verification": {
+    "main_repo_targeted": "353 passed",
+    "plugin_sdk_permission_context_targeted": "108 passed",
+    "mixed_pytest_root_diagnostic": "One order-sensitive executor-shutdown assertion failed only when main-repo and plugin-subproject tests were incorrectly mixed under one pytest root. The same test passed isolated both with XiaoYu patches and on clean 6fccfb72; correct separate project invocations are green.",
+    "managed_patch_replay": "10/10 PASS"
+  },
+  "live_promotion": {
+    "live_checkout_head": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "managed_patch_replay": "PASS 10/10 through setup_local.ps1",
+    "setup_verify_only": "PASS",
+    "health": {
+      "48911": 200,
+      "48912": 200,
+      "48915": 200,
+      "48916": 200
+    },
+    "overlay_gate": "94/94 unit tests PASS; release readiness 23/23 PASS",
+    "private_plugin": {
+      "id": "xiaoyu_interaction_policy",
+      "version": "0.6.4",
+      "live_tool_registration": "xiaoyu_recent_activity registered at 2026-11-22 17:03:44"
+    },
+    "embedding_service": "ready at 2026-11-22 17:03:45",
+    "loop_stall_observation": {
+      "main_application_blocked_or_recovered_events_after_17_03_start": 0,
+      "agent_application_blocked_or_recovered_events_after_17_03_start": 0,
+      "watchdog_start_info_only": true
+    },
+    "expected_non_blockers": [
+      "Steamworks unavailable because Steam was not running",
+      "visit invitation recovery requires login",
+      "QQ/NapCat ports 3001/6099 remain offline and are outside this mother-project upgrade"
+    ]
+  },
+  "privacy": {
+    "user_content_persisted_in_upgrade_evidence": false,
+    "access_tokens_persisted_in_upgrade_evidence": false
+  },
+  "verdict": "PASS_CANONICAL_LIVE_PROMOTION"
+}
