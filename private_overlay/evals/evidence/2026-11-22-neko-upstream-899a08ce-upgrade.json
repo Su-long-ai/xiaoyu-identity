@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T15:59:00+08:00",
+  "phase": "candidate_pre_live",
+  "upgrade": {
+    "from_neko_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "to_neko_commit": "899a08ce221115233665364cbde049d86a7b1c2f",
+    "upstream_repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
+    "upstream_branch": "main",
+    "origin_main_confirmed_equal_to_target": true,
+    "upstream_delta": {
+      "commits": 76,
+      "files_changed": 665,
+      "insertions": 93759,
+      "deletions": 4850
+    },
+    "notable_reused_upstream_changes": [
+      "899a08ce plugin SDK permission errors/FakePermissions/master switch/unified permission vocabulary",
+      "b7786598 native system presence gating for sleep/session lock/display-off/recent return",
+      "7709f29f serialized embedding-service singleton construction",
+      "e2bafaaa plugin model slots following host API slots",
+      "498f5adb guarded MMD/VRM filesystem checks",
+      "e99d3ed9 decision model slot and DecisionClient"
+    ]
+  },
+  "reuse_assessment": {
+    "decision": "PROMOTE_UPSTREAM_MOTHER_PROJECT_CANDIDATE",
+    "duplicate_private_runtime_added": false,
+    "patch_retirement_count": 0,
+    "reason": "The upstream delta adds useful native plugin, memory, presence, model-slot and model/filesystem hardening. Nine managed patches replay unchanged. Patch 0009 has one import-context conflict only; all behavioral hunks apply, and a rebased deterministic patch was generated. Upstream system_presence is reused rather than copied, but it does not replace QUNS gaming/fullscreen/presentation admission or final-delivery recheck."
+  },
+  "managed_patch_assessment": {
+    "managed_patch_count": 10,
+    "direct_apply_unchanged": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0002-full-chat-native-voice-entry.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0005-latest-character-switch-intent-replay.patch",
+      "0006-private-speech-output-gate.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0010-startup-event-loop-responsiveness.patch"
+    ],
+    "rebased": {
+      "patch": "0009-proactive-interruptibility-gate.patch",
+      "conflict_scope": "one import hunk in main_logic/core/proactive.py after upstream import changes",
+      "behavioral_hunks_conflicted": false,
+      "candidate_sha256": "2fd13be3b0efeaca6bfd6797fa4bfbff90a85656a736465b95a2da9c06183c20",
+      "candidate_files": 14,
+      "insertions": 856,
+      "deletions": 16
+    },
+    "deterministic_replay": {
+      "order": "0001..0008 -> rebased 0009 -> 0010",
+      "clean_worktree_base": "899a08ce221115233665364cbde049d86a7b1c2f",
+      "git_apply_check_all": "PASS",
+      "git_diff_check": "PASS"
+    }
+  },
+  "candidate_verification": {
+    "interruptibility_system_presence_startup_combined": "451 passed",
+    "all_patch_touched_python": "845 passed, 4 skipped",
+    "avatar_character_switch_frontend": "26/26 PASS",
+    "xiaoyu_interaction_policy_latest_sdk_check": "0 errors, 8 warnings; warnings are private nested-plugin packaging/legacy-runtime advisories plus host-import advisories, not compatibility errors",
+    "qwen_bundle_in_upstream": false,
+    "native_interruptibility_capability_extension_in_upstream": false,
+    "native_first_round_main_conversation_tool_arbitration_hook_found": false
+  },
+  "pre_live_status": {
+    "live_checkout_changed": false,
+    "live_runtime_restarted_on_target": false,
+    "candidate_gate": "PASS",
+    "canonical_promotion": "PENDING"
+  },
+  "privacy": {
+    "user_content_persisted_in_upgrade_evidence": false,
+    "access_tokens_persisted_in_upgrade_evidence": false
+  },
+  "verdict": "PASS_CANDIDATE_LIVE_PROMOTION_PENDING"
+}

@@ -400,7 +400,7 @@ index 00000000..9280bfa8
 +    task.add_done_callback(done)
 +    return True
 diff --git a/main_logic/core/proactive.py b/main_logic/core/proactive.py
-index 0aef5335..f11fbb48 100644
+index 6395df8b..bd4bd5f9 100644
 --- a/main_logic/core/proactive.py
 +++ b/main_logic/core/proactive.py
 @@ -49,6 +49,7 @@ from main_logic.proactive_delivery import (
@@ -410,8 +410,8 @@ index 0aef5335..f11fbb48 100644
 +from main_logic.activity.system_signals import notification_state_blocks_proactive
  from utils.language_utils import normalize_language_code, get_global_language_full
  from utils.desktop_capture import capture_desktop_screenshot
- import main_logic.core as _core_facade
-@@ -258,6 +259,14 @@ class ProactiveMixin:
+ from utils.loopback import is_direct_loopback_peer
+@@ -283,6 +284,14 @@ class ProactiveMixin:
              if self.is_goodbye_silent():
                  logger.info("[%s] voice proactive nudge skipped: goodbye silent", self.lanlan_name)
                  return False
@@ -426,7 +426,7 @@ index 0aef5335..f11fbb48 100644
              if self._takeover_active:
                  logger.info("[%s] voice proactive nudge skipped: session takeover active", self.lanlan_name)
                  return False
-@@ -471,10 +480,113 @@ class ProactiveMixin:
+@@ -510,10 +519,113 @@ class ProactiveMixin:
                  declined=declined,
              ))
  
@@ -542,7 +542,7 @@ index 0aef5335..f11fbb48 100644
          def _user_active_recently() -> bool:
              now = time.time()
              activity_times = (
-@@ -503,6 +615,16 @@ class ProactiveMixin:
+@@ -542,6 +654,16 @@ class ProactiveMixin:
          if self.is_goodbye_silent():
              logger.info("[%s] prepare_proactive_delivery: goodbye silent", self.lanlan_name)
              return False
@@ -559,7 +559,7 @@ index 0aef5335..f11fbb48 100644
          # Early preemption check before any await/sid mutation prevents a user taking over just after entry
          # from having user_sid overwritten by current_speech_id later. Default reset() ignores active
          # phases to protect incidental auto-start resets, while end_session forces clearing via force=True.
-@@ -572,6 +694,16 @@ class ProactiveMixin:
+@@ -611,6 +733,16 @@ class ProactiveMixin:
                      self.lanlan_name,
                  )
                  return False
@@ -577,7 +577,7 @@ index 0aef5335..f11fbb48 100644
              self._tts_done_queued_for_turn = False
              self._tts_done_pending_until_ready = False
 diff --git a/main_logic/proactive_chat/break_reminders.py b/main_logic/proactive_chat/break_reminders.py
-index be5de653..c47b38fb 100644
+index 4b9cbeca..6fd5d851 100644
 --- a/main_logic/proactive_chat/break_reminders.py
 +++ b/main_logic/proactive_chat/break_reminders.py
 @@ -324,7 +324,11 @@ async def _deliver_break_reminder_via_llm(
@@ -686,7 +686,7 @@ index 5f016524..44645108 100644
  async def test_maybe_deliver_returns_none_when_away(monkeypatch):
      """User away: nobody can answer invitations."""
 diff --git a/tests/unit/test_proactive_service_boundary.py b/tests/unit/test_proactive_service_boundary.py
-index adb47dfc..6d2cf27b 100644
+index d7eccb65..11cf0f0e 100644
 --- a/tests/unit/test_proactive_service_boundary.py
 +++ b/tests/unit/test_proactive_service_boundary.py
 @@ -188,7 +188,9 @@ async def test_break_reminder_respects_round_ownership(monkeypatch, retired) ->

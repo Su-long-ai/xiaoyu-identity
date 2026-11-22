@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-  "tested_commit": "6261a5f653af066d2a7da8e265f624e3df03e3f7",
+  "tested_commit": "899a08ce221115233665364cbde049d86a7b1c2f",
   "tested_branch": "main",
   "integration_mode": "private_data_policy_overlay",
   "memory_authority": "neko_native",
@@ -9,5 +9,5 @@
   "task_authority": "neko_native",
   "core_patch_budget": 10,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Ten evidence-backed managed patches are currently required. Patch 0009 is one coherent proactive-interruptibility patch that reuses Windows SHQueryUserNotificationState and N.E.K.O ActivitySnapshot at both early planning and final delivery instead of adding a separate game/activity detector. Patch 0010 groups measured startup/event-loop scheduling fixes. Revisit the budget whenever upstream/native replacements let a managed patch be removed."
+  "core_patch_budget_reason": "Ten evidence-backed managed patches remain required after replay against N.E.K.O 899a08ce. Upstream system_presence now owns sleep/lock/display-off suppression, while patch 0009 still supplies distinct QUNS busy/fullscreen/presentation admission, latest ActivitySnapshot final-delivery recheck, leisure-only game invites, and shadow-only plugin capability observation. Patch 0010 reuses native shared HTTP clients, TokenTracker and plugin-host lifecycle and only moves uncovered blocking boundaries off the event loop. Revisit the budget whenever upstream/native replacements cover a full gap."
 }

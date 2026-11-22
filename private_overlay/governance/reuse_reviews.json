@@ -217,6 +217,12 @@
       "decision": "thin_adapter",
       "candidates": [
         {
+          "name": "N.E.K.O system_presence / system_presence_windows",
+          "type": "native_upstream",
+          "outcome": "selected after 899a08ce upgrade for sleep, session lock, display-off and post-return quiet-window suppression; it complements rather than duplicates QUNS because it does not expose BUSY, D3D fullscreen, presentation or quiet-time notification-propriety states",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json"
+        },
+        {
           "name": "Windows SHQueryUserNotificationState",
           "type": "native_os_api",
           "outcome": "selected as the external hard receptivity veto for BUSY, D3D fullscreen, presentation, not-present, and quiet-time states",
@@ -253,7 +259,7 @@
           "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
         }
       ],
-      "why_reuse_insufficient": "Detection, plugin lifecycle, provider discovery and plugin execution are reused. The narrow patch only connects the existing Windows/native signals to N.E.K.O's final proactive-delivery admission boundary and schedules optional hidden providers in non-authoritative shadow mode. The native verdict remains fail-closed and synchronous; the private prototype registry was removed after the native PluginCatalog/PluginRunner path was confirmed sufficient.",
+      "why_reuse_insufficient": "N.E.K.O 899a08ce system_presence is reused for sleep/lock/display-off/return gating; SystemSignalCollector + ActivitySnapshot remain the activity authority; PluginCatalog/PluginRunner remain the provider lifecycle/discovery/execution path. The narrow residual patch only adds the non-overlapping Windows QUNS busy/fullscreen/presentation signal, final-delivery native snapshot recheck, leisure-only game admission, and non-authoritative interruptibility_v1 shadow observation. No second presence watcher, game database, plugin host, registry or model call is introduced.",
       "acceptance_evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
     },
     {
