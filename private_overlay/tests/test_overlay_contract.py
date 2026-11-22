@@ -457,6 +457,29 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_exercises_plugin_run_unknown_effect_candidate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise plugin-run unknown-effect candidate",
+            "candidates/execution_plane/plugin_run_unknown_effect.patch",
+            "candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py",
+            "test_unreadable_status_answers_end_the_wait",
+            "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            "test_failed_plugin_call_ends_failed_with_a_report",
+            "test_failed_run_is_an_error_result",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        idempotency = workflow.index("Exercise plugin-run idempotency candidate")
+        uncertain = workflow.index("Exercise plugin-run unknown-effect candidate")
+        regression = workflow.index("Regress patched native Execution Plane")
+        self.assertLess(idempotency, uncertain)
+        self.assertLess(uncertain, regression)
+        self.assertNotIn("continue-on-error", workflow[uncertain:regression])
+
     def test_github_gate_exercises_plugin_run_idempotency_candidate(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
