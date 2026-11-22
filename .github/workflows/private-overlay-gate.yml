@@ -222,7 +222,9 @@ jobs:
           cp _neko_upstream/plugin/plugins/qq_auto_reply/runtime_ops_service.py _qq_candidate_test/runtime_ops_service.py
           cp _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py _qq_candidate_test/tests/test_qq_catchup.py
           cp _neko_upstream/utils/file_utils.py _qq_candidate_test/utils/file_utils.py
-          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null             _qq_candidate_test/tests/test_qq_catchup.py
+          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \
+            _qq_candidate_test/tests/test_qq_catchup.py \
+            private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py
 
       - name: Release evidence gate
         run: python private_overlay/tools/check_release_readiness.py
