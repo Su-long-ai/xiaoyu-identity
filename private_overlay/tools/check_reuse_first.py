@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEWS = ROOT / "governance" / "reuse_reviews.json"
 SERIES = ROOT / "patches" / "series.json"
 PLUGINS = ROOT / "plugins" / "manifest.json"
+CANDIDATES = ROOT / "candidates"
 
 ALLOWED_DECISIONS = {"reuse_native", "reuse_external", "thin_adapter", "self_implement"}
 
@@ -70,6 +71,21 @@ def main() -> int:
         pid = str(item.get("id") or "")
         require(f"plugin:{pid}" in by_id, f"private runtime plugin has no approved reuse review: {pid}", errors)
 
+    candidate_patches = []
+    if CANDIDATES.is_dir():
+        candidate_patches = sorted(
+            path.relative_to(CANDIDATES).as_posix()
+            for path in CANDIDATES.rglob("*.patch")
+            if path.is_file()
+        )
+    for relpath in candidate_patches:
+        review_id = f"candidate:{relpath}"
+        require(
+            review_id in by_id,
+            f"candidate core patch has no approved reuse review: {relpath}",
+            errors,
+        )
+
     if args.proposal_id:
         review = by_id.get(args.proposal_id)
         require(review is not None, f"proposal is not reuse-admitted: {args.proposal_id}", errors)
@@ -81,7 +97,12 @@ def main() -> int:
             print(f"BLOCK_REUSE_FIRST: {error}")
         return 2
 
-    print(f"PASS: reuse-first gate covers {len(managed)} managed patches and {len(manifest.get('allowed_private_runtime_plugins', []))} private runtime plugin(s)")
+    print(
+        "PASS: reuse-first gate covers "
+        f"{len(managed)} managed patches, "
+        f"{len(candidate_patches)} candidate patch(es), and "
+        f"{len(manifest.get('allowed_private_runtime_plugins', []))} private runtime plugin(s)"
+    )
     return 0
 
 
