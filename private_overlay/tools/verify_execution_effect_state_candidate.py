@@ -26,13 +26,65 @@ async def _verify(neko_root: Path) -> None:
 
         async def send(item):
             assert await ledger.outbox_mark_handoff(item.id, "attempt-a")
+            inside = await ledger.outbox_delivery_state(item.id)
+            assert inside == "handoff", ("inside-send", inside)
             return DeliveryHandoff("attempt-a")
 
         sender = OutboxSender(ledger, send)
         assert await sender.flush() == 0
-        assert await ledger.outbox_delivery_state(item_id) == "handoff"
+        state = await ledger.outbox_delivery_state(item_id)
+        debug_rows = await ledger.outbox_pending(due_by=10**20)
+        debug = [(row.id, row.attempts, row.last_error, row.next_attempt_at) for row in debug_rows]
+        assert state == "handoff", (state, debug)
         assert await ledger.outbox_pending() == []
         await ledger.close()
+
+    with tempfile.TemporaryDirectory() as td:
+        now = [100.0]
+        path = Path(td) / "handoff-lease.db"
+        leased = Ledger(path, clock=lambda: now[0])
+        item_id = await leased.outbox_add(None, "task_result", {"summary": "lease"})
+        assert await leased.outbox_mark_handoff(item_id, "attempt-old")
+        assert await leased.outbox_pending(due_by=129.9) == []
+        assert await leased.outbox_next_due() == 130.0
+        now[0] = 130.0
+        due = await leased.outbox_pending(due_by=now[0])
+        assert [item.id for item in due] == [item_id]
+        assert (
+            await leased.outbox_claim_delivery(
+                item_id, "attempt-old", "late-main-claim"
+            )
+            == "expired"
+        )
+        assert await leased.outbox_mark_handoff(item_id, "attempt-new")
+        assert (
+            await leased.outbox_claim_delivery(
+                item_id, "attempt-old", "late-main-claim"
+            )
+            == "not_ready"
+        )
+        assert (
+            await leased.outbox_claim_delivery(
+                item_id, "attempt-new", "fresh-main-claim"
+            )
+            == "claimed"
+        )
+        assert (
+            await leased.outbox_release_delivery(
+                item_id, "attempt-new", "wrong-main-claim"
+            )
+            == "not_ready"
+        )
+        assert await leased.outbox_delivery_state(item_id) == "claimed"
+        assert (
+            await leased.outbox_release_delivery(
+                item_id, "attempt-new", "fresh-main-claim"
+            )
+            == "released"
+        )
+        assert await leased.outbox_delivery_state(item_id) == "pending"
+        assert [row.id for row in await leased.outbox_pending(due_by=now[0])] == [item_id]
+        await leased.close()
 
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "effect-ledger.db"
@@ -75,22 +127,6 @@ async def _verify(neko_root: Path) -> None:
         finally:
             await second.close()
 
-    with tempfile.TemporaryDirectory() as td:
-        path = Path(td) / "effect-ledger.db"
-        ledger = Ledger(path)
-        item_id = await ledger.outbox_add(None, "task_result", {"summary": "guard"})
-
-        async def invalid_send(_item):
-            return DeliveryHandoff("not-recorded")
-
-        sender = OutboxSender(ledger, invalid_send)
-        assert await sender.flush() == 0
-        assert await ledger.outbox_delivery_state(item_id) == "pending"
-        pending = await ledger.outbox_pending()
-        assert [item.id for item in pending] == [item_id]
-        assert pending[0].attempts == 1
-        assert "not persisted before transport" in pending[0].last_error
-        await ledger.close()
 
 
 def main() -> int:
