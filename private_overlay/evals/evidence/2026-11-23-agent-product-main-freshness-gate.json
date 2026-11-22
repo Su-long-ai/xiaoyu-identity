@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "agent_product_main_freshness_gate",
+  "decided_at_local": "2026-11-23T03:08:00+08:00",
+  "problem": "Long-lived agent branches can keep producing commits after product main advances, so they may execute an inherited but stale architecture/reuse context and accumulate large integration drift.",
+  "authority": "Git commit ancestry between origin/private/neko-overlay-v1 and the pushed agent/** HEAD",
+  "selected": {
+    "mechanism": "existing private-overlay GitHub Actions workflow + git fetch + merge-base --is-ancestor",
+    "behavior": "fail ordinary agent/** pushes unless the current product-main HEAD is already an ancestor of the pushed agent HEAD",
+    "reason": "Uses the repository's existing CI and Git's native ancestry semantics; adds no scheduler, branch database, bot or second governance service."
+  },
+  "considered": [
+    {
+      "candidate": "Manual prompt reminder",
+      "outcome": "rejected",
+      "reason": "not machine enforceable"
+    },
+    {
+      "candidate": "Existing GitHub Actions workflow",
+      "outcome": "selected",
+      "reason": "already executes on every agent/** push"
+    },
+    {
+      "candidate": "Git merge-base --is-ancestor",
+      "outcome": "selected",
+      "reason": "native exact ancestry check; no custom branch graph logic"
+    },
+    {
+      "candidate": "GitHub branch protection/ruleset",
+      "outcome": "not selected",
+      "reason": "current connector lacks Administration write access and branch protection primarily governs merge, not all long-lived direct agent pushes"
+    },
+    {
+      "candidate": "External bot/daemon/policy service",
+      "outcome": "rejected",
+      "reason": "duplicates repository CI governance for a deterministic Git graph check"
+    }
+  ],
+  "acceptance": [
+    "Every ordinary agent/** push fetches the current product-main ref.",
+    "The push fails unless current product main is an ancestor of agent HEAD.",
+    "Product-main pushes and PR synthetic refs do not require the agent-only ancestry condition.",
+    "Reuse/architecture/plugin/release gates remain unchanged and execute after freshness on eligible pushes."
+  ]
+}
