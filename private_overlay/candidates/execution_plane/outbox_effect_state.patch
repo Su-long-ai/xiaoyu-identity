@@ -58,12 +58,12 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +        def work(conn: sqlite3.Connection) -> list[OutboxItem]:
 +            sql = (
 +                "SELECT * FROM outbox WHERE sent_at IS NULL "
-+                "AND last_error NOT LIKE 'delivery_claimed:%' "
-+                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
 +            )
 +            params: list[Any] = []
 +            if due_by is None:
-+                sql += " AND last_error NOT LIKE 'delivery_handoff:%'"
++                sql += " AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%'"
 +            else:
 +                sql += " AND next_attempt_at <= ?"
 +                params.append(due_by)
@@ -86,8 +86,8 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +        def work(conn: sqlite3.Connection) -> float | None:
 +            row = conn.execute(
 +                "SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL "
-+                "AND last_error NOT LIKE 'delivery_claimed:%' "
-+                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
 +            ).fetchone()
 +            return None if row is None or row["due"] is None else float(row["due"])
 +        return await self.run(work)
