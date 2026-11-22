@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_DELIVERY_RECEIPT_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "NekoClaw durable outbox currently needs an end-to-end visible-effect receipt/reconciliation link so agent→main transport acceptance cannot be mistaken for effect completion.",
+  "reviewed_against": {
+    "product_green_base": "06e8fe9a1dc4f9c21e5a52249c315a183c36f41a",
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "upstream_delta": "none_at_review_time"
+  },
+  "acceptance_gaps": [
+    "delivery.main_process_effect_receipt",
+    "delivery.main_restart_before_effect",
+    "delivery.duplicate_replay_after_ambiguous_effect"
+  ],
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin / NekoClaw durable outbox",
+      "outcome": "selected_as_only_task_result_ledger_and_outbox_authority",
+      "evidence": [
+        "outbox_effect_state candidate on the green product base supplies durable handoff/claim/uncertain primitives without a second journal",
+        "NekoClaw host remains the frozen task/result authority"
+      ]
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream",
+      "outcome": "same_commit_as_pin_no_new_task_result_receipt_seam",
+      "evidence": [
+        "upstream main resolved to c3fc33ff0d32e4a79fd905d1add22d45725071f5"
+      ]
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O native callback delivery acknowledgement",
+      "outcome": "selected",
+      "evidence": [
+        "main_logic.proactive_delivery.DELIVERY_ACK_FUTURE_KEY is the native in-memory callback acknowledgement seam",
+        "main_logic.proactive_delivery.resolve_callback_delivery_ack resolves confirmed delivery/retraction",
+        "main_logic.topic.delivery._deliver_via_proactive_manager already demonstrates waiting on this native ack instead of treating enqueue as delivery",
+        "main_logic.agent_event_bus acknowledged main→agent request channel can carry the durable claim/commit/release barrier"
+      ]
+    },
+    {
+      "order": 4,
+      "candidate": "N.E.K.O Plugin SDK / PluginStore / MCP",
+      "outcome": "reuse_for_capabilities_not_publication_receipts",
+      "evidence": [
+        "These remain capability boundaries and do not own task-result visible publication"
+      ]
+    },
+    {
+      "order": 5,
+      "candidate": "Pinned QQ surface component",
+      "outcome": "surface_specific_not_a_native_desktop_result_receipt",
+      "evidence": [
+        "QQ receipt/idempotency cannot confirm N.E.K.O main-server native callback effect"
+      ]
+    },
+    {
+      "order": 6,
+      "candidate": "Mature external transactional outbox/workflow engines",
+      "outcome": "rejected_as_duplicate_authority_for_this_gap",
+      "evidence": [
+        "An external journal would duplicate the frozen NekoClaw ledger/outbox without owning native callback publication"
+      ]
+    }
+  ],
+  "decision": {
+    "kind": "thin_adapter_candidate",
+    "reuse": [
+      "NekoClaw ledger/outbox effect-state candidate",
+      "DELIVERY_ACK_FUTURE_KEY / resolve_callback_delivery_ack",
+      "existing acknowledged agent↔main event bus",
+      "N.E.K.O native delivery"
+    ],
+    "forbid": [
+      "second ledger",
+      "second outbox",
+      "new daemon",
+      "new publication authority",
+      "parallel callback delivery system"
+    ],
+    "candidate_only": true,
+    "promotion_allowed": false
+  },
+  "required_machine_acceptance": [
+    "candidate applies after the effect-state candidate on a fresh pinned N.E.K.O checkout",
+    "handoff carries a stable outbox delivery id and attempt id",
+    "main claims the exact attempt before crossing the visible-effect boundary",
+    "native callback ack True commits the exact claim",
+    "native callback ack False releases only a proven-no-effect claim",
+    "missing/ambiguous ack never becomes automatic failure/retry",
+    "main restart after claim cannot cause blind duplicate visible effect",
+    "duplicate claim/commit/release is idempotent"
+  ],
+  "retirement_condition": "Retire the adapter when N.E.K.O upstream exposes stable NekoClaw task-result delivery identity plus native durable effect receipt/reconciliation with equivalent callback-ack and restart semantics."
+}
