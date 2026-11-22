@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_RELEASE_MANIFEST_CONSISTENCY_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T03:13:00+08:00",
+  "problem": "The stable release manifest is stale relative to the authoritative N.E.K.O/QQ locks, managed patch series, plugin source version and acceptance matrix, while the existing release gate only validates acceptance evidence.",
+  "selected": {
+    "authority": "existing check_release_readiness.py + authoritative repository locks/series/acceptance matrix",
+    "implementation": "extend the existing release readiness checker with deterministic manifest projection checks",
+    "reason": "Prevents a second release database/checker and keeps release truth derived from existing product authorities."
+  },
+  "reuse_order": [
+    {
+      "layer": "L0",
+      "candidate": "NEKO_UPSTREAM.lock.json + QQ_PLUGIN_UPSTREAM.lock.json + patches/series.json + evals/acceptance_matrix.json",
+      "outcome": "selected_as_authoritative_inputs"
+    },
+    {
+      "layer": "L1",
+      "candidate": "current N.E.K.O pin c3fc33ff",
+      "outcome": "selected_via_existing_lock"
+    },
+    {
+      "layer": "L2",
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin"
+    },
+    {
+      "layer": "L3",
+      "candidate": "pinned qq_auto_reply and official desktop shell locks",
+      "outcome": "selected_as_external_binding_inputs"
+    },
+    {
+      "layer": "L4",
+      "candidate": "GitHub Releases/external release DB or policy service",
+      "outcome": "rejected_unnecessary_for_private_repo_projection"
+    },
+    {
+      "layer": "L5",
+      "candidate": "existing check_release_readiness.py",
+      "outcome": "selected_for_thin_static_consistency_check"
+    },
+    {
+      "layer": "L6",
+      "candidate": "new release service/database/checker daemon",
+      "outcome": "rejected_duplicate_authority"
+    }
+  ],
+  "acceptance": [
+    "release manifest N.E.K.O and QQ commits must match authoritative lock files",
+    "managed patch count, budget and file list must match the current lock/series",
+    "acceptance closed/total/IDs must match the current acceptance matrix",
+    "release manifest may bind exact repository file states using Git blob SHAs",
+    "existing acceptance evidence semantics remain unchanged"
+  ],
+  "runtime_effect": false
+}
