@@ -48,7 +48,8 @@ jobs:
           python -m unittest -v \
             private_overlay.tests.test_overlay_contract \
             private_overlay.tests.test_plugin_admission \
-            private_overlay.tests.test_probe_neko_runtime_health
+            private_overlay.tests.test_probe_neko_runtime_health \
+            private_overlay.tests.test_release_readiness
 
       - name: Compile overlay control plane
         run: |
