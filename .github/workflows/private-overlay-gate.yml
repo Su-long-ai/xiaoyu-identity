@@ -297,6 +297,8 @@ jobs:
           tests/unit/nekoclaw/test_host_robustness.py
           tests/unit/nekoclaw/test_agent_wiring.py
           tests/unit/nekoclaw/test_host_plugin_runs.py
+          tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report
+          tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result
           plugin/tests/unit/server/test_run_manager_idempotency.py
           tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
           tests/test_agent_rewrite_regression.py
@@ -348,6 +350,14 @@ jobs:
             plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once \
             tests/unit/nekoclaw/test_host_plugin_runs.py \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
+
+      - name: Exercise plugin-run unknown-effect candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/plugin_run_unknown_effect.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/plugin_run_unknown_effect.patch"
+          python -m py_compile             _neko_upstream/nekoclaw/host/plugin_runs.py             _neko_upstream/nekoclaw/host/task_brain.py             _neko_upstream/nekoclaw/host/gateway.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q             tests/unit/nekoclaw/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait             tests/unit/nekoclaw/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted             tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report             tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py"
 
       - name: Regress patched native Execution Plane
         run: |
