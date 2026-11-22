@@ -505,6 +505,25 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(gate, startup_gate_end)
         self.assertIn("if (-not $StartupPreflight)", script[:gate])
 
+    def test_release_gate_executes_native_execution_plane_harness(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "XiaoYu native execution-plane regression",
+            "check_execution_plane.py",
+            "--neko-root $NekoRoot",
+            "--python $NekoPython",
+            "--full",
+            "latest-execution-plane.json",
+        }
+        for item in required:
+            self.assertIn(item, script)
+        gate = script.index("XiaoYu native execution-plane regression")
+        startup_gate_end = script.index('Write-Host "== XiaoYu reuse-first admission gate =="')
+        self.assertLess(gate, startup_gate_end)
+        self.assertIn("if (-not $StartupPreflight)", script[:gate])
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
