@@ -143,6 +143,7 @@ class OverlayContractTests(unittest.TestCase):
             "--source",
             "plugins\\xiaoyu_interaction_policy",
             "run_checks.ps1",
+            "-StartupPreflight",
             "reconcile_neko_plugin_runtime.py",
             "NEKO_STORAGE_SELECTED_ROOT",
             "NEKO_STORAGE_ANCHOR_ROOT",
@@ -352,6 +353,32 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("$RepoRoot = Split-Path -Parent $OverlayRoot", script)
         self.assertIn("Push-Location $RepoRoot", script)
         self.assertIn("Pop-Location", script)
+
+    def test_startup_preflight_skips_developer_only_checks_but_keeps_safety_gates(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("[switch]$StartupPreflight", script)
+        self.assertIn("if (-not $StartupPreflight)", script)
+        for required in (
+            "check_reuse_first.py",
+            "check_architecture_freeze.py",
+            "check_plugin_admission.py",
+            "check_overlay.py",
+            "check_provider_privacy.py",
+            "PASS: XiaoYu runtime startup safety preflight",
+        ):
+            self.assertIn(required, script)
+
+        start_script = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("-StartupPreflight", start_script)
+        # These expensive/developer-only checks remain in run_checks for normal
+        # release validation, but start_xiaoyu must not invoke normal mode.
+        self.assertIn("python -m unittest discover", script)
+        self.assertIn("python -m compileall", script)
+        self.assertIn("check_release_readiness.py", script)
 
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")

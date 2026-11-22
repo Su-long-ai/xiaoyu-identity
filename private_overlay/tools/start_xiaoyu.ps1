@@ -124,7 +124,7 @@ if ($PreflightOnly) {
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== XiaoYu private startup preflight =="
-& (Join-Path $ToolsRoot "run_checks.ps1") -NekoRoot $NekoRoot -StorageRoot $StorageRoot
+& (Join-Path $ToolsRoot "run_checks.ps1") -NekoRoot $NekoRoot -StorageRoot $ResolvedStorage -StartupPreflight
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if ($PreflightOnly) {
