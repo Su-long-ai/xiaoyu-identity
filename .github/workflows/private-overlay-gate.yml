@@ -113,6 +113,10 @@ jobs:
           path: _neko_upstream
           fetch-depth: 1
 
+      - name: Probe plugin-visible delivery-floor native gap
+        run: |
+          python private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py --neko-root _neko_upstream
+
       - name: Exercise patched companion switch/audio ownership regression
         run: |
           python -m pip install -q uv
