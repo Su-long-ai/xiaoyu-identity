@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_VOICE_SELECTION_FALLBACK_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "Pinned N.E.K.O already has native regression tests for structured voice provider/ref persistence and Qwen provider-fallback turn ownership, but XiaoYu's patched-product cloud/release suite omits them. A restart/config migration can therefore restore the wrong provider/voice, or a stale Qwen pause/final can interfere with the next speech turn, without the Companion product gate noticing.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "selected": true,
+      "result": "c3 contains test_voice_config.py and test_qwen_provider_fallback.py covering the required persisted-selection and fallback ownership behavior."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream main still equals c3fc33ff0d32e4a79fd905d1add22d45725071f5; no newer implementation is needed."
+    },
+    {
+      "layer": "N.E.K.O voice/realtime runtime",
+      "checked": true,
+      "selected": true,
+      "result": "Native VoiceConfig normalization and Qwen ASR worker remain the only runtime authorities. Reuse their existing tests on the patched product worktree."
+    },
+    {
+      "layer": "current pinned external component",
+      "checked": true,
+      "result": "No external component owns N.E.K.O voice-config normalization or Qwen ASR fallback turn fencing."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "No alternate voice/session library is justified for a regression-wiring gap."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Only extend existing cloud/local Companion regression lists with native tests; repeat one short stale-turn case in micro-soak."
+    },
+    {
+      "layer": "managed patch/private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "No new voice runtime, config store, fallback controller, router, daemon or patch."
+    }
+  ],
+  "selected_tests": {
+    "full_file": [
+      "tests/unit/test_voice_config.py"
+    ],
+    "targeted": [
+      "tests/unit/test_qwen_provider_fallback.py::test_reconnect_retries_without_losing_held_audio",
+      "tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn",
+      "tests/unit/test_qwen_provider_fallback.py::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn"
+    ]
+  },
+  "protected_product_risks": [
+    "legacy/structured voice selection restores a different provider or clone after restart",
+    "same-id clone and configured preset resolve to the wrong authority",
+    "transport recovery loses already accepted audio",
+    "a stale provider pause finishes the next turn",
+    "an old provider final incorrectly covers PCM belonging to a new turn"
+  ],
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "new_state_store": false,
+    "new_voice_runtime": false,
+    "new_fallback_controller": false,
+    "new_router": false,
+    "new_daemon": false,
+    "new_dependency": false
+  },
+  "retirement_condition": "Retire this overlay wiring when the pinned N.E.K.O upstream product CI itself executes equivalent voice-config persistence and Qwen fallback ownership regressions on every pin consumed by XiaoYu, and XiaoYu can consume that green result without duplicating test selection."
+}

@@ -2618,6 +2618,73 @@
         }
       },
       "retirement_condition": "Retire the optional checked-out overlay validation when N.E.K.O exposes one native, pin-aware admission verification that accepts XiaoYu's reviewed allowance policy and verifies native/external checkout provenance plus manifest authority without a second permission store."
+    },
+    {
+      "id": "governance:voice-selection-fallback-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Pinned N.E.K.O already has native regression tests for structured voice provider/ref persistence and Qwen provider-fallback turn ownership, but XiaoYu's patched-product cloud/release suite omits them. A restart/config migration can therefore restore the wrong provider/voice, or a stale Qwen pause/final can interfere with the next speech turn, without the Companion product gate noticing.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O c3 voice-config and Qwen fallback native tests",
+          "type": "native_current_pin",
+          "outcome": "selected directly",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        {
+          "name": "Existing patched-product Companion regression gate",
+          "type": "existing_governance",
+          "outcome": "selected as execution plane",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        {
+          "name": "New XiaoYu voice config/fallback runtime",
+          "type": "private_duplicate",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native runtime and exact regression tests already exist; only XiaoYu product acceptance wiring is missing.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains voice config and Qwen ASR authority.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Selected existing c3 tests.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals c3; no replacement seam.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "No pinned external component owns these native semantics.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external runtime replacement is justified for missing product regression wiring.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected test-list wiring plus one repeated micro-soak node.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private voice runtime/store/fallback controller/router/daemon rejected.",
+          "evidence": "evals/evidence/2026-11-23-voice-selection-fallback-regression-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this overlay wiring when the pinned N.E.K.O upstream product CI itself executes equivalent voice-config persistence and Qwen fallback ownership regressions on every pin consumed by XiaoYu, and XiaoYu can consume that green result without duplicating test selection."
     }
   ],
   "hierarchy_policy": {
