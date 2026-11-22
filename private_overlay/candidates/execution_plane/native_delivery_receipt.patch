@@ -1,32 +1,41 @@
 diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 --- a/main_logic/agent_event_bus.py
 +++ b/main_logic/agent_event_bus.py
-@@ -164,7 +164,8 @@
+@@ -164,7 +164,9 @@
          self._recv_thread: Optional[threading.Thread] = None
          self._stop = threading.Event()
          self.owner_loop: Optional[asyncio.AbstractEventLoop] = None
          self.owner_thread_id: Optional[int] = None
 +        self.instance_id = uuid.uuid4().hex
++        self._nekoclaw_epoch_announce_task: Optional[asyncio.Task] = None
          self.ready = False
  
      async def start(self) -> None:
-@@ -194,7 +195,15 @@
+@@ -194,7 +195,11 @@
          self._recv_thread = threading.Thread(
              target=self._recv_thread_fn, name="zmq-main-recv", daemon=True,
          )
          self._recv_thread.start()
-+        announced = await self.publish_analyze_request(
-+            {
-+                "event_type": "nekoclaw_main_epoch",
-+                "main_epoch": self.instance_id,
-+            }
++        self._nekoclaw_epoch_announce_task = asyncio.create_task(
++            _announce_nekoclaw_main_epoch(self),
++            name="nekoclaw-main-epoch-announce",
 +        )
-+        if not announced:
-+            logger.warning("[EventBus] NekoClaw main epoch announcement was not queued")
          logger.info("[EventBus] Main bridge started (pid=%s)", os.getpid())
  
      # -- Background reception (agent -> main) -------------------------------------------
-@@ -518,21 +527,30 @@
+@@ -237,6 +237,11 @@
+     async def stop(self) -> None:
+         """Shut down ZMQ resources and background thread."""
+         self._stop.set()
+         self.ready = False
++        epoch_task = self._nekoclaw_epoch_announce_task
++        self._nekoclaw_epoch_announce_task = None
++        if epoch_task is not None and not epoch_task.done():
++            epoch_task.cancel()
++            await asyncio.gather(epoch_task, return_exceptions=True)
+         if self._recv_thread is not None:
+             await asyncio.to_thread(self._recv_thread.join, 2.0)
+@@ -518,21 +527,34 @@
      return await bridge.publish_session_event(event)
  
  
@@ -69,10 +78,14 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 +
 +def notify_nekoclaw_delivery_barrier_ack(event_id: str, result: str) -> None:
 +    _resolve_ack(event_id, str(result or ""))
++
++
++def notify_nekoclaw_main_epoch_ack(event_id: str, main_epoch: str) -> None:
++    _resolve_ack(event_id, str(main_epoch or ""))
  
  
  def notify_voice_bridge_result(event_id: str, result: Dict[str, Any]) -> None:
-@@ -636,121 +654,125 @@
+@@ -636,121 +654,149 @@
      return None
  
  
@@ -197,32 +210,35 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 +    ack_timeout_s: float,
 +    retries: int,
 +    label: str,
++    bridge: Optional["MainServerAgentBridge"] = None,
++    retry_delay_s: float = 0.0,
 +) -> Any:
 +    """Reuse the existing reliable main→agent analyze channel."""
 +    event = dict(event)
 +    event_id = str(event.get("event_id") or uuid.uuid4().hex)
 +    event["event_id"] = event_id
 +    sent_at = time.perf_counter()
-+    for attempt in range(max(retries, 0) + 1):
++    retry_count = max(retries, 0)
++    for attempt in range(retry_count + 1):
 +        loop = asyncio.get_running_loop()
 +        waiter: asyncio.Future = loop.create_future()
 +        with _ack_waiters_lock:
 +            _ack_waiters[event_id] = waiter
-+        bridge = _main_bridge_ref
-+        if bridge is None or bridge.owner_loop is None:
++        target = bridge or _main_bridge_ref
++        if target is None or target.owner_loop is None:
 +            with _ack_waiters_lock:
 +                _ack_waiters.pop(event_id, None)
 +            return None
-+        if threading.get_ident() == bridge.owner_thread_id:
-+            sent = await bridge.publish_analyze_request(event)
++        if threading.get_ident() == target.owner_thread_id:
++            sent = await target.publish_analyze_request(event)
 +        else:
 +            try:
-+                if bridge.owner_loop.is_closed():
++                if target.owner_loop.is_closed():
 +                    sent = False
 +                else:
-+                    coro = bridge.publish_analyze_request(event)
++                    coro = target.publish_analyze_request(event)
 +                    try:
-+                        cf = asyncio.run_coroutine_threadsafe(coro, bridge.owner_loop)
++                        cf = asyncio.run_coroutine_threadsafe(coro, target.owner_loop)
 +                        sent = await asyncio.wrap_future(cf)
 +                    except Exception as exc:
 +                        coro.close()
@@ -234,6 +250,8 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 +        if not sent:
 +            with _ack_waiters_lock:
 +                _ack_waiters.pop(event_id, None)
++            if attempt < retry_count and retry_delay_s > 0:
++                await asyncio.sleep(retry_delay_s)
 +            continue
 +        try:
 +            result = await asyncio.wait_for(waiter, timeout=ack_timeout_s)
@@ -243,7 +261,26 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 +            with _ack_waiters_lock:
 +                _ack_waiters.pop(event_id, None)
 +            logger.info("[EventBus] %s ack timeout (attempt %d): event_id=%s", label, attempt + 1, event_id)
++            if attempt < retry_count and retry_delay_s > 0:
++                await asyncio.sleep(retry_delay_s)
 +    return None
++
++
++async def _announce_nekoclaw_main_epoch(bridge: "MainServerAgentBridge") -> None:
++    """Reliably announce one ephemeral main-process epoch without blocking startup."""
++    result = await _publish_analyze_request_with_ack(
++        {
++            "event_type": "nekoclaw_main_epoch",
++            "main_epoch": bridge.instance_id,
++        },
++        ack_timeout_s=0.10,
++        retries=3,
++        label="nekoclaw_main_epoch",
++        bridge=bridge,
++        retry_delay_s=0.025,
++    )
++    if result != bridge.instance_id:
++        logger.warning("[EventBus] NekoClaw main epoch announcement was not acknowledged")
 +
 +
 +async def publish_turn_check_reliably(
@@ -316,7 +353,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,73 @@
+@@ -539,9 +539,86 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
@@ -349,6 +386,19 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +        changed,
 +    )
 +    return f"reconciled:{changed}"
++
++
++async def _handle_nekoclaw_main_epoch(event: Dict[str, Any]) -> None:
++    event_id = str(event.get("event_id") or "")
++    epoch = str(event.get("main_epoch") or "").strip()
++    await _observe_nekoclaw_main_epoch(epoch)
++    if event_id and epoch:
++        await _emit_main_event(
++            "nekoclaw_main_epoch_ack",
++            event.get("lanlan_name"),
++            event_id=event_id,
++            main_epoch=epoch,
++        )
 +
 +
 +async def _handle_nekoclaw_delivery_barrier(event: Dict[str, Any]) -> None:
@@ -403,7 +453,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +        _create_tracked_task(_handle_turn_check_request(event))
 +        return
 +    if event_type == "nekoclaw_main_epoch":
-+        _create_tracked_task(_observe_nekoclaw_main_epoch(event.get("main_epoch")))
++        _create_tracked_task(_handle_nekoclaw_main_epoch(event))
 +        return
 +    if event_type == "nekoclaw_delivery_barrier":
 +        _create_tracked_task(_handle_nekoclaw_delivery_barrier(event))
@@ -517,7 +567,7 @@ diff --git a/app/agent_server/nekoclaw_mount.py b/app/agent_server/nekoclaw_moun
 diff --git a/app/main_server/character_runtime.py b/app/main_server/character_runtime.py
 --- a/app/main_server/character_runtime.py
 +++ b/app/main_server/character_runtime.py
-@@ -25,21 +25,27 @@
+@@ -25,21 +25,28 @@
  import traceback
  from dataclasses import dataclass
  from io import BytesIO
@@ -546,6 +596,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
 +from main_logic import core, cross_server
 +from main_logic.agent_event_bus import (
 +    notify_nekoclaw_delivery_barrier_ack,
++    notify_nekoclaw_main_epoch_ack,
 +    notify_turn_check_ack,
 +    publish_nekoclaw_delivery_barrier,
 +)
@@ -669,7 +720,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
      """Receive agent_server events over ZeroMQ and dispatch them to core/websocket."""
      try:
          event_type = event.get("event_type")
-@@ -920,16 +1026,23 @@
+@@ -920,16 +1026,30 @@
              await deliver_plugin_card(event, dict(_iter_session_managers()), default_name)
              return
  
@@ -696,6 +747,13 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
 +            notify_nekoclaw_delivery_barrier_ack(
 +                str(event.get("event_id") or ""),
 +                str(event.get("result") or ""),
++            )
++            return
++
++        if event_type == "nekoclaw_main_epoch_ack":
++            notify_nekoclaw_main_epoch_ack(
++                str(event.get("event_id") or ""),
++                str(event.get("main_epoch") or ""),
 +            )
 +            return
 +

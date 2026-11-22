@@ -91,6 +91,11 @@ jobs:
             _neko_upstream/app/main_server/character_runtime.py
           python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_upstream
 
+      - name: Exercise native delivery receipt real-ZMQ E2E
+        run: |
+          python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
+
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
         with:

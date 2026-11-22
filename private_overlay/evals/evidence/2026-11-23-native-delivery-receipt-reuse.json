@@ -142,5 +142,61 @@
       "result": "success_on_agent_green_candidate_chain"
     },
     "product_main_replay": "pending_on_integration_commit"
+  },
+  "native_transport_e2e_reuse": {
+    "reviewed_before_implementation": true,
+    "product_green_base": "ef71899568d7bd539909091226799ceb30492231",
+    "existing_review": "candidate:execution_plane/native_delivery_receipt.patch",
+    "native_harness_found": {
+      "path": "tests/test_agent_rewrite_regression.py::test_zmq_bridge_end_to_end",
+      "reused_components": [
+        "MainServerAgentBridge",
+        "AgentServerEventBridge",
+        "SESSION_PUB_ADDR / AGENT_PUSH_ADDR / ANALYZE_PUSH_ADDR overrides",
+        "real pyzmq PUSH/PULL sockets and background receive threads",
+        "native acknowledged turn-check request/ack pattern"
+      ]
+    },
+    "dependency_reuse": [
+      "pyzmq and orjson are declared N.E.K.O runtime dependencies",
+      "pytest and pytest-asyncio are declared N.E.K.O dev dependencies",
+      "no new test framework or transport library is required"
+    ],
+    "implementation_boundary": "Add only an overlay acceptance verifier that instantiates the existing bridge classes and drives the already-admitted receipt/epoch candidate over real ZMQ. Do not create another bridge, daemon, broker, ledger, outbox, router, or delivery protocol.",
+    "machine_gap_to_close": [
+      "prove startup main_epoch traverses the native ANALYZE_PUSH_ADDR socket",
+      "prove claim/commit barrier acknowledgements traverse native main↔agent ZMQ in both directions",
+      "prove replacing only MainServerAgentBridge while AgentServerEventBridge survives emits a new epoch",
+      "prove the surviving agent observer turns an in-flight claimed effect uncertain on that new epoch",
+      "prove duplicate same-epoch observation is idempotent"
+    ],
+    "retirement_condition": "Delete the overlay ZMQ acceptance verifier if upstream N.E.K.O adds equivalent receipt/epoch restart integration coverage at the pinned test boundary and the overlay gate runs it directly.",
+    "failed_probe": {
+      "branch_head": "dfde4a0d02852a4b3c59f9aacea3e2e3946f578b",
+      "github_actions_run": 45052390983,
+      "github_actions_job": 137300191498,
+      "step": "Exercise native delivery receipt real-ZMQ E2E",
+      "result": "failed_with_real_native_startup_gap",
+      "symptom": "MainServerAgentBridge.start() logged that the NekoClaw main epoch announcement was not queued, then the real-ZMQ verifier timed out waiting for the startup epoch.",
+      "reproduced_gap": "The one-shot zmq.NOBLOCK epoch send may run before the native ANALYZE PUSH/PULL connection has completed its handshake. A main-only restart can therefore leave an already-claimed visible effect stranded as claimed with no reconciliation signal.",
+      "correction_decision": "Reuse the existing acknowledged analyze channel and waiter/retry machinery. Add an epoch ACK after agent-side observation and let startup schedule a bounded reliable announcement through the same native bridge. No new transport, router, journal, daemon, state store, or publication authority.",
+      "gate_policy": "Fix implementation/evidence only; do not weaken or bypass the real-ZMQ gate."
+    },
+    "probe_fix": {
+      "branch": "agent/integration-zmq-epoch-retry",
+      "base": "804c9d4719363f95a21ca537064b7f0b71d2cc96",
+      "correction": "reuse existing acknowledged analyze channel; epoch observation returns ACK; bounded background retry crosses ZMQ handshake without blocking main startup",
+      "retry_budget": {
+        "ack_timeout_seconds": 0.1,
+        "retries": 3,
+        "retry_delay_seconds": 0.025,
+        "worst_case_bounded_seconds": 0.475
+      },
+      "main_startup_blocking": false,
+      "new_runtime_authority": false,
+      "new_transport": false,
+      "new_daemon": false,
+      "status": "pending_machine_gate"
+    }
   }
 }
