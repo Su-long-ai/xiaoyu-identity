@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_EMBEDDING_ASSET_PUSH_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:36:00+08:00",
+  "implementation_status": "AGENT_BRANCH_GREEN_AWAITING_MAIN_INTEGRATION",
+  "product_main_base": "769fe47d377af08aef38787eff559b9bae27f57b",
+  "agent_base": "f656752e07b9bc97a3a54d8b9548a58e89e25f06",
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "current_pin_equals_latest_upstream": true,
+    "native_authorities": [
+      "memory/embeddings.py",
+      "memory/embedding_worker.py",
+      "memory/hybrid_recall.py",
+      "memory/recall.py",
+      "scripts/prepare_embedding_model.py"
+    ],
+    "selected_helper": "private_overlay/tools/ensure_native_embedding_assets.py",
+    "selected_test": "private_overlay.tests.test_native_embedding_assets",
+    "selected_ci": "existing private-overlay-gate.yml Overlay contract tests step"
+  },
+  "pin": {
+    "repo": "jinaai/jina-embeddings-v5-text-nano-retrieval",
+    "revision": "ac5d898c8d382b17167c33e5c8af644a3519b47d",
+    "profile_id": "local-text-retrieval-v1",
+    "variant": "int8"
+  },
+  "existing_live_evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json",
+  "selected_existing_tests": [
+    "ready profile is zero action",
+    "verify-only fails closed on missing/wrong pin",
+    "missing profile delegates to N.E.K.O native prepare_embedding_model.py",
+    "helper contains no downloader/model mirror implementation"
+  ],
+  "implementation_constraints": {
+    "new_downloader": false,
+    "new_embedding_runtime": false,
+    "new_asset_daemon": false,
+    "new_network_client": false,
+    "new_test_framework": false,
+    "runtime_change": false,
+    "startup_runtime_cost": 0,
+    "ordinary_agent_push_must_execute": true
+  },
+  "acceptance_plan": [
+    "append private_overlay.tests.test_native_embedding_assets to the existing Overlay contract tests unittest command",
+    "add one overlay contract assertion that binds the module to ordinary agent/** push coverage",
+    "require the complete product gate to remain green",
+    "do not redownload or execute the real embedding model in cloud CI; this unit tests only the delegation/pin boundary",
+    "keep fresh live embedding load/latency acceptance separate from cloud regression"
+  ],
+  "retirement_condition": "Retire this overlay CI wiring when the helper itself retires because N.E.K.O startup natively guarantees the same pinned asset preparation/verification behavior or an equivalent product-main CI contract covers it.",
+  "machine_validation": {
+    "review_commit": "776d775e51095fc21caff1fd78517e4712c882f4",
+    "review_run_id": 45056083658,
+    "review_conclusion": "success",
+    "implementation_commit": "17ab4b935aca2c60f6b1a882c72907cc06cb6b5d",
+    "implementation_run_id": 45056337076,
+    "implementation_job_id": 137312300599,
+    "implementation_conclusion": "success",
+    "overlay_unittest_result": "Ran 133 tests in 5.148s; OK",
+    "patched_product_python": "341 passed, 19 warnings in 20.91s",
+    "patched_product_node": "100 passed, 0 failed",
+    "native_delivery_receipt_real_zmq_e2e": "success",
+    "qq_surface": "173 passed, 3 warnings in 4.09s",
+    "qq_inbound_candidate": "46 passed in 0.24s",
+    "release_evidence_gate": "success"
+  },
+  "implementation": {
+    "change": "append private_overlay.tests.test_native_embedding_assets to the existing Overlay contract unittest command and add one static workflow binding assertion",
+    "runtime_files_changed": 0,
+    "model_downloaded_in_ci": false,
+    "new_network_client": false,
+    "new_downloader": false,
+    "new_embedding_runtime": false,
+    "new_asset_daemon": false,
+    "startup_runtime_cost": 0
+  },
+  "live_acceptance": {
+    "prior_live_evidence": "evals/evidence/2026-11-21-native-embedding-assets-and-hybrid-recall.json",
+    "fresh_live_embedding_load": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "fresh_live_hybrid_recall_latency": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "claim_scope": "This cloud evidence proves the native delegation/pin boundary and regression wiring only; it does not rerun the physical local embedding model or claim new latency measurements."
+  },
+  "product_main_integration": {
+    "status": "AWAITING_MAIN_AGENT_INTEGRATION",
+    "latest_main_checked": "769fe47d377af08aef38787eff559b9bae27f57b"
+  },
+  "recorded_green_at_local": "2026-11-23T02:42:00+08:00"
+}
