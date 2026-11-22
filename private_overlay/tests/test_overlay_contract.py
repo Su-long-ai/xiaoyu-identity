@@ -581,6 +581,53 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(invariant, verifier)
 
+    def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
+        candidate = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "native_delivery_receipt.patch"
+        )
+        self.assertTrue(candidate.is_file())
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review_id = "candidate:execution_plane/native_delivery_receipt.patch"
+        self.assertIn(review_id, by_id)
+        self.assertEqual(by_id[review_id]["status"], "approved")
+        self.assertTrue(
+            (
+                ROOT
+                / "evals"
+                / "evidence"
+                / "2026-11-23-native-delivery-receipt-reuse.json"
+            ).is_file()
+        )
+
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        managed = {item["file"] for item in series["patches"]}
+        self.assertNotIn(
+            "native_delivery_receipt.patch",
+            managed,
+            "receipt work must remain candidate-only until end-to-end receipt/reconciliation is release-proven",
+        )
+
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "native_delivery_receipt.patch",
+            "verify_native_delivery_receipt_candidate.py",
+            "Exercise native delivery receipt candidate",
+        ):
+            self.assertIn(required, workflow)
+
     def test_qq_inbound_idempotency_candidate_is_reviewed_but_not_live(self):
         candidate = ROOT / "candidates" / "qq" / "live_inbound_idempotency.patch"
         self.assertTrue(candidate.is_file())
