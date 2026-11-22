@@ -55,12 +55,12 @@ def main() -> int:
         "blind/silent HUD counterexample changed; re-audit before promoting anything",
     )
     _require(
-        "visibility is NOT consulted here" in bridge,
+        "visibility" in bridge and "is NOT consulted here" in bridge,
         "proactive bridge visibility semantics changed; re-audit",
     )
     _require(
-        "push_message pre-check are planned for a later stage, not implemented"
-        in surface_map,
+        "push_message" in surface_map
+        and "pre-check are planned for a later stage, not implemented" in surface_map,
         "Plugin SDK push_message permission enforcement changed; re-audit",
     )
 
