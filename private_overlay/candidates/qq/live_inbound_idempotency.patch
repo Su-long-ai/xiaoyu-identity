@@ -1,0 +1,263 @@
+diff --git a/catchup_service.py b/catchup_service.py
+--- a/catchup_service.py
++++ b/catchup_service.py
+@@ -136,9 +136,10 @@
+             "injected": 0,
+             "skipped_capped": 0,
+             "skipped_old": 0,
+-            "skipped_self": 0,
+-            "skipped_dup": 0,
+-            "seq_missing": 0,
++            "skipped_self": 0,
++            "skipped_dup": 0,
++            "skipped_inbound_dup": 0,
++            "seq_missing": 0,
+         }
+         self._consecutive_failures = 0
+         #: "这个通道补不了"只说一次（每次进程启动）。
+@@ -300,16 +301,36 @@
+             if self.logger:
+                 self.logger.warning("[Catchup] 记录游标失败", exc_info=True)
+ 
+-    def _remember_id(self, message: dict[str, Any]) -> None:
+-        """记住处理过的 message_id（去重名单）。"""
+-        mid = str(message.get("message_id") or "").strip()
+-        if not mid:
+-            return
+-        self._recent_ids[mid] = time.time()
+-        self._recent_ids.move_to_end(mid)
+-        while len(self._recent_ids) > self.MAX_RECENT_IDS:
+-            self._recent_ids.popitem(last=False)
+-
++    def _remember_id(self, message: dict[str, Any]) -> None:
++        """记住处理过的 message_id（去重名单）。"""
++        mid = str(message.get("message_id") or "").strip()
++        if not mid:
++            return
++        self._recent_ids[mid] = time.time()
++        self._recent_ids.move_to_end(mid)
++        while len(self._recent_ids) > self.MAX_RECENT_IDS:
++            self._recent_ids.popitem(last=False)
++
++    def claim_inbound_message(self, message: dict[str, Any]) -> bool:
++        """按稳定 message_id 抢占一次入站事件；重复事件直接拒绝。
++
++        实时 receive loop 是单协程串行取消息，这个同步 claim 必须发生在
++        create_task 之前：两个相同 OneBot event 即使随后并发处理，也只有
++        第一条能进入 handler。断线补消息也复用同一名单，避免 live/catch-up
++        在重连边界各处理一次。没有稳定 id 的事件保持旧行为，不猜等价关系。
++        """
++        if str(message.get("post_type") or "message") != "message":
++            return True
++        mid = str(message.get("message_id") or "").strip()
++        if not mid:
++            return True
++        if mid in self._recent_ids:
++            self._diag["skipped_inbound_dup"] += 1
++            return False
++        self._remember_id(message)
++        self._dirty = True
++        return True
++
+     # ── 什么时候补：启动后第一次连上、掉线后重新连上 ─────────
+ 
+     def _bookmark_gaps(self) -> None:
+@@ -654,23 +675,28 @@
+                 continue
+             missed.append(msg)
+ 
+-        injected = 0
+-        for msg in missed:
+-            if not getattr(self.plugin, "_running", False):
+-                break
+-            ts = int(msg.get("time") or 0)
+-            msg["_catchup"] = True
+-            msg["_catchup_reason"] = "catchup"
+-            msg["_catchup_age_seconds"] = int(now - ts) if ts else 0
+-            # 历史接口给的段格式与实时事件一致，但缺 post_type。补上——
+-            # handle_message 里有些分支会看它。
+-            msg.setdefault("post_type", "message")
+-            try:
+-                await self.plugin.message_dispatcher.handle_message(msg)
+-                injected += 1
+-                self._diag["injected"] += 1
+-                self._remember_id(msg)
+-            except Exception:
++        injected = 0
++        for msg in missed:
++            if not getattr(self.plugin, "_running", False):
++                break
++            ts = int(msg.get("time") or 0)
++            msg["_catchup"] = True
++            msg["_catchup_reason"] = "catchup"
++            msg["_catchup_age_seconds"] = int(now - ts) if ts else 0
++            # 历史接口给的段格式与实时事件一致，但缺 post_type。补上——
++            # handle_message 里有些分支会看它。
++            msg.setdefault("post_type", "message")
++            # 拉历史与实时 WS 可以在重连边界交错：候选列表建立之后，
++            # 同一条消息可能先从 live 路径到达。投递前再抢一次同一份
++            # recent_ids；抢不到就说明另一条路径已拥有它。
++            if not self.claim_inbound_message(msg):
++                skipped_dup += 1
++                continue
++            try:
++                await self.plugin.message_dispatcher.handle_message(msg)
++                injected += 1
++                self._diag["injected"] += 1
++            except Exception:
+                 self._note_failure(key)
+                 # 入口 note_message 可能已经记下失败消息；允许下次重新注入。
+                 self._recent_ids.pop(str(msg.get("message_id") or ""), None)
+diff --git a/message_dispatcher.py b/message_dispatcher.py
+--- a/message_dispatcher.py
++++ b/message_dispatcher.py
+@@ -689,10 +689,29 @@
+                                         sender_at_receipt
+                                     )
+                                 )
+-                            message["_private_permission_level_at_receipt"] = (
+-                                permission_at_receipt
+-                            )
+-                    task = __import__("asyncio").create_task(self.plugin._run_message_handler(message))
++                            message["_private_permission_level_at_receipt"] = (
++                                permission_at_receipt
++                            )
++                        # 复用 catch-up 的持久 recent_ids 做实时入站 claim。
++                        # 必须在 create_task 前同步完成；否则同一个重投 event
++                        # 会各自创建 handler task，后面的会话锁只能串行，不能去重。
++                        catchup = getattr(self.plugin, "catchup_service", None)
++                        if catchup is not None:
++                            try:
++                                if not catchup.claim_inbound_message(message):
++                                    self.plugin._emit_log(
++                                        "DEBUG",
++                                        f"[InboundDedup] 忽略重复事件 mid={message.get('message_id')}",
++                                    )
++                                    continue
++                            except Exception:
++                                # 去重资产异常不能把整个 QQ 收件链打死：保持旧行为，
++                                # 由 catch-up 诊断/日志暴露问题。
++                                self.plugin.logger.warning(
++                                    "[InboundDedup] claim 失败，按未见事件继续处理",
++                                    exc_info=True,
++                                )
++                    task = __import__("asyncio").create_task(self.plugin._run_message_handler(message))
+                     self.plugin.handler_runtime_service.track_handler_task(task)
+             except __import__("asyncio").CancelledError:
+                 break
+diff --git a/runtime_ops_service.py b/runtime_ops_service.py
+--- a/runtime_ops_service.py
++++ b/runtime_ops_service.py
+@@ -140,17 +140,18 @@
+                     await gallery.start()
+                 except Exception:
+                     self.plugin.logger.warning("图库启动失败", exc_info=True)
+-            self.plugin._message_task = asyncio.create_task(self.plugin._process_messages())
+-            # 补消息：登录上了补一轮（这次启动后第一次连上、以及之后掉线重连）。
+-            # 放在这里而不是 startup：它要读 `is_connected()`，而且只有 `_running`
+-            # 为真时才该往管线里注入（见 catch_up 里的闸）。
+-            catchup = getattr(self.plugin, "catchup_service", None)
+-            if catchup is not None:
+-                try:
+-                    await catchup.start()
+-                except Exception:
+-                    # 补消息起不来不该拦住整个自动回复：最坏结果只是断线后漏消息
+-                    self.plugin.logger.warning("断线补消息服务启动失败", exc_info=True)
++            # 先加载 catch-up 持久化的 recent_ids，再启动 live receive loop。
++            # 否则重启后的第一批 WS event 会在去重名单 _load() 前进入 handler，
++            # 刚处理过的消息可能被重投一次。catch-up 本身仍只是既有服务，
++            # 这里没有新增第二套入站状态。
++            catchup = getattr(self.plugin, "catchup_service", None)
++            if catchup is not None:
++                try:
++                    await catchup.start()
++                except Exception:
++                    # 补消息起不来不该拦住整个自动回复：最坏结果只是断线后漏消息
++                    self.plugin.logger.warning("断线补消息服务启动失败", exc_info=True)
++            self.plugin._message_task = asyncio.create_task(self.plugin._process_messages())
+             # 连上了才登记这个通道的标识符语义：登记的是「现在跑着的 wire
+             # format」，而改配置到重连之间可能隔着任意长的时间。模式在这里
+             # 定死传进去（`expected` 就是本次实际用来建连接的那个），不让
+diff --git a/tests/test_qq_catchup.py b/tests/test_qq_catchup.py
+--- a/tests/test_qq_catchup.py
++++ b/tests/test_qq_catchup.py
+@@ -654,21 +654,64 @@
+ # ── 持久化 ──────────────────────────────────────────────────
+ 
+ 
+-@_sync
+-async def test_cursor_survives_a_restart(tmp_path: Path) -> None:
+-    """游标要落盘：插件重载后不该从零开始重新对齐。"""
+-    plugin, _c, _d = _plugin(tmp_path)
+-    svc = QQMessageCatchupService(plugin)
+-    svc.note_message(_msg(42, mid="keep"))
+-    await svc._flush(force=True)
+-
+-    fresh = QQMessageCatchupService(plugin)
+-    await fresh._load()
+-
+-    assert fresh._cursors["group:500"]["seq"] == 42
+-    assert "keep" in fresh._recent_ids
+-
+-
++@_sync
++async def test_cursor_survives_a_restart(tmp_path: Path) -> None:
++    """游标要落盘：插件重载后不该从零开始重新对齐。"""
++    plugin, _c, _d = _plugin(tmp_path)
++    svc = QQMessageCatchupService(plugin)
++    svc.note_message(_msg(42, mid="keep"))
++    await svc._flush(force=True)
++
++    fresh = QQMessageCatchupService(plugin)
++    await fresh._load()
++
++    assert fresh._cursors["group:500"]["seq"] == 42
++    assert "keep" in fresh._recent_ids
++
++
++@_sync
++async def test_live_claim_rejects_a_persisted_replay_after_restart(tmp_path: Path) -> None:
++    plugin, _c, _d = _plugin(tmp_path)
++    svc = QQMessageCatchupService(plugin)
++    assert svc.claim_inbound_message(_msg(42, mid="once")) is True
++    await svc._flush(force=True)
++
++    fresh = QQMessageCatchupService(plugin)
++    await fresh._load()
++
++    assert fresh.claim_inbound_message(_msg(42, mid="once")) is False
++    assert fresh._diag["skipped_inbound_dup"] == 1
++
++
++def test_live_claim_is_atomic_for_stable_ids_and_passthrough_without_id(tmp_path: Path) -> None:
++    plugin, _c, _d = _plugin(tmp_path)
++    svc = QQMessageCatchupService(plugin)
++    message = _msg(5, mid="stable")
++    assert svc.claim_inbound_message(message) is True
++    assert svc.claim_inbound_message(dict(message)) is False
++
++    no_id = _msg(6, mid="")
++    no_id.pop("message_id", None)
++    assert svc.claim_inbound_message(no_id) is True
++    assert svc.claim_inbound_message(dict(no_id)) is True
++
++
++def test_live_receive_claims_before_handler_task_and_after_persisted_state_load() -> None:
++    root = Path(__file__).resolve().parents[1]
++    dispatcher = (root / "message_dispatcher.py").read_text(encoding="utf-8")
++    runtime = (root / "runtime_ops_service.py").read_text(encoding="utf-8")
++
++    claim_at = dispatcher.index("catchup.claim_inbound_message(message)")
++    task_at = dispatcher.index("create_task(self.plugin._run_message_handler(message))")
++    assert claim_at < task_at
++
++    load_at = runtime.index("await catchup.start()")
++    receive_loop_at = runtime.index(
++        "create_task(self.plugin._process_messages())"
++    )
++    assert load_at < receive_loop_at
++
++
+ def test_state_snapshot_exposes_diag(tmp_path: Path) -> None:
+     plugin, _c, _d = _plugin(tmp_path)
+     svc = QQMessageCatchupService(plugin)
