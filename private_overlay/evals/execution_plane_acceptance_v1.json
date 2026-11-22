@@ -189,6 +189,13 @@
       "status": "acceptance_gap",
       "severity": "blocker",
       "reason": "blind retry after an ambiguous visible effect can duplicate delivery; must reconcile or remain uncertain"
+    },
+    {
+      "id": "recovery.host_restart_active_commission",
+      "domain": "recovery",
+      "status": "native_gap_probe",
+      "severity": "blocker",
+      "reason": "Pinned N.E.K.O can resume durable task-agent sessions after runtime-process loss, but Ledger._reconcile still converts prior-host queued/working/waiting_user commissions to failed on host restart. Probe host_restart_continuity_gap freezes this difference; no auto-resume candidate is admitted until interrupted external-call effect safety is classified."
     }
   ]
 }
