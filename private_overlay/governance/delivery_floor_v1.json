@@ -15,7 +15,8 @@
     "text_and_paired_tts_must_share_one_admission": true,
     "policy_layer_must_not_publish_directly": true,
     "native_delivery_remains_effect_authority": true,
-    "surface_specific_interruptibility_is_allowed": true
+    "surface_specific_interruptibility_is_allowed": true,
+    "plugin_visible_sinks_require_final_surface_admission": true
   },
   "output_classes": {
     "ordinary_reply": {
@@ -77,6 +78,32 @@
         "proactive_private_quiet_hours_budget_gap_and_recent_activity",
         "surface_specific_interruptibility_not_desktop_quns",
         "pinned_connector_delivery_only"
+      ]
+    },
+    "desktop_notification": {
+      "kind": "companion_authored_desktop_notification",
+      "coverage_status": "BLOCKED_NATIVE_GAP_PROBE",
+      "current_enforcement_adapter": "BLOCKED:neko_native_plugin_hud_sink_has_no_single_final_admission",
+      "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
+      "scope_note": "companion-authored HUD/desktop notification only; operational status/configuration toasts are not automatically suppressed",
+      "required_semantics": [
+        "latest_desktop_interruptibility_recheck_immediately_before_publication",
+        "companion_authored_origin_must_be_known",
+        "native_surface_publication_only",
+        "no_direct_plugin_hud_bypass"
+      ]
+    },
+    "plugin_triggered_output": {
+      "kind": "plugin_originated_user_visible",
+      "coverage_status": "BLOCKED_NATIVE_GAP_PROBE",
+      "current_enforcement_adapter": "BLOCKED:neko_native_plugin_chat_hud_sinks_bypass_one_final_admission",
+      "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
+      "required_semantics": [
+        "plugin_sdk_or_native_host_ingress_only",
+        "plugin_admission_and_capability_judgement_before_publication",
+        "surface_specific_final_admission_for_chat_and_hud",
+        "respond_callback_continues_to_use_native_proactive_delivery",
+        "no_second_publisher_router_or_daemon"
       ]
     }
   }
