@@ -279,10 +279,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 --- a/nekoclaw/host/outbox.py
 +++ b/nekoclaw/host/outbox.py
-@@ -35,18 +35,24 @@
- 
- from __future__ import annotations
- 
+@@ -38,7 +38,9 @@
  import asyncio
  import logging
  import time
@@ -292,8 +289,7 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
  
  from nekoclaw.host.ledger import Ledger, OutboxItem
  
- logger = logging.getLogger(__name__)
- 
+@@ -47,6 +49,10 @@
  # Returns True when the main server took the report.
  SendReport = Callable[[OutboxItem], Awaitable[bool]]
  
@@ -301,65 +297,35 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 +_DELIVERY_ID_PAYLOAD_KEY = "__nekoclaw_delivery_id"
 +_DELIVERY_ATTEMPT_PAYLOAD_KEY = "__nekoclaw_delivery_attempt_id"
 +
- 
  # Far beyond any sensible maximum wait, and still a finite float.
  _MAX_EXPONENT = 60
-@@ -92,41 +98,82 @@
-         if self._task is None or self._task.done():
+ 
+@@ -93,34 +99,75 @@
              self._task = asyncio.ensure_future(self._run())
  
--    async def flush(self) -> int:
+     async def flush(self) -> int:
++        """Try every due row once; opted-in effects stay open for native receipt."""
 -        """Try every row that is due now, once. Returns how many were delivered."""
--        send = self._send
--        if send is None:
--            return 0
--        delivered = 0
--        for item in await self._ledger.outbox_pending(due_by=self._clock()):
--            if item.kind == "question" and item.commission_id:
+         send = self._send
+         if send is None:
+             return 0
++        receipt_required = getattr(send, _EFFECT_RECEIPT_PREDICATE, None)
+         delivered = 0
+         for item in await self._ledger.outbox_pending(due_by=self._clock()):
+             if item.kind == "question" and item.commission_id:
 -                # The row and its commission are read together, so nothing can
 -                # change between the two.
--                state = await self._ledger.outbox_question_state(item.id)
--                if state == "gone":
+                 state = await self._ledger.outbox_question_state(item.id)
+                 if state == "gone":
 -                    # Removed after this batch was read: the commission
 -                    # stopped waiting for it, even if it waits for another
 -                    # question by now.
--                    continue
--                if state == "stale":
+                     continue
+                 if state == "stale":
 -                    # Stored after the commission stopped waiting, when
 -                    # nothing removed it: out of date, and dropped here.
--                    await self._ledger.outbox_drop(item.id)
--                    continue
--            try:
--                accepted = bool(await send(item))
--                error = "" if accepted else "not accepted"
--            except asyncio.CancelledError:
--                raise
--            except Exception as exc:  # noqa: BLE001 - a failed send is retried later
--                accepted = False
--                error = f"{type(exc).__name__}: {exc}"
--            if accepted:
--                await self._ledger.outbox_mark_sent(item.id)
--                delivered += 1
--            else:
--                attempts = item.attempts + 1
--                await self._ledger.outbox_mark_failed(item.id, error, self._clock() + retry_delay(attempts))
--                logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
--        return delivered
-+    async def flush(self) -> int:
-+        """Try every due row once; opted-in effects stay open for native receipt."""
-+        send = self._send
-+        if send is None:
-+            return 0
-+        receipt_required = getattr(send, _EFFECT_RECEIPT_PREDICATE, None)
-+        delivered = 0
-+        for item in await self._ledger.outbox_pending(due_by=self._clock()):
-+            if item.kind == "question" and item.commission_id:
-+                state = await self._ledger.outbox_question_state(item.id)
-+                if state == "gone":
-+                    continue
-+                if state == "stale":
-+                    await self._ledger.outbox_drop(item.id)
-+                    continue
+                     await self._ledger.outbox_drop(item.id)
+                     continue
 +
 +            attempt_id = ""
 +            outgoing = item
@@ -376,14 +342,15 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 +                    },
 +                )
 +
-+            try:
+             try:
 +                accepted = bool(await send(outgoing))
-+                error = "" if accepted else "not accepted"
-+            except asyncio.CancelledError:
-+                raise
-+            except Exception as exc:  # noqa: BLE001 - a failed send is retried later
-+                accepted = False
-+                error = f"{type(exc).__name__}: {exc}"
+-                accepted = bool(await send(item))
+                 error = "" if accepted else "not accepted"
+             except asyncio.CancelledError:
+                 raise
+             except Exception as exc:  # noqa: BLE001 - a failed send is retried later
+                 accepted = False
+                 error = f"{type(exc).__name__}: {exc}"
 +                if attempt_id:
 +                    state = await self._ledger.outbox_delivery_state(item.id)
 +                    if state in {"handoff", "claimed", "uncertain", "sent"}:
@@ -411,16 +378,10 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 +                        logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
 +                        continue
 +                    # A synchronous no-effect release already made the row
-+                    # retryable. Never turn the transport acceptance into sent.
++                    # retryable. Never turn transport acceptance into sent.
 +                    if state in {"pending", "gone"}:
 +                        continue
 +
-+            if accepted:
-+                await self._ledger.outbox_mark_sent(item.id)
-+                delivered += 1
-+            else:
-+                attempts = item.attempts + 1
-+                await self._ledger.outbox_mark_failed(item.id, error, self._clock() + retry_delay(attempts))
-+                logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
-+        return delivered
- 
+             if accepted:
+                 await self._ledger.outbox_mark_sent(item.id)
+                 delivered += 1
