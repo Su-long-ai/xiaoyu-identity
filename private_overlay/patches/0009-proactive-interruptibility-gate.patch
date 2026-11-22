@@ -853,7 +853,7 @@ new file mode 100644
 index 00000000..0590e63b
 --- /dev/null
 +++ b/tests/unit/test_windows_interruptibility_signal.py
-@@ -0,0 +1,255 @@
+@@ -0,0 +1,93 @@
 +from __future__ import annotations
 +
 +import time
@@ -1444,7 +1444,7 @@ diff --git a/tests/unit/test_xiaoyu_plugin_visible_final_admission.py b/tests/un
 new file mode 100644
 --- /dev/null
 +++ b/tests/unit/test_xiaoyu_plugin_visible_final_admission.py
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,255 @@
 +from __future__ import annotations
 +
 +from types import SimpleNamespace
