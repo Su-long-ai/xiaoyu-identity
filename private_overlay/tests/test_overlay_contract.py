@@ -945,24 +945,37 @@ class OverlayContractTests(unittest.TestCase):
             delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
             "external:pinned_qq_auto_reply_surface_floor",
         )
-        blocked = delivery["blocked_uncovered_output_classes"]
+        self.assertEqual(delivery["blocked_uncovered_output_classes"], {})
+        managed_extensions = delivery["managed_extension_output_classes"]
         self.assertEqual(
-            set(blocked),
+            set(managed_extensions),
             {"desktop_notification", "plugin_triggered_output"},
         )
         for name in ("desktop_notification", "plugin_triggered_output"):
             self.assertEqual(
-                blocked[name]["coverage_status"],
-                "BLOCKED_NATIVE_GAP_PROBE",
+                managed_extensions[name]["coverage_status"],
+                "MANAGED_EXTENSION_ACTIVE",
             )
             self.assertEqual(
-                blocked[name]["promotion_policy"],
-                "candidate_probe_only_no_product_publication_until_native_final_admission_proven",
+                managed_extensions[name]["current_enforcement_adapter"],
+                "patch:0009-proactive-interruptibility-gate.patch",
+            )
+            self.assertEqual(
+                managed_extensions[name]["promotion_evidence"]["conclusion"],
+                "success",
+            )
+            self.assertEqual(
+                managed_extensions[name]["promotion_evidence"]["run_id"],
+                45060703253,
             )
             self.assertTrue(
-                blocked[name]["publication_block_reason"].startswith("NATIVE_GAP:")
+                managed_extensions[name]["retirement_condition"].startswith("Retire when")
             )
-            self.assertTrue((ROOT / blocked[name]["evidence"]).is_file())
+            self.assertTrue((ROOT / managed_extensions[name]["evidence"]).is_file())
+        self.assertIn(
+            "withdrawal/cleanup",
+            managed_extensions["plugin_triggered_output"]["cleanup_semantics"],
+        )
         self.assertTrue(
             delivery["global_requirements"]["plugin_visible_sinks_require_final_surface_admission"]
         )
