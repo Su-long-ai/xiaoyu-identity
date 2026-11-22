@@ -35,6 +35,36 @@ class EnsurePrivatePluginTests(unittest.TestCase):
             self.assertTrue(exact)
             self.assertEqual(reason, "exact_source_match")
 
+    def test_text_eol_only_difference_is_exact(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            source = base / "source"
+            installed = base / "installed"
+            self._write_plugin(source)
+            self._write_plugin(installed)
+
+            for name in ("plugin.toml", "__init__.py"):
+                path = installed / name
+                text = path.read_text(encoding="utf-8")
+                path.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+
+            exact, reason = mod._installed_matches_source(source, installed)
+            self.assertTrue(exact)
+            self.assertEqual(reason, "exact_source_match")
+
+    def test_binary_payload_remains_byte_exact(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            source = base / "source"
+            installed = base / "installed"
+            self._write_plugin(source)
+            self._write_plugin(installed)
+            (source / "asset.bin").write_bytes(b"\x00\x01")
+            (installed / "asset.bin").write_bytes(b"\x00\x02")
+            exact, reason = mod._installed_matches_source(source, installed)
+            self.assertFalse(exact)
+            self.assertEqual(reason, "content_mismatch:asset.bin")
+
     def test_version_or_content_drift_is_stale(self):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)

@@ -17,6 +17,10 @@ from pathlib import Path
 
 PLUGIN_ID = "xiaoyu_interaction_policy"
 IGNORED_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+TEXT_PAYLOAD_SUFFIXES = {
+    ".py", ".toml", ".json", ".md", ".txt", ".yaml", ".yml",
+    ".html", ".css", ".js", ".ts", ".tsx", ".ps1", ".cmd",
+}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -121,6 +125,29 @@ def _should_block_live_replacement(*, exact: bool, verify_only: bool, open_ports
     return (not exact) and (not verify_only) and bool(open_ports)
 
 
+def _payload_content_matches(source_path: Path, target_path: Path) -> bool:
+    """Compare plugin payload without treating text EOL style as executable drift.
+
+    Git worktrees may materialize the same tracked text as LF or CRLF. N.E.K.O's
+    package/install workflow remains authoritative; this helper only prevents a
+    private verify-only preflight from demanding a reinstall for newline-only
+    differences. Binary payloads remain byte-exact.
+    """
+    source_bytes = source_path.read_bytes()
+    target_bytes = target_path.read_bytes()
+    if source_bytes == target_bytes:
+        return True
+    if source_path.suffix.lower() not in TEXT_PAYLOAD_SUFFIXES:
+        return False
+    try:
+        source_text = source_bytes.decode("utf-8-sig")
+        target_text = target_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return False
+    normalize = lambda value: value.replace("\r\n", "\n").replace("\r", "\n")
+    return normalize(source_text) == normalize(target_text)
+
+
 def _installed_matches_source(source: Path, installed: Path) -> tuple[bool, str]:
     if not installed.is_dir():
         return False, "not_installed"
@@ -140,7 +167,7 @@ def _installed_matches_source(source: Path, installed: Path) -> tuple[bool, str]
         target = installed / rel
         if not target.is_file():
             return False, f"missing:{rel.as_posix()}"
-        if (source / rel).read_bytes() != target.read_bytes():
+        if not _payload_content_matches(source / rel, target):
             return False, f"content_mismatch:{rel.as_posix()}"
     return True, "exact_source_match"
 
