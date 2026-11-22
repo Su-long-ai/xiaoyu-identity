@@ -412,6 +412,7 @@ class OverlayContractTests(unittest.TestCase):
             "check_reuse_first.py",
             "check_architecture_freeze.py",
             "test_plugin_admission",
+            "test_probe_neko_runtime_health",
             "check_release_readiness.py",
             "reuse-architecture-gate",
         ):
