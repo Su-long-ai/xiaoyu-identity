@@ -2344,6 +2344,97 @@
         }
       },
       "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
+    },
+    {
+      "id": "governance:dsh-optional-runtime-product-acceptance-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XiaoYu needs the supported N.E.K.O dsh/ACP alternate-runtime seam to be product-ready without silently installing it, duplicating Agent runtime authority, or relying on unit coverage that ordinary agent pushes never execute.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff dsh/ACP runtime seam",
+          "type": "native_current_pin",
+          "outcome": "selected; reuse native ACP lifecycle, runtime selection, fallback, permissions, MCP host tools, credential forwarding, install/preference and console paths",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin at review time; no newer seam needs absorption",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / PluginStore / NekoClaw / MCP / native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the surrounding authority boundaries; dsh remains an alternate execution runtime rather than a second authority",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "Pinned dsh 0.2.1rc2",
+          "type": "pinned_external",
+          "outcome": "selected only through the native N.E.K.O exact-version installer; not installed or enabled by XiaoYu",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "Generic ACP runtimes, external agent orchestrators, workflow engines and process supervisors",
+          "type": "broader_external",
+          "outcome": "rejected for this product seam because they would replace or duplicate the already-supported N.E.K.O runtime/lifecycle/permission authority without a reproduced gap",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "XiaoYu thin dsh adapter",
+          "type": "thin_adapter",
+          "outcome": "rejected as unnecessary; residual work is only machine acceptance by selecting existing native tests",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "XiaoYu managed/private alternate runtime",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate runtime authority",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native reuse is sufficient for runtime behavior. The only uncovered product obligation is that ordinary XiaoYu agent pushes do not yet execute a representative native dsh product acceptance set, so this unit is limited to CI test selection and an overlay contract that freezes that coverage.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json",
+      "retirement_condition": "Retire the overlay dsh acceptance selection when pinned N.E.K.O upstream CI exposes an equivalent mandatory optional-runtime product suite covering ACP lifecycle, readiness/fallback, permissions/MCP, credential isolation, cancellation/restart, version compatibility and console readiness, and XiaoYu can invoke it directly without reducing coverage.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole Companion Runtime, commission ledger, permission, capability, credential and native delivery authority; dsh is only the supported optional runtime seam.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current c3 pin already supplies the complete dsh runtime seam and native tests selected by this unit.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest N.E.K.O upstream main is identical to c3 at review time, so there is no newer implementation to absorb first.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned dsh 0.2.1rc2 is retained only behind N.E.K.O's exact-version native installer and explicit user choice.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Generic alternate ACP runtimes/orchestrators/workflow engines/process supervisors were considered and rejected because native N.E.K.O already owns this seam and replacing it would create dual authority.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "No runtime adapter is needed; the only thin integration is selecting existing N.E.K.O tests in the existing GitHub Actions gate.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private dsh runtime, daemon, supervisor, session store, permission store, credential store and gateway implementations are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
