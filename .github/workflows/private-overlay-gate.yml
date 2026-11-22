@@ -296,6 +296,8 @@ jobs:
           tests/unit/nekoclaw/test_host_delivery.py
           tests/unit/nekoclaw/test_host_robustness.py
           tests/unit/nekoclaw/test_agent_wiring.py
+          tests/unit/nekoclaw/test_host_plugin_runs.py
+          plugin/tests/unit/server/test_run_manager_idempotency.py
           tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
           tests/test_agent_rewrite_regression.py
           EOF
@@ -335,6 +337,17 @@ jobs:
         run: |
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
           python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
+
+      - name: Exercise plugin-run idempotency candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/plugin_run_idempotency.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/plugin_run_idempotency.patch"
+          python -m py_compile _neko_upstream/nekoclaw/host/plugin_runs.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once \
+            tests/unit/nekoclaw/test_host_plugin_runs.py \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
 
       - name: Regress patched native Execution Plane
         run: |
