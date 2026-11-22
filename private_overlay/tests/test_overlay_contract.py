@@ -922,8 +922,6 @@ class OverlayContractTests(unittest.TestCase):
                 "game_invite",
                 "agent_result",
                 "qq_outbound",
-                "desktop_notification",
-                "plugin_triggered_output",
             },
         )
         self.assertEqual(
@@ -943,14 +941,24 @@ class OverlayContractTests(unittest.TestCase):
             delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
             "external:pinned_qq_auto_reply_surface_floor",
         )
+        blocked = delivery["blocked_uncovered_output_classes"]
+        self.assertEqual(
+            set(blocked),
+            {"desktop_notification", "plugin_triggered_output"},
+        )
         for name in ("desktop_notification", "plugin_triggered_output"):
             self.assertEqual(
-                delivery["output_classes"][name]["coverage_status"],
+                blocked[name]["coverage_status"],
                 "BLOCKED_NATIVE_GAP_PROBE",
             )
-            self.assertTrue(
-                delivery["output_classes"][name]["current_enforcement_adapter"].startswith("BLOCKED:")
+            self.assertEqual(
+                blocked[name]["promotion_policy"],
+                "candidate_probe_only_no_product_publication_until_native_final_admission_proven",
             )
+            self.assertTrue(
+                blocked[name]["publication_block_reason"].startswith("NATIVE_GAP:")
+            )
+            self.assertTrue((ROOT / blocked[name]["evidence"]).is_file())
         self.assertTrue(
             delivery["global_requirements"]["plugin_visible_sinks_require_final_surface_admission"]
         )
