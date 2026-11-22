@@ -29,6 +29,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Require latest product main on agent pushes
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/agent/') }}
+        run: |
+          git fetch --no-tags origin +refs/heads/private/neko-overlay-v1:refs/remotes/origin/private/neko-overlay-v1
+          PRODUCT_MAIN="$(git rev-parse refs/remotes/origin/private/neko-overlay-v1)"
+          if ! git merge-base --is-ancestor "$PRODUCT_MAIN" HEAD; then
+            echo "BLOCK_AGENT_STALE_BASE: agent branch does not contain latest private/neko-overlay-v1 ($PRODUCT_MAIN)"
+            echo "Sync origin/private/neko-overlay-v1 before continuing long-lived implementation."
+            exit 6
+          fi
+          echo "PASS: agent branch contains latest product main $PRODUCT_MAIN"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
