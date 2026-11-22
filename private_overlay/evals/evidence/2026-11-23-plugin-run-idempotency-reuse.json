@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_RUN_CREATE_IDEMPOTENCY_CANDIDATE_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "NekoClaw plugin direct dispatch and capability-gateway plugin calls when POST /runs has an ambiguous transport outcome.",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "native_gap": {
+    "client": "nekoclaw/host/plugin_runs.py builds POST /runs with task_id, plugin_id, entry_id and args, but does not send RunCreateRequest.idempotency_key. Its transport exception path returns run_failed even though the request may already have created a run.",
+    "server": "plugin/_types/models.py already defines RunCreateRequest.idempotency_key. plugin/runs/manager.py create_run uses create_or_get_idempotent so an immediate retry with the same key returns the original run instead of executing the entry twice.",
+    "native_proof": "plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once proves the server primitive already closes the duplicate-effect side of a lost-response retry.",
+    "effect_risk": "Without consuming the native key, a lost create response is indistinguishable from no run being created. Treating it as ordinary failure permits later task retry/re-dispatch while the first plugin run may already have produced an external effect."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin PluginRunner + plugin /runs protocol",
+      "outcome": "selected",
+      "reason": "Both task-brain direct plugin execution and capability-gateway plugin execution already converge on PluginRunner.run_entry."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream",
+      "outcome": "same_as_current_pin",
+      "reason": "No newer upstream client wiring exists at review time."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O Plugin SDK / PluginStore run protocol",
+      "outcome": "selected",
+      "reason": "The existing RunCreateRequest.idempotency_key and RunStore create_or_get_idempotent are the exact native primitive needed; no new store or protocol is required."
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external components",
+      "outcome": "not_applicable",
+      "reason": "The ambiguous effect occurs between NekoClaw and N.E.K.O's own plugin server; no pinned surface/provider component owns this run-creation boundary."
+    },
+    {
+      "order": 5,
+      "candidate": "External idempotency middleware / workflow engines / durable queues",
+      "outcome": "rejected",
+      "reason": "They would add another durability authority around a protocol that already has an exact native idempotency primitive."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin native wiring",
+      "outcome": "candidate_selected",
+      "reason": "Use the already-reserved host call identity as the existing run protocol's idempotency key and retry only ambiguous create outcomes with that same key."
+    },
+    {
+      "order": 7,
+      "candidate": "Private idempotency store or XiaoYu run ledger",
+      "outcome": "rejected",
+      "reason": "Would duplicate N.E.K.O's RunStore and host call audit."
+    }
+  ],
+  "candidate_contract": {
+    "stable_identity_source": "call_audit.Call.call_id reserved before the plugin call",
+    "idempotency_sink": "RunCreateRequest.idempotency_key",
+    "retry_scope": "Only create outcomes that are ambiguous after request submission (transport exception, malformed successful response, or server 5xx) may be retried, and only with the identical idempotency key.",
+    "non_retry_scope": "Explicit 4xx/refusal remains terminal for that attempt. Calls without a host audit identity keep existing non-retry behavior.",
+    "authority": "N.E.K.O plugin RunStore remains the sole dedupe authority; XiaoYu stores no idempotency state.",
+    "effect_rule": "UNKNOWN create outcome must not be converted into a fresh unkeyed execution."
+  },
+  "machine_acceptance": [
+    "The real plugin run manager test for lost-response idempotency remains green.",
+    "A real FakePluginServer using production /runs routes receives two POST attempts with the same non-empty idempotency_key after the first accepted response is dropped.",
+    "Only one plugin entry execution occurs and only one run record exists.",
+    "PluginRunner returns the original successful run rather than run_failed.",
+    "A call without audit identity does not silently gain a retry/dedupe contract.",
+    "Existing cancellation/polling and gateway regressions remain green."
+  ],
+  "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence; promotion also requires an available managed-patch budget slot or equivalent upstream N.E.K.O adoption.",
+  "retirement_condition": "Delete the candidate when upstream N.E.K.O PluginRunner natively sends a stable per-host-call idempotency key and safely retries ambiguous POST /runs creation outcomes with equivalent lost-response, no-duplicate-effect and regression coverage.",
+  "conclusion": "THIN_NATIVE_WIRING_CANDIDATE. Reuse the existing plugin run idempotency primitive; do not create another ledger, store, queue, router or daemon."
+}
