@@ -26,6 +26,7 @@ class _FakeHandler(BaseHTTPRequestHandler):
             "agent_flag_posts": [],
             "refreshes": 0,
             "starts": [],
+            "start_delay": 0.0,
             "plugins": [
                 {"id": "alpha", "status": "stopped", "runtime_enabled": True, "runtime_auto_start": True, "autostart_pending": False},
                 {"id": "beta", "status": "stopped", "runtime_enabled": True, "runtime_auto_start": True, "autostart_pending": False},
@@ -59,6 +60,9 @@ class _FakeHandler(BaseHTTPRequestHandler):
         if path=="/plugins/refresh":
             self.state["refreshes"] += 1; self._send({"success":True}); return
         if path.startswith("/plugin/") and path.endswith("/start"):
+            delay = float(self.state.get("start_delay") or 0.0)
+            if delay > 0:
+                time.sleep(delay)
             plugin_id=path.split("/")[2]; self.state["starts"].append(plugin_id)
             for item in self.state["plugins"]:
                 if item["id"]==plugin_id: item["status"]="running"
@@ -86,10 +90,7 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         _FakeHandler.state["plugins"][0]["status"] = "running"
         _FakeHandler.state["plugins"][1]["status"] = "crashed"
 
-        result = mod.reconcile_native_autostart(
-            plugin_url=self.base,
-            request_timeout=1,
-        )
+        result = mod.reconcile_native_autostart(plugin_url=self.base, request_timeout=1)
 
         self.assertEqual(result["host_selected_candidates"], ["alpha", "beta"])
         self.assertEqual(result["running"], ["alpha", "beta"])
@@ -97,6 +98,31 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(result["attempts"]["alpha"], ["already_running"])
         self.assertEqual(result["attempts"]["beta"], ["started"])
         self.assertEqual(_FakeHandler.state["starts"], ["beta"])
+
+    def test_autostart_start_requests_respect_absolute_deadline(self):
+        _FakeHandler.state["start_delay"] = 0.40
+        deadline = time.monotonic() + 0.12
+        started = time.monotonic()
+
+        result = mod.reconcile_native_autostart(
+            plugin_url=self.base,
+            request_timeout=1.0,
+            deadline=deadline,
+        )
+        elapsed = time.monotonic() - started
+
+        self.assertLess(elapsed, 0.35, f"deadline leaked across plugin start calls: {elapsed:.3f}s")
+        self.assertTrue(result["not_running"])
+        self.assertTrue(
+            result["deadline_exhausted"]
+            or any("timed out" in " ".join(v).lower() for v in result["attempts"].values())
+        )
+
+    def test_bounded_timeout_never_exceeds_remaining_budget(self):
+        deadline = time.monotonic() + 0.05
+        timeout = mod._bounded_timeout(deadline, 30.0)
+        self.assertGreater(timeout, 0)
+        self.assertLessEqual(timeout, 0.05)
 
     def test_relay_preserves_master_and_builtin_flags(self):
         result=mod.ensure_user_plugin_relay(agent_url=self.base,lanlan_name="XiaoYu",request_timeout=1)
