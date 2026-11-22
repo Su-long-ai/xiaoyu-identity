@@ -1,0 +1,64 @@
+name: XiaoYu private overlay gate
+
+on:
+  push:
+    branches:
+      - "private/neko-overlay-v1"
+      - "agent/**"
+    paths:
+      - "private_overlay/**"
+      - ".github/workflows/private-overlay-gate.yml"
+  pull_request:
+    branches:
+      - "private/neko-overlay-v1"
+    paths:
+      - "private_overlay/**"
+      - ".github/workflows/private-overlay-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xiaoyu-private-overlay-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reuse-architecture-gate:
+    name: reuse-architecture-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reuse-first hard gate
+        run: python private_overlay/tools/check_reuse_first.py
+
+      - name: Frozen architecture hard gate
+        run: python private_overlay/tools/check_architecture_freeze.py
+
+      - name: Overlay contract tests
+        run: |
+          python -m unittest -v \
+            private_overlay.tests.test_overlay_contract \
+            private_overlay.tests.test_plugin_admission
+
+      - name: Compile overlay control plane
+        run: |
+          python -m compileall -q \
+            private_overlay/tools \
+            private_overlay/tests \
+            private_overlay/migration \
+            private_overlay/evals
+
+      - name: Release evidence gate
+        run: python private_overlay/tools/check_release_readiness.py
