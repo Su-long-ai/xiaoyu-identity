@@ -491,6 +491,7 @@ class OverlayContractTests(unittest.TestCase):
             "test_character_switch_queue.py",
             "test_character_runtime_voice_identity.py",
             "test_model_switch_keeps_live_budget.py",
+            "test_native_realtime_loud_ingress_publishes_activity_before_worker",
             "test_teardown_outliving_its_connection_does_not_touch_the_replacement",
             "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
             "test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
