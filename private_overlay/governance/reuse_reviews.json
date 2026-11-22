@@ -529,6 +529,64 @@
       ],
       "why_reuse_insufficient": "The newest native candidate is not promotion-ready on its own acceptance surface. The current stable native pin remains the selected reusable implementation; patch 0010 remains independently justified because latest clean upstream reproduces startup responsiveness failure.",
       "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-99b479a0-audit.json"
+    },
+    {
+      "id": "runtime:plugin-crash-recovery",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "A force-terminated auto-start plugin is detected by N.E.K.O but is not generically auto-restarted; adding a private watchdog could duplicate lifecycle ownership and confuse an intentional manual stop with a crash.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O PluginHost process watcher/status",
+          "type": "native",
+          "outcome": "selected for crash detection and stopped/crashed state visibility",
+          "evidence": "evals/evidence/2026-11-22-live-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "existing XiaoYu reconcile_neko_plugin_runtime thin adapter",
+          "type": "thin_adapter",
+          "outcome": "selected for explicit/startup recovery through native refresh/list/start APIs; live fault injection restarted only the missing plugin and preserved the other running plugins",
+          "evidence": "evals/evidence/2026-11-22-live-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "permanent XiaoYu crash supervisor/watchdog",
+          "type": "private_runtime",
+          "outcome": "rejected: duplicates host lifecycle ownership, cannot reliably distinguish intentional stop from crash, and is not justified by the non-critical degradation observed",
+          "evidence": "evals/evidence/2026-11-22-live-plugin-crash-recovery-gap.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current N.E.K.O has crash detection but no generic auto-restart policy. The residual gap is intentionally tolerated because critical identity, memory, ordinary-reply admission and final proactive admission do not depend on the private policy plugin. Recovery remains explicit/startup reconciliation until upstream provides a native restart policy or lifecycle extension seam.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-live-plugin-crash-recovery-gap.json"
+    },
+    {
+      "id": "upstream:neko-c3fc33ff",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "N.E.K.O c3fc33ff clears the previously blocking clean startup/API-settings acceptance and includes correctness, permission-binding, idempotency and tool-registry fixes; promotion must preserve XiaoYu delivery/interruptibility behavior without increasing private patch count.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O c3fc33ff upstream candidate",
+          "type": "native_upstream",
+          "outcome": "selected for promotion: clean frontend acceptance green, patched frontend green, 10/10 managed patches reproducibly replay, 1029-test XiaoYu regression and 408-test upstream-delta suites introduce no new failures",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
+        },
+        {
+          "name": "Keep N.E.K.O 6fccfb72 indefinitely",
+          "type": "native_upstream",
+          "outcome": "rejected as primary choice: c3fc33ff has now cleared the prior promotion blockers and carries useful native correctness/plugin improvements",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
+        },
+        {
+          "name": "Additional XiaoYu compatibility patch",
+          "type": "private_patch",
+          "outcome": "rejected: existing patches 0006 and 0009 were narrowly rebased; managed patch count remains 10",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native c3fc33ff is selected and reused. XiaoYu retains only the already-evidenced policy/compatibility responsibilities not supplied upstream; no new runtime or patch is introduced.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
     }
   ]
 }

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T22:33:00+08:00",
+  "scope": "Managed core patch retirement audit after N.E.K.O c3fc33ff promotion candidate",
+  "upstream_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "method": [
+    "Replay all 10 managed patches from clean upstream.",
+    "Inspect conflicts as semantic overlap candidates rather than automatically preserving or deleting patches.",
+    "Run upstream-owned new correctness tests plus XiaoYu acceptance after rebasing.",
+    "Retire only responsibilities that upstream now provides equivalently."
+  ],
+  "results": {
+    "0001-proactive-autostart-idle-gate.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream equivalent for internal proactive activity-authority ordering."
+    },
+    "0002-full-chat-native-voice-entry.patch": {
+      "verdict": "KEEP",
+      "reason": "Native voice runtime remains reused; Full Chat UI bridge still required."
+    },
+    "0003-qwen38-server-vad-reliability.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream equivalent for the Qwen3.8 server-VAD selection/reliability gap."
+    },
+    "0004-native-ingress-activity-before-backpressure.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream equivalent for publishing user activity before the backpressured audio worker."
+    },
+    "0005-latest-character-switch-intent-replay.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream equivalent for latest character-switch intent replay."
+    },
+    "0006-private-speech-output-gate.patch": {
+      "verdict": "KEEP_REBASED",
+      "reason": "Whole-reply private quiet admission is still not upstream-native. Upstream c3 adds stronger turn ownership/lifecycle semantics, so the old recovery return-value break was retired and replaced by explicit gate-aware lifecycle-only turn end. Patch responsibility remains, implementation shrinks/aligns with upstream."
+    },
+    "0007-private-first-round-tool-route.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream synchronous per-turn first-round private tool arbitration equivalent."
+    },
+    "0008-qwen-clone-provider-routing.patch": {
+      "verdict": "KEEP",
+      "reason": "No upstream equivalent for paired target-model-bound Qwen clone bundle/routing and shared speech-rate authority."
+    },
+    "0009-proactive-interruptibility-gate.patch": {
+      "verdict": "KEEP_REBASED",
+      "reason": "Upstream PR-14 structurally moved system snapshot handling, allowing one obsolete relocation hunk to be retired. It still does not provide Windows QUNS busy/fullscreen/presentation authority, XiaoYu final-delivery latest-state veto, leisure-only invite policy or interruptibility shadow observation."
+    },
+    "0010-startup-event-loop-responsiveness.patch": {
+      "verdict": "KEEP",
+      "reason": "c3 clean frontend startup now meets the tested acceptance, but the patch still covers multiple uncovered blocking boundaries and remains regression-tested in the patched candidate. No full native equivalence was established."
+    }
+  },
+  "summary": {
+    "full_patch_retirements": 0,
+    "managed_patch_count_after": 10,
+    "partial_hunks_retired": [
+      "0006 old recovery return-value early-break adaptation",
+      "0009 old sys_snap relocation deletion"
+    ],
+    "new_private_patches": 0,
+    "verdict": "KEEP_10_REBASED; NATIVE_UPSTREAM_OWNERSHIP_INCREASED_WITHOUT_INCREASING_PRIVATE_PATCH_COUNT"
+  },
+  "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
+}

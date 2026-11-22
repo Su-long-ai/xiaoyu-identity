@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-  "tested_commit": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+  "tested_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
   "tested_branch": "main",
   "integration_mode": "private_data_policy_overlay",
   "memory_authority": "neko_native",
@@ -9,5 +9,5 @@
   "task_authority": "neko_native",
   "core_patch_budget": 10,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Ten evidence-backed managed patches remain required after replay against N.E.K.O 6fccfb72. Upstream plugin permission grants/context budgeting and Windows display-state reconnect are reused natively; patch 0009 still supplies distinct QUNS busy/fullscreen/presentation admission, latest ActivitySnapshot final-delivery recheck, leisure-only game invites, and shadow-only plugin capability observation. Patch 0010 reuses native shared HTTP clients, TokenTracker and plugin-host lifecycle and only moves uncovered blocking boundaries off the event loop."
+  "core_patch_budget_reason": "Ten evidence-backed managed patches remain required after promotion to N.E.K.O c3fc33ff. Patch 0006 was rebased to preserve upstream turn-ownership lifecycle while keeping whole-reply quiet atomic across text/TTS; patch 0009 dropped only an obsolete sys_snap relocation hunk while retaining distinct QUNS busy/fullscreen/presentation admission, latest-state final-delivery recheck, leisure-only game invites and shadow-only capability observation. No new private patch was added."
 }

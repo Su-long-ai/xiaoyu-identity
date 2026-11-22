@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T22:32:00+08:00",
+  "candidate_commit": "c3fc33ff",
+  "full_candidate_commit": "c3fc33ff",
+  "previous_live_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+  "verdict": "PROMOTION_READY_BEFORE_LIVE_CUTOVER",
+  "upstream_delta": [
+    "64562d92 fix(config,utils,prompts): resolve correctness defects",
+    "7e58b52e fix(main-logic): resolve correctness defects",
+    "857c1246 plugin error propagation",
+    "2967beab API contract fixes",
+    "c1158d07 plugin permission grant source binding",
+    "107d234f plugin/tool idempotency and atomic registry ownership",
+    "6e2cb1c2 vision regression tests",
+    "c3fc33ff NekoPower UI integration"
+  ],
+  "clean_upstream_acceptance": {
+    "api_settings_frontend": "1 passed",
+    "prior_startup_blocker_reproduced": false,
+    "prior_dropdown_geometry_blocker_reproduced": false
+  },
+  "patch_replay": {
+    "managed_patch_count": 10,
+    "from_clean_c3fc33ff": "10/10 apply --check + apply PASS",
+    "direct_rebase_notes": {
+      "0006-private-speech-output-gate.patch": "Rebased to preserve new upstream turn ownership lifecycle. Whole-reply quiet now suppresses visible recovery/TTS/activity text while lifecycle-only turn-end still settles ownership; no fake AI activity is recorded.",
+      "0009-proactive-interruptibility-gate.patch": "Dropped one obsolete sys_snap relocation deletion already structurally absorbed by upstream PR-14; retained QUNS, latest-state final-delivery recheck, leisure gate and shadow provider semantics."
+    }
+  },
+  "patched_candidate_acceptance": {
+    "frontend_api_settings": "1 passed",
+    "broad_xiaoyu_regression": "1029 passed, 4 skipped, 1 deselected, 0 failed",
+    "upstream_delta_specialized": "408 passed, 0 failed",
+    "ownership_reply_tail_private_gate": "107 passed, 0 failed",
+    "clean_upstream_ownership_reply_tail_reference": "100 passed, 0 failed"
+  },
+  "known_baseline_red": {
+    "test": "tests/test_activity_tracker_followup.py::test_conversation_turn_dispatcher_uses_global_language_for_background_topic_pool",
+    "on_previous_live_pin_6fccfb72": "FAIL",
+    "on_clean_c3fc33ff": "FAIL",
+    "classification": "PRE_EXISTING_BASELINE_RED_NOT_PROMOTION_REGRESSION"
+  },
+  "decision": {
+    "promote": true,
+    "reason": "c3fc33ff clears the previously blocking clean startup/UI acceptance and adds upstream correctness/plugin improvements. XiaoYu's 10 managed responsibilities remain reproducible after two narrow rebases with no new patch count.",
+    "new_private_patch_count": 0,
+    "managed_patch_count_after": 10
+  }
+}

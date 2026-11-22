@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T22:03:40+08:00",
+  "scope": "Live XiaoYu private plugin lifecycle fault injection",
+  "live_neko_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+  "target_plugin": "xiaoyu_interaction_policy",
+  "observations": [
+    {
+      "case": "native_stop_then_reconcile",
+      "result": "PASS",
+      "details": [
+        "Stopping only xiaoyu_interaction_policy through the native plugin HTTP lifecycle left proactive_controller, qq_auto_reply and web_search running.",
+        "The existing reconcile_neko_plugin_runtime.py restarted only the missing plugin; the other three were reported already_running.",
+        "Autostart admission remained unchanged and passed after recovery."
+      ]
+    },
+    {
+      "case": "forced_process_exit",
+      "result": "DETECTED_NOT_SELF_HEALED",
+      "details": [
+        "The private plugin process was force-terminated at the process level.",
+        "N.E.K.O reported the plugin stopped within about one second.",
+        "After seven seconds no replacement child process appeared and plugin status remained stopped.",
+        "A later invocation of the existing native reconcile helper restored only the missing plugin."
+      ]
+    }
+  ],
+  "source_audit": {
+    "crash_detection": [
+      "plugin/core/communication.py watches child process exit",
+      "plugin/core/host.py reports crashed plugin process",
+      "plugin/core/status.py exposes crashed/stopped state"
+    ],
+    "native_generic_crash_restart_found": false,
+    "hot_reload_is_not_crash_restart": true
+  },
+  "safety_impact": {
+    "critical_identity_authority_lost": false,
+    "critical_memory_authority_lost": false,
+    "whole_reply_output_gate_lost": false,
+    "final_proactive_interruptibility_gate_lost": false,
+    "degraded_features": [
+      "semantic owner-control observation handled by the private plugin while it is down",
+      "ActivityWatch recent-activity query entry while it is down",
+      "shadow-only interruptibility capability observation while it is down"
+    ]
+  },
+  "decision": {
+    "verdict": "NO_PRIVATE_SUPERVISOR",
+    "reason": "The failure is visible and recoverable through the existing N.E.K.O lifecycle API/reconcile path, while critical identity/memory/delivery safety remains outside this plugin. A permanent XiaoYu watchdog would duplicate lifecycle ownership and could incorrectly restart an intentionally stopped plugin.",
+    "preferred_future": "Reuse a native N.E.K.O crash-restart policy or lifecycle extension point if upstream adds one.",
+    "new_core_patch_required": false,
+    "new_daemon_required": false
+  }
+}

@@ -1,5 +1,5 @@
 diff --git a/main_logic/activity/snapshot.py b/main_logic/activity/snapshot.py
-index 2ed58270..07af5257 100644
+index 67dffb77..69f43cec 100644
 --- a/main_logic/activity/snapshot.py
 +++ b/main_logic/activity/snapshot.py
 @@ -286,6 +286,8 @@ class ActivitySnapshot:
@@ -12,7 +12,7 @@ index 2ed58270..07af5257 100644
      # --- Per-session signals ---
      seconds_since_user_msg: float | None = None
 diff --git a/main_logic/activity/state_machine.py b/main_logic/activity/state_machine.py
-index 21830827..2ddd7b0c 100644
+index 866fd28e..433e1890 100644
 --- a/main_logic/activity/state_machine.py
 +++ b/main_logic/activity/state_machine.py
 @@ -63,7 +63,10 @@ from main_logic.activity.snapshot import (
@@ -27,7 +27,7 @@ index 21830827..2ddd7b0c 100644
  from utils.activity_config import ActivityPreferences, get_activity_preferences
  
  
-@@ -744,6 +747,13 @@ class ActivityStateMachine:
+@@ -785,6 +788,13 @@ class ActivityStateMachine:
              game_intensity=_pre_intensity,
              game_genre=_pre_genre,
          )
@@ -41,15 +41,7 @@ index 21830827..2ddd7b0c 100644
          reasons = self._build_propensity_reasons(effective_state, ts)
  
          # Window observation summary. For ``private`` state we redact
-@@ -760,7 +770,6 @@ class ActivityStateMachine:
-             if ts - entry.timestamp <= self._window_history_lookback_seconds
-         )
- 
--        sys_snap = self._latest_system
-         idle_seconds = sys_snap.idle_seconds if sys_snap else 0.0
-         cpu_avg = sys_snap.cpu_avg_30s if sys_snap else 0.0
-         cpu_now = sys_snap.cpu_instant if sys_snap else 0.0
-@@ -840,6 +849,7 @@ class ActivityStateMachine:
+@@ -884,6 +894,7 @@ class ActivityStateMachine:
              active_window=active_window,
              window_switch_rate_5min=switch_rate,
              os_signals_available=(sys_snap.os_signals_available if sys_snap is not None else False),
@@ -58,7 +50,7 @@ index 21830827..2ddd7b0c 100644
              seconds_since_ai_msg=secs_since_ai,
              voice_recent_rms_active=voice_recent,
 diff --git a/main_logic/activity/system_signals.py b/main_logic/activity/system_signals.py
-index 25d43b55..1768b120 100644
+index 7eacb88b..a6944ecc 100644
 --- a/main_logic/activity/system_signals.py
 +++ b/main_logic/activity/system_signals.py
 @@ -57,6 +57,18 @@ logger = logging.getLogger(__name__)
@@ -170,10 +162,10 @@ index 25d43b55..1768b120 100644
          """Seconds since the last keyboard/mouse input, system-wide."""
          if self._ctypes_user32 is None or not _IS_WINDOWS:
 diff --git a/main_logic/activity/tracker.py b/main_logic/activity/tracker.py
-index 43fbb9d9..48a3771a 100644
+index 00dffc7a..85fe6991 100644
 --- a/main_logic/activity/tracker.py
 +++ b/main_logic/activity/tracker.py
-@@ -509,6 +509,10 @@ class UserActivityTracker:
+@@ -515,6 +515,10 @@ class UserActivityTracker:
  
      # ── snapshot ────────────────────────────────────────────────
  
@@ -184,223 +176,8 @@ index 43fbb9d9..48a3771a 100644
      async def get_snapshot(self, *, now: float | None = None) -> ActivitySnapshot:
          """Pull system signals and emit a fresh snapshot.
  
-diff --git a/main_logic/capability_shadow.py b/main_logic/capability_shadow.py
-new file mode 100644
-index 00000000..9280bfa8
---- /dev/null
-+++ b/main_logic/capability_shadow.py
-@@ -0,0 +1,209 @@
-+# Copyright 2025-2026 Project N.E.K.O. Team
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+"""Shadow-only calls to hidden plugin capability entries.
-+
-+This reuses N.E.K.O's existing PluginCatalog and PluginRunner. It is not a
-+second plugin registry or lifecycle manager. The main runtime may ask every
-+running plugin that exposes a conventional hidden entry to evaluate the same
-+payload in the background. Results are observational only.
-+
-+The first consumer is interruptibility_v1. Its authoritative native
-+Windows/activity veto remains synchronous in ProactiveMixin; a slow, missing,
-+or broken plugin can therefore never delay or weaken final delivery.
-+"""
-+
-+from __future__ import annotations
-+
-+import asyncio
-+import logging
-+import time
-+import uuid
-+from dataclasses import dataclass
-+from typing import Any
-+
-+logger = logging.getLogger(__name__)
-+
-+_DEFAULT_TIMEOUT_SECONDS = 5.0
-+_DEFAULT_COOLDOWN_SECONDS = 30.0
-+_tasks: set[asyncio.Task[Any]] = set()
-+_last_scheduled: dict[tuple[str, str], float] = {}
-+_runtime_by_loop: dict[int, tuple[Any, Any]] = {}
-+
-+
-+@dataclass(frozen=True, slots=True)
-+class PluginShadowResult:
-+    provider_id: str
-+    success: bool
-+    data: Any = None
-+    reason: str = ""
-+
-+
-+def _providers_for_entry(
-+    plugins: list[dict[str, Any]], entry_id: str
-+) -> tuple[str, ...]:
-+    """Return running plugin ids exposing entry_id, including hidden entries."""
-+    providers: list[str] = []
-+    for plugin in plugins:
-+        if not isinstance(plugin, dict) or plugin.get("status") != "running":
-+            continue
-+        plugin_id = str(plugin.get("id") or "").strip()
-+        if not plugin_id:
-+            continue
-+        entries = plugin.get("entries")
-+        if not isinstance(entries, list):
-+            continue
-+        if any(
-+            isinstance(entry, dict) and str(entry.get("id") or "") == entry_id
-+            for entry in entries
-+        ):
-+            providers.append(plugin_id)
-+    return tuple(sorted(set(providers)))
-+
-+
-+async def _runtime_for_current_loop() -> tuple[Any, Any]:
-+    """Build NekoClaw's existing plugin catalog/runner lazily on this loop."""
-+    loop = asyncio.get_running_loop()
-+    key = id(loop)
-+    existing = _runtime_by_loop.get(key)
-+    if existing is not None:
-+        return existing
-+
-+    def load_types():
-+        from nekoclaw.host.plugin_runs import PluginCatalog, PluginRunner
-+
-+        return PluginCatalog, PluginRunner
-+
-+    PluginCatalog, PluginRunner = await asyncio.to_thread(load_types)
-+    catalog = PluginCatalog()
-+    runner = PluginRunner(catalog)
-+    runtime = (catalog, runner)
-+    _runtime_by_loop[key] = runtime
-+    return runtime
-+
-+
-+async def run_plugin_entry_shadows(
-+    entry_id: str,
-+    payload: dict[str, Any],
-+    *,
-+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-+    catalog: Any = None,
-+    runner: Any = None,
-+) -> tuple[PluginShadowResult, ...]:
-+    """Call every running provider of a hidden capability entry.
-+
-+    housekeeping=True deliberately uses PluginRunner's existing path for
-+    host-owned calls so agent_hidden entries remain callable without being
-+    offered to NekoClaw's automatic task routing.
-+    """
-+    if catalog is None or runner is None:
-+        catalog, runner = await _runtime_for_current_loop()
-+
-+    try:
-+        plugins = await catalog.plugins()
-+    except asyncio.CancelledError:
-+        raise
-+    except Exception as exc:
-+        return (
-+            PluginShadowResult(
-+                provider_id="",
-+                success=False,
-+                reason=f"catalog:{type(exc).__name__}",
-+            ),
-+        )
-+
-+    providers = _providers_for_entry(plugins, entry_id)
-+    if not providers:
-+        return ()
-+
-+    async def call(provider_id: str) -> PluginShadowResult:
-+        try:
-+            outcome = await asyncio.wait_for(
-+                runner.run_entry(
-+                    commission_id=f"capability-shadow-{uuid.uuid4()}",
-+                    plugin_id=provider_id,
-+                    entry_id=entry_id,
-+                    args=dict(payload),
-+                    latest_user_request="",
-+                    housekeeping=True,
-+                ),
-+                timeout=max(0.05, float(timeout_seconds)),
-+            )
-+        except asyncio.TimeoutError:
-+            return PluginShadowResult(provider_id, False, reason="timeout")
-+        except asyncio.CancelledError:
-+            raise
-+        except Exception as exc:
-+            return PluginShadowResult(
-+                provider_id,
-+                False,
-+                reason=f"{type(exc).__name__}",
-+            )
-+
-+        return PluginShadowResult(
-+            provider_id=provider_id,
-+            success=bool(getattr(outcome, "success", False)),
-+            data=getattr(outcome, "data", None),
-+            reason=str(getattr(outcome, "reason", "") or ""),
-+        )
-+
-+    return tuple(await asyncio.gather(*(call(provider) for provider in providers)))
-+
-+
-+def schedule_plugin_entry_shadow(
-+    entry_id: str,
-+    payload: dict[str, Any],
-+    *,
-+    dedupe_key: str = "",
-+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-+    cooldown_seconds: float = _DEFAULT_COOLDOWN_SECONDS,
-+    log_context: str = "",
-+) -> bool:
-+    """Schedule a non-authoritative capability observation without awaiting it."""
-+    try:
-+        loop = asyncio.get_running_loop()
-+    except RuntimeError:
-+        return False
-+
-+    key = (str(entry_id), str(dedupe_key))
-+    now = time.monotonic()
-+    last = _last_scheduled.get(key)
-+    if last is not None and now - last < max(0.0, float(cooldown_seconds)):
-+        return False
-+    _last_scheduled[key] = now
-+
-+    async def observe() -> None:
-+        results = await run_plugin_entry_shadows(
-+            entry_id,
-+            dict(payload),
-+            timeout_seconds=timeout_seconds,
-+        )
-+        for result in results:
-+            data = result.data if isinstance(result.data, dict) else {}
-+            decision = str(data.get("decision") or "unknown")
-+            reason = str(data.get("reason") or result.reason or "")
-+            logger.info(
-+                "capability shadow entry=%s provider=%s context=%s success=%s decision=%s reason=%s",
-+                entry_id,
-+                result.provider_id or "none",
-+                log_context,
-+                result.success,
-+                decision,
-+                reason[:120],
-+            )
-+
-+    task = loop.create_task(observe())
-+    _tasks.add(task)
-+
-+    def done(completed: asyncio.Task[Any]) -> None:
-+        _tasks.discard(completed)
-+        try:
-+            completed.result()
-+        except asyncio.CancelledError:
-+            pass
-+        except Exception:
-+            logger.debug("capability shadow task failed", exc_info=True)
-+
-+    task.add_done_callback(done)
-+    return True
 diff --git a/main_logic/core/proactive.py b/main_logic/core/proactive.py
-index 6395df8b..bd4bd5f9 100644
+index cf367801..04ba8b9a 100644
 --- a/main_logic/core/proactive.py
 +++ b/main_logic/core/proactive.py
 @@ -49,6 +49,7 @@ from main_logic.proactive_delivery import (
@@ -594,7 +371,7 @@ index 4b9cbeca..6fd5d851 100644
      # Snapshot the claimed SID before any await: after a session restart a
      # replacement round may claim a new SID while this task is still running.
 diff --git a/main_logic/proactive_chat/mini_game_invite.py b/main_logic/proactive_chat/mini_game_invite.py
-index 13cc16f9..7b710e68 100644
+index 061755a2..578c9869 100644
 --- a/main_logic/proactive_chat/mini_game_invite.py
 +++ b/main_logic/proactive_chat/mini_game_invite.py
 @@ -106,6 +106,13 @@ class MiniGameInviteShortCircuit:
@@ -632,7 +409,7 @@ index 13cc16f9..7b710e68 100644
          # AI asked a question last turn (?/吗/呢/么, etc.) without user response: prioritize thread follow-up.
          # skip_probability uses the same priority in system_router.py's propensity section;
 diff --git a/tests/unit/test_mini_game_invite.py b/tests/unit/test_mini_game_invite.py
-index 5f016524..44645108 100644
+index 341d29c2..65e20c42 100644
 --- a/tests/unit/test_mini_game_invite.py
 +++ b/tests/unit/test_mini_game_invite.py
 @@ -458,6 +458,49 @@ async def test_maybe_deliver_returns_none_when_restricted_screen_only(monkeypatc
@@ -856,273 +633,3 @@ index e186dfda..c1322ecf 100644
  @pytest.mark.unit
  async def test_voice_nudge_gate_reads_consent_live():
      """prompt_ephemeral re-reads the gate after its awaits; it must see a revocation."""
-diff --git a/tests/unit/test_windows_interruptibility_signal.py b/tests/unit/test_windows_interruptibility_signal.py
-new file mode 100644
-index 00000000..0590e63b
---- /dev/null
-+++ b/tests/unit/test_windows_interruptibility_signal.py
-@@ -0,0 +1,93 @@
-+from __future__ import annotations
-+
-+import time
-+
-+import pytest
-+
-+from main_logic.activity.state_machine import ActivityStateMachine
-+from main_logic.activity.system_signals import (
-+    QUNS_ACCEPTS_NOTIFICATIONS,
-+    QUNS_APP,
-+    QUNS_BUSY,
-+    QUNS_NOT_PRESENT,
-+    QUNS_PRESENTATION_MODE,
-+    QUNS_QUIET_TIME,
-+    QUNS_RUNNING_D3D_FULL_SCREEN,
-+    SystemSignalCollector,
-+    SystemSnapshot,
-+    notification_state_blocks_proactive,
-+)
-+from utils.activity_config import ActivityPreferences
-+
-+
-+def _snapshot(notification_state: int | None, *, os_signals_available: bool = True):
-+    sm = ActivityStateMachine(prefs=ActivityPreferences())
-+    sm.update_system(
-+        SystemSnapshot(
-+            timestamp=time.time(),
-+            idle_seconds=0.0,
-+            cpu_avg_30s=0.0,
-+            cpu_instant=0.0,
-+            window_title=None,
-+            process_name=None,
-+            gpu_utilization=None,
-+            os_signals_available=os_signals_available,
-+            user_notification_state=notification_state,
-+        )
-+    )
-+    return sm.get_snapshot()
-+
-+
-+@pytest.mark.parametrize(
-+    "notification_state",
-+    [
-+        QUNS_NOT_PRESENT,
-+        QUNS_BUSY,
-+        QUNS_RUNNING_D3D_FULL_SCREEN,
-+        QUNS_PRESENTATION_MODE,
-+        QUNS_QUIET_TIME,
-+    ],
-+)
-+def test_windows_notification_block_preserves_activity_but_closes_propensity(
-+    notification_state: int,
-+):
-+    snap = _snapshot(notification_state)
-+    assert snap.state == "idle"
-+    assert snap.propensity == "closed"
-+    assert snap.user_notification_state == notification_state
-+    assert notification_state_blocks_proactive(notification_state)
-+
-+
-+@pytest.mark.parametrize(
-+    "notification_state",
-+    [None, QUNS_ACCEPTS_NOTIFICATIONS, QUNS_APP],
-+)
-+def test_nonblocking_windows_notification_state_keeps_native_propensity(
-+    notification_state: int | None,
-+):
-+    snap = _snapshot(notification_state)
-+    assert snap.state == "idle"
-+    assert snap.propensity == "open"
-+    assert snap.user_notification_state == notification_state
-+    assert not notification_state_blocks_proactive(notification_state)
-+
-+
-+def test_remote_or_degraded_os_signal_cannot_veto_local_user():
-+    snap = _snapshot(QUNS_BUSY, os_signals_available=False)
-+    assert snap.state == "idle"
-+    assert snap.propensity == "open"
-+
-+def test_one_shot_notification_state_reads_windows_authority_when_available():
-+    collector = SystemSignalCollector.__new__(SystemSignalCollector)
-+    collector._os_signals_available = True
-+    collector._read_user_notification_state = lambda: QUNS_BUSY
-+    assert collector.user_notification_state_now() == QUNS_BUSY
-+
-+
-+def test_one_shot_notification_state_does_not_read_remote_or_degraded_host():
-+    collector = SystemSignalCollector.__new__(SystemSignalCollector)
-+    collector._os_signals_available = False
-+    called = []
-+    collector._read_user_notification_state = lambda: called.append(True)
-+    assert collector.user_notification_state_now() is None
-+    assert called == []
-diff --git a/tests/unit/test_xiaoyu_capability_shadow.py b/tests/unit/test_xiaoyu_capability_shadow.py
-new file mode 100644
-index 00000000..829a5968
---- /dev/null
-+++ b/tests/unit/test_xiaoyu_capability_shadow.py
-@@ -0,0 +1,165 @@
-+from __future__ import annotations
-+
-+import asyncio
-+from types import SimpleNamespace
-+
-+import pytest
-+
-+from main_logic.capability_shadow import (
-+    _providers_for_entry,
-+    run_plugin_entry_shadows,
-+)
-+from main_logic.core.proactive import ProactiveMixin
-+
-+
-+class _Catalog:
-+    def __init__(self, plugins):
-+        self._plugins = plugins
-+
-+    async def plugins(self):
-+        return list(self._plugins)
-+
-+
-+class _Runner:
-+    def __init__(self, outcomes):
-+        self.outcomes = outcomes
-+        self.calls = []
-+
-+    async def run_entry(self, **kwargs):
-+        self.calls.append(kwargs)
-+        outcome = self.outcomes[kwargs["plugin_id"]]
-+        if isinstance(outcome, Exception):
-+            raise outcome
-+        if callable(outcome):
-+            return await outcome()
-+        return outcome
-+
-+
-+def _plugin(plugin_id: str, entry_id: str, *, status: str = "running"):
-+    return {
-+        "id": plugin_id,
-+        "status": status,
-+        "entries": [
-+            {
-+                "id": entry_id,
-+                "metadata": {"agent_hidden": True},
-+            }
-+        ],
-+    }
-+
-+
-+def test_hidden_entries_are_discovered_without_agent_visibility():
-+    plugins = [
-+        _plugin("b_provider", "interruptibility_v1"),
-+        _plugin("a_provider", "interruptibility_v1"),
-+        _plugin("stopped", "interruptibility_v1", status="stopped"),
-+        _plugin("other", "other_entry"),
-+    ]
-+
-+    assert _providers_for_entry(plugins, "interruptibility_v1") == (
-+        "a_provider",
-+        "b_provider",
-+    )
-+
-+
-+@pytest.mark.asyncio
-+async def test_shadow_calls_reuse_housekeeping_plugin_runner_path():
-+    runner = _Runner(
-+        {
-+            "candidate": SimpleNamespace(
-+                success=True,
-+                data={"decision": "abstain", "reason": "evidence_only"},
-+                reason="",
-+            )
-+        }
-+    )
-+    results = await run_plugin_entry_shadows(
-+        "interruptibility_v1",
-+        {"activity_state": "gaming"},
-+        catalog=_Catalog([_plugin("candidate", "interruptibility_v1")]),
-+        runner=runner,
-+    )
-+
-+    assert len(results) == 1
-+    assert results[0].provider_id == "candidate"
-+    assert results[0].success is True
-+    assert results[0].data["decision"] == "abstain"
-+    assert runner.calls[0]["housekeeping"] is True
-+    assert runner.calls[0]["latest_user_request"] == ""
-+    assert runner.calls[0]["args"] == {"activity_state": "gaming"}
-+
-+
-+@pytest.mark.asyncio
-+async def test_shadow_timeout_is_observational_not_raised():
-+    async def slow():
-+        await asyncio.sleep(1.0)
-+
-+    runner = _Runner({"slow": slow})
-+    results = await run_plugin_entry_shadows(
-+        "interruptibility_v1",
-+        {},
-+        timeout_seconds=0.05,
-+        catalog=_Catalog([_plugin("slow", "interruptibility_v1")]),
-+        runner=runner,
-+    )
-+
-+    assert [(item.provider_id, item.success, item.reason) for item in results] == [
-+        ("slow", False, "timeout")
-+    ]
-+
-+
-+def test_native_windows_veto_is_unchanged_when_shadow_scheduler_fails(monkeypatch):
-+    class Tracker:
-+        def get_snapshot_sync(self):
-+            return SimpleNamespace(
-+                state="idle",
-+                os_signals_available=True,
-+                user_notification_state=2,
-+            )
-+
-+        def get_user_notification_state_now(self):
-+            return 2
-+
-+    def fail_schedule(*args, **kwargs):
-+        raise RuntimeError("plugin server unavailable")
-+
-+    monkeypatch.setattr(
-+        "main_logic.capability_shadow.schedule_plugin_entry_shadow",
-+        fail_schedule,
-+    )
-+    owner = SimpleNamespace(_activity_tracker=Tracker(), lanlan_name="XiaoYu")
-+
-+    reason = ProactiveMixin._proactive_interruptibility_block_reason(owner)
-+
-+    assert reason == "windows_notification_state:2"
-+
-+
-+def test_native_activity_veto_is_unchanged_when_shadow_is_only_observing(monkeypatch):
-+    observed = []
-+
-+    class Tracker:
-+        def get_snapshot_sync(self):
-+            return SimpleNamespace(
-+                state="gaming",
-+                os_signals_available=True,
-+                user_notification_state=5,
-+            )
-+
-+        def get_user_notification_state_now(self):
-+            return 5
-+
-+    monkeypatch.setattr(
-+        "main_logic.capability_shadow.schedule_plugin_entry_shadow",
-+        lambda entry_id, payload, **kwargs: observed.append(
-+            (entry_id, payload, kwargs)
-+        )
-+        or True,
-+    )
-+    owner = SimpleNamespace(_activity_tracker=Tracker(), lanlan_name="XiaoYu")
-+
-+    reason = ProactiveMixin._proactive_interruptibility_block_reason(owner)
-+
-+    assert reason == "activity_state:gaming"
-+    assert observed[0][0] == "interruptibility_v1"
-+    assert observed[0][1]["native_block_reason"] == "activity_state:gaming"
-+    assert "user_text" not in observed[0][1]

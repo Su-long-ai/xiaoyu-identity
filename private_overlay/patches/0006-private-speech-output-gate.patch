@@ -1,8 +1,8 @@
 diff --git a/main_logic/core/streaming.py b/main_logic/core/streaming.py
-index 7f3860e0..4bbd75ac 100644
+index ce611ffa..dc6763ba 100644
 --- a/main_logic/core/streaming.py
 +++ b/main_logic/core/streaming.py
-@@ -712,6 +712,7 @@ class StreamingMixin:
+@@ -713,6 +713,7 @@ class StreamingMixin:
                      memory_text = self._clean_frontend_memory_text(message.get("memory_text"))
                      message_source = str(message.get("source") or "").strip()
                      record_data = memory_text or data
@@ -11,7 +11,7 @@ index 7f3860e0..4bbd75ac 100644
                      # alongside interruption, TTS cleanup, and focused-cognition checks below; retrieve results before model submission,
                      # sharing one time budget. Query with visible original user text (record_data),
 diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
-index bb3553b6..ec0d6d92 100644
+index ebb9d805..ea087943 100644
 --- a/main_logic/core/tts_runtime.py
 +++ b/main_logic/core/tts_runtime.py
 @@ -23,6 +23,7 @@ import asyncio
@@ -97,7 +97,7 @@ index bb3553b6..ec0d6d92 100644
          """Put one cleaned text chunk on the TTS request queue (the only place text is queued).
  
 diff --git a/main_logic/core/turn.py b/main_logic/core/turn.py
-index be3b7b4f..9be8b41f 100644
+index 3e1613ce..6da3ebca 100644
 --- a/main_logic/core/turn.py
 +++ b/main_logic/core/turn.py
 @@ -511,6 +511,14 @@ class TurnMixin:
@@ -128,20 +128,62 @@ index be3b7b4f..9be8b41f 100644
                  return
  
          # With configured TTS, send text to its queue/cache.
-@@ -1989,8 +1997,10 @@ class TurnMixin:
+@@ -1273,6 +1281,7 @@ class TurnMixin:
+         active_request_id,
+         *,
+         reply_turn: _ReplyTurn | None = None,
++        flush_ai_turn: bool = True,
+     ) -> None:
+         """Send the turn end signal to both sync_message_queue and the WebSocket,
+         passing ``_pending_turn_meta`` through both channels before clearing it.
+@@ -1298,7 +1307,14 @@ class TurnMixin:
+         # None opens no window but still refreshes seconds_since_ai_msg.
+         # Do this before awaiting WS sends; new rounds may write the buffer during waits,
+         # otherwise their partial text is attributed to this round and cleared.
+-        self._flush_ai_turn_text_to_tracker()
++        if flush_ai_turn:
++            self._flush_ai_turn_text_to_tracker()
++        else:
++            # No user-visible assistant output occurred (for example a private
++            # whole-reply quiet gate). Settle lifecycle without fabricating an
++            # AI activity event or leaking discarded text into a later turn.
++            self._reset_ai_turn_buffer()
++            self._discarded_turn_open = False
+         await self._send_turn_end_to_frontend(turn_end_msg)
+ 
+     async def _emit_agent_callback_turn_end(self, active_request_id) -> None:
+@@ -2004,10 +2020,26 @@ class TurnMixin:
                      lambda: self._emit_turn_end(active_request_id, reply_turn=reply_turn)
                  )
  
 -                for recovery_step in recovery_steps:
 -                    await recovery_step()
-+                for recovery_index, recovery_step in enumerate(recovery_steps):
-+                    recovery_result = await recovery_step()
-+                    if recovery_index == 0 and recovery_result is None:
-+                        break
-                     if not may_clear_shared_output():
-                         break
+-                    if not may_clear_shared_output():
+-                        break
++                private_reply_gate = getattr(self, "_private_reply_output_blocked", None)
++                recovery_output_blocked = (
++                    callable(private_reply_gate) and private_reply_gate()
++                )
++                if recovery_output_blocked:
++                    # Whole-reply quiet suppresses the visible fallback and its paired
++                    # TTS/activity text, but it must not suppress turn lifecycle.
++                    # Recheck ownership immediately before ending the turn so a user
++                    # takeover still wins exactly as in the native recovery path.
++                    if may_clear_shared_output():
++                        await self._emit_turn_end(
++                            active_request_id,
++                            reply_turn=reply_turn,
++                            flush_ai_turn=False,
++                        )
++                else:
++                    for recovery_step in recovery_steps:
++                        await recovery_step()
++                        if not may_clear_shared_output():
++                            break
              except Exception as e:
-@@ -2691,6 +2701,7 @@ class TurnMixin:
+                 logger.warning(f"⚠️ {'RESPONSE_LENGTH_TRUNCATED' if _truncated_text is not None else 'RESPONSE_TOO_LONG'} 回复发送失败: {e}")
+             finally:
+@@ -2706,6 +2738,7 @@ class TurnMixin:
              # bumps _conv_seq to invalidate open_threads cache, and buffers text for
              # emotion-tier LLMs. Empty transcripts trigger none of these.
              if record_transcript_text:
@@ -149,7 +191,7 @@ index be3b7b4f..9be8b41f 100644
                  self._note_user_turn(text=transcript)
                  # Only genuine nonempty, echo-filtered voice messages refresh true-message timestamps
                  # used for mini-game implicit dismissal, excluding echoes/noise.
-@@ -2833,6 +2844,14 @@ class TurnMixin:
+@@ -2848,6 +2881,14 @@ class TurnMixin:
              logger.info("[%s] session takeover active: dropping ordinary realtime output transcript len=%d", self.lanlan_name, len(text or ""))
              return
  
@@ -164,7 +206,7 @@ index be3b7b4f..9be8b41f 100644
          # Like handle_text_data: discard proactive chunks whose expected sid mismatches current,
          # preventing proactive text entering new user turns.
          expected_sid = _proactive_expected_sid.get()
-@@ -2853,10 +2872,9 @@ class TurnMixin:
+@@ -2868,10 +2909,9 @@ class TurnMixin:
              remember_voice_echo=not self.use_tts,
              expected_speech_id=expected_sid,
          )
@@ -178,7 +220,7 @@ index be3b7b4f..9be8b41f 100644
              return
  
          # With configured TTS, send text to its queue/cache.
-@@ -2931,6 +2949,14 @@ class TurnMixin:
+@@ -2946,6 +2986,14 @@ class TurnMixin:
          to distinguish "not passed" from "explicit None", unlike a plain
          ``request_id is None`` check.
          """
@@ -193,80 +235,6 @@ index be3b7b4f..9be8b41f 100644
          def guarded_delivery_is_current() -> bool:
              if publish_if is not None and not publish_if():
                  return False
-diff --git a/tests/unit/test_private_speech_output_gate.py b/tests/unit/test_private_speech_output_gate.py
-new file mode 100644
-index 00000000..0a1f61d4
---- /dev/null
-+++ b/tests/unit/test_private_speech_output_gate.py
-@@ -0,0 +1,68 @@
-+import json
-+import os
-+import tempfile
-+import unittest
-+from pathlib import Path
-+from unittest.mock import patch
-+
-+from main_logic.core.tts_runtime import TtsRuntimeMixin
-+
-+
-+class PrivateReplyGateTests(unittest.IsolatedAsyncioTestCase):
-+    def setUp(self):
-+        self.tmp = tempfile.TemporaryDirectory()
-+        self.addCleanup(self.tmp.cleanup)
-+        self.state = Path(self.tmp.name) / "state.json"
-+        self.obj = TtsRuntimeMixin()
-+
-+    def _write(self, quiet, *, speech_muted=False):
-+        self.state.write_text(
-+            json.dumps({"quiet": bool(quiet), "speech_muted": bool(speech_muted)}),
-+            encoding="utf-8",
-+        )
-+
-+    def _env(self):
-+        return patch.dict(os.environ, {"NEKO_PRIVATE_SPEECH_GATE_FILE": str(self.state)}, clear=False)
-+
-+    def test_gate_is_disabled_without_env(self):
-+        with patch.dict(os.environ, {}, clear=True):
-+            self.assertFalse(self.obj._private_reply_output_blocked())
-+
-+    def test_file_gate_tracks_quiet_state(self):
-+        self._write(True)
-+        with self._env():
-+            self.assertTrue(self.obj._private_reply_output_blocked())
-+            self._write(False)
-+            self.assertFalse(self.obj._private_reply_output_blocked())
-+
-+    def test_legacy_speech_muted_field_cannot_block_reply(self):
-+        self._write(False, speech_muted=True)
-+        with self._env():
-+            self.assertFalse(self.obj._private_reply_output_blocked())
-+
-+    def test_last_known_gate_survives_atomic_rewrite_gap(self):
-+        self._write(True)
-+        with self._env():
-+            self.assertTrue(self.obj._private_reply_output_blocked())
-+            self.state.unlink()
-+            self.assertTrue(self.obj._private_reply_output_blocked())
-+
-+    def test_fast_exact_quiet_closes_current_turn_race(self):
-+        self._write(False)
-+        with self._env():
-+            self.obj._arm_private_speech_fast_control("小鱼，请别说话。")
-+            self.assertTrue(self.obj._private_reply_output_blocked())
-+            self.obj._arm_private_speech_fast_control("朋友让我别说话是什么意思")
-+            self.assertFalse(self.obj._private_reply_output_blocked())
-+
-+    def test_fast_resume_overrides_stale_file_for_current_turn(self):
-+        for phrase in ("可以说话了", "说吧", "你说吧", "那你说吧", "那就说吧", "可以说了"):
-+            self._write(True)
-+            self.obj._private_speech_fast_override = None
-+            with self._env():
-+                self.obj._arm_private_speech_fast_control(phrase)
-+                self.assertFalse(self.obj._private_reply_output_blocked(), phrase)
-+
-+
-+if __name__ == "__main__":
-+    unittest.main()
 diff --git a/tests/unit/test_proactive_sid_guard.py b/tests/unit/test_proactive_sid_guard.py
 index 579545ce..f425dba1 100644
 --- a/tests/unit/test_proactive_sid_guard.py
