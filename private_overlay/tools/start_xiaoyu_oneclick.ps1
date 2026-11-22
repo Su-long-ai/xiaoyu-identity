@@ -150,22 +150,26 @@ if (-not (Test-XiaoYuBackendReady)) {
     exit 1
 }
 
-# Run one bounded read-only-first native runtime check after all backend
-# services are reachable and before exposing the desktop UI. It repairs only
-# missing host-declared autostart plugins, once, through N.E.K.O's HTTP APIs.
+# Before exposing the desktop UI, fail closed only on non-negotiable
+# runtime safety: service reachability and forbidden Agent capability state.
+# Missing auto-start plugins are recorded here but repaired only after the UI
+# is visible, so an optional plugin cannot hold desktop readiness behind a
+# bounded recovery timeout.
 $RuntimeHealthProbe = Join-Path $PSScriptRoot "probe_neko_runtime_health.py"
+$RuntimeSafetyResult = Join-Path $StorageRoot "runtime-health\safety.json"
 $RuntimeHealthResult = Join-Path $StorageRoot "runtime-health\latest.json"
 & $Python $RuntimeHealthProbe `
     --main-health-url ($MainUrl.TrimEnd('/') + "/health") `
     --memory-health-url $MemoryHealthUrl `
     --agent-health-url $AgentHealthUrl `
-    --result-path $RuntimeHealthResult
+    --safety-only `
+    --result-path $RuntimeSafetyResult
 if ($LASTEXITCODE -ne 0) {
     $wshell = New-Object -ComObject WScript.Shell
     $null = $wshell.Popup(
-        "XiaoYu backend is reachable, but the native runtime health/self-heal check failed. See $RuntimeHealthResult.",
+        "XiaoYu backend is reachable, but the native runtime safety preflight failed. See $RuntimeSafetyResult.",
         0,
-        "XiaoYu runtime health failed",
+        "XiaoYu runtime safety failed",
         0x10
     )
     exit 4
@@ -203,6 +207,24 @@ if (-not (Get-XiaoYuDesktopProcess)) {
         0x10
     )
     exit 3
+}
+
+# The visible companion wins the readiness race. Once the desktop process is
+# confirmed, perform one bounded native repair for missing host-declared
+# auto-start plugins. Core safety is still checked again by the same probe.
+& $Python $RuntimeHealthProbe `
+    --main-health-url ($MainUrl.TrimEnd('/') + "/health") `
+    --memory-health-url $MemoryHealthUrl `
+    --agent-health-url $AgentHealthUrl `
+    --result-path $RuntimeHealthResult
+if ($LASTEXITCODE -ne 0) {
+    $wshell = New-Object -ComObject WScript.Shell
+    $null = $wshell.Popup(
+        "XiaoYu is visible, but native runtime recovery did not fully converge. See $RuntimeHealthResult.",
+        8,
+        "XiaoYu runtime recovery incomplete",
+        0x30
+    )
 }
 
 $NapCatTarget = Get-XiaoYuNapCatForwardTarget
