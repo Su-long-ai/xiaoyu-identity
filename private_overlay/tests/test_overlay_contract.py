@@ -528,6 +528,41 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(gate, startup_gate_end)
         self.assertIn("if (-not $StartupPreflight)", script[:gate])
 
+    def test_execution_effect_state_candidate_is_reviewed_but_not_live(self):
+        candidate = ROOT / "candidates" / "execution_plane" / "outbox_effect_state.patch"
+        self.assertTrue(candidate.is_file())
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review_id = "candidate:execution_plane/outbox_effect_state.patch"
+        self.assertIn(review_id, by_id)
+        self.assertEqual(by_id[review_id]["status"], "approved")
+
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        managed = {item["file"] for item in series["patches"]}
+        self.assertNotIn(
+            "outbox_effect_state.patch",
+            managed,
+            "effect-state work must remain candidate-only until end-to-end receipt/reconciliation closes",
+        )
+
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "outbox_effect_state.patch",
+            "git -C _neko_upstream apply --check",
+            "test_effect_handoff_is_not_mistaken_for_delivery",
+            "test_restart_retries_preclaim_handoff_but_freezes_claimed_effect",
+        ):
+            self.assertIn(required, workflow)
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
