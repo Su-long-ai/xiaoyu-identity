@@ -74,7 +74,10 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
         (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
         (Join-Path $NekoRoot "tests\unit\test_proactive_sid_guard.py"),
-        (Join-Path $NekoRoot "tests\unit\test_assistant_speech_finalize_static.py")
+        (Join-Path $NekoRoot "tests\unit\test_assistant_speech_finalize_static.py"),
+        (Join-Path $NekoRoot "tests\unit\test_openai_compatible_tts.py"),
+        (Join-Path $NekoRoot "tests\unit\test_qwen_intl_tts_routing.py"),
+        (Join-Path $NekoRoot "tests\unit\test_voice_management_tts.py")
     )
     $CompanionNodeTests = @(
         (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),
