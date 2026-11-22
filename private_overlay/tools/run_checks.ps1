@@ -82,7 +82,9 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_assistant_speech_finalize_static.py"),
         (Join-Path $NekoRoot "tests\unit\test_openai_compatible_tts.py"),
         (Join-Path $NekoRoot "tests\unit\test_qwen_intl_tts_routing.py"),
-        (Join-Path $NekoRoot "tests\unit\test_voice_management_tts.py")
+        (Join-Path $NekoRoot "tests\unit\test_voice_management_tts.py"),
+        (Join-Path $NekoRoot "tests\unit\test_xiaoyu_startup_performance.py"),
+        (Join-Path $NekoRoot "tests\unit\test_cloudsave_lifecycle_flow.py")
     )
     $CompanionOwnershipFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_audio_stream_queue.py"),
@@ -122,6 +124,17 @@ if (-not $StartupPreflight) {
         ("{0}::test_late_created_is_one_shot_and_idless_successor_completes" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
         ("{0}::test_transport_ignores_retired_created_before_exposing_successor" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py"))
     )
+    $CompanionInteractionFiles = @(
+        (Join-Path $NekoRoot "tests\unit\test_tool_calling.py"),
+        (Join-Path $NekoRoot "tests\unit\test_client_registration.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_feedback_router.py")
+    )
+    $CompanionInteractionTargets = @(
+        ("{0}::test_private_provider_native_route_requires_registered_matching_tool" -f (Join-Path $NekoRoot "tests\unit\test_tool_calling.py")),
+        ("{0}::test_private_provider_native_route_forces_only_first_round" -f (Join-Path $NekoRoot "tests\unit\test_tool_calling.py")),
+        ("{0}::test_registration_client_reuses_native_internal_and_external_pools" -f (Join-Path $NekoRoot "tests\unit\test_client_registration.py")),
+        ("{0}::test_default_factory_builds_ssl_context_off_event_loop" -f (Join-Path $NekoRoot "tests\unit\test_proactive_feedback_router.py"))
+    )
     $CompanionPolicyFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py"),
         (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py"),
@@ -140,7 +153,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
     )
-    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionVoiceFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionVoiceFiles + $CompanionInteractionFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
         if (-not (Test-Path -LiteralPath $CompanionTest)) {
             throw "Native companion regression test missing: $CompanionTest"
         }
@@ -158,6 +171,10 @@ if (-not $StartupPreflight) {
         & $NekoPython -m pytest -q $CompanionVoiceTargets
         $CompanionVoiceExit = $LASTEXITCODE
         if ($CompanionVoiceExit -ne 0) { exit $CompanionVoiceExit }
+
+        & $NekoPython -m pytest -q $CompanionInteractionTargets
+        $CompanionInteractionExit = $LASTEXITCODE
+        if ($CompanionInteractionExit -ne 0) { exit $CompanionInteractionExit }
 
         & $NekoPython -m pytest -q $CompanionPolicyTargets
         $CompanionPolicyExit = $LASTEXITCODE

@@ -190,6 +190,10 @@ jobs:
             tests/unit/test_qwen_intl_tts_routing.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
+            tests/unit/test_tool_calling.py::test_private_provider_native_route_requires_registered_matching_tool \
+            tests/unit/test_tool_calling.py::test_private_provider_native_route_forces_only_first_round \
+            tests/unit/test_client_registration.py::test_registration_client_reuses_native_internal_and_external_pools \
+            tests/unit/test_proactive_feedback_router.py::test_default_factory_builds_ssl_context_off_event_loop \
             tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
             plugin/tests/unit/server/test_xiaoyu_push_origin.py \
             tests/unit/test_token_tracker_install_hooks_idempotent.py \
