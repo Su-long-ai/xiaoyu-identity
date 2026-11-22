@@ -5,10 +5,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OverlayRoot = Split-Path -Parent $PSScriptRoot
+$RepoRoot = Split-Path -Parent $OverlayRoot
 
 Write-Host "== XiaoYu overlay unit tests =="
-python -m unittest discover -s (Join-Path $OverlayRoot "tests") -v
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# unittest discovery imports tests as modules. Anchor cwd to the repository root
+# so package imports stay relocatable and do not depend on the shortcut/caller cwd.
+Push-Location $RepoRoot
+try {
+    python -m unittest discover -s (Join-Path $OverlayRoot "tests") -v
+    $UnitTestExit = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+if ($UnitTestExit -ne 0) { exit $UnitTestExit }
 
 Write-Host "== XiaoYu overlay compile =="
 python -m compileall -q (Join-Path $OverlayRoot "tools") (Join-Path $OverlayRoot "tests") (Join-Path $OverlayRoot "migration") (Join-Path $OverlayRoot "evals")

@@ -1,3 +1,166 @@
+diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
+index 20d76cf1..b66bfe4f 100644
+--- a/app/agent_server/api_runtime.py
++++ b/app/agent_server/api_runtime.py
+@@ -607,13 +607,16 @@ async def startup():
+         except Exception as e:
+             logger.warning(f"[loop-stall] watchdog start failed: {e}")
+ 
+-    # Install token tracking hooks for this process
++    # Install token tracking hooks for this process. Importing the OpenAI SDK
++    # is expensive on Windows; reuse the same off-loop startup pattern as
++    # main_server so the watchdog/event loop stays responsive.
+     try:
+         from utils.token_tracker import TokenTracker, install_hooks
+-        install_hooks()
+-        TokenTracker.get_instance().start_periodic_save()
++        await asyncio.to_thread(install_hooks)
++        tracker = TokenTracker.get_instance()
++        tracker.start_periodic_save()
+         # Include process in session_start/session_end dimensions to distinguish processes during diagnostics
+-        TokenTracker.get_instance().record_app_start(process="agent_server")
++        tracker.record_app_start(process="agent_server")
+     except Exception as e:
+         logger.warning(f"[Agent] Token tracker init failed: {e}")
+ 
+diff --git a/app/agent_server/plugin_host.py b/app/agent_server/plugin_host.py
+index 0a8ca542..2c325a1c 100644
+--- a/app/agent_server/plugin_host.py
++++ b/app/agent_server/plugin_host.py
+@@ -30,9 +30,8 @@ import asyncio
+ import threading
+ from typing import Callable, Dict
+ 
+-import httpx
+-
+ from config import USER_PLUGIN_SERVER_PORT
++from utils.internal_http_client import get_internal_http_client
+ from . import _shared
+ from ._shared import (
+     logger,
+@@ -67,23 +66,26 @@ async def _get_plugin_friendly_name(plugin_id: str) -> str | None:
+     new_cache = {}
+     cache_time = now
+     try:
+-        async with httpx.AsyncClient(timeout=1.0, proxy=None, trust_env=False) as client:
+-            resp = await client.get(f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins")
+-            if resp.status_code == 200:
+-                data = resp.json()
+-                plugins = data.get("plugins", [])
+-                for p in plugins:
+-                    if isinstance(p, dict):
+-                        pid = p.get("id")
+-                        pname = p.get("name")
+-                        if pid and pname:
+-                            new_cache[pid] = pname
+-                        elif pid:
+-                            new_cache[pid] = pid
+-                async with _plugin_name_cache_lock:
+-                    _plugin_name_cache = new_cache
+-                    _plugin_name_cache_time = cache_time
+-                return new_cache.get(plugin_id)
++        client = get_internal_http_client()
++        resp = await client.get(
++            f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins",
++            timeout=1.0,
++        )
++        if resp.status_code == 200:
++            data = resp.json()
++            plugins = data.get("plugins", [])
++            for p in plugins:
++                if isinstance(p, dict):
++                    pid = p.get("id")
++                    pname = p.get("name")
++                    if pid and pname:
++                        new_cache[pid] = pname
++                    elif pid:
++                        new_cache[pid] = pid
++            async with _plugin_name_cache_lock:
++                _plugin_name_cache = new_cache
++                _plugin_name_cache_time = cache_time
++            return new_cache.get(plugin_id)
+     except Exception as e:
+         logger.warning("[AgentServer] Failed to fetch plugin names from port %s: %s", USER_PLUGIN_SERVER_PORT, e)
+ 
+@@ -104,6 +106,20 @@ async def _get_plugin_display_id(plugin_id: str) -> str:
+     return (await _get_plugin_friendly_name(plugin_id)) or plugin_id
+ 
+ 
++def _load_embedded_plugin_server_types():
++    """Load the plugin HTTP stack off the agent event loop.
++
++    The actual server still runs through N.E.K.O's existing isolated plugin
++    thread. This helper only moves first-import filesystem/module work away
++    from the watchdog loop.
++    """
++    from plugin.server.http_app import build_plugin_server_app
++    from plugin.server.infrastructure.mutation_auth import TRUSTED_PROXY_IPS
++    import uvicorn
++
++    return build_plugin_server_app, TRUSTED_PROXY_IPS, uvicorn
++
++
+ async def _start_embedded_user_plugin_server() -> None:
+     """Start the plugin HTTP server in a dedicated thread with its own event loop.
+ 
+@@ -119,9 +135,9 @@ async def _start_embedded_user_plugin_server() -> None:
+         sys.path.insert(1, _plugin_package_root)
+ 
+     try:
+-        from plugin.server.http_app import build_plugin_server_app
+-        from plugin.server.infrastructure.mutation_auth import TRUSTED_PROXY_IPS
+-        import uvicorn
++        build_plugin_server_app, TRUSTED_PROXY_IPS, uvicorn = await asyncio.to_thread(
++            _load_embedded_plugin_server_types
++        )
+     except Exception as exc:
+         raise RuntimeError(f"failed to import embedded user plugin server: {exc}") from exc
+ 
+@@ -270,24 +286,27 @@ async def _ensure_plugin_lifecycle_stopped(
+ async def _fire_user_plugin_capability_check() -> None:
+     """Probe the user plugin server to determine if user_plugin capability is ready."""
+     try:
+-        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0), proxy=None, trust_env=False) as client:
+-            r = await client.get(f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins")
+-            if r.status_code == 200:
+-                data = r.json()
+-                plugins = data.get("plugins", []) if isinstance(data, dict) else []
+-                if plugins:
+-                    _set_capability("user_plugin", True, "")
+-                    logger.debug("[Agent] UserPlugin capability check passed (%d plugins)", len(plugins))
+-                else:
+-                    _set_capability("user_plugin", False, "AGENT_NO_PLUGINS_FOUND")
+-                    logger.debug("[Agent] UserPlugin capability check: no plugins found")
++        client = get_internal_http_client()
++        r = await client.get(
++            f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins",
++            timeout=3.0,
++        )
++        if r.status_code == 200:
++            data = r.json()
++            plugins = data.get("plugins", []) if isinstance(data, dict) else []
++            if plugins:
++                _set_capability("user_plugin", True, "")
++                logger.debug("[Agent] UserPlugin capability check passed (%d plugins)", len(plugins))
+             else:
+-                _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
+-                _get_throttled_logger().warning(
+-                    "user_plugin_capability_check_failed",
+-                    "[Agent] UserPlugin capability check failed: status %s",
+-                    r.status_code,
+-                )
++                _set_capability("user_plugin", False, "AGENT_NO_PLUGINS_FOUND")
++                logger.debug("[Agent] UserPlugin capability check: no plugins found")
++        else:
++            _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
++            _get_throttled_logger().warning(
++                "user_plugin_capability_check_failed",
++                "[Agent] UserPlugin capability check failed: status %s",
++                r.status_code,
++            )
+     except Exception as e:
+         _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
+         logger.debug("[Agent] UserPlugin capability check error: %s", e)
 diff --git a/app/main_server/__init__.py b/app/main_server/__init__.py
 index ba1284ec..f3027286 100644
 --- a/app/main_server/__init__.py
@@ -82,6 +245,75 @@ index e5046618..6eac2098 100644
      try:
          import httpx
          import asyncio
+diff --git a/app/memory_server/runtime.py b/app/memory_server/runtime.py
+index c16666cc..da3a093f 100644
+--- a/app/memory_server/runtime.py
++++ b/app/memory_server/runtime.py
+@@ -1194,10 +1194,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
+         try:
+             from utils.token_tracker import TokenTracker, install_hooks
+ 
+-            install_hooks()
+-            TokenTracker.get_instance().start_periodic_save()
++            # Match main/agent startup: the first OpenAI SDK import is blocking
++            # work and must not run on the memory-server event loop.
++            await asyncio.to_thread(install_hooks)
++            tracker = TokenTracker.get_instance()
++            tracker.start_periodic_save()
+             # process dimension distinguishes session_start/session_end diagnostics across processes.
+-            TokenTracker.get_instance().record_app_start(process="memory_server")
++            tracker.record_app_start(process="memory_server")
+         except Exception as e:
+             logger.warning(f"[Memory] Token tracker init failed: {e}")
+ 
+diff --git a/main_logic/client_registration.py b/main_logic/client_registration.py
+index c24382c8..2e5cc985 100644
+--- a/main_logic/client_registration.py
++++ b/main_logic/client_registration.py
+@@ -17,6 +17,8 @@ import logging
+ from urllib.parse import urlparse
+ 
+ import httpx
++from utils.http.external_client import get_external_http_client
++from utils.internal_http_client import get_internal_http_client
+ from utils.social_base import (
+     DEFAULT_SOCIAL_BASE_URL,
+     configured_social_base_url,
+@@ -58,6 +60,15 @@ def proof_transport_allowed(base_url: str) -> bool:
+     return parsed.scheme == "http" and hostname in LOOPBACK_HOSTS
+ 
+ 
++def _registration_http_client(base_url: str) -> httpx.AsyncClient:
++    """Reuse N.E.K.O's existing pooled client that matches the destination."""
++    parsed = urlparse(base_url)
++    hostname = (parsed.hostname or "").lower()
++    if parsed.scheme == "http" and hostname in LOOPBACK_HOSTS:
++        return get_internal_http_client()
++    return get_external_http_client()
++
++
+ def looks_unregistered(status_code: int, detail: object) -> bool:
+     """Whether a cloud rejection is consistent with a missing client row."""
+     if status_code not in (401, 403, 404):
+@@ -118,11 +129,13 @@ async def ensure_client_registered(
+             return True
+         url = f"{base_url}/api/clients/register"
+         try:
+-            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SEC) as client:
+-                response = await client.post(
+-                    url,
+-                    json={"client_id": client_id, "client_proof": client_proof},
+-                )
++            client = _registration_http_client(base_url)
++            response = await client.post(
++                url,
++                json={"client_id": client_id, "client_proof": client_proof},
++                timeout=HTTP_TIMEOUT_SEC,
++                follow_redirects=False,
++            )
+         except (httpx.HTTPError, OSError) as exc:
+             logger.warning("client_registration: register HTTP failed: %s", exc)
+             return False
 diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
 index af1af236..13126faf 100644
 --- a/main_logic/core/tts_runtime.py
@@ -466,6 +698,102 @@ index 5f6a4779..2d48f920 100644
          self._owns_client = client is None
          self.settings_drain = settings_drain
          self.settings_pending_provider = settings_pending_provider
+diff --git a/tests/unit/test_client_registration.py b/tests/unit/test_client_registration.py
+index 6eb8eda5..48dd7771 100644
+--- a/tests/unit/test_client_registration.py
++++ b/tests/unit/test_client_registration.py
+@@ -95,10 +95,21 @@ def test_looks_unregistered(status_code, detail, expected):
+     assert R.looks_unregistered(status_code, detail) is expected
+ 
+ 
++def test_registration_client_reuses_native_internal_and_external_pools(monkeypatch):
++    internal = object()
++    external = object()
++    monkeypatch.setattr(R, "get_internal_http_client", lambda: internal)
++    monkeypatch.setattr(R, "get_external_http_client", lambda: external)
++
++    assert R._registration_http_client("http://127.0.0.1:48911") is internal
++    assert R._registration_http_client("http://localhost:48911") is internal
++    assert R._registration_http_client("https://community.example") is external
++
++
+ @pytest.mark.asyncio
+ async def test_register_posts_supplied_credentials(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     assert posts == [
+@@ -112,7 +123,7 @@ async def test_register_posts_supplied_credentials(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_loads_persisted_credentials_when_omitted(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+     monkeypatch.setattr(R, "_load_credentials", lambda: (CLIENT_ID, CLIENT_PROOF))
+ 
+     assert await R.ensure_client_registered(CLOUD)
+@@ -122,7 +133,7 @@ async def test_register_loads_persisted_credentials_when_omitted(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_is_cached_per_base_url_and_client(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -138,7 +149,7 @@ async def test_register_is_cached_per_base_url_and_client(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_force_reregisters_after_cloud_forgets_the_row(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     # The cached "registered" flag can outlive the cloud row it describes, so a
+@@ -152,7 +163,7 @@ async def test_force_reregisters_after_cloud_forgets_the_row(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_refuses_to_leak_proof_over_plaintext_http(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert not await R.ensure_client_registered(
+         "http://community.example", CLIENT_ID, CLIENT_PROOF
+@@ -164,7 +175,9 @@ async def test_register_refuses_to_leak_proof_over_plaintext_http(monkeypatch):
+ async def test_failed_registration_is_not_cached(monkeypatch):
+     posts: list = []
+     monkeypatch.setattr(
+-        R.httpx, "AsyncClient", _fake_client(posts, _Response(500, "boom"))
++        R,
++        "_registration_http_client",
++        lambda _base: _fake_client(posts, _Response(500, "boom"))(),
+     )
+ 
+     assert not await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -176,9 +189,9 @@ async def test_failed_registration_is_not_cached(monkeypatch):
+ async def test_register_survives_transport_failure(monkeypatch):
+     posts: list = []
+     monkeypatch.setattr(
+-        R.httpx,
+-        "AsyncClient",
+-        _fake_client(posts, R.httpx.ConnectError("no route")),
++        R,
++        "_registration_http_client",
++        lambda _base: _fake_client(posts, R.httpx.ConnectError("no route"))(),
+     )
+ 
+     assert not await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -187,7 +200,7 @@ async def test_register_survives_transport_failure(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_missing_credentials_skip_the_call(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+     monkeypatch.setattr(R, "_load_credentials", lambda: None)
+ 
+     assert not await R.ensure_client_registered(CLOUD)
 diff --git a/tests/unit/test_cloudsave_lifecycle_flow.py b/tests/unit/test_cloudsave_lifecycle_flow.py
 index db6e8c27..9a5c03c6 100644
 --- a/tests/unit/test_cloudsave_lifecycle_flow.py
@@ -533,10 +861,10 @@ index 82799ae6..77046a8f 100644
  async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
 diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
 new file mode 100644
-index 00000000..a7b352b0
+index 00000000..83bd9774
 --- /dev/null
 +++ b/tests/unit/test_xiaoyu_startup_performance.py
-@@ -0,0 +1,290 @@
+@@ -0,0 +1,304 @@
 +from __future__ import annotations
 +
 +import asyncio
@@ -794,39 +1122,53 @@ index 00000000..a7b352b0
 +
 +
 +@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_search_gateway_ssl_context_is_built_once_off_event_loop(monkeypatch):
++def test_search_gateway_reuses_neko_internal_http_client():
 +    from utils.web_scraper import search_gateway
 +
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    sentinel = object()
-+    monkeypatch.setattr(search_gateway, "_search_ssl_context", None)
-+
-+    def build():
-+        worker_threads.append(threading.get_ident())
-+        return sentinel
-+
-+    monkeypatch.setattr(search_gateway.ssl, "create_default_context", build)
-+
-+    first = await search_gateway._get_search_ssl_context()
-+    second = await search_gateway._get_search_ssl_context()
-+
-+    assert first is sentinel
-+    assert second is sentinel
-+    assert len(worker_threads) == 1
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+def test_search_gateway_clients_reuse_prebuilt_ssl_context():
-+    from utils.web_scraper import search_gateway
++    module_source = inspect.getsource(search_gateway)
++    assert "from utils.internal_http_client import get_internal_http_client" in module_source
++    assert "_search_ssl_context" not in module_source
++    assert "ssl.create_default_context" not in module_source
 +
 +    for func in (search_gateway._invoke_plugin, search_gateway._cancel_run):
 +        source = inspect.getsource(func)
-+        assert "await _get_search_ssl_context()" in source
-+        assert "verify=verify_context" in source
++        assert "get_internal_http_client()" in source
++        assert "httpx.AsyncClient(" not in source
 +
++
++
++@pytest.mark.unit
++def test_agent_token_tracker_hook_install_is_off_event_loop():
++    from app.agent_server import api_runtime
++
++    source = inspect.getsource(api_runtime.startup)
++    assert "await asyncio.to_thread(install_hooks)" in source
++    assert "tracker.start_periodic_save()" in source
++    assert 'tracker.record_app_start(process="agent_server")' in source
++
++
++@pytest.mark.unit
++def test_memory_token_tracker_hook_install_is_off_event_loop():
++    from app.memory_server import runtime as memory_runtime
++
++    source = inspect.getsource(memory_runtime.ensure_memory_server_runtime_initialized)
++    assert "await asyncio.to_thread(install_hooks)" in source
++    assert "tracker.start_periodic_save()" in source
++    assert 'tracker.record_app_start(process="memory_server")' in source
++
++
++@pytest.mark.unit
++def test_agent_plugin_host_first_import_is_off_event_loop_and_reuses_internal_http():
++    from app.agent_server import plugin_host
++
++    start_source = inspect.getsource(plugin_host._start_embedded_user_plugin_server)
++    name_source = inspect.getsource(plugin_host._get_plugin_friendly_name)
++    module_source = inspect.getsource(plugin_host)
++
++    assert "await asyncio.to_thread(" in start_source
++    assert "_load_embedded_plugin_server_types" in start_source
++    assert "get_internal_http_client()" in name_source
++    assert "httpx.AsyncClient(" not in module_source
 diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
 index 2e8134e6..64740dbc 100644
 --- a/utils/holiday_cache.py
@@ -898,69 +1240,176 @@ index 2e8134e6..64740dbc 100644
          resp.raise_for_status()
          data = resp.json()
 diff --git a/utils/web_scraper/search_gateway.py b/utils/web_scraper/search_gateway.py
-index 4215c70f..d585d9d4 100644
+index 4215c70f..c9fe5332 100644
 --- a/utils/web_scraper/search_gateway.py
 +++ b/utils/web_scraper/search_gateway.py
-@@ -11,6 +11,8 @@ import asyncio
- from collections import OrderedDict
- from contextlib import suppress
- import os
-+import ssl
-+import threading
- import time
- from typing import Any, Dict, Optional
- import uuid
-@@ -49,6 +51,25 @@ _waiters: Dict[tuple[str, str, int], int] = {}
- _backend_locks: Dict[str, asyncio.Lock] = {}
+@@ -18,6 +18,7 @@ import uuid
+ import httpx
+ 
+ from config import USER_PLUGIN_SERVER_PORT
++from utils.internal_http_client import get_internal_http_client
+ 
+ from ._shared import logger
+ 
+@@ -50,7 +51,6 @@ _backend_locks: Dict[str, asyncio.Lock] = {}
  _cleanup_tasks: set[asyncio.Task[None]] = set()
  _runtime_loop: Optional[asyncio.AbstractEventLoop] = None
-+_search_ssl_context: ssl.SSLContext | None = None
-+_search_ssl_context_lock = threading.Lock()
-+
-+
-+def _build_search_ssl_context() -> ssl.SSLContext:
-+    global _search_ssl_context
-+    if _search_ssl_context is not None:
-+        return _search_ssl_context
-+    with _search_ssl_context_lock:
-+        if _search_ssl_context is None:
-+            _search_ssl_context = ssl.create_default_context()
-+        return _search_ssl_context
-+
-+
-+async def _get_search_ssl_context() -> ssl.SSLContext:
-+    if _search_ssl_context is not None:
-+        return _search_ssl_context
-+    return await asyncio.to_thread(_build_search_ssl_context)
-+
  
- 
+-
  class _PluginThrottleError(RuntimeError):
-@@ -175,10 +196,12 @@ def _plugin_server_base() -> str:
+     """The plugin is healthy but intentionally refused work for now."""
+ 
+@@ -175,19 +175,15 @@ def _plugin_server_base() -> str:
  async def _cancel_run(base: str, run_id: str) -> None:
      try:
          timeout = httpx.Timeout(0.5, connect=0.2)
-+        verify_context = await _get_search_ssl_context()
-         async with httpx.AsyncClient(
+-        async with httpx.AsyncClient(
++        client = get_internal_http_client()
++        await client.post(
++            f"{base}/runs/{run_id}/cancel",
++            json={"reason": "search gateway stopped waiting"},
              timeout=timeout,
-             proxy=None,
-             trust_env=False,
-+            verify=verify_context,
-         ) as client:
-             await client.post(
-                 f"{base}/runs/{run_id}/cancel",
-@@ -230,7 +253,13 @@ async def _invoke_plugin(
+-            proxy=None,
+-            trust_env=False,
+-        ) as client:
+-            await client.post(
+-                f"{base}/runs/{run_id}/cancel",
+-                json={"reason": "search gateway stopped waiting"},
+-            )
++        )
+     except Exception:
+         logger.debug("取消遗留联网搜索任务失败 (run_id=%s)", run_id)
+ 
+-
+ def _schedule_cancel(base: str, run_id: str) -> None:
+     task = asyncio.create_task(_cancel_run(base, run_id))
+     _cleanup_tasks.add(task)
+@@ -230,71 +226,71 @@ async def _invoke_plugin(
          "args": args,
      }
      timeout = httpx.Timeout(5.0, connect=1.0)
 -    async with httpx.AsyncClient(timeout=timeout, proxy=None, trust_env=False) as client:
-+    verify_context = await _get_search_ssl_context()
-+    async with httpx.AsyncClient(
-+        timeout=timeout,
-+        proxy=None,
-+        trust_env=False,
-+        verify=verify_context,
-+    ) as client:
-         request_timeout = remaining_timeout()
-         async with asyncio.timeout(request_timeout):
-             response = await client.post(
+-        request_timeout = remaining_timeout()
+-        async with asyncio.timeout(request_timeout):
+-            response = await client.post(
+-                f"{base}/runs",
+-                json=body,
+-                timeout=request_timeout,
+-            )
+-        if not 200 <= response.status_code < 300:
+-            raise RuntimeError(f"联网搜索插件不可用（HTTP {response.status_code}）")
+-        accepted = response.json()
+-        run_id = accepted.get("run_id") if isinstance(accepted, dict) else None
+-        if not isinstance(run_id, str) or not run_id:
+-            raise RuntimeError("联网搜索插件未返回有效任务编号")
+-
+-        terminal = {"succeeded", "failed", "canceled", "timeout"}
+-        poll_interval = _POLL_INTERVAL_SECONDS
+-        terminal_seen = False
+-        try:
+-            while True:
+-                request_timeout = remaining_timeout()
+-                async with asyncio.timeout(request_timeout):
+-                    response = await client.get(
+-                        f"{base}/runs/{run_id}",
+-                        timeout=request_timeout,
+-                    )
+-                if response.status_code != 200:
+-                    raise RuntimeError(
+-                        f"读取联网搜索任务失败（HTTP {response.status_code}）"
+-                    )
+-                candidate = response.json()
+-                run_data = candidate if isinstance(candidate, dict) else {}
+-                status = str(run_data.get("status") or "")
+-                if status in terminal:
+-                    terminal_seen = True
+-                    if status != "succeeded":
+-                        raise _plugin_error(
+-                            run_data.get("error"),
+-                            f"联网搜索任务状态：{status}",
+-                        )
+-                    break
+-                await asyncio.sleep(
+-                    min(poll_interval, max(0.0, deadline - loop.time()))
+-                )
+-                poll_interval = min(
+-                    poll_interval * 1.5,
+-                    _MAX_POLL_INTERVAL_SECONDS,
+-                )
+-
++    client = get_internal_http_client()
++    request_timeout = remaining_timeout()
++    async with asyncio.timeout(request_timeout):
++        response = await client.post(
++            f"{base}/runs",
++            json=body,
++            timeout=request_timeout,
++        )
++    if not 200 <= response.status_code < 300:
++        raise RuntimeError(f"联网搜索插件不可用（HTTP {response.status_code}）")
++    accepted = response.json()
++    run_id = accepted.get("run_id") if isinstance(accepted, dict) else None
++    if not isinstance(run_id, str) or not run_id:
++        raise RuntimeError("联网搜索插件未返回有效任务编号")
++
++    terminal = {"succeeded", "failed", "canceled", "timeout"}
++    poll_interval = _POLL_INTERVAL_SECONDS
++    terminal_seen = False
++    try:
++        while True:
+             request_timeout = remaining_timeout()
+             async with asyncio.timeout(request_timeout):
+                 response = await client.get(
+-                    f"{base}/runs/{run_id}/export",
+-                    params={"limit": 20},
++                    f"{base}/runs/{run_id}",
+                     timeout=request_timeout,
+                 )
+             if response.status_code != 200:
+                 raise RuntimeError(
+-                    f"导出联网搜索结果失败（HTTP {response.status_code}）"
++                    f"读取联网搜索任务失败（HTTP {response.status_code}）"
+                 )
+-            data = _extract_export(response.json())
+-        except BaseException:
+-            if not terminal_seen:
+-                _schedule_cancel(base, run_id)
+-            raise
++            candidate = response.json()
++            run_data = candidate if isinstance(candidate, dict) else {}
++            status = str(run_data.get("status") or "")
++            if status in terminal:
++                terminal_seen = True
++                if status != "succeeded":
++                    raise _plugin_error(
++                        run_data.get("error"),
++                        f"联网搜索任务状态：{status}",
++                    )
++                break
++            await asyncio.sleep(
++                min(poll_interval, max(0.0, deadline - loop.time()))
++            )
++            poll_interval = min(
++                poll_interval * 1.5,
++                _MAX_POLL_INTERVAL_SECONDS,
++            )
++
++        request_timeout = remaining_timeout()
++        async with asyncio.timeout(request_timeout):
++            response = await client.get(
++                f"{base}/runs/{run_id}/export",
++                params={"limit": 20},
++                timeout=request_timeout,
++            )
++        if response.status_code != 200:
++            raise RuntimeError(
++                f"导出联网搜索结果失败（HTTP {response.status_code}）"
++            )
++        data = _extract_export(response.json())
++    except BaseException:
++        if not terminal_seen:
++            _schedule_cancel(base, run_id)
++        raise
+ 
+     normalized_results = []
+     for item in data.get("results") or []:

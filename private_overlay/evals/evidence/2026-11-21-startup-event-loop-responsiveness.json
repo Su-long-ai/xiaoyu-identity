@@ -1,7 +1,7 @@
 {
   "evidence_id": "2026-11-21-startup-event-loop-responsiveness",
   "date": "2026-11-21",
-  "verdict": "PASS_LIVE_FULL_DESKTOP_ZERO_BLOCKED_LOOP_STALL_EVENTS",
+  "verdict": "PASS_LIVE_REUSE_CONSOLIDATED_ZERO_BLOCKED_LOOP_STALL_EVENTS_20261122",
   "live_before": {
     "startup_loop_stalls": [
       {
@@ -25,16 +25,21 @@
   },
   "reuse_check": {
     "latest_upstream_checked": true,
-    "newer_commit_count": 41,
+    "newer_commit_count": 72,
     "token_hook_equivalent_fix_found": false,
-    "live2d_scan_equivalent_fix_found": false
+    "live2d_scan_equivalent_fix_found": false,
+    "latest_upstream_commit": "e65342739ee791a008a8f7484fd0535caf8f32c0",
+    "native_shared_http_clients_found_at_current_pin": true,
+    "private_search_ssl_context_cache_removed_as_redundant": true
   },
   "implementation": {
-    "token_tracker": "install_hooks runs inside existing background preload worker; start_periodic_save and record_app_start run afterward on the owning asyncio loop",
+    "token_tracker": "main uses the existing background preload worker; agent and memory use asyncio.to_thread for the same native install_hooks first-import, while start_periodic_save and record_app_start stay on each owning asyncio loop",
     "live2d": "find_models runs with asyncio.to_thread and is resolved once per get_current_live2d_model request",
     "cross_request_cache": false,
     "storage": "storage bootstrap/status payload construction runs with asyncio.to_thread",
-    "holiday": "default SSLContext is built exactly once off-loop and supplied to the existing async httpx clients"
+    "holiday": "default SSLContext is built exactly once off-loop and supplied to the existing async httpx clients",
+    "agent_plugin_host": "the existing embedded plugin-server isolated thread remains authoritative; only its first plugin/monitoring/psutil module import is preloaded off the agent event loop",
+    "http_clients": "localhost search/plugin IPC and capability checks reuse N.E.K.O get_internal_http_client; community client registration reuses the native external pooled client; no XiaoYu HTTP pool or SSLContext cache remains"
   },
   "regression": {
     "targeted_neko_tests": "62/62 PASS",
@@ -44,8 +49,12 @@
       "test_cloudsave_lifecycle_flow.py",
       "test_live2d_model_config_write_locking.py"
     ],
-    "managed_patch_replay": "0001..0010 combined replay to be reverified after consolidation",
-    "storage_holiday_extended_suite": "266/266 PASS"
+    "managed_patch_replay": "0010 regenerated against 6261a5f6 + 0001..0009 baseline",
+    "storage_holiday_extended_suite": "266/266 PASS",
+    "http_reuse_targeted": "42/42 PASS",
+    "agent_memory_startup_lifecycle": "125/125 PASS",
+    "agent_plugin_host_hardening_and_wiring": "238/238 PASS",
+    "overlay_gate_before_final_live_restart": "92/92 PASS; authority/release 23/23 PASS"
   },
   "live_after": {
     "validation_start_time": "2026-11-21 23:03",
@@ -89,6 +98,43 @@
       "blocked_or_recovered_loop_stall_events": 0,
       "watchdog_info_only": true,
       "all_four_target_stacks_recurred": false
+    },
+    "reuse_consolidation_2026_11_22": {
+      "pre_fix_reproductions": [
+        {
+          "time": "2026-11-22 13:51",
+          "process": "main_server",
+          "blocked_ms": 1077,
+          "root": "client_registration -> per-call httpx client -> ssl.create_default_context"
+        },
+        {
+          "time": "2026-11-22 14:59",
+          "process": "agent_server",
+          "blocked_ms_approx": 3846,
+          "root": "startup token_tracker.install_hooks -> first OpenAI SDK import"
+        },
+        {
+          "time": "2026-11-22 15:08",
+          "process": "agent_server",
+          "blocked_ms_approx": 2628,
+          "root": "embedded plugin-server first import -> monitoring -> psutil"
+        }
+      ],
+      "final_validation": {
+        "startup": "2026-11-22 15:17",
+        "health": {
+          "48911": 200,
+          "48912": 200,
+          "48915": 200,
+          "48916": 200
+        },
+        "main_blocked_or_recovered_loop_stalls": 0,
+        "agent_blocked_or_recovered_loop_stalls": 0,
+        "watchdog_start_info_excluded": true,
+        "client_registration_ssl_stall_recurred": false,
+        "openai_first_import_stall_recurred": false,
+        "embedded_plugin_import_stall_recurred": false
+      }
     }
   },
   "discovered_stalls": [
@@ -107,6 +153,22 @@
     {
       "blocked_ms": 2112,
       "root": "holiday_cache -> httpx AsyncClient -> ssl.create_default_context"
+    },
+    {
+      "blocked_ms": 1077,
+      "root": "client_registration -> per-call httpx AsyncClient -> ssl.create_default_context",
+      "discovered": "2026-11-22"
+    },
+    {
+      "blocked_ms": 3846,
+      "root": "agent_server startup -> token_tracker.install_hooks -> first OpenAI SDK import",
+      "discovered": "2026-11-22"
+    },
+    {
+      "blocked_ms": 2628,
+      "root": "agent_server -> embedded plugin server import -> monitoring -> psutil",
+      "discovered": "2026-11-22"
     }
-  ]
+  ],
+  "updated_at": "2026-11-22"
 }

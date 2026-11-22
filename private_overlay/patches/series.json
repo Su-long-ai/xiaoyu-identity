@@ -48,7 +48,7 @@
     },
     {
       "file": "0010-startup-event-loop-responsiveness.patch",
-      "reason": "Live watchdog stacks exposed four synchronous hot paths on the main FastAPI event loop: token_tracker.install_hooks first-imported the OpenAI SDK (~1.39s), page_config recursively scanned Live2D roots (~1.63s), storage status resolved filesystem paths (~1.03s), and holiday warmup constructed the default SSLContext (~2.11s). Latest upstream origin/main was checked and contains no equivalent scheduling fix. Reuse the existing background preload worker for token hooks; keep TokenTracker periodic save on its owning asyncio loop; use asyncio.to_thread for Live2D discovery and storage payload construction; and build/reuse one holiday SSLContext off-loop while preserving async httpx requests. No cross-request Live2D cache is added.",
+      "reason": "Live watchdog stacks exposed synchronous startup/event-loop hot paths across main, agent and memory processes: first OpenAI SDK/token-hook imports, plugin-server module imports, filesystem/model discovery, storage path resolution and first HTTP/TLS client construction. Reuse N.E.K.O's existing background/off-loop patterns, isolated plugin-server thread, pooled internal/external HTTP clients and native TokenTracker; use asyncio.to_thread only at blocking boundaries. No XiaoYu HTTP pool, SSLContext cache, plugin host, model runtime or second lifecycle authority is introduced.",
       "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ],

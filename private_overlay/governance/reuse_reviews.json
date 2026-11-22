@@ -259,36 +259,48 @@
     {
       "id": "patch:0010-startup-event-loop-responsiveness.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-21",
-      "problem": "Measured desktop/startup event-loop stalls came from heavy SDK import, recursive Live2D discovery, storage path resolution, and first holiday SSLContext construction.",
+      "reviewed_at": "2026-11-22",
+      "problem": "Measured event-loop stalls came from first heavy SDK/plugin imports, blocking filesystem/config work, and repeated localhost/external httpx client setup across main/agent/memory startup paths.",
       "decision": "thin_adapter",
       "candidates": [
         {
-          "name": "N.E.K.O existing app.main_server.preload background worker",
+          "name": "N.E.K.O main background preload + native TokenTracker",
           "type": "native",
-          "outcome": "selected for token hook installation",
+          "outcome": "selected; OpenAI hook installation is moved off-loop while periodic save and accounting stay on each owning asyncio loop",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "N.E.K.O embedded plugin-server isolated thread",
+          "type": "native",
+          "outcome": "selected; only its first module import is preloaded off the agent loop, then the existing isolated server thread remains authoritative",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "N.E.K.O utils.http.internal_client / utils.internal_http_client",
+          "type": "native",
+          "outcome": "selected for localhost plugin IPC/search/capability checks; replaces per-call AsyncClient and the duplicate XiaoYu search SSLContext cache",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "N.E.K.O utils.http.external_client",
+          "type": "native",
+          "outcome": "selected for client registration; preserves proof/redirect policy while reusing N.E.K.O's pooled TLS client",
           "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
         },
         {
           "name": "Python asyncio.to_thread",
           "type": "stdlib",
-          "outcome": "selected for Live2D discovery, storage payload/path resolution, and one-time SSLContext construction",
+          "outcome": "selected only for blocking imports/filesystem/config preparation with no async native API",
           "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
         },
         {
-          "name": "existing N.E.K.O holiday cache / async httpx flow",
-          "type": "native",
-          "outcome": "reused; only SSLContext preparation moves off-loop, async requests and holiday caches remain native",
-          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
-        },
-        {
-          "name": "N.E.K.O latest origin/main after pinned commit",
-          "type": "upstream",
-          "outcome": "checked; newer commits do not provide equivalent scheduling fixes for these four paths",
+          "name": "httpx connection pooling",
+          "type": "external_dependency",
+          "outcome": "reused through N.E.K.O shared clients; no XiaoYu pool or TLS lifecycle is added",
           "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
         }
       ],
-      "why_reuse_insufficient": "All underlying authorities and worker/network primitives are reused. The narrow patch changes only where blocking preparation executes and deduplicates Live2D catalog discovery inside a single request.",
+      "why_reuse_insufficient": "The underlying network pools, plugin host/thread, TokenTracker, storage, TTS and UI authorities are reused. The patch only moves uncovered first-import/filesystem work off the event loop and migrates remaining call sites to the existing shared clients. A previously added private SSLContext cache was removed as redundant.",
       "acceptance_evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ]

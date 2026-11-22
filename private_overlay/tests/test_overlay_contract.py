@@ -304,6 +304,14 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("build_frontend.bat", script)
         self.assertNotIn("plugins\\xiaoyu_private", script)
 
+    def test_run_checks_anchors_unittest_discovery_to_repo_root(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("$RepoRoot = Split-Path -Parent $OverlayRoot", script)
+        self.assertIn("Push-Location $RepoRoot", script)
+        self.assertIn("Pop-Location", script)
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
