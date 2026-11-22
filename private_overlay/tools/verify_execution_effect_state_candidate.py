@@ -132,6 +132,26 @@ async def _verify(neko_root: Path) -> None:
             await second.close()
 
     with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "ambiguous-transport.db"
+        ledger = Ledger(path)
+        item_id = await ledger.outbox_add(None, "task_result", {"summary": "ambiguous"})
+
+        async def ambiguous_send(item):
+            assert await ledger.outbox_mark_handoff(item.id, "attempt-ambiguous")
+            raise RuntimeError("transport ambiguous after durable handoff")
+
+        sender = OutboxSender(ledger, ambiguous_send)
+        assert await sender.flush() == 0
+        assert await ledger.outbox_delivery_state(item_id) == "handoff"
+        await ledger.outbox_mark_failed(item_id, "must-not-overwrite", 0.0)
+        assert await ledger.outbox_delivery_state(item_id) == "handoff"
+        rows = await ledger.outbox_pending(due_by=2**62)
+        assert [row.id for row in rows] == [item_id]
+        assert rows[0].attempts == 0
+        assert rows[0].last_error == "delivery_handoff:attempt-ambiguous"
+        await ledger.close()
+
+    with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "effect-ledger.db"
         ledger = Ledger(path)
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "guard"})
