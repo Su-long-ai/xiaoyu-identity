@@ -45,11 +45,29 @@ def _json_request(
     return data
 
 
+def _bounded_timeout(
+    deadline: float | None,
+    preferred: float,
+) -> float:
+    """Cap one blocking request by the caller's absolute monotonic deadline."""
+    preferred = max(0.001, float(preferred))
+    if deadline is None:
+        return preferred
+    remaining = float(deadline) - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("reconcile deadline exhausted")
+    return max(0.001, min(preferred, remaining))
+
+
 def ensure_user_plugin_relay(
     *, agent_url: str, lanlan_name: str, request_timeout: float = 5.0,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     agent_url = agent_url.rstrip("/")
-    before = _json_request(f"{agent_url}/agent/flags", timeout=request_timeout)
+    before = _json_request(
+        f"{agent_url}/agent/flags",
+        timeout=_bounded_timeout(deadline, request_timeout),
+    )
     flags = before.get("agent_flags")
     if not isinstance(flags, dict):
         raise RuntimeError("Agent flags response missing agent_flags object")
@@ -59,9 +77,12 @@ def ensure_user_plugin_relay(
             f"{agent_url}/agent/flags",
             method="POST",
             payload={"lanlan_name": lanlan_name, "user_plugin_enabled": True},
-            timeout=request_timeout,
+            timeout=_bounded_timeout(deadline, request_timeout),
         )
-    after = _json_request(f"{agent_url}/agent/flags", timeout=request_timeout)
+    after = _json_request(
+        f"{agent_url}/agent/flags",
+        timeout=_bounded_timeout(deadline, request_timeout),
+    )
     after_flags = after.get("agent_flags")
     if not isinstance(after_flags, dict) or after_flags.get("user_plugin_enabled") is not True:
         raise RuntimeError("N.E.K.O User Plugin relay did not become enabled")
@@ -99,15 +120,19 @@ def _autostart_candidates(payload: dict[str, Any]) -> list[str]:
 
 def reconcile_native_autostart(
     *, plugin_url: str, request_timeout: float = 10.0, max_passes: int = 3,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     plugin_url = plugin_url.rstrip("/")
     _json_request(
         f"{plugin_url}/plugins/refresh",
         method="POST",
         payload={},
-        timeout=max(request_timeout, 20.0),
+        timeout=_bounded_timeout(deadline, max(request_timeout, 20.0)),
     )
-    initial = _json_request(f"{plugin_url}/plugins?summary=true", timeout=request_timeout)
+    initial = _json_request(
+        f"{plugin_url}/plugins?summary=true",
+        timeout=_bounded_timeout(deadline, request_timeout),
+    )
     candidates = _autostart_candidates(initial)
     initial_plugins = initial.get("plugins") if isinstance(initial, dict) else None
     initial_by_id = {
@@ -125,46 +150,86 @@ def reconcile_native_autostart(
         for plugin_id in candidates
     }
 
-    # Reconcile is a bounded recovery point, not a restart sweep. Healthy
-    # host-owned plugin processes stay untouched; only non-running autostart
-    # candidates are asked to start through N.E.K.O's native lifecycle API.
+    # A one-click/runtime reconcile is also an explicit crash-recovery point.
+    # Do not bounce healthy host-owned plugin processes just because they are
+    # declared auto-start; only ask N.E.K.O to start candidates that are not
+    # currently running.
     pending = [plugin_id for plugin_id in candidates if plugin_id not in already_running]
+    confirmed_running = set(already_running)
+    deadline_exhausted = False
     for _ in range(max(1, max_passes)):
         if not pending:
             break
         next_pending: list[str] = []
         progress = False
-        for plugin_id in pending:
+        for index, plugin_id in enumerate(pending):
+            try:
+                start_timeout = _bounded_timeout(
+                    deadline,
+                    max(request_timeout, 30.0),
+                )
+            except TimeoutError:
+                for remaining_id in pending[index:]:
+                    attempts[remaining_id].append("deadline_exhausted")
+                    next_pending.append(remaining_id)
+                deadline_exhausted = True
+                break
             try:
                 result = _json_request(
                     f"{plugin_url}/plugin/{urllib.parse.quote(plugin_id, safe='')}/start",
                     method="POST",
                     payload={},
-                    timeout=max(request_timeout, 30.0),
+                    timeout=start_timeout,
                 )
-                attempts[plugin_id].append("already_running" if result.get("already_running") else "started")
+                attempts[plugin_id].append(
+                    "already_running" if result.get("already_running") else "started"
+                )
+                confirmed_running.add(plugin_id)
                 progress = True
             except Exception as exc:
                 attempts[plugin_id].append(f"{type(exc).__name__}: {exc}")
                 next_pending.append(plugin_id)
         pending = next_pending
-        if not progress:
+        if deadline_exhausted or not progress:
             break
 
-    final = _json_request(f"{plugin_url}/plugins?summary=true", timeout=request_timeout)
-    plugins = final.get("plugins") if isinstance(final, dict) else None
-    by_id = {
-        str(item.get("id")): item
-        for item in (plugins or [])
-        if isinstance(item, dict) and item.get("id")
-    }
-    not_running = [plugin_id for plugin_id in candidates if by_id.get(plugin_id, {}).get("status") != "running"]
+    final_state_confirmed = True
+    try:
+        final_timeout = _bounded_timeout(deadline, request_timeout)
+    except TimeoutError:
+        final_state_confirmed = False
+        by_id = dict(initial_by_id)
+        for plugin_id in confirmed_running:
+            by_id[plugin_id] = {
+                **by_id.get(plugin_id, {}),
+                "id": plugin_id,
+                "status": "running",
+            }
+    else:
+        final = _json_request(
+            f"{plugin_url}/plugins?summary=true",
+            timeout=final_timeout,
+        )
+        plugins = final.get("plugins") if isinstance(final, dict) else None
+        by_id = {
+            str(item.get("id")): item
+            for item in (plugins or [])
+            if isinstance(item, dict) and item.get("id")
+        }
+
+    not_running = [
+        plugin_id
+        for plugin_id in candidates
+        if by_id.get(plugin_id, {}).get("status") != "running"
+    ]
     return {
         "host_selected_candidates": candidates,
         "running": [plugin_id for plugin_id in candidates if plugin_id not in not_running],
         "not_running": not_running,
         "attempts": attempts,
         "host_registry_refreshed": True,
+        "final_state_confirmed": final_state_confirmed,
+        "deadline_exhausted": deadline_exhausted,
     }
 
 
@@ -179,10 +244,12 @@ def reconcile(
                 agent_url=agent_url,
                 lanlan_name=lanlan_name,
                 request_timeout=request_timeout,
+                deadline=deadline,
             )
             autostart = reconcile_native_autostart(
                 plugin_url=plugin_url,
                 request_timeout=max(request_timeout, 5.0),
+                deadline=deadline,
             )
             verdict = "PASS" if not autostart["not_running"] else "PARTIAL"
             return {
@@ -196,7 +263,9 @@ def reconcile(
             }
         except Exception as exc:
             last_error = f"{type(exc).__name__}: {exc}"
-            time.sleep(0.5)
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(0.5, remaining))
     return {
         "schema_version": 2,
         "verdict": "FAIL",
