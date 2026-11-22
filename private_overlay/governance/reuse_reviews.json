@@ -605,6 +605,41 @@
       ],
       "why_reuse_insufficient": "Native c3fc33ff is selected and reused. XiaoYu retains only the already-evidenced policy/compatibility responsibilities not supplied upstream; no new runtime or patch is introduced.",
       "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-c3fc33ff-promotion.json"
+    },
+    {
+      "id": "candidate:execution_plane/outbox_effect_state.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "NekoClaw's durable result outbox currently treats successful main-server transport handoff as delivery even though visible-effect receipt, main-restart reconciliation, and ambiguous-effect duplicate suppression are not yet durable.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O NekoClaw Ledger + OutboxSender",
+          "type": "native",
+          "outcome": "selected as the only commission/result durability authority; candidate extends its state semantics instead of introducing a XiaoYu ledger/outbox",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "N.E.K.O main event bus / ZeroMQ transport",
+          "type": "native",
+          "outcome": "retained as transport only; PUSH acceptance is insufficient as a user-visible effect receipt",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "XiaoYu second task ledger, queue, or delivery outbox",
+          "type": "private_duplicate",
+          "outcome": "rejected because it would violate the frozen single-authority architecture",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "Temporal/Restate/external workflow durability",
+          "type": "external",
+          "outcome": "not selected for this narrow gap because replacing the native commission/result authority would create dual authority; may remain useful for unrelated external workflows",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        }
+      ],
+      "why_reuse_insufficient": "The candidate reuses N.E.K.O's existing SQLite ledger, durable outbox, host retry loop, and main transport. The missing product primitive is a durable distinction between transport handoff, main effect claim, uncertain visible effect, and confirmed completion. No native extension point currently supplies that distinction.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
     }
   ]
 }
