@@ -390,6 +390,8 @@ class OverlayContractTests(unittest.TestCase):
         self.assertTrue(
             arch["private_core_patch_policy"]["retire_when_native_extension_exists"]
         )
+        retirement_evidence = arch["private_core_patch_policy"]["latest_retirement_audit"]
+        self.assertTrue((ROOT / retirement_evidence).is_file())
         forbidden = set(arch["forbidden_xiaoyu_duplicate_authorities"])
         self.assertTrue(
             {

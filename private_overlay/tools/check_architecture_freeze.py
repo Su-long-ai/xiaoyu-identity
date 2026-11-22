@@ -57,6 +57,9 @@ def main() -> int:
         raise SystemExit("native extension points must retire equivalent private patches")
     if int(patch_policy.get("max_managed_patch_budget", 999)) > 10:
         raise SystemExit("managed patch budget may not exceed 10")
+    retirement_evidence = str(patch_policy.get("latest_retirement_audit") or "")
+    if not retirement_evidence or not (ROOT / retirement_evidence).is_file():
+        raise SystemExit(f"latest patch-retirement audit missing: {retirement_evidence}")
     if arch.get("principles", {}).get("no_second_runtime") is not True:
         raise SystemExit("second XiaoYu runtime is forbidden")
 

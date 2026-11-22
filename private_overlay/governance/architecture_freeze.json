@@ -27,7 +27,8 @@
     "requires_reuse_review": true,
     "requires_reproduced_product_gap": true,
     "retire_when_native_extension_exists": true,
-    "max_managed_patch_budget": 10
+    "max_managed_patch_budget": 10,
+    "latest_retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v3.json"
   },
   "principles": {
     "no_second_runtime": true,

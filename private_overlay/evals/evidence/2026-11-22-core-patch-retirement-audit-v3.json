@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:49:00+08:00",
+  "scope": "Managed core patch retirement audit against N.E.K.O 99b479a0",
+  "live_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+  "upstream_candidate": "99b479a075f33b456458558cf220d430e7967a64",
+  "method": [
+    "Enumerate each managed patch's touched source files.",
+    "Intersect them with upstream file changes from 6fccfb72..99b479a0.",
+    "For every overlap, inspect the semantic diff rather than treating file overlap as replacement evidence.",
+    "Require equivalent behavior and acceptance evidence before retirement."
+  ],
+  "results": {
+    "0001-proactive-autostart-idle-gate.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change touches its authority path."
+    },
+    "0002-full-chat-native-voice-entry.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change touches its Full Chat voice-entry bridge."
+    },
+    "0003-qwen38-server-vad-reliability.patch": {
+      "upstream_file_overlap": [
+        "main_logic/omni_realtime_client/_transport.py"
+      ],
+      "verdict": "KEEP",
+      "reason": "The upstream overlap only changes image-description/legacy-vision wording and routing; it does not implement Qwen3.8 server-VAD reliability selection."
+    },
+    "0004-native-ingress-activity-before-backpressure.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change touches the pre-backpressure user-audio activity ordering."
+    },
+    "0005-latest-character-switch-intent-replay.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change touches the rapid character-switch intent replay path."
+    },
+    "0006-private-speech-output-gate.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change adds a synchronous whole-reply admission before text/TTS split."
+    },
+    "0007-private-first-round-tool-route.patch": {
+      "upstream_file_overlap": [
+        "main_logic/omni_offline_client/_streaming.py",
+        "main_logic/omni_offline_client/_tools.py"
+      ],
+      "verdict": "KEEP",
+      "reason": "The upstream overlap is exclusively chat-model image/legacy-vision behavior; it does not add per-turn first-round tool-choice arbitration."
+    },
+    "0008-qwen-clone-provider-routing.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change replaces paired Qwen clone routing/bundle semantics."
+    },
+    "0009-proactive-interruptibility-gate.patch": {
+      "upstream_file_overlap": [],
+      "verdict": "KEEP",
+      "reason": "No upstream change adds the missing final-delivery QUNS/latest-activity veto or equivalent interruptibility arbitration."
+    },
+    "0010-startup-event-loop-responsiveness.patch": {
+      "upstream_file_overlap": [
+        "app/main_server/__init__.py",
+        "app/memory_server/runtime.py"
+      ],
+      "verdict": "KEEP_STRONGLY_RECONFIRMED",
+      "reason": "The upstream overlap implements Steam late-init state safety and memory snapshot restore, not event-loop responsiveness. Latest clean 99b479a0 repeatedly fails its own 10-second server-start acceptance with startup stalls, independently reconfirming this patch's need.",
+      "corroborating_evidence": "evals/evidence/2026-11-22-neko-upstream-99b479a0-audit.json"
+    }
+  },
+  "summary": {
+    "retire": 0,
+    "keep": 10,
+    "new_private_patch_justified": false,
+    "decision": "KEEP_CURRENT_10_PATCH_SET; CONTINUE_RETIREMENT_ON_FUTURE_NATIVE_EQUIVALENTS_ONLY"
+  }
+}
