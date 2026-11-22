@@ -2276,74 +2276,75 @@
       "id": "governance:companion-runtime-plugin-process-soak-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "The existing read-only live companion soak records N.E.K.O endpoint health plus desktop/backend process CPU/RSS, but it cannot attribute plugin child PID/RSS/CPU or detect plugin PID churn across a long idle/use soak. Those metrics are required for plugin restore latency/reliability and resource-leak diagnosis.",
-      "decision": "thin_adapter",
+      "problem": "The live companion soak should attribute plugin child PID/RSS/CPU and detect PID churn without inventing a second process authority. Re-audit of the pinned N.E.K.O c3 contract found that the assumed host PID read surface is not actually exposed.",
+      "decision": "reuse_native",
       "candidates": [
         {
-          "name": "N.E.K.O /plugin/status host health",
+          "name": "N.E.K.O current pin c3 plugin summary/status + internal PluginHost health",
           "type": "native_current_pin",
-          "outcome": "selected as the sole plugin PID/liveness authority",
+          "outcome": "selected as authority, but current public read surfaces do not expose the internal host pid needed for per-plugin process attribution",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
           "name": "N.E.K.O latest upstream main",
           "type": "native_upstream",
-          "outcome": "checked and identical to current pin; no newer replacement needed",
+          "outcome": "checked and identical to c3; no newer native host-PID read seam exists",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
           "name": "existing optional psutil sampling",
           "type": "existing_external",
-          "outcome": "selected only for RSS/CPU sampling of native host-provided PIDs",
+          "outcome": "retained only for already-authoritative desktop/backend PIDs; rejected for discovering or attributing plugin identity without a host PID",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
-          "name": "new monitoring daemon / exporter / process scanner",
+          "name": "private health endpoint / process scanner / monitoring daemon",
           "type": "private_duplicate",
-          "outcome": "rejected; duplicates native lifecycle/process authority and adds long-running state",
+          "outcome": "rejected because it would manufacture a second plugin-process attribution or lifecycle authority",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "N.E.K.O already exposes trustworthy plugin pid/liveness and the existing soak already has psutil sampling. The only missing piece is a read-only join between those two existing surfaces plus summary math; no runtime service or new monitoring authority is needed.",
+      "why_reuse_insufficient": "N.E.K.O owns the exact process identity internally, but c3 does not expose that PID through /plugin/status or Plugin SDK, and the frontend-declared /plugin/{id}/health route is not mounted by the backend. A thin observer therefore cannot safely attribute per-plugin RSS/CPU yet. Do not replace this missing read seam with command-line/process-tree guessing or a private lifecycle endpoint.",
       "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json",
       "search_layers": {
         "L0_authority": {
           "status": "checked",
-          "outcome": "N.E.K.O remains plugin lifecycle/process authority; XiaoYu only observes native status.",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process identity authority; XiaoYu must not infer plugin identity from OS process discovery.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L1_neko_current_pin": {
           "status": "checked",
-          "outcome": "c3 /plugin/status and HealthCheckResponse provide pid/exitcode/liveness.",
+          "outcome": "c3 plugin summary/status expose runtime/status information, while PluginHost.health_check() contains pid internally; no mounted HTTP/SDK read surface joins those facts.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream main equals c3; no newer equivalent long-soak metrics surface is required.",
+          "outcome": "Latest upstream main equals c3 and still has no supported host-PID read seam.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L3_existing_pinned_external": {
           "status": "checked",
-          "outcome": "Existing optional psutil is already used by the soak and is reused only against host-provided PIDs.",
+          "outcome": "Existing psutil can sample a trusted PID but cannot become the authority that discovers which PID belongs to which N.E.K.O plugin.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L4_broader_external_ecosystem": {
           "status": "checked",
-          "outcome": "A new exporter/monitoring stack would add deployment/state complexity without improving N.E.K.O host authority; not selected.",
+          "outcome": "External supervisors/exporters observe OS processes but cannot preserve N.E.K.O plugin identity/admission/intent semantics, so they are not selected.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Selected: extend existing read-only soak parser/sampler/summary only.",
+          "outcome": "Blocked until N.E.K.O exposes a native host-derived plugin PID. No process-identity guess is admitted.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L6_private_implementation": {
           "status": "checked",
-          "outcome": "New daemon/watchdog/store/process-discovery service/runtime patch rejected.",
+          "outcome": "New endpoint/core patch/watchdog/daemon/store/process scanner remains rejected; metrics do not justify widening authority.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         }
       },
-      "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
+      "retirement_condition": "Re-evaluate this blocker when the pinned N.E.K.O version exposes host-derived plugin PID/exitcode through an existing supported native read surface or another already-admitted component becomes the process-identity authority.",
+      "promotion_policy": "BLOCKED_NATIVE_PID_SURFACE_NO_IMPLEMENTATION"
     }
   ],
   "hierarchy_policy": {
