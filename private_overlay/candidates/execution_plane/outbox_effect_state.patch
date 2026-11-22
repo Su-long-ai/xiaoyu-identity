@@ -1,0 +1,300 @@
+diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
+--- a/nekoclaw/host/ledger.py
++++ b/nekoclaw/host/ledger.py
+@@ -181,7 +181,10 @@
+ # The first version in which a commission is worked on in a session that is a
+ # row of its own; a ledger of an earlier one has its commissions given theirs.
+ _SESSIONS_SINCE_VERSION = 3
+-_BUSY_TIMEOUT_SECONDS = 5.0
++_BUSY_TIMEOUT_SECONDS = 5.0
++_OUTBOX_DELIVERY_HANDOFF = "delivery_handoff:"
++_OUTBOX_DELIVERY_CLAIMED = "delivery_claimed:"
++_OUTBOX_DELIVERY_UNCERTAIN = "delivery_uncertain:"
+ # In place of the number of a wake request, where the ledger was not opened
+ # yet when a stop of everything asked up to which one it is to drop
+ # (``Ledger.notes_mark``): all that is in the file when it is opened. This
+@@ -1146,8 +1149,27 @@
+         try:
+             conn.execute("UPDATE host_calls SET status='interrupted', ended_at=? WHERE status='running'",
+                          (self._clock(),))
+-            call_audit.reclaim(conn, self._clock())
+-            marks = ", ".join("?" for _ in LIVE_SESSION_STATUSES)
++            call_audit.reclaim(conn, self._clock())
++            # A main-server handoff is safe to retry after this host process
++            # restarts only until the main process durably claims it. Once
++            # claimed, a visible effect may already have happened, so the
++            # absence of a receipt is uncertainty, never evidence of failure.
++            conn.execute(
++                "UPDATE outbox SET last_error = 'delivery handoff interrupted before claim', "
++                "next_attempt_at = ? WHERE sent_at IS NULL AND last_error LIKE ?",
++                (self._clock(), _OUTBOX_DELIVERY_HANDOFF + "%"),
++            )
++            conn.execute(
++                "UPDATE outbox SET last_error = "
++                "REPLACE(last_error, ?, ?) "
++                "WHERE sent_at IS NULL AND last_error LIKE ?",
++                (
++                    _OUTBOX_DELIVERY_CLAIMED,
++                    _OUTBOX_DELIVERY_UNCERTAIN,
++                    _OUTBOX_DELIVERY_CLAIMED + "%",
++                ),
++            )
++            marks = ", ".join("?" for _ in LIVE_SESSION_STATUSES)
+             conn.execute(
+                 f"UPDATE sessions SET status = 'closed' WHERE status IN ({marks})", sorted(LIVE_SESSION_STATUSES)
+             )
+@@ -3734,7 +3756,12 @@
+         """Return unsent reports, oldest first; with ``due_by`` only those due by then."""
+ 
+         def work(conn: sqlite3.Connection) -> list[OutboxItem]:
+-            sql = "SELECT * FROM outbox WHERE sent_at IS NULL"
++            sql = (
++                "SELECT * FROM outbox WHERE sent_at IS NULL "
++                "AND last_error NOT LIKE 'delivery_handoff:%' "
++                "AND last_error NOT LIKE 'delivery_claimed:%' "
++                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++            )
+             params: list[Any] = []
+             if due_by is not None:
+                 sql += " AND next_attempt_at <= ?"
+@@ -3749,7 +3776,12 @@
+         """Return the earliest ``next_attempt_at`` of all unsent reports, or None."""
+ 
+         def work(conn: sqlite3.Connection) -> float | None:
+-            row = conn.execute("SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL").fetchone()
++            row = conn.execute(
++                "SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL "
++                "AND last_error NOT LIKE 'delivery_handoff:%' "
++                "AND last_error NOT LIKE 'delivery_claimed:%' "
++                "AND last_error NOT LIKE 'delivery_uncertain:%'"
++            ).fetchone()
+             return None if row is None or row["due"] is None else float(row["due"])
+ 
+         return await self.run(work)
+@@ -3778,14 +3810,77 @@
+         """Remove an unsent report that is out of date."""
+         await self.run(lambda conn: conn.execute("DELETE FROM outbox WHERE id = ? AND sent_at IS NULL", (item_id,)))
+ 
+-    async def outbox_mark_sent(self, item_id: int) -> None:
+-        await self.run(
+-            lambda conn: conn.execute(
+-                "UPDATE outbox SET sent_at = ?, attempts = attempts + 1, last_error = NULL WHERE id = ?",
+-                (self._clock(), item_id),
+-            )
+-            and None
+-        )
++    async def outbox_mark_handoff(self, item_id: int, attempt_id: str) -> None:
++        """Hold a row after IPC handoff until main claims the visible effect."""
++        await self.run(
++            lambda conn: conn.execute(
++                "UPDATE outbox SET last_error = ?, next_attempt_at = ? "
++                "WHERE id = ? AND sent_at IS NULL",
++                (_OUTBOX_DELIVERY_HANDOFF + str(attempt_id), self._clock(), item_id),
++            )
++            and None
++        )
++
++    async def outbox_claim_delivery(self, item_id: int, attempt_id: str) -> str:
++        """Claim the effect boundary for one handoff; idempotent for its attempt."""
++        handoff = _OUTBOX_DELIVERY_HANDOFF + str(attempt_id)
++        claimed = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id)
++
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute(
++                "SELECT sent_at, last_error FROM outbox WHERE id = ?",
++                (item_id,),
++            ).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            state = str(row["last_error"] or "")
++            if state == handoff:
++                conn.execute(
++                    "UPDATE outbox SET last_error = ? WHERE id = ? AND sent_at IS NULL AND last_error = ?",
++                    (claimed, item_id, handoff),
++                )
++                return "claimed"
++            if state == claimed:
++                return "claimed"
++            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
++                return "uncertain"
++            return "not_ready"
++
++        return await self.run(work)
++
++    async def outbox_mark_sent(self, item_id: int) -> None:
++        await self.run(
++            lambda conn: conn.execute(
++                "UPDATE outbox SET sent_at = ?, attempts = attempts + 1, last_error = NULL "
++                "WHERE id = ? AND sent_at IS NULL",
++                (self._clock(), item_id),
++            )
++            and None
++        )
++
++    async def outbox_delivery_state(self, item_id: int) -> str:
++        """Return the durable delivery state without making an effect decision."""
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute(
++                "SELECT sent_at, last_error FROM outbox WHERE id = ?",
++                (item_id,),
++            ).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            state = str(row["last_error"] or "")
++            if state.startswith(_OUTBOX_DELIVERY_HANDOFF):
++                return "handoff"
++            if state.startswith(_OUTBOX_DELIVERY_CLAIMED):
++                return "claimed"
++            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
++                return "uncertain"
++            return "pending"
++
++        return await self.run(work)
+ 
+     async def outbox_mark_failed(self, item_id: int, error: str, next_attempt_at: float) -> None:
+         await self.run(
+diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
+--- a/nekoclaw/host/outbox.py
++++ b/nekoclaw/host/outbox.py
+@@ -35,10 +35,11 @@
+ 
+ from __future__ import annotations
+ 
+-import asyncio
+-import logging
+-import time
+-from collections.abc import Awaitable, Callable
++import asyncio
++import logging
++import time
++from collections.abc import Awaitable, Callable
++from dataclasses import dataclass
+ 
+ from nekoclaw.host.ledger import Ledger, OutboxItem
+ 
+@@ -44,8 +45,16 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
+-# Returns True when the main server took the report.
+-SendReport = Callable[[OutboxItem], Awaitable[bool]]
++@dataclass(frozen=True, slots=True)
++class DeliveryHandoff:
++    """The transport accepted a row; only a later effect receipt may finish it."""
++
++    attempt_id: str
++
++
++# Bool keeps every existing sender compatible. DeliveryHandoff is used only
++# when the main server owns the eventual user-visible effect.
++SendReport = Callable[[OutboxItem], Awaitable[bool | DeliveryHandoff]]
+ 
+ # Far beyond any sensible maximum wait, and still a finite float.
+ _MAX_EXPONENT = 60
+@@ -113,21 +122,27 @@
+                     # nothing removed it: out of date, and dropped here.
+                     await self._ledger.outbox_drop(item.id)
+                     continue
+-            try:
+-                accepted = bool(await send(item))
+-                error = "" if accepted else "not accepted"
+-            except asyncio.CancelledError:
+-                raise
+-            except Exception as exc:  # noqa: BLE001 - a failed send is retried later
+-                accepted = False
+-                error = f"{type(exc).__name__}: {exc}"
+-            if accepted:
+-                await self._ledger.outbox_mark_sent(item.id)
+-                delivered += 1
+-            else:
+-                attempts = item.attempts + 1
+-                await self._ledger.outbox_mark_failed(item.id, error, self._clock() + retry_delay(attempts))
+-                logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
++            try:
++                result = await send(item)
++                if isinstance(result, DeliveryHandoff):
++                    # Do not call this delivered. Main must first claim the
++                    # effect boundary and later persist an effect receipt.
++                    await self._ledger.outbox_mark_handoff(item.id, result.attempt_id)
++                    continue
++                accepted = bool(result)
++                error = "" if accepted else "not accepted"
++            except asyncio.CancelledError:
++                raise
++            except Exception as exc:  # noqa: BLE001 - a failed send is retried later
++                accepted = False
++                error = f"{type(exc).__name__}: {exc}"
++            if accepted:
++                await self._ledger.outbox_mark_sent(item.id)
++                delivered += 1
++            else:
++                attempts = item.attempts + 1
++                await self._ledger.outbox_mark_failed(item.id, error, self._clock() + retry_delay(attempts))
++                logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
+         return delivered
+ 
+     async def _run(self) -> None:
+diff --git a/tests/unit/nekoclaw/test_host_robustness.py b/tests/unit/nekoclaw/test_host_robustness.py
+--- a/tests/unit/nekoclaw/test_host_robustness.py
++++ b/tests/unit/nekoclaw/test_host_robustness.py
+@@ -28,7 +28,7 @@
+ 
+ from nekoclaw.host import outbox as outbox_module
+ from nekoclaw.host.ledger import Ledger
+-from nekoclaw.host.outbox import OutboxSender, retry_delay
++from nekoclaw.host.outbox import DeliveryHandoff, OutboxSender, retry_delay
+ from nekoclaw.host.paths import HostPaths
+ from nekoclaw.host.permissions import (
+     DEFAULT_MODES,
+@@ -250,9 +250,44 @@
+ # ---------------------------------------------------------------------------
+ 
+ 
+-def test_retry_delay_does_not_overflow_after_many_failures():
+-    assert retry_delay(1025) == 300.0
+-    assert retry_delay(10**6) == 300.0
++def test_retry_delay_does_not_overflow_after_many_failures():
++    assert retry_delay(1025) == 300.0
++    assert retry_delay(10**6) == 300.0
++
++
++async def test_effect_handoff_is_not_mistaken_for_delivery(ledger):
++    item_id = await ledger.outbox_add(None, "task_result", {"summary": "done"})
++
++    async def send(_item: Any):
++        return DeliveryHandoff("attempt-a")
++
++    sender = OutboxSender(ledger, send, clock=time.time)
++    delivered = await sender.flush()
++
++    assert delivered == 0
++    assert await ledger.outbox_delivery_state(item_id) == "handoff"
++    assert await ledger.outbox_pending() == []
++    assert await ledger.outbox_next_due() is None
++
++
++async def test_restart_retries_preclaim_handoff_but_freezes_claimed_effect(tmp_path):
++    path = tmp_path / "effect-ledger.db"
++    first = Ledger(path)
++    safe = await first.outbox_add(None, "task_result", {"summary": "safe"})
++    risky = await first.outbox_add(None, "task_result", {"summary": "risky"})
++    await first.outbox_mark_handoff(safe, "safe-attempt")
++    await first.outbox_mark_handoff(risky, "risky-attempt")
++    assert await first.outbox_claim_delivery(risky, "risky-attempt") == "claimed"
++    await first.close()
++
++    second = Ledger(path)
++    try:
++        await second.open()
++        assert await second.outbox_delivery_state(safe) == "pending"
++        assert await second.outbox_delivery_state(risky) == "uncertain"
++        assert [item.id for item in await second.outbox_pending()] == [safe]
++    finally:
++        await second.close()
+ 
+ 
+ async def test_a_question_read_before_its_commission_stopped_waiting_is_not_sent(ledger):
