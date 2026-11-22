@@ -939,7 +939,7 @@
       "id": "governance:qq-surface-push-regression-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "The pinned QQ surface already has the required delivery/floor/reconnect/catch-up regression tests, but XiaoYu must ensure ordinary agent/** cloud CI and local release execute the same stable pinned-base behavior before any inbound-idempotency candidate is applied.",
+      "problem": "The pinned QQ surface already has the required delivery/floor/reconnect/catch-up/identity-context regression tests, but XiaoYu must ensure ordinary agent/** cloud CI and local release execute the stable pinned-base behavior before any inbound-idempotency candidate is applied.",
       "decision": "thin_adapter",
       "candidates": [
         {
@@ -985,7 +985,7 @@
           "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "All runtime and test capabilities already exist. The residual gap is CI wiring: the frozen pinned QQ product suite must include the existing catch-up/reconnect regression file and execute it against the unmodified pinned base before the candidate patch step. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
+      "why_reuse_insufficient": "All QQ runtime, host-persona, live-binding and owner/account identity capabilities already exist in the pinned external component. The residual gap is CI wiring: stable pinned-base product acceptance must execute a bounded targeted identity/context set before any candidate patch. No new QQ runtime, persona prompt, identity store, transport, router or daemon is justified.",
       "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json",
       "search_layers": {
         "L0_authority": {
@@ -1029,6 +1029,26 @@
         "selected_existing_test": "tests/test_qq_catchup.py",
         "implementation": "add the same pinned file to cloud QQ surface suite and local $QQSurfaceTests before the candidate step",
         "no_runtime_change": true
+      },
+      "identity_context_extension_2026_11_23": {
+        "gap": "Pinned qq_auto_reply has native regressions for live character/context revocation, host persona reuse, per-turn group owner identity and account identity, but XiaoYu product acceptance currently executes none of those files.",
+        "selected_existing_tests": [
+          "tests/test_companion_context.py::test_live_binding_revocation",
+          "tests/test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token",
+          "tests/test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft",
+          "tests/test_companion_context.py::test_external_section_is_never_frozen_in_session_base",
+          "tests/test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt",
+          "tests/test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper",
+          "tests/test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity",
+          "tests/test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await",
+          "tests/test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn",
+          "tests/test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration",
+          "tests/test_account_identity.py::test_only_live_onebot_identity_is_shared"
+        ],
+        "implementation_plan": "Run only targeted native nodes in a separate stable pinned-base QQ identity/context step and mirrored local release target list. Keep the broader file-level QQSurfaceTests unchanged and add cloud/local target parity.",
+        "no_runtime_change": true,
+        "no_persona_prompt_copy": true,
+        "no_second_identity_store": true
       }
     },
     {

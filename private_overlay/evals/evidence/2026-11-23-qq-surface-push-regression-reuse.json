@@ -123,5 +123,53 @@
       "before_candidate_patch": true,
       "branch_ref_moved": false
     }
-  }
+  },
+  "identity_context_extension": {
+    "selected_existing_tests": [
+      "tests/test_companion_context.py::test_live_binding_revocation",
+      "tests/test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token",
+      "tests/test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft",
+      "tests/test_companion_context.py::test_external_section_is_never_frozen_in_session_base",
+      "tests/test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt",
+      "tests/test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper",
+      "tests/test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity",
+      "tests/test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await",
+      "tests/test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn",
+      "tests/test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration",
+      "tests/test_account_identity.py::test_only_live_onebot_identity_is_shared"
+    ],
+    "run_on_unmodified_pinned_base": true,
+    "candidate_step_remains_separate": true,
+    "protected_product_risks": [
+      "character/provider/context rebinding leaves an old QQ companion token valid",
+      "a buffered old draft resurrects after character/context rebinding",
+      "QQ self-built free-route requests fork a second persona instead of reading host persona",
+      "a group speaker inherits the prior speaker's owner identity",
+      "owner revocation during an await is ignored",
+      "a shared group session freezes the previous turn's identity",
+      "private companion configuration leaks into group owner identity",
+      "offline/error/non-OneBot account state is exposed as a live QQ account identity"
+    ],
+    "implementation_constraints": {
+      "targeted_nodes_only": true,
+      "no_runtime_change": true,
+      "no_prompt_copy": true,
+      "no_identity_store": true,
+      "no_transport_change": true
+    },
+    "implementation_status": "REVIEWED_PENDING_CANDIDATE_IMPLEMENTATION"
+  },
+  "authoritative_targeted_identity_tests": [
+    "tests/test_companion_context.py::test_live_binding_revocation",
+    "tests/test_companion_context.py::test_generation_and_both_delivery_paths_recheck_same_token",
+    "tests/test_companion_context.py::test_buffer_union_and_rebinding_never_resurrect_old_draft",
+    "tests/test_companion_context.py::test_external_section_is_never_frozen_in_session_base",
+    "tests/test_qq_free_route_persona.py::test_persona_comes_from_the_host_not_from_a_new_prompt",
+    "tests/test_qq_free_route_persona.py::test_every_self_built_request_asks_the_shared_helper",
+    "tests/test_group_owner_identity.py::test_switching_speaker_does_not_inherit_owner_identity",
+    "tests/test_group_owner_identity.py::test_revoked_owner_is_rechecked_after_await",
+    "tests/test_group_owner_identity.py::test_shared_session_refreshes_identity_for_each_turn",
+    "tests/test_group_owner_identity.py::test_identity_never_uses_private_companion_configuration",
+    "tests/test_account_identity.py::test_only_live_onebot_identity_is_shared"
+  ]
 }
