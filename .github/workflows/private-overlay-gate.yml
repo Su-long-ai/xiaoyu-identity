@@ -222,6 +222,18 @@ jobs:
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
 
+      - name: Probe native host-restart commission continuity gap
+        run: |
+          python private_overlay/candidates/execution_plane/probe_host_restart_continuity_gap.py --neko-root _neko_upstream
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed
+
       - name: Exercise native dsh optional-runtime product acceptance
         run: |
           python -m pip install -q uv
