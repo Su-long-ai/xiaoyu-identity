@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_AGENT_MASTER_READINESS_NATIVE_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "product_base": "62f4cb9e546b79ca42cbcf6cdbadc229c93ff6a4",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "goal": "Make Agent enablement product-ready without introducing a XiaoYu runtime/config/permission authority.",
+  "native_findings": [
+    {
+      "surface": "app/agent_server/api_runtime.py::_check_agent_api_gate + _console_switches",
+      "finding": "Native switch snapshot already exposes master enabled state, persisted sub-flags, model/API gate reasons, capability readiness, model-image readiness and HUD preference."
+    },
+    {
+      "surface": "app/agent_server/api_console.py::/console/switches",
+      "finding": "Read-only authenticated console route exposes the native switch snapshot without consuming a capability or changing state."
+    },
+    {
+      "surface": "app/agent_server/api_console.py::/console/runtime",
+      "finding": "Read-only authenticated route exposes dsh supported/installed/downloading/error/preference/in-use/session state and plugin inventory. Install/uninstall remain separate explicit POST actions."
+    },
+    {
+      "surface": "app/agent_server/api_console.py::/console/permissions",
+      "finding": "Read-only authenticated route exposes native PermissionStore version, unreadable state, categories, configured modes and resolved auto policy."
+    },
+    {
+      "surface": "app/agent_runtime_intent.py + api_routes.py restore path",
+      "finding": "Native persisted intent is restored through the same set_agent_enabled/set_agent_flags code paths, preserving capability checks and user-visible auto-disable reasons instead of bypassing readiness."
+    },
+    {
+      "surface": "plugin/server/routes/console_proxy.py + main /api/agent/command",
+      "finding": "Console power changes are already routed through the main server so sessions stay synchronized; a XiaoYu side-channel switch would duplicate authority."
+    },
+    {
+      "surface": "frontend/plugin-manager Power UI",
+      "finding": "Native UI already renders gate/capability reasons and maps console refusal codes; PowerBar waits for setPower and surfaces failures."
+    },
+    {
+      "surface": "NekoClaw built-in runtime + dsh optional seam",
+      "finding": "Built-in runtime remains default. dsh is detectable and status-readable without installation; installation is an explicit user action and must not be performed by readiness probing."
+    }
+  ],
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin",
+      "outcome": "selected",
+      "reason": "Already owns master switch, model/API gate, capability status, runtime status, permissions, restart intent and UI failure reasons."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream",
+      "outcome": "same_as_pin",
+      "reason": "Upstream main resolves to the pinned c3fc33ff commit; no newer readiness API needs migration."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O Plugin SDK / NekoClaw / MCP / native delivery",
+      "outcome": "reuse_existing_boundaries",
+      "reason": "Capability/plugin/MCP readiness remains owned by native host and permission gate; preflight must only observe those states."
+    },
+    {
+      "order": 4,
+      "candidate": "Current pinned external components",
+      "outcome": "not_applicable",
+      "reason": "No pinned connector is authoritative for Agent master or NekoClaw runtime readiness."
+    },
+    {
+      "order": 5,
+      "candidate": "Mature external agent/workflow runtimes",
+      "outcome": "rejected_for_readiness",
+      "reason": "Introducing another orchestrator/readiness authority would violate the frozen single-runtime architecture and cannot improve native switch/capability truth."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin XiaoYu runtime adapter",
+      "outcome": "rejected",
+      "reason": "The required information is already available through native read-only console surfaces; no adapter/state store/router/daemon is necessary."
+    },
+    {
+      "order": 7,
+      "candidate": "Managed patch/private implementation",
+      "outcome": "rejected",
+      "reason": "No reproduced native acceptance gap currently requires a core patch."
+    }
+  ],
+  "decision": {
+    "kind": "reuse_native",
+    "runtime_changes": false,
+    "state_changes": false,
+    "preflight_may_enable_agent": false,
+    "preflight_may_install_dsh": false,
+    "preflight_may_mutate_permissions": false,
+    "selected_read_surfaces": [
+      "/console/switches",
+      "/console/runtime",
+      "/console/permissions"
+    ],
+    "selected_enable_surface": "existing /console/switch -> main /api/agent/command path only"
+  },
+  "acceptance_targets": [
+    "master-off readiness inspection performs no state mutation",
+    "agent model/API configuration failures expose stable native reason codes",
+    "computer and browser capability readiness remains native and independently visible",
+    "permission store unreadable/version/modes are visible before execution",
+    "built-in runtime is usable without dsh",
+    "dsh missing is reported but never installed by preflight",
+    "restart intent re-enters the same native enable/capability gates",
+    "enable failure is surfaced to the product UI instead of silently toggling state",
+    "no XiaoYu switch store, permission store, runtime router, daemon or model probe is introduced"
+  ],
+  "retirement_condition": "Retire overlay readiness acceptance wiring when the pinned N.E.K.O release itself ships and gates an equivalent single product-level Agent readiness acceptance suite."
+}
