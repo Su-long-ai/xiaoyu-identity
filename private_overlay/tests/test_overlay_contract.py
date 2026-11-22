@@ -563,6 +563,41 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_qq_inbound_idempotency_candidate_is_reviewed_but_not_live(self):
+        candidate = ROOT / "candidates" / "qq" / "live_inbound_idempotency.patch"
+        self.assertTrue(candidate.is_file())
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review_id = "candidate:qq/live_inbound_idempotency.patch"
+        self.assertIn(review_id, by_id)
+        self.assertEqual(by_id[review_id]["status"], "approved")
+
+        qq_lock = json.loads(
+            (ROOT / "QQ_PLUGIN_UPSTREAM.lock.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertFalse(qq_lock["core_patch_required"])
+        self.assertFalse(
+            bool(qq_lock.get("external_patch_required")),
+            "QQ inbound idempotency must remain candidate-only until patched tests and live replay evidence close",
+        )
+        self.assertFalse((ROOT / "qq_patches" / "series.json").is_file())
+
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "live_inbound_idempotency.patch",
+            "54acf36bf978edad4757e5fffc743c5618360700",
+            "test_qq_catchup.py",
+            "git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check",
+        ):
+            self.assertIn(required, workflow)
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
