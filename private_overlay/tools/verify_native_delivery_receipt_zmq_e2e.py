@@ -105,6 +105,8 @@ async def _run(root: Path) -> None:
     bridge_holder: dict[str, Any] = {}
     main_events: list[dict[str, Any]] = []
     observed_epochs: list[str] = []
+    drop_first_commit_ack_for: set[int] = set()
+    dropped_commit_ack_for: set[int] = set()
 
     with tempfile.TemporaryDirectory() as td:
         ledger = Ledger(Path(td) / "receipt-zmq-e2e.db")
@@ -124,6 +126,23 @@ async def _run(root: Path) -> None:
         async def on_agent_event(event: dict[str, Any]):
             main_events.append(dict(event))
             if event.get("event_type") == "nekoclaw_delivery_barrier_ack":
+                raw_delivery_id = event.get("delivery_id")
+                delivery_id = (
+                    int(raw_delivery_id)
+                    if raw_delivery_id is not None and not isinstance(raw_delivery_id, bool)
+                    else -1
+                )
+                if (
+                    str(event.get("action") or "") == "commit"
+                    and delivery_id in drop_first_commit_ack_for
+                    and delivery_id not in dropped_commit_ack_for
+                ):
+                    # Simulate the only ambiguous transport case that matters:
+                    # the agent durably committed the receipt, but main lost
+                    # that first ACK. The native retry must reuse the same
+                    # event/claim and observe terminal "sent".
+                    dropped_commit_ack_for.add(delivery_id)
+                    return
                 bus.notify_nekoclaw_delivery_barrier_ack(
                     str(event.get("event_id") or ""),
                     str(event.get("result") or ""),
@@ -330,6 +349,54 @@ async def _run(root: Path) -> None:
                 == "released"
             )
             assert await ledger.outbox_delivery_state(fourth) == "pending"
+
+            # Commit ACK loss after the durable commit must be idempotent. Drop
+            # the first ACK at main while allowing the agent to persist
+            # claimed -> sent, then let the native barrier retry the same
+            # event_id/exact claim. The retry must return terminal "sent".
+            fifth = await ledger.outbox_add(
+                None, "task_result", {"summary": "commit-ack-loss-idempotent"}
+            )
+            assert await ledger.outbox_mark_handoff(fifth, "attempt-ack-loss")
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "claim",
+                    fifth,
+                    "attempt-ack-loss",
+                    "claim-ack-loss",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "claimed"
+            )
+            assert await ledger.outbox_delivery_state(fifth) == "claimed"
+            drop_first_commit_ack_for.add(fifth)
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "commit",
+                    fifth,
+                    "attempt-ack-loss",
+                    "claim-ack-loss",
+                    ack_timeout_s=0.12,
+                    retries=1,
+                )
+                == "sent"
+            )
+            assert fifth in dropped_commit_ack_for
+            assert await ledger.outbox_delivery_state(fifth) == "sent"
+            commit_acks = [
+                e
+                for e in main_events
+                if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                and str(e.get("action") or "") == "commit"
+                and int(e.get("delivery_id") or -1) == fifth
+            ]
+            assert len(commit_acks) == 2
+            assert [str(e.get("result") or "") for e in commit_acks] == [
+                "committed",
+                "sent",
+            ]
+            assert len({str(e.get("event_id") or "") for e in commit_acks}) == 1
 
             ack_events = [
                 e
