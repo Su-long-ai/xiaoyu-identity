@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_COMPANION_SWITCH_RELEASE_GATE_20261123",
+  "recorded_at_local": "2026-11-23T00:46:00+08:00",
+  "neko": {
+    "tested_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "upstream_main_at_audit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "upstream_drift": false
+  },
+  "reuse_verdict": "REUSE_NATIVE_TESTED_OWNERSHIP; NO_NEW_SWITCH_RUNTIME_OR_PATCH",
+  "observations": [
+    "character switch frontend cancels assistant speech at switch start and retires the old socket",
+    "server publication already uses speech-id/reply-owner ownership guards",
+    "managed patch 0005 is limited to avatar/model latest-intent and rollback recovery; no evidence justified widening it into a delivery authority",
+    "native N.E.K.O already carries focused race tests for character switch, voice identity, TTS generation ownership, proactive SID ownership, avatar/audio ownership and voice recovery/preview races"
+  ],
+  "release_gate": {
+    "startup_preflight_runs_suite": false,
+    "python_tests": [
+      "tests/unit/test_character_switch_queue.py",
+      "tests/unit/test_character_runtime_voice_identity.py",
+      "tests/unit/test_model_switch_keeps_live_budget.py",
+      "tests/unit/test_cosyvoice_audio_done_generation.py",
+      "tests/unit/test_proactive_sid_guard.py",
+      "tests/unit/test_assistant_speech_finalize_static.py"
+    ],
+    "node_tests": [
+      "tests/frontend/chat_avatar_integration.test.cjs",
+      "tests/frontend/live2d_audio_ownership.test.cjs",
+      "tests/frontend/assistant-audio-lifecycle.test.cjs",
+      "tests/frontend/voice_recovery_races.cjs",
+      "tests/frontend/voice_preview_races.cjs"
+    ]
+  },
+  "verification": {
+    "source_audit": "PASS",
+    "upstream_pin_check": "PASS_IDENTICAL",
+    "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "note": "The executable gate is committed but this expanded slice has not yet been run locally because the Local Operator tunnel remains offline."
+  }
+}
