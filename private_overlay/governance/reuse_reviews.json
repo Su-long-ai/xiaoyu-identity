@@ -853,6 +853,37 @@
       ],
       "why_reuse_insufficient": "Native N.E.K.O already owns the runtime and the targeted race/ownership tests. The residual gap is only that XiaoYu cloud pushes do not apply the existing managed patch series before executing those native tests. A thin CI worktree replay is sufficient and avoids a second runtime, router, state store, daemon or test framework.",
       "acceptance_evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+    },
+    {
+      "id": "governance:startup-powershell-parse-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The product push gate compiles Python and exercises runtime candidates but does not parse XiaoYu's PowerShell product entrypoints. A syntax regression in one-click/startup/setup/shortcut/release scripts can therefore survive cloud development until the Windows machine is used.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin/latest upstream",
+          "type": "native_upstream",
+          "outcome": "runtime authority retained; no overlay PowerShell syntax admission seam"
+        },
+        {
+          "name": "Historical companion runtime PowerShell parse",
+          "type": "existing_governance",
+          "outcome": "selected pattern"
+        },
+        {
+          "name": "System.Management.Automation.Language.Parser",
+          "type": "native_tooling",
+          "outcome": "selected"
+        },
+        {
+          "name": "PSScriptAnalyzer/custom parser",
+          "type": "external_or_private_tooling",
+          "outcome": "rejected as unnecessary"
+        }
+      ],
+      "why_reuse_insufficient": "The parser already exists and is reused directly; the only missing product behavior is wiring it into the current global push gate for all overlay PowerShell entrypoints.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
     }
   ]
 }

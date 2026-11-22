@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_STARTUP_POWERSHELL_PARSE_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:19:00+08:00",
+  "implementation_status": "REVIEW_ONLY_BEFORE_CODE",
+  "problem": "The product push gate compiles Python and exercises runtime candidates but does not parse XiaoYu's PowerShell product entrypoints. A syntax regression in one-click/startup/setup/shortcut/release scripts can therefore survive cloud development until the Windows machine is used.",
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin c3fc33ff / latest upstream",
+      "outcome": "checked; N.E.K.O remains launcher/runtime authority but cannot syntax-validate XiaoYu overlay PowerShell files"
+    },
+    {
+      "order": 2,
+      "candidate": "Historical companion-runtime-overlay.yml PowerShell parse step",
+      "outcome": "selected as existing proven pattern",
+      "evidence": "commit 4ad80d962af6c003ce0d3ab0a71255e6c1026fec used System.Management.Automation.Language.Parser on start_xiaoyu_oneclick.ps1"
+    },
+    {
+      "order": 3,
+      "candidate": "PowerShell built-in System.Management.Automation.Language.Parser",
+      "outcome": "selected; native parser, no new lint/runtime dependency"
+    },
+    {
+      "order": 4,
+      "candidate": "PSScriptAnalyzer or custom parser/test framework",
+      "outcome": "rejected; unnecessary for syntax admission and would add another dependency/framework"
+    }
+  ],
+  "decision": "Extend the existing private-overlay-gate with the built-in PowerShell parser and scan every private_overlay/tools/*.ps1 product script. Do not execute Windows-only effects in cloud CI and do not create a second startup framework.",
+  "constraints": {
+    "syntax_only": true,
+    "execute_windows_effects": false,
+    "new_test_framework": false,
+    "new_runtime": false,
+    "startup_runtime_cost": 0,
+    "fail_closed_ci": true
+  },
+  "acceptance": [
+    "GitHub push gate fails on any parser error in private_overlay/tools/*.ps1",
+    "all discovered PowerShell scripts are parsed instead of maintaining a second hard-coded list",
+    "overlay contract test prevents silent removal of the parse step"
+  ],
+  "retirement_condition": "Retire this overlay parse step only when XiaoYu no longer owns PowerShell product entrypoints or an equivalent existing product gate parses the same files."
+}
