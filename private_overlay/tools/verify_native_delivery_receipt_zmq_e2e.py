@@ -47,6 +47,7 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
     module = ast.parse(source)
     wanted = {
         "_observe_nekoclaw_main_epoch",
+        "_observe_nekoclaw_main_epoch_locked",
         "_handle_nekoclaw_delivery_barrier",
     }
     body = [
@@ -76,6 +77,7 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
         "_emit_main_event": emit_main_event,
         "_nekoclaw_main_epoch": None,
         "_nekoclaw_retired_main_epochs": set(),
+        "_nekoclaw_main_epoch_lock": asyncio.Lock(),
     }
     helper_module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(helper_module)
