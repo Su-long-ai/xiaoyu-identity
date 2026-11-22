@@ -47,6 +47,7 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
     module = ast.parse(source)
     wanted = {
         "_observe_nekoclaw_main_epoch",
+        "_observe_nekoclaw_main_epoch_locked",
         "_handle_nekoclaw_delivery_barrier",
     }
     body = [
@@ -75,6 +76,8 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
         "ready_host": ready_host,
         "_emit_main_event": emit_main_event,
         "_nekoclaw_main_epoch": None,
+        "_nekoclaw_retired_main_epochs": set(),
+        "_nekoclaw_main_epoch_lock": asyncio.Lock(),
     }
     helper_module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(helper_module)
@@ -102,6 +105,8 @@ async def _run(root: Path) -> None:
     bridge_holder: dict[str, Any] = {}
     main_events: list[dict[str, Any]] = []
     observed_epochs: list[str] = []
+    drop_first_commit_ack_for: set[int] = set()
+    dropped_commit_ack_for: set[int] = set()
 
     with tempfile.TemporaryDirectory() as td:
         ledger = Ledger(Path(td) / "receipt-zmq-e2e.db")
@@ -121,6 +126,23 @@ async def _run(root: Path) -> None:
         async def on_agent_event(event: dict[str, Any]):
             main_events.append(dict(event))
             if event.get("event_type") == "nekoclaw_delivery_barrier_ack":
+                raw_delivery_id = event.get("delivery_id")
+                delivery_id = (
+                    int(raw_delivery_id)
+                    if raw_delivery_id is not None and not isinstance(raw_delivery_id, bool)
+                    else -1
+                )
+                if (
+                    str(event.get("action") or "") == "commit"
+                    and delivery_id in drop_first_commit_ack_for
+                    and delivery_id not in dropped_commit_ack_for
+                ):
+                    # Simulate the only ambiguous transport case that matters:
+                    # the agent durably committed the receipt, but main lost
+                    # that first ACK. The native retry must reuse the same
+                    # event/claim and observe terminal "sent".
+                    dropped_commit_ack_for.add(delivery_id)
+                    return
                 bus.notify_nekoclaw_delivery_barrier_ack(
                     str(event.get("event_id") or ""),
                     str(event.get("result") or ""),
@@ -264,16 +286,129 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_delivery_state(third) == "pending"
 
+            # A delayed barrier from the retired main process must be rejected
+            # over the real native ZMQ path before it can claim effect rights.
+            fourth = await ledger.outbox_add(
+                None, "task_result", {"summary": "retired-epoch-must-not-effect"}
+            )
+            assert await ledger.outbox_mark_handoff(fourth, "attempt-fresh")
+            stale_event_id = "stale-main-claim"
+            assert await restarted_main.publish_analyze_request(
+                {
+                    "event_type": "nekoclaw_delivery_barrier",
+                    "event_id": stale_event_id,
+                    "main_epoch": old_epoch,
+                    "action": "claim",
+                    "delivery_id": fourth,
+                    "delivery_attempt_id": "attempt-old-main",
+                    "delivery_claim_id": "claim-old-main",
+                }
+            )
+
+            async def stale_ack():
+                return next(
+                    (
+                        e
+                        for e in reversed(main_events)
+                        if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                        and e.get("event_id") == stale_event_id
+                    ),
+                    None,
+                )
+
+            stale = await _wait_until(stale_ack)
+            assert stale.get("result") == "stale_epoch"
+            # The retired process must not mutate the current durable handoff.
+            assert await ledger.outbox_delivery_state(fourth) == "handoff"
+            assert handlers["_nekoclaw_main_epoch"] == restarted_main.instance_id
+            assert old_epoch in handlers["_nekoclaw_retired_main_epochs"]
+
+            # The live epoch can still claim the same handoff row, proving that
+            # rejecting the retired process does not wedge valid delivery.
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "claim",
+                    fourth,
+                    "attempt-fresh",
+                    "claim-fresh",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "claimed"
+            )
+            assert await ledger.outbox_delivery_state(fourth) == "claimed"
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "release",
+                    fourth,
+                    "attempt-fresh",
+                    "claim-fresh",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "released"
+            )
+            assert await ledger.outbox_delivery_state(fourth) == "pending"
+
+            # Commit ACK loss after the durable commit must be idempotent. Drop
+            # the first ACK at main while allowing the agent to persist
+            # claimed -> sent, then let the native barrier retry the same
+            # event_id/exact claim. The retry must return terminal "sent".
+            fifth = await ledger.outbox_add(
+                None, "task_result", {"summary": "commit-ack-loss-idempotent"}
+            )
+            assert await ledger.outbox_mark_handoff(fifth, "attempt-ack-loss")
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "claim",
+                    fifth,
+                    "attempt-ack-loss",
+                    "claim-ack-loss",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "claimed"
+            )
+            assert await ledger.outbox_delivery_state(fifth) == "claimed"
+            drop_first_commit_ack_for.add(fifth)
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "commit",
+                    fifth,
+                    "attempt-ack-loss",
+                    "claim-ack-loss",
+                    ack_timeout_s=0.12,
+                    retries=1,
+                )
+                == "sent"
+            )
+            assert fifth in dropped_commit_ack_for
+            assert await ledger.outbox_delivery_state(fifth) == "sent"
+            commit_acks = [
+                e
+                for e in main_events
+                if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                and str(e.get("action") or "") == "commit"
+                and int(e.get("delivery_id") or -1) == fifth
+            ]
+            assert len(commit_acks) == 2
+            assert [str(e.get("result") or "") for e in commit_acks] == [
+                "committed",
+                "sent",
+            ]
+            assert len({str(e.get("event_id") or "") for e in commit_acks}) == 1
+
             ack_events = [
                 e
                 for e in main_events
                 if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
             ]
-            assert len(ack_events) >= 5
+            assert len(ack_events) >= 8
             assert {str(e.get("result") or "") for e in ack_events} >= {
                 "claimed",
                 "committed",
                 "released",
+                "stale_epoch",
             }
         finally:
             bus.set_main_bridge(None)
