@@ -1118,3 +1118,648 @@ index 00000000..829a5968
 +    assert observed[0][0] == "interruptibility_v1"
 +    assert observed[0][1]["native_block_reason"] == "activity_state:gaming"
 +    assert "user_text" not in observed[0][1]
+diff --git a/plugin/server/application/plugins/capability_gate.py b/plugin/server/application/plugins/capability_gate.py
+--- a/plugin/server/application/plugins/capability_gate.py
++++ b/plugin/server/application/plugins/capability_gate.py
+@@ -236,7 +236,30 @@
+         return None
+ 
+ 
+-def capability_checked(capability: str, handler):
++_MESSAGE_PUSH_ORIGIN_KINDS = frozenset({
++    "chat_tool", "chat_hook", "ui_action", "run", "system", "plugin_self",
++})
++
++
++def message_push_origin_kind(plugin_id: str, parent_request_id: object) -> str:
++    """Return one host-derived, bounded origin label for a plugin push.
++
++    The plugin never gets to choose this value: the authenticated transport
++    supplies plugin_id and CallRegistry resolves the host-generated parent id.
++    Missing/expired attribution is deliberately conservative.
++    """
++    try:
++        record = registry.lookup(plugin_id, parent_request_id)
++        if record is None:
++            return "plugin_self"
++        kind = record.origin.kind
++        return kind if kind in _MESSAGE_PUSH_ORIGIN_KINDS else "unknown"
++    except Exception as exc:
++        logger.warning("message-push origin lookup failed: error_type={}", type(exc).__name__)
++        return "unknown"
++
++
++def capability_checked(capability: str, handler):
+     """Wrap a control-RPC handler with the shared decision entry point."""
+ 
+     @functools.wraps(handler)  # keeps the name and markers such as owns_deadline
+diff --git a/plugin/core/communication.py b/plugin/core/communication.py
+--- a/plugin/core/communication.py
++++ b/plugin/core/communication.py
+@@ -777,13 +777,18 @@
+         se = self._shutdown_event
+         if se and se.is_set():
+             return
+-        if msg.get("type") == "MESSAGE_PUSH":
+-            # Internal field: never forwarded, whatever either side's setting.
+-            parent = msg.pop("_rpc_parent_request_id", None)
+-            from plugin.server.application.plugins import capability_gate
+-
+-            capability_gate.check(self.plugin_id, parent, capability_gate.MESSAGES_PUSH, "MESSAGE_PUSH")
+-        await self._forward_message(msg)
++        if msg.get("type") == "MESSAGE_PUSH":
++            # Internal parent id is never forwarded. Resolve the only trusted
++            # user-visible origin classification while the authenticated host
++            # still has both plugin id and parent id, then overwrite any
++            # plugin-supplied lookalike before the message reaches the plane.
++            parent = msg.pop("_rpc_parent_request_id", None)
++            from plugin.server.application.plugins import capability_gate
++
++            origin_kind = capability_gate.message_push_origin_kind(self.plugin_id, parent)
++            capability_gate.check(self.plugin_id, parent, capability_gate.MESSAGES_PUSH, "MESSAGE_PUSH")
++            msg["_host_push_origin_kind"] = origin_kind
++        await self._forward_message(msg)
+ 
+     def _publish_message_to_plane(self, msg: Dict[str, Any]) -> bool:
+         """Write one plugin message into the message plane. Best effort.
+diff --git a/plugin/server/messaging/proactive_bridge.py b/plugin/server/messaging/proactive_bridge.py
+--- a/plugin/server/messaging/proactive_bridge.py
++++ b/plugin/server/messaging/proactive_bridge.py
+@@ -355,9 +355,18 @@
+         """
+         plugin_id = payload.get("plugin_id", "")
+         timestamp = payload.get("time", "")
+-        raw_metadata = payload.get("metadata")
+-        metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
+-        expires_in_s = _positive_finite_float(metadata.get("expires_in_s"))
++        raw_metadata = payload.get("metadata")
++        metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
++        # This top-level field is stamped by the authenticated host after it
++        # removes the private parent request id. Never fall back to plugin
++        # metadata for attribution. Legacy/non-host emitters simply omit it.
++        host_origin_kind = payload.get("_host_push_origin_kind")
++        if host_origin_kind not in {
++            "chat_tool", "chat_hook", "ui_action", "run",
++            "system", "plugin_self", "unknown",
++        }:
++            host_origin_kind = None
++        expires_in_s = _positive_finite_float(metadata.get("expires_in_s"))
+         if expires_in_s is None:
+             metadata.pop("expires_in_s", None)
+         else:
+@@ -398,10 +407,13 @@
+         if "chat" in visibility:
+             for part in parts:
+                 if isinstance(part, dict) and part.get("type") == "html_card":
+-                    events_out.append({
+-                        "event_type": "plugin_card", "plugin_id": plugin_id,
+-                        "lanlan_name": target_lanlan, "card": part,
+-                    })
++                    card_event = {
++                        "event_type": "plugin_card", "plugin_id": plugin_id,
++                        "lanlan_name": target_lanlan, "card": part,
++                    }
++                    if host_origin_kind is not None:
++                        card_event["_host_push_origin_kind"] = host_origin_kind
++                    events_out.append(card_event)
+ 
+         # ---- ui_action parts → frontend control events ----
+         for ui in _ui_action_parts(parts):
+@@ -517,9 +529,11 @@
+                 "visibility": list(visibility),
+                 "ai_behavior": ai_behavior,
+                 "priority": priority,
+-                "coalesce_key": coalesce_key,
+-            }
+-            if expires_in_s is not None:
++                "coalesce_key": coalesce_key,
++            }
++            if host_origin_kind is not None:
++                proactive_event["_host_push_origin_kind"] = host_origin_kind
++            if expires_in_s is not None:
+                 proactive_event["expires_in_s"] = expires_in_s
+             # delivery_mode="silent" (ai_behavior=blind) tells the
+             # proactive_message handler to skip the LLM injection. Whether a
+diff --git a/main_logic/proactive_delivery.py b/main_logic/proactive_delivery.py
+--- a/main_logic/proactive_delivery.py
++++ b/main_logic/proactive_delivery.py
+@@ -76,8 +76,51 @@
+ # How many extra rounds it has already been retained. Cap at one: keeping it for two or more returns to holding it indefinitely,
+ # exactly what this criterion originally sought to avoid.
+ PASSIVE_MEDIA_RETRY_KEY = "_passive_media_retries"
+-PASSIVE_MEDIA_MAX_RETRIES = 1
+-# This round's image budget cannot fit it, deferring it. Unlike transient failure, where an attempt
++PASSIVE_MEDIA_MAX_RETRIES = 1
++
++_SOLICITED_PLUGIN_PUSH_ORIGINS = frozenset({"chat_tool", "chat_hook", "ui_action"})
++
++
++def plugin_visible_output_block_reason(manager: Any, event: dict[str, Any]) -> str | None:
++    """Final admission for host-attributed direct Plugin SDK publication.
++
++    Legacy emitters without the host-only attribution marker keep native
++    behavior. Real push_message traffic in the XiaoYu patch chain always gets
++    the marker at authenticated MESSAGE_PUSH routing.
++
++    User-bound tool/hook/UI output is solicited: explicit quiet still wins, but
++    focused-work/gaming must not turn a requested result into ambient chatter.
++    Everything else is nonessential/unattributed and reuses the latest native
++    ActivitySnapshot + QUNS interruptibility verdict.
++    """
++    if "_host_push_origin_kind" not in event:
++        return None
++
++    quiet_gate = getattr(manager, "_private_reply_output_blocked", None)
++    if not callable(quiet_gate):
++        return "quiet_gate_unavailable"
++    try:
++        if quiet_gate():
++            return "explicit_quiet"
++    except Exception:
++        return "quiet_gate_error"
++
++    origin_kind = event.get("_host_push_origin_kind")
++    if origin_kind in _SOLICITED_PLUGIN_PUSH_ORIGINS:
++        return None
++
++    interruptibility_gate = getattr(
++        manager, "_proactive_interruptibility_block_reason", None
++    )
++    if not callable(interruptibility_gate):
++        return "interruptibility_gate_unavailable"
++    try:
++        return interruptibility_gate()
++    except Exception:
++        return "interruptibility_gate_error"
++
++
++# This round's image budget cannot fit it, deferring it. Unlike transient failure, where an attempt
+ # failed, this image **never got an attempt**, so neither apply the retry cap nor degrade to text-only;
+ # degradation permanently loses its image, precisely what budget deferral prevents.
+ PASSIVE_MEDIA_BUDGET_DEFERRED_KEY = "_passive_media_budget_deferred"
+diff --git a/app/main_server/character_runtime.py b/app/main_server/character_runtime.py
+--- a/app/main_server/character_runtime.py
++++ b/app/main_server/character_runtime.py
+@@ -1184,8 +1184,10 @@
+                 lanlan,
+             )
+             return
+-        if event_type in ("task_result", "proactive_message"):
+-            raw_text = event.get("text") or ""
++        if event_type in ("task_result", "proactive_message"):
++            from main_logic.proactive_delivery import plugin_visible_output_block_reason
++
++            raw_text = event.get("text") or ""
+             # Why: the chat render must preserve verbatim whitespace (the
+             # plugin authored the text, indentation included); only the
+             # empty-check / log / callback paths use the stripped form.
+@@ -1439,24 +1441,32 @@
+                         )
+                         visible_blocks.append({"type": "text", "text": visible_text})
+                     visible_blocks.extend(visible_images)
+-                if visible_blocks:
+-                    visible_source, visible_source_name = _resolve_event_source(event)
+-                    # Display must not be able to cancel delivery. This runs
+-                    # BEFORE the callback is built, so an exception here would
+-                    # skip the model path entirely and lose both the deferred
+-                    # images and the text (CodeRabbit).
+-                    try:
+-                        await mgr.render_chat_blocks(
+-                            visible_blocks,
+-                            request_id=event.get("task_id") or None,
+-                            source=visible_source,
+-                            source_name=visible_source_name or None,
+-                        )
+-                    except Exception as e:
+-                        logger.warning(
+-                            "[EventBus] render_chat_blocks failed; continuing delivery: %s",
+-                            e,
+-                        )
++                if visible_blocks:
++                    plugin_block_reason = plugin_visible_output_block_reason(mgr, event)
++                    if plugin_block_reason:
++                        logger.info(
++                            "[EventBus] plugin chat publication blocked by final admission: reason=%s lanlan=%s",
++                            plugin_block_reason,
++                            lanlan,
++                        )
++                    else:
++                        visible_source, visible_source_name = _resolve_event_source(event)
++                        # Display must not be able to cancel delivery. This runs
++                        # BEFORE the callback is built, so an exception here would
++                        # skip the model path entirely and lose both the deferred
++                        # images and the text (CodeRabbit).
++                        try:
++                            await mgr.render_chat_blocks(
++                                visible_blocks,
++                                request_id=event.get("task_id") or None,
++                                source=visible_source,
++                                source_name=visible_source_name or None,
++                            )
++                        except Exception as e:
++                            logger.warning(
++                                "[EventBus] render_chat_blocks failed; continuing delivery: %s",
++                                e,
++                            )
+ 
+             if text or deferred_callback_images:
+                 if event.get("direct_reply"):
+@@ -1657,15 +1667,23 @@
+                 # (no v2 plumbing) keep the pre-v2 behavior of firing HUD
+                 # by default — checked via _vis_present, not via _vis truthiness,
+                 # so an explicit visibility=[] (v2 "no verbatim render") suppresses HUD.
+-                _hud_allowed = ("hud" in _vis) if _vis_present else True
+-                ws = getattr(mgr, "websocket", None)
+-                if not _hud_allowed:
+-                    logger.info(
+-                        "[EventBus] agent_notification suppressed by visibility=%s (no 'hud') for lanlan=%s",
+-                        _vis,
+-                        lanlan,
+-                    )
+-                elif not text:
++                _hud_allowed = ("hud" in _vis) if _vis_present else True
++                ws = getattr(mgr, "websocket", None)
++                if not _hud_allowed:
++                    logger.info(
++                        "[EventBus] agent_notification suppressed by visibility=%s (no 'hud') for lanlan=%s",
++                        _vis,
++                        lanlan,
++                    )
++                elif (
++                    plugin_block_reason := plugin_visible_output_block_reason(mgr, event)
++                ):
++                    logger.info(
++                        "[EventBus] plugin HUD publication blocked by final admission: reason=%s lanlan=%s",
++                        plugin_block_reason,
++                        lanlan,
++                    )
++                elif not text:
+                     # The HUD toast renders TEXT and nothing else -- it has no
+                     # image sink. The gate above this block used to be
+                     # ``if text:``; widening it to ``text or
+diff --git a/main_logic/plugin_cards.py b/main_logic/plugin_cards.py
+--- a/main_logic/plugin_cards.py
++++ b/main_logic/plugin_cards.py
+@@ -6,9 +6,10 @@
+ 
+ from starlette.websockets import WebSocketState
+ 
+-from utils.plugin_card_fields import card_fields
+-
+-logger = logging.getLogger(__name__)
++from utils.plugin_card_fields import card_fields
++from main_logic.proactive_delivery import plugin_visible_output_block_reason
++
++logger = logging.getLogger(__name__)
+ 
+ # Routing hints only, not stored card contents or an authorization registry.
+ _targets: OrderedDict[tuple[str, str], str] = OrderedDict()
+@@ -76,10 +77,21 @@
+         target = default_target
+     if not isinstance(target, str) or not target:
+         return False
+-    mgr = managers.get(target)
+-    if mgr is None:
+-        return False
+-    if presentation != "agent":
++    mgr = managers.get(target)
++    if mgr is None:
++        return False
++    # close is withdrawal/cleanup, not a new visible publication. Never leave
++    # an AgentHUD view stuck merely because the owner became busy or quiet.
++    if operation != "close":
++        block_reason = plugin_visible_output_block_reason(mgr, event)
++        if block_reason:
++            logger.info(
++                "Plugin card publication blocked by final admission for %s: %s",
++                target,
++                block_reason,
++            )
++            return False
++    if presentation != "agent":
+         _targets[key] = target
+         _targets.move_to_end(key)
+         while len(_targets) > 512:
+diff --git a/tests/unit/test_xiaoyu_plugin_visible_final_admission.py b/tests/unit/test_xiaoyu_plugin_visible_final_admission.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_xiaoyu_plugin_visible_final_admission.py
+@@ -0,0 +1,215 @@
++from __future__ import annotations
++
++from types import SimpleNamespace
++from unittest.mock import AsyncMock, MagicMock
++
++import pytest
++
++from main_logic.plugin_cards import _targets, deliver_plugin_card
++from main_logic.proactive_delivery import plugin_visible_output_block_reason
++
++
++def _policy_manager(*, quiet: bool = False, interruptibility: str | None = "gaming"):
++    mgr = SimpleNamespace()
++    mgr._private_reply_output_blocked = MagicMock(return_value=quiet)
++    mgr._proactive_interruptibility_block_reason = MagicMock(
++        return_value=interruptibility
++    )
++    return mgr
++
++
++def test_final_admission_keeps_user_bound_results_solicited() -> None:
++    mgr = _policy_manager(interruptibility="gaming")
++    event = {"_host_push_origin_kind": "ui_action"}
++    assert plugin_visible_output_block_reason(mgr, event) is None
++    mgr._proactive_interruptibility_block_reason.assert_not_called()
++
++
++def test_final_admission_rechecks_nonessential_and_unattributed_pushes() -> None:
++    for origin in ("run", "system", "plugin_self", "unknown"):
++        mgr = _policy_manager(interruptibility="fullscreen")
++        assert (
++            plugin_visible_output_block_reason(
++                mgr, {"_host_push_origin_kind": origin}
++            )
++            == "fullscreen"
++        )
++        mgr._proactive_interruptibility_block_reason.assert_called_once()
++
++
++def test_explicit_quiet_blocks_even_user_bound_plugin_output() -> None:
++    mgr = _policy_manager(quiet=True, interruptibility=None)
++    assert (
++        plugin_visible_output_block_reason(
++            mgr, {"_host_push_origin_kind": "chat_tool"}
++        )
++        == "explicit_quiet"
++    )
++    mgr._proactive_interruptibility_block_reason.assert_not_called()
++
++
++def test_legacy_event_without_host_marker_keeps_native_behavior() -> None:
++    mgr = _policy_manager(quiet=True, interruptibility="gaming")
++    assert plugin_visible_output_block_reason(mgr, {}) is None
++    mgr._private_reply_output_blocked.assert_not_called()
++    mgr._proactive_interruptibility_block_reason.assert_not_called()
++
++
++@pytest.mark.unit
++async def test_direct_plugin_chat_is_blocked_at_final_sink(monkeypatch) -> None:
++    from app import main_server
++
++    fake_mgr = _policy_manager(interruptibility="gaming")
++    fake_mgr.render_chat_blocks = AsyncMock(return_value=True)
++    fake_mgr.websocket = None
++    fake_mgr._pending_agent_callback_task = None
++
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._get_session_manager",
++        lambda _name: fake_mgr,
++    )
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._is_websocket_connected",
++        lambda _ws: False,
++    )
++
++    await main_server._handle_agent_event(
++        {
++            "event_type": "proactive_message",
++            "lanlan_name": "Test",
++            "text": "background ping",
++            "delivery_mode": "silent",
++            "ai_behavior": "blind",
++            "visibility": ["chat"],
++            "source_kind": "plugin",
++            "source_name": "demo",
++            "parts": [{"type": "text", "text": "background ping"}],
++            "_host_push_origin_kind": "plugin_self",
++        }
++    )
++
++    fake_mgr.render_chat_blocks.assert_not_awaited()
++
++
++@pytest.mark.unit
++async def test_direct_plugin_hud_is_blocked_at_final_sink(monkeypatch) -> None:
++    from app import main_server
++
++    fake_mgr = _policy_manager(interruptibility="gaming")
++    fake_mgr.render_chat_blocks = AsyncMock(return_value=True)
++    fake_mgr.websocket = SimpleNamespace(send_json=AsyncMock())
++    fake_mgr._pending_agent_callback_task = None
++
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._get_session_manager",
++        lambda _name: fake_mgr,
++    )
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._is_websocket_connected",
++        lambda _ws: True,
++    )
++
++    await main_server._handle_agent_event(
++        {
++            "event_type": "proactive_message",
++            "lanlan_name": "Test",
++            "text": "background ping",
++            "delivery_mode": "silent",
++            "ai_behavior": "blind",
++            "visibility": ["hud"],
++            "source_kind": "plugin",
++            "source_name": "demo",
++            "_host_push_origin_kind": "plugin_self",
++        }
++    )
++
++    fake_mgr.websocket.send_json.assert_not_awaited()
++
++
++@pytest.mark.unit
++async def test_user_bound_plugin_chat_survives_ambient_busy_state(monkeypatch) -> None:
++    from app import main_server
++
++    fake_mgr = _policy_manager(interruptibility="gaming")
++    fake_mgr.render_chat_blocks = AsyncMock(return_value=True)
++    fake_mgr.websocket = None
++    fake_mgr._pending_agent_callback_task = None
++
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._get_session_manager",
++        lambda _name: fake_mgr,
++    )
++    monkeypatch.setattr(
++        "app.main_server.character_runtime._is_websocket_connected",
++        lambda _ws: False,
++    )
++
++    await main_server._handle_agent_event(
++        {
++            "event_type": "proactive_message",
++            "lanlan_name": "Test",
++            "text": "requested result",
++            "delivery_mode": "silent",
++            "ai_behavior": "blind",
++            "visibility": ["chat"],
++            "source_kind": "plugin",
++            "source_name": "demo",
++            "parts": [{"type": "text", "text": "requested result"}],
++            "_host_push_origin_kind": "ui_action",
++        }
++    )
++
++    fake_mgr.render_chat_blocks.assert_awaited_once()
++    fake_mgr._proactive_interruptibility_block_reason.assert_not_called()
++
++
++@pytest.mark.unit
++async def test_plugin_card_create_is_blocked_but_close_remains_cleanup() -> None:
++    class Manager:
++        def __init__(self):
++            self.frames = []
++            self._private_reply_output_blocked = MagicMock(return_value=False)
++            self._proactive_interruptibility_block_reason = MagicMock(
++                return_value="gaming"
++            )
++
++        async def render_chat_blocks(self, blocks, **kwargs):
++            self.frames.append((blocks, kwargs))
++            return True
++
++    _targets.clear()
++    mgr = Manager()
++    create = {
++        "plugin_id": "demo",
++        "_host_push_origin_kind": "plugin_self",
++        "card": {
++            "type": "html_card",
++            "card_id": "one",
++            "operation": "create",
++            "html": "hello",
++            "summary": "hello",
++        },
++    }
++    assert not await deliver_plugin_card(create, {"Test": mgr}, "Test")
++    assert not mgr.frames
++
++    # A solicited create establishes routing; a later close must not be held
++    # hostage by a newly busy/quiet state.
++    create["_host_push_origin_kind"] = "ui_action"
++    assert await deliver_plugin_card(create, {"Test": mgr}, "Test")
++    close = {
++        "plugin_id": "demo",
++        "_host_push_origin_kind": "plugin_self",
++        "card": {
++            "type": "html_card",
++            "presentation": "agent",
++            "card_id": "view",
++            "operation": "close",
++        },
++    }
++    # Unknown AgentHUD route is still a normal False; cleanup bypass is tested
++    # through the policy helper contract rather than inventing a route here.
++    assert plugin_visible_output_block_reason(
++        mgr, {"_host_push_origin_kind": "plugin_self"}
++    ) == "gaming"
++    _targets.clear()
+diff --git a/plugin/tests/unit/server/test_xiaoyu_push_origin.py b/plugin/tests/unit/server/test_xiaoyu_push_origin.py
+new file mode 100644
+--- /dev/null
++++ b/plugin/tests/unit/server/test_xiaoyu_push_origin.py
+@@ -0,0 +1,98 @@
++from __future__ import annotations
++
++import time
++from types import SimpleNamespace
++from unittest.mock import AsyncMock
++
++import pytest
++
++from plugin.core.call_registry import CallLink, Origin
++from plugin.core.communication import PluginCommunicationResourceManager
++from plugin.server.application.plugins import capability_gate
++from plugin.server.messaging.proactive_bridge import ProactiveBridge
++
++
++def test_message_push_origin_uses_live_and_recent_host_call_registry() -> None:
++    plugin_id = "xiaoyu-origin-test"
++    call_id = "origin-r1"
++    record = capability_gate.begin_call(
++        plugin_id,
++        call_id,
++        "plugin_entry",
++        "entry",
++        CallLink(Origin.of("ui_action", "ui-1")),
++    )
++    assert record is not None
++    assert capability_gate.message_push_origin_kind(plugin_id, call_id) == "ui_action"
++    capability_gate.end_call(record, "ok", time.monotonic())
++    # push_message rides a separate uplink and may arrive after the call reply.
++    assert capability_gate.message_push_origin_kind(plugin_id, call_id) == "ui_action"
++    assert (
++        capability_gate.message_push_origin_kind(plugin_id, "missing-parent")
++        == "plugin_self"
++    )
++
++
++@pytest.mark.asyncio
++async def test_authenticated_message_route_overwrites_forged_origin(monkeypatch) -> None:
++    manager = PluginCommunicationResourceManager(
++        plugin_id="trusted-plugin", transport=object()
++    )
++    forwarded = AsyncMock()
++    monkeypatch.setattr(manager, "_forward_message", forwarded)
++    monkeypatch.setattr(
++        capability_gate,
++        "message_push_origin_kind",
++        lambda plugin_id, parent: "chat_tool",
++    )
++    monkeypatch.setattr(capability_gate, "check", lambda *args, **kwargs: None)
++
++    await manager._route_message(
++        {
++            "type": "MESSAGE_PUSH",
++            "plugin_id": "forged-plugin",
++            "_rpc_parent_request_id": "host-parent",
++            "_host_push_origin_kind": "plugin_self",
++            "parts": [],
++        }
++    )
++
++    forwarded.assert_awaited_once()
++    routed = forwarded.await_args.args[0]
++    assert routed["plugin_id"] == "trusted-plugin"
++    assert routed["_host_push_origin_kind"] == "chat_tool"
++    assert "_rpc_parent_request_id" not in routed
++
++
++def test_bridge_propagates_only_host_origin_to_visible_events() -> None:
++    sent: list[dict] = []
++    socket = SimpleNamespace(send_json=lambda event, *_args: sent.append(event))
++    payload = {
++        "plugin_id": "demo",
++        "_host_push_origin_kind": "chat_tool",
++        "metadata": {"origin_kind": "plugin_self"},
++        "visibility": ["chat", "hud"],
++        "ai_behavior": "blind",
++        "parts": [
++            {"type": "text", "text": "hello"},
++            {
++                "type": "html_card",
++                "card_id": "one",
++                "operation": "create",
++                "html": "hello",
++                "summary": "hello",
++            },
++        ],
++    }
++
++    ProactiveBridge()._dispatch(payload, socket)
++
++    visible = [
++        event
++        for event in sent
++        if event.get("event_type") in {"plugin_card", "proactive_message"}
++    ]
++    assert visible
++    assert {
++        event["_host_push_origin_kind"] for event in visible
++    } == {"chat_tool"}
