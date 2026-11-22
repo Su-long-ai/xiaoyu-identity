@@ -112,7 +112,7 @@ $launch = [ordered]@{
 }
 
 if (-not $NoLaunch) {
-    $args = @(
+    $oneClickArgs = @(
         "-NoLogo",
         "-NoProfile",
         "-NonInteractive",
@@ -126,7 +126,7 @@ if (-not $NoLaunch) {
         "-StorageRoot", $StorageRoot,
         "-SuppressNapCatNotice"
     )
-    & powershell.exe @args
+    & powershell.exe @oneClickArgs
     $launch.exit_code = $LASTEXITCODE
     $launch.passed = ($LASTEXITCODE -eq 0)
 }
