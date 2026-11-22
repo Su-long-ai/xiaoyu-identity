@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
-import tempfile
 import threading
 import time
 import httpx
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
 from plugin.sdk.plugin import (
@@ -31,6 +28,7 @@ _STATE_VERSION = 5
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
 _CLASSIFIER_MODEL_USAGE = "interaction_classifier"
+_STATE_STORE_KEY = "interaction_state"
 _MAX_TEXT_CHARS = 500
 _ACTIVITYWATCH_BASE_URL = "http://127.0.0.1:5600/api/0"
 _ACTIVITYWATCH_TIMEOUT_SECONDS = 4.0
@@ -607,17 +605,15 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         super().__init__(ctx)
         self.logger = self.enable_file_logging(log_level="INFO")
         self._lock = _CrossLoopAsyncLock()
-        self._state_path: Path | None = None
         self._conversation_watcher = None
 
     @lifecycle(id="startup")
     async def startup(self, **_):
-        self._state_path = self.data_path("state.json")
-        state = self._load_state()
-        # Persist the normalized schema on startup. Legacy v1 quiet state is
-        # preserved, while new fields receive conservative defaults unless the
-        # private state file already carries an explicit migration value.
-        self._save_state(state)
+        await self._ensure_store_enabled()
+        state = await self._load_state()
+        # Persist the normalized schema on startup. Legacy JSON state is
+        # imported once into N.E.K.O PluginStore, then the store is authoritative.
+        await self._save_state(state)
 
         controller = await self.plugins.require_enabled(_CONTROLLER)
         if isinstance(controller, Err):
@@ -625,7 +621,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
 
         if not state["initialized"]:
             state["initialized"] = True
-            self._save_state(state)
+            await self._save_state(state)
 
         await self._baseline_conversation_cursor()
         await self._start_conversation_watcher()
@@ -661,7 +657,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         metadata={"agent_hidden": True},
     )
     async def get_state(self, **_):
-        return Ok(self._public_state(self._load_state()))
+        return Ok(self._public_state(await self._load_state()))
 
     @plugin_entry(
         id="interruptibility_v1",
@@ -844,7 +840,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
             return Ok({"processed": False, "reason": "empty"})
 
         async with self._lock:
-            state = await self._expire_if_needed(self._load_state())
+            state = await self._expire_if_needed(await self._load_state())
             state, decisions = await self._apply_control_text(state, text, reason="voice")
             await self._enforce_quiet_if_needed(state)
             return Ok({
@@ -865,7 +861,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         )
         items = tuple(records)
         async with self._lock:
-            state = await self._expire_if_needed(self._load_state())
+            state = await self._expire_if_needed(await self._load_state())
             if state["conversation_cursor_initialized"]:
                 return
             ordered = sorted(
@@ -886,7 +882,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                     for message in ordered
                 )
             state["conversation_cursor_initialized"] = True
-            self._save_state(state)
+            await self._save_state(state)
             self.logger.info(
                 "conversation control cursor baselined records={}",
                 len(ordered),
@@ -920,7 +916,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
 
     async def _conversation_control_record(self, message) -> None:
         async with self._lock:
-            state = await self._expire_if_needed(self._load_state())
+            state = await self._expire_if_needed(await self._load_state())
             if not state["conversation_cursor_initialized"]:
                 # Startup normally baselines before subscribing. Keep this
                 # defensive branch fail-safe if a future host changes ordering.
@@ -931,7 +927,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                     state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
                 state["last_conversation_observed_at"] = observed_at or None
                 state["conversation_cursor_initialized"] = True
-                self._save_state(state)
+                await self._save_state(state)
                 return
 
             decisions = await self._apply_conversation_messages(
@@ -990,11 +986,11 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
 
         if changed:
             state["last_conversation_observed_at"] = watermark
-            self._save_state(state)
+            await self._save_state(state)
         return decisions
 
     async def _conversation_reconcile_fallback(self) -> int:
-        snapshot = self._load_state()
+        snapshot = await self._load_state()
         since_ts = snapshot.get("last_conversation_observed_at")
         records = await self.bus.conversations_v2.get(
             character=_ROLE,
@@ -1008,7 +1004,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         items = tuple(records)
 
         async with self._lock:
-            state = await self._expire_if_needed(self._load_state())
+            state = await self._expire_if_needed(await self._load_state())
             if not state["conversation_cursor_initialized"]:
                 ordered = sorted(
                     items,
@@ -1028,7 +1024,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                         for message in ordered
                     )
                 state["conversation_cursor_initialized"] = True
-                self._save_state(state)
+                await self._save_state(state)
                 await self._enforce_quiet_if_needed(state)
                 return 0
 
@@ -1055,17 +1051,17 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                 await self._reconcile_state()
                 return Ok({
                     "watcher": "restarted",
-                    **self._public_state(self._load_state()),
+                    **self._public_state(await self._load_state()),
                 })
             decisions = await self._conversation_reconcile_fallback()
             return Ok({
                 "watcher": "fallback",
                 "decisions": decisions,
-                **self._public_state(self._load_state()),
+                **self._public_state(await self._load_state()),
             })
 
         await self._reconcile_state()
-        return Ok({"watcher": "active", **self._public_state(self._load_state())})
+        return Ok({"watcher": "active", **self._public_state(await self._load_state())})
 
     async def _classify(self, text: str) -> dict[str, Any]:
         """Classify through N.E.K.O's host-managed Plugin SDK model gateway.
@@ -1143,7 +1139,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         state["quiet_until"] = now + duration_minutes * 60 if duration_minutes is not None else None
         state["changed_at"] = now
         state["last_action"] = "quiet"
-        self._save_state(state)
+        await self._save_state(state)
         self.logger.info("hard quiet enabled duration_set={}", duration_minutes is not None)
         return state
 
@@ -1160,7 +1156,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         state["quiet_until"] = None
         state["changed_at"] = now
         state["last_action"] = f"resume:{reason}"
-        self._save_state(state)
+        await self._save_state(state)
         self.logger.info("hard quiet cleared reason={}", reason)
         return state
 
@@ -1211,7 +1207,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         state["vision_blocked"] = True
         state["changed_at"] = time.time()
         state["last_action"] = f"vision_block:{reason}"
-        self._save_state(state)
+        await self._save_state(state)
         self.logger.info("native autonomous vision blocked reason={}", reason)
         return state
 
@@ -1221,7 +1217,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         state["previous_vision_enabled"] = None
         state["changed_at"] = time.time()
         state["last_action"] = f"vision_allow:{reason}"
-        self._save_state(state)
+        await self._save_state(state)
         self.logger.info("native autonomous vision explicitly allowed reason={}", reason)
         return state
 
@@ -1234,7 +1230,7 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         state["previous_vision_enabled"] = None
         state["changed_at"] = time.time()
         state["last_action"] = f"vision_restore:{reason}"
-        self._save_state(state)
+        await self._save_state(state)
         self.logger.info("native autonomous vision restored reason={}", reason)
         return state
 
@@ -1256,37 +1252,76 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
 
     async def _reconcile_state(self) -> None:
         async with self._lock:
-            state = await self._expire_if_needed(self._load_state())
+            state = await self._expire_if_needed(await self._load_state())
             await self._enforce_quiet_if_needed(state)
 
-    def _state_file(self) -> Path:
-        if self._state_path is None:
-            self._state_path = self.data_path("state.json")
-        return self._state_path
+    async def _ensure_store_enabled(self) -> None:
+        """Require N.E.K.O's native PluginStore for durable policy state."""
+        if self.store.enabled:
+            return
+        # Older XiaoYu runtime configs preserve the original manifest default
+        # [plugin.store] enabled=false. Move that one required capability onto
+        # the host-managed store through the public PluginConfig API.
+        await self.config.set("plugin.store.enabled", True, timeout=10.0)
+        self.store.enabled = True
 
-    def _load_state(self) -> dict[str, Any]:
+    async def _load_state(self) -> dict[str, Any]:
+        result = await self.store.get(_STATE_STORE_KEY, None)
+        if isinstance(result, Err):
+            raise RuntimeError("N.E.K.O PluginStore state read failed") from result.error
+        raw = result.value
+        if isinstance(raw, dict):
+            return _normalize_state(raw)
+
+        # One-time compatibility import. Upgrades preserve the plugin data
+        # directory, so the pre-0.6.7 JSON remains available exactly once.
+        legacy_path = self.data_path("state.json")
+        legacy_raw: dict[str, Any] | None = None
         try:
-            raw = json.loads(self._state_file().read_text(encoding="utf-8"))
-        except Exception:
-            raw = {}
-        return _normalize_state(raw)
+            candidate = json.loads(legacy_path.read_text(encoding="utf-8-sig"))
+            if isinstance(candidate, dict):
+                legacy_raw = candidate
+        except (OSError, ValueError, TypeError):
+            pass
 
-    def _save_state(self, state: dict[str, Any]) -> None:
-        path = self._state_file()
+        state = _normalize_state(legacy_raw or {})
+        saved = await self.store.set(_STATE_STORE_KEY, state)
+        if isinstance(saved, Err):
+            raise RuntimeError("N.E.K.O PluginStore legacy-state import failed") from saved.error
+        self._sync_reply_gate_projection(state)
+        if legacy_raw is not None:
+            self.logger.info(
+                "migrated legacy interaction state into N.E.K.O PluginStore; "
+                "state.json retained only as quiet gate projection"
+            )
+        return state
+
+    def _sync_reply_gate_projection(self, state: dict[str, Any]) -> None:
+        """Publish only the derived quiet bit for N.E.K.O's synchronous output gate.
+
+        PluginStore is the durable authority. The small JSON file remains solely
+        because the main chat process must make the final reply-admission decision
+        synchronously and patch 0006 intentionally has no private DB/Plugin SDK
+        dependency. It can always be rebuilt from PluginStore on plugin startup.
+        """
+        path = self.data_path("state.json")
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                json.dump(_normalize_state(state), handle, ensure_ascii=False, indent=2)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(tmp, path)
-        finally:
-            try:
-                os.unlink(tmp)
-            except FileNotFoundError:
-                pass
+        payload = {
+            "projection": "xiaoyu_reply_gate.v1",
+            "quiet": bool(state.get("quiet")),
+        }
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+    async def _save_state(self, state: dict[str, Any]) -> None:
+        normalized = _normalize_state(state)
+        result = await self.store.set(_STATE_STORE_KEY, normalized)
+        if isinstance(result, Err):
+            raise RuntimeError("N.E.K.O PluginStore state write failed") from result.error
+        self._sync_reply_gate_projection(normalized)
 
     @staticmethod
     def _public_state(state: dict[str, Any]) -> dict[str, Any]:

@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import json
 import sys
+import tempfile
 import types
 import unittest
 from datetime import datetime, timezone
@@ -436,11 +437,151 @@ class ParserTests(unittest.TestCase):
 
 
 
+
+class NativePluginStoreStateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_legacy_json_imports_once_into_native_store(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            legacy = root / "state.json"
+            legacy.write_text(
+                json.dumps({
+                    "version": 5,
+                    "initialized": True,
+                    "quiet": True,
+                    "speech_muted": True,
+                    "last_action": "quiet",
+                }),
+                encoding="utf-8",
+            )
+
+            class Store:
+                enabled = True
+                def __init__(self):
+                    self.value = None
+                    self.set_calls = 0
+                async def get(self, key, default=None):
+                    self.last_get = key
+                    return mod.Ok(self.value)
+                async def set(self, key, value):
+                    self.last_set = key
+                    self.value = dict(value)
+                    self.set_calls += 1
+                    return mod.Ok(None)
+
+            obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+            obj.store = Store()
+            obj.data_path = lambda *parts: root.joinpath(*parts)
+            obj.logger = SimpleNamespace(info=lambda *_a, **_k: None)
+
+            state = await obj._load_state()
+
+            self.assertEqual(obj.store.last_get, mod._STATE_STORE_KEY)
+            self.assertEqual(obj.store.last_set, mod._STATE_STORE_KEY)
+            self.assertEqual(obj.store.set_calls, 1)
+            self.assertTrue(state["quiet"])
+            self.assertFalse(state["speech_muted"])
+            self.assertTrue(legacy.exists())
+            projection = json.loads(legacy.read_text(encoding="utf-8"))
+            self.assertEqual(projection, {
+                "projection": "xiaoyu_reply_gate.v1",
+                "quiet": True,
+            })
+            self.assertEqual(obj.store.value, state)
+
+    async def test_store_value_is_authoritative_over_surviving_legacy_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            legacy = root / "state.json"
+            legacy.write_text('{"quiet": false}', encoding="utf-8")
+
+            class Store:
+                enabled = True
+                async def get(self, key, default=None):
+                    return mod.Ok({
+                        "version": 5,
+                        "initialized": True,
+                        "quiet": True,
+                        "last_action": "store",
+                    })
+                async def set(self, key, value):
+                    raise AssertionError("existing PluginStore state must not be rewritten by load")
+
+            obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+            obj.store = Store()
+            obj.data_path = lambda *parts: root.joinpath(*parts)
+            obj.logger = SimpleNamespace(info=lambda *_a, **_k: None)
+
+            state = await obj._load_state()
+
+            self.assertTrue(state["quiet"])
+            self.assertEqual(state["last_action"], "store")
+            self.assertTrue(legacy.exists())
+            # A read does not rewrite the projection; startup/save repairs it.
+            self.assertEqual(json.loads(legacy.read_text(encoding="utf-8")), {"quiet": False})
+
+    async def test_save_writes_store_then_minimal_reply_gate_projection(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            calls = []
+
+            class Store:
+                enabled = True
+                async def set(self, key, value):
+                    calls.append((key, dict(value)))
+                    return mod.Ok(None)
+
+            obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+            obj.store = Store()
+            obj.data_path = lambda *parts: root.joinpath(*parts)
+
+            state = mod._normalize_state({
+                "initialized": True,
+                "quiet": True,
+                "seen_event_ids": ["private-event-id"],
+                "last_action": "quiet",
+            })
+            await obj._save_state(state)
+
+            self.assertEqual(calls[0][0], mod._STATE_STORE_KEY)
+            self.assertEqual(calls[0][1]["seen_event_ids"], ["private-event-id"])
+            projection = json.loads((root / "state.json").read_text(encoding="utf-8"))
+            self.assertEqual(projection, {
+                "projection": "xiaoyu_reply_gate.v1",
+                "quiet": True,
+            })
+            self.assertNotIn("seen_event_ids", projection)
+            self.assertNotIn("last_action", projection)
+
+    async def test_old_runtime_store_false_is_migrated_through_plugin_config(self):
+        calls = []
+
+        class Store:
+            enabled = False
+
+        class Config:
+            async def set(self, path, value, *, timeout):
+                calls.append((path, value, timeout))
+
+        obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        obj.store = Store()
+        obj.config = Config()
+
+        await obj._ensure_store_enabled()
+
+        self.assertTrue(obj.store.enabled)
+        self.assertEqual(
+            calls,
+            [("plugin.store.enabled", True, 10.0)],
+        )
+
+
 class ReplyOutputContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_fast_speech_controls_toggle_only_whole_reply_quiet(self):
         obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
         obj.logger = types.SimpleNamespace(info=lambda *_a, **_k: None, warning=lambda *_a, **_k: None)
-        obj._save_state = lambda _state: None
+        async def save_state(_state):
+            return None
+        obj._save_state = save_state
         proactive_writes = []
 
         async def current_proactive():
@@ -500,9 +641,12 @@ class ConversationWatcherTests(unittest.IsolatedAsyncioTestCase):
             warning=lambda *_a, **_k: None,
         )
         holder = {"state": mod._normalize_state(state)}
-        obj._load_state = lambda: dict(holder["state"])
 
-        def save(value):
+        async def load():
+            return dict(holder["state"])
+        obj._load_state = load
+
+        async def save(value):
             holder["state"] = mod._normalize_state(dict(value))
         obj._save_state = save
 
@@ -609,7 +753,9 @@ class VoiceControlEventTests(unittest.IsolatedAsyncioTestCase):
             "speech_muted": True,
             "previous_proactive_chat_enabled": True,
         })
-        obj._load_state = lambda: dict(state)
+        async def load():
+            return dict(state)
+        obj._load_state = load
 
         async def expire(value):
             return value

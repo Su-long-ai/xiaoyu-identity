@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T20:06:00+08:00",
+  "component": "xiaoyu_interaction_policy",
+  "version": "0.6.7",
+  "change": "durable interaction-policy state moved from private state.json authority to N.E.K.O PluginStore",
+  "reuse": {
+    "selected": "N.E.K.O PluginStore via self.store",
+    "private_state_database_added": false,
+    "private_store_runtime_added": false,
+    "legacy_json_role": "derived xiaoyu_reply_gate.v1 quiet projection only; rebuildable from PluginStore",
+    "model_gateway": "N.E.K.O ctx.models interaction_classifier remains host-owned"
+  },
+  "live": {
+    "plugin_catalog_version": "0.6.7",
+    "plugin_status": "running",
+    "runtime_auto_start": true,
+    "plugin_store_db_present": true,
+    "interaction_state_key_present": true,
+    "native_runs_get_state": "succeeded",
+    "quiet_after_validation": false,
+    "reply_gate_projection": {
+      "projection": "xiaoyu_reply_gate.v1",
+      "quiet": false
+    },
+    "installed_package_verify_only": "current",
+    "classifier_binding": {
+      "host_api": "agent_small",
+      "source": "host_follow",
+      "status": "bound",
+      "version": 2
+    }
+  },
+  "regression": {
+    "overlay_unit_tests": "104/104 PASS",
+    "reuse_first_gate": "PASS",
+    "authority_contract": "PASS",
+    "provider_privacy": "PASS",
+    "release_readiness": "23/23 PASS"
+  },
+  "privacy": {
+    "user_message_content_persisted_in_evidence": false,
+    "credentials_persisted_in_evidence": false,
+    "raw_store_value_persisted_in_evidence": false
+  },
+  "verdict": "PASS_LIVE_NATIVE_PLUGIN_STORE_CUTOVER"
+}

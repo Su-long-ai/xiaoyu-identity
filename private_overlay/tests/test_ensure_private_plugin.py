@@ -268,44 +268,6 @@ class EnsurePrivatePluginTests(unittest.TestCase):
         self.assertEqual(state["version"], 2)
 
 
-    def test_v060_migration_clears_legacy_audio_only_mute_without_changing_quiet(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            state = root / "plugins" / mod.PLUGIN_ID / "data" / "state.json"
-            state.parent.mkdir(parents=True)
-            state.write_text(
-                '{"version":3,"quiet":false,"speech_muted":true}',
-                encoding="utf-8",
-            )
-            changed = mod._migrate_reply_output_state(
-                root,
-                from_version="0.5.1",
-                target_version="0.6.0",
-            )
-            self.assertTrue(changed)
-            value = __import__("json").loads(state.read_text(encoding="utf-8"))
-            self.assertEqual(value["version"], 4)
-            self.assertFalse(value["quiet"])
-            self.assertFalse(value["speech_muted"])
-
-    def test_non_v060_install_does_not_rewrite_legacy_state(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            state = root / "plugins" / mod.PLUGIN_ID / "data" / "state.json"
-            state.parent.mkdir(parents=True)
-            state.write_text(
-                '{"version":3,"quiet":true,"speech_muted":true}',
-                encoding="utf-8",
-            )
-            changed = mod._migrate_reply_output_state(
-                root,
-                from_version="0.5.1",
-                target_version="0.5.2",
-            )
-            self.assertFalse(changed)
-            self.assertTrue(
-                __import__("json").loads(state.read_text(encoding="utf-8"))["speech_muted"]
-            )
 
 if __name__ == "__main__":
     unittest.main()

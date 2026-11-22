@@ -69,40 +69,6 @@ def _source_files(source: Path) -> list[Path]:
     return sorted(files, key=lambda p: p.as_posix())
 
 
-def _migrate_reply_output_state(
-    storage_root: Path,
-    *,
-    from_version: str,
-    target_version: str,
-) -> bool:
-    """Collapse legacy audio-only mute when upgrading to the v0.6 reply contract.
-
-    v0.6 has one durable output authority: quiet. A reply is either suppressed
-    before text/TTS split, or both text and its paired audio are admitted.
-    speech_muted remains only as a compatibility field and must be false.
-    """
-    if target_version != "0.6.0":
-        return False
-    path = storage_root / "plugins" / PLUGIN_ID / "data" / "state.json"
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError, TypeError):
-        return False
-    if not isinstance(raw, dict):
-        return False
-    changed = raw.get("version") != 4 or bool(raw.get("speech_muted"))
-    if not changed:
-        return False
-
-    raw["version"] = 4
-    raw["speech_muted"] = False
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(temp, path)
-    return True
-
-
-
 def _classifier_binding_status(service) -> dict[str, object]:
     """Return the host-owned binding state for the classifier usage."""
     bindings = service.get_bindings(PLUGIN_ID)
@@ -388,11 +354,6 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
         install_kwargs["confirmation_token"] = token
 
     result = await service.install(**install_kwargs)
-    state_migrated = _migrate_reply_output_state(
-        storage_root,
-        from_version=current_version,
-        target_version=desired_version,
-    )
     exact_after, after_reason = _installed_matches_source(source, installed)
     if not exact_after:
         raise RuntimeError(f"installed XiaoYu plugin does not match private source: {after_reason}")
@@ -408,7 +369,6 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
         "installed_dir": str(installed),
         "package_path": str(build.package_path),
         "payload_hash": str(build.payload_hash),
-        "state_migrated": state_migrated,
         "classifier_model_binding": model_binding,
     }
 

@@ -202,6 +202,20 @@ class OverlayContractTests(unittest.TestCase):
 
 
 
+    def test_interaction_policy_reuses_native_plugin_store(self):
+        source_dir = ROOT / "plugins" / "xiaoyu_interaction_policy"
+        source = (source_dir / "__init__.py").read_text(encoding="utf-8-sig")
+        config = tomllib.loads((source_dir / "plugin.toml").read_text(encoding="utf-8"))
+
+        self.assertTrue(config["plugin"]["store"]["enabled"])
+        self.assertIn("await self.store.get(", source)
+        self.assertIn("await self.store.set(", source)
+        self.assertIn('self.config.set("plugin.store.enabled", True', source)
+        self.assertIn('"projection": "xiaoyu_reply_gate.v1"', source)
+        self.assertIn('"quiet": bool(state.get("quiet"))', source)
+        self.assertNotIn("tempfile.mkstemp", source)
+        self.assertNotIn("os.replace(", source)
+
     def test_interaction_classifier_reuses_native_plugin_model_gateway(self):
         source_dir = ROOT / "plugins" / "xiaoyu_interaction_policy"
         source = (source_dir / "__init__.py").read_text(encoding="utf-8-sig")

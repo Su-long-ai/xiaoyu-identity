@@ -413,6 +413,29 @@
       ],
       "why_reuse_insufficient": "The current stable upstream pin remains the selected native implementation. The newer candidate is deferred until its own frontend acceptance is green; no private workaround is justified.",
       "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-e4f87d32-audit.json"
+    },
+    {
+      "id": "plugin:xiaoyu_interaction_policy-store",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "The interaction-policy plugin kept durable quiet/vision/cursor state in a private JSON file even though N.E.K.O Plugin SDK now provides a native plugin key-value store.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O PluginStore",
+          "type": "native_sdk",
+          "outcome": "selected as durable interaction-state authority; legacy JSON is imported once",
+          "evidence": "evals/evidence/2026-11-22-plugin-store-interaction-policy.json"
+        },
+        {
+          "name": "private state.json durable authority",
+          "type": "private_legacy",
+          "outcome": "retired; only a rebuildable quiet projection remains for the synchronous final reply gate",
+          "evidence": "evals/evidence/2026-11-22-plugin-store-interaction-policy.json"
+        }
+      ],
+      "why_reuse_insufficient": "PluginStore fully replaces private durable state. A two-field projection file remains only because patch 0006 makes a synchronous final reply-admission decision in the main chat process and intentionally does not depend on plugin IPC/SQLite; the projection is derived and can be rebuilt from PluginStore.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-plugin-store-interaction-policy.json"
     }
   ]
 }
