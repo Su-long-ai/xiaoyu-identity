@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "kind": "hierarchical_reuse_gate_ci_probe",
+  "source_commit": "ca51c38c12dc91a7511c1c6803afdf6adde085bb",
+  "purpose": "Trigger the ordinary agent/** push workflow on the exact hierarchical-gate product state without adding runtime behavior."
+}
