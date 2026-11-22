@@ -2860,6 +2860,97 @@
           "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_permission_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A task-agent permission prompt is durably represented in pending_question/outbox, and the protected effect has not begun while PermissionGate is still waiting, but host restart currently fails the commission because the old in-memory permission Future is gone. Recreating that old grant would be unsafe and would duplicate permission authority.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PermissionGate + ExecutionAudit + TaskAgentManager + tool-history repair",
+          "type": "native_current_pin",
+          "outcome": "selected; native effect boundary, transcript repair and session reopen primitives are sufficient for continuity without grant restoration",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to current pin at review time; no newer permission-restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionStore / ledger pending_question / native outbox",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only permission and pending-input authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the host-internal permission Future/transcript boundary",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Durable workflow/approval stores",
+          "type": "broader_external",
+          "outcome": "rejected because they would create a second orchestrator/permission authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Thin host-restart permission continuation",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only task-agent permission waits and resume transcript after user answer without restoring any old grant",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Private permission/grant/recovery store",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate PermissionStore/PermissionGate authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native primitives already prove the effect has not started, repair incomplete tool history, and reopen durable sessions, but Ledger._reconcile and TaskAgentManager._answer_closed do not connect those primitives across a host restart. The candidate changes only reconciliation and continuation wiring; authorization is always rechecked by the current native PermissionGate.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively survives host restart during task-agent permission prompts without restoring stale once/session grants, replays no old tool call, rechecks current permission on any retried action, and has equivalent direct-plugin fail-closed plus transcript-repair coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole permission, commission, execution-audit, session and outbox authority. Recovery may not mint or persist grants.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin has the pre-effect PermissionGate boundary, durable pending question, transcript repair and session reopen path, but no host-restart permission continuation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin; no newer seam exists.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned provider or surface owns NekoClaw PermissionGate continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/approval engines were considered but would duplicate frozen N.E.K.O orchestration and permission authority.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only preserves task-agent permission waiting rows and converts the post-restart answer into native transcript continuation. Old grants/receipts are never restored.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private grant stores, recovery journals, routers and daemons are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
