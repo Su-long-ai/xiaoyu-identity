@@ -49,6 +49,7 @@ jobs:
             private_overlay.tests.test_overlay_contract \
             private_overlay.tests.test_plugin_admission \
             private_overlay.tests.test_execution_plane_tool \
+            private_overlay.tests.test_companion_runtime_soak \
             private_overlay.tests.test_probe_neko_runtime_health \
             private_overlay.tests.test_release_readiness
 
@@ -59,6 +60,17 @@ jobs:
             private_overlay/tests \
             private_overlay/migration \
             private_overlay/evals
+
+      - name: Checkout pinned N.E.K.O runtime
+        uses: actions/checkout@v4
+        with:
+          repository: Project-N-E-K-O/N.E.K.O
+          ref: c3fc33ff0d32e4a79fd905d1add22d45725071f5
+          path: _neko_upstream
+          fetch-depth: 1
+
+      - name: Verify pinned native Execution Plane seams
+        run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
 
       - name: Release evidence gate
         run: python private_overlay/tools/check_release_readiness.py
