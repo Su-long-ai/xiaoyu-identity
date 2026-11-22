@@ -536,14 +536,20 @@ def _verify_wiring(root: Path) -> None:
     restore_end = api.index("return", restore_start)
     assert "_observe_nekoclaw_main_epoch" not in api[restore_start:restore_end]
 
+    assert "async def send_report(item: Any) -> bool:" in mount
+    assert "def _effect_receipt_required(item: Any) -> bool:" in mount
+    assert "send_report._nekoclaw_effect_receipt_required = _effect_receipt_required" in mount
+    assert '"__nekoclaw_delivery_id"' in mount
+    assert '"__nekoclaw_delivery_attempt_id"' in mount
+    assert "peek_host()" not in mount[mount.index("def _effect_receipt_required"):mount.index("async def _count_task_agent_request")]
+    assert "DeliveryHandoff" not in mount
     _ordered(
         mount,
-        "await host.ledger.outbox_mark_handoff(item.id, attempt_id)",
-        'payload["delivery_id"] = int(item.id)',
-        'payload["delivery_attempt_id"] = attempt_id',
-        "accepted = await _send_main_event(payload)",
-        "return DeliveryHandoff(attempt_id) if accepted else False",
+        "delivery_id = payload.pop(_DELIVERY_ID_PAYLOAD_KEY, None)",
+        'event["delivery_id"] = int(delivery_id)',
+        'event["delivery_attempt_id"] = attempt_id',
     )
+    assert "await host.ledger.outbox_mark_handoff" not in mount
     assert "await host.ledger.outbox_mark_sent" not in mount
 
     assert "class _NekoClawDeliveryClaim" in main
