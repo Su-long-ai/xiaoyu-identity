@@ -5,15 +5,9 @@ on:
     branches:
       - "private/neko-overlay-v1"
       - "agent/**"
-    paths:
-      - "private_overlay/**"
-      - ".github/workflows/private-overlay-gate.yml"
   pull_request:
     branches:
       - "private/neko-overlay-v1"
-    paths:
-      - "private_overlay/**"
-      - ".github/workflows/private-overlay-gate.yml"
   workflow_dispatch:
 
 permissions:
