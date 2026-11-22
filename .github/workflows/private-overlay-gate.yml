@@ -47,6 +47,7 @@ jobs:
         run: |
           python -m unittest -v \
             private_overlay.tests.test_overlay_contract \
+            private_overlay.tests.test_reuse_first \
             private_overlay.tests.test_plugin_admission \
             private_overlay.tests.test_execution_plane_tool \
             private_overlay.tests.test_companion_runtime_soak \
