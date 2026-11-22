@@ -2769,6 +2769,97 @@
           "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_report_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Ledger._reconcile fails all prior-host waiting_user commissions even when the durable pending question is a report checkpoint that native TaskAgentManager._answer_closed can resume safely from the transcript tail. Permission/tool questions cannot use that path and must remain excluded.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger + TaskAgentManager._answer_closed + native outbox",
+          "type": "native_current_pin",
+          "outcome": "selected; all durability and resume primitives already exist",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to c3 at review time; no newer report-wait restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O NekoClaw ledger/session/outbox/native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only state and delivery authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to this host-internal checkpoint",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "External workflow/checkpoint engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate task/session durability authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Thin Ledger reconcile filter",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only waiting_user with durable pending_question.kind=report",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Private question/recovery store or daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate native pending_question/outbox/session authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native persistence and resume are sufficient but current Ledger._reconcile over-classifies the safe report-wait checkpoint as failed. The candidate only narrows that reconciliation condition; it introduces no state or execution path.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively preserves report-style waiting_user commissions across host restart with equivalent durable-question, transcript-tail resume, no-startup-effect and exclusion coverage for permission/tool questions.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/question/outbox authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already persists pending_question/outbox/session transcript and supports _answer_closed for report questions; only reconciliation is overbroad.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin and has no newer implementation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider owns host restart of a NekoClaw report wait."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External checkpoint/workflow engines were considered and rejected because native N.E.K.O already represents this checkpoint durably.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only filters the native fail-on-open set for report-style waiting_user rows.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private recovery/question stores, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
