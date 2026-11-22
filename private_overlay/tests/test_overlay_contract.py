@@ -852,6 +852,53 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_runs_bounded_companion_micro_soak(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn("soak_rounds:", workflow)
+        self.assertIn('default: "12"', workflow)
+        self.assertIn("SOAK_ROUNDS=3", workflow)
+        self.assertGreaterEqual(
+            workflow.count('for round in $(seq 1 "$SOAK_ROUNDS")'),
+            2,
+        )
+        self.assertGreaterEqual(
+            workflow.count('"$SOAK_ROUNDS" -gt 50'),
+            2,
+        )
+        for required in (
+            "Companion Runtime soak round",
+            "QQ Runtime soak round",
+            "test_character_switch_queue.py",
+            "test_character_runtime_voice_identity.py",
+            "test_model_switch_keeps_live_budget.py",
+            "test_xiaoyu_plugin_visible_final_admission.py",
+            "test_qq_connection_status_refresh.py",
+            "test_qq_runtime_transition_lock.py",
+            "test_qq_catchup.py",
+            "test_live_inbound_idempotency_faults.py",
+        ):
+            self.assertIn(required, workflow)
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review = by_id["governance:companion-runtime-micro-soak-v1"]
+        self.assertEqual(review["status"], "approved")
+        self.assertEqual(review["decision"], "reuse_native")
+        self.assertTrue(
+            (
+                ROOT
+                / "evals"
+                / "evidence"
+                / "2026-11-23-companion-runtime-soak-reuse.json"
+            ).is_file()
+        )
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
