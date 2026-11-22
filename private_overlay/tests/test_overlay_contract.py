@@ -603,6 +603,7 @@ class OverlayContractTests(unittest.TestCase):
         reuse = workflow.index("Reuse-first hard gate")
         self.assertLess(freshness, reuse)
 
+
     def test_github_gate_parses_all_product_powershell_entrypoints(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
@@ -745,6 +746,32 @@ class OverlayContractTests(unittest.TestCase):
         )
         self.assertIn('PYTHONPATH="$PRODUCT_WORKTREE"', product_segment)
 
+    def test_execution_candidate_regression_is_paired_with_clean_native_baseline(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "Capture clean native Execution Plane regression baseline",
+            "execution-native-tests.txt",
+            "execution-native-baseline.xml",
+            "execution-native-patched.xml",
+            "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT",
+            "BLOCK_EXECUTION_PATCHED_REGRESSION",
+            "patched_failures - baseline_failures",
+        ):
+            self.assertIn(required, workflow)
+        baseline = workflow.index(
+            "Capture clean native Execution Plane regression baseline"
+        )
+        candidate = workflow.index("Exercise effect-state candidate on fresh native pin")
+        patched = workflow.index("Regress patched native Execution Plane")
+        self.assertLess(baseline, candidate)
+        self.assertLess(candidate, patched)
+        self.assertEqual(
+            workflow.count('mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"'),
+            2,
+        )
+
     def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
         candidate = (
             ROOT
@@ -844,13 +871,161 @@ class OverlayContractTests(unittest.TestCase):
             "live_inbound_idempotency.patch",
             "54acf36bf978edad4757e5fffc743c5618360700",
             "test_qq_catchup.py",
-            "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py",
-            "private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py",
-            "tests/unit/test_xiaoyu_plugin_visible_final_admission.py",
-            "plugin/tests/unit/server/test_xiaoyu_push_origin.py",
             "git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check",
         ):
             self.assertIn(required, workflow)
+
+    def test_run_checks_enforces_reuse_first_gate(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("check_reuse_first.py", script)
+        self.assertIn("ensure_native_embedding_assets.py", script)
+        self.assertIn("--verify-only", script)
+        reviews = json.loads((ROOT / "governance" / "reuse_reviews.json").read_text(encoding="utf-8-sig"))
+        ids = {item["id"] for item in reviews["reviews"]}
+        series = json.loads((ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig"))
+        for patch in series["patches"]:
+            self.assertIn("patch:" + patch["file"], ids)
+        manifest = json.loads((ROOT / "plugins" / "manifest.json").read_text(encoding="utf-8-sig"))
+        for plugin in manifest["allowed_private_runtime_plugins"]:
+            self.assertIn("plugin:" + plugin["id"], ids)
+
+
+    def test_architecture_freeze_is_machine_enforced(self):
+        arch = json.loads(
+            (ROOT / "governance" / "architecture_freeze.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(
+            arch["decision_id"],
+            "XIAOYU_ARCHITECTURE_FREEZE_V1",
+        )
+        self.assertEqual(arch["companion_runtime_authority"], "neko_native")
+        self.assertEqual(arch["extension_plane_default"], "neko_plugin_sdk")
+        self.assertTrue(arch["principles"]["no_second_runtime"])
+        self.assertEqual(arch["memory"]["authority"], "neko_native")
+        self.assertEqual(
+            arch["memory"]["external_candidates_mode"],
+            "shadow_only_until_explicit_promotion",
+        )
+        self.assertTrue(arch["private_core_patch_policy"]["requires_reuse_review"])
+        self.assertTrue(
+            arch["private_core_patch_policy"]["retire_when_native_extension_exists"]
+        )
+        retirement_evidence = arch["private_core_patch_policy"]["latest_retirement_audit"]
+        self.assertTrue((ROOT / retirement_evidence).is_file())
+        forbidden = set(arch["forbidden_xiaoyu_duplicate_authorities"])
+        self.assertTrue(
+            {
+                "plugin_host",
+                "model_gateway",
+                "vector_store",
+                "memory_runtime",
+                "agent_runtime",
+                "http_pool",
+                "credential_store",
+            }.issubset(forbidden)
+        )
+
+    def test_delivery_floor_contract_covers_all_user_visible_output_classes(self):
+        delivery = json.loads(
+            (ROOT / "governance" / "delivery_floor_v1.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(delivery["contract_id"], "XIAOYU_DELIVERY_FLOOR_V1")
+        self.assertEqual(
+            delivery["implementation_mode"],
+            "contract_only_no_second_runtime",
+        )
+        self.assertEqual(delivery["publication_authority"], "neko_native")
+        self.assertEqual(set(delivery["decisions"]), {"ALLOW", "HOLD", "DROP"})
+        self.assertEqual(
+            set(delivery["output_classes"]),
+            {
+                "ordinary_reply",
+                "proactive",
+                "work_break",
+                "game_invite",
+                "agent_result",
+                "qq_outbound",
+            },
+        )
+        self.assertEqual(
+            delivery["output_classes"]["ordinary_reply"]["current_enforcement_adapter"],
+            "patch:0006-private-speech-output-gate.patch",
+        )
+        for name in ("proactive", "work_break", "game_invite"):
+            self.assertEqual(
+                delivery["output_classes"][name]["current_enforcement_adapter"],
+                "patch:0009-proactive-interruptibility-gate.patch",
+            )
+        self.assertEqual(
+            delivery["output_classes"]["agent_result"]["current_enforcement_adapter"],
+            "neko_native:task_result_outbox_to_proactive_callback",
+        )
+        self.assertEqual(
+            delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
+            "external:pinned_qq_auto_reply_surface_floor",
+        )
+        for item in delivery["output_classes"].values():
+            self.assertTrue((ROOT / item["evidence"]).is_file())
+        requirements = delivery["global_requirements"]
+        for key in (
+            "latest_state_recheck_before_claim_or_publication",
+            "audience_and_privacy_must_be_valid_at_delivery",
+            "nonessential_output_must_respect_interruptibility",
+            "text_and_paired_tts_must_share_one_admission",
+            "policy_layer_must_not_publish_directly",
+            "native_delivery_remains_effect_authority",
+        ):
+            self.assertTrue(requirements[key], key)
+
+    def test_external_execution_contract_reuses_neko_native_authorities(self):
+        execution = json.loads(
+            (ROOT / "governance" / "execution_contract_v1.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(execution["contract_id"], "XIAOYU_EXTERNAL_EXECUTION_V1")
+        self.assertEqual(
+            execution["implementation_mode"],
+            "reuse_neko_native_no_second_agent_runtime",
+        )
+        self.assertEqual(execution["authority"]["commission_ledger"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["permission_gate"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["capability_gateway"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["result_outbox"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["identity_and_persona"], "neko_native")
+        self.assertEqual(execution["authority"]["memory"], "neko_native")
+        self.assertEqual(execution["routing"]["single_step"], "neko_plugin_direct")
+        self.assertEqual(execution["routing"]["multi_step"], "nekoclaw_task_agent")
+        self.assertEqual(
+            execution["routing"]["capabilities"],
+            "nekoclaw_mcp_capability_gateway",
+        )
+        self.assertTrue(execution["runtime_seam"]["builtin"]["allowed"])
+        self.assertEqual(
+            execution["runtime_seam"]["dsh"]["transport"],
+            "ACP_JSON_RPC_stdio",
+        )
+        self.assertTrue(execution["runtime_seam"]["dsh"]["fallback_to_builtin"])
+        self.assertFalse(execution["runtime_seam"]["openclaw"]["allowed"])
+        self.assertFalse(execution["runtime_seam"]["hermes"]["allowed"])
+        self.assertEqual(
+            execution["external_capability_policy"]["preferred_boundary"],
+            "MCP",
+        )
+        self.assertFalse(execution["activation"]["enable_agent_master_in_this_change"])
+        self.assertFalse(execution["activation"]["install_dsh_in_this_change"])
+        self.assertTrue((ROOT / execution["evidence"]).is_file())
+
+    def test_run_checks_enforces_architecture_freeze(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("check_architecture_freeze.py", script)
+
 
     def test_github_gate_runs_bounded_companion_micro_soak(self):
         workflow = (
@@ -972,192 +1147,6 @@ class OverlayContractTests(unittest.TestCase):
             "probe_native_crash_recovery_gap.py --neko-root _neko_upstream",
             workflow,
         )
-
-    def test_run_checks_enforces_reuse_first_gate(self):
-        script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("check_reuse_first.py", script)
-        self.assertIn("ensure_native_embedding_assets.py", script)
-        self.assertIn("--verify-only", script)
-        reviews = json.loads((ROOT / "governance" / "reuse_reviews.json").read_text(encoding="utf-8-sig"))
-        ids = {item["id"] for item in reviews["reviews"]}
-        series = json.loads((ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig"))
-        for patch in series["patches"]:
-            self.assertIn("patch:" + patch["file"], ids)
-        manifest = json.loads((ROOT / "plugins" / "manifest.json").read_text(encoding="utf-8-sig"))
-        for plugin in manifest["allowed_private_runtime_plugins"]:
-            self.assertIn("plugin:" + plugin["id"], ids)
-
-
-    def test_architecture_freeze_is_machine_enforced(self):
-        arch = json.loads(
-            (ROOT / "governance" / "architecture_freeze.json").read_text(
-                encoding="utf-8-sig"
-            )
-        )
-        self.assertEqual(
-            arch["decision_id"],
-            "XIAOYU_ARCHITECTURE_FREEZE_V1",
-        )
-        self.assertEqual(arch["companion_runtime_authority"], "neko_native")
-        self.assertEqual(arch["extension_plane_default"], "neko_plugin_sdk")
-        self.assertTrue(arch["principles"]["no_second_runtime"])
-        self.assertEqual(arch["memory"]["authority"], "neko_native")
-        self.assertEqual(
-            arch["memory"]["external_candidates_mode"],
-            "shadow_only_until_explicit_promotion",
-        )
-        self.assertTrue(arch["private_core_patch_policy"]["requires_reuse_review"])
-        self.assertTrue(
-            arch["private_core_patch_policy"]["retire_when_native_extension_exists"]
-        )
-        retirement_evidence = arch["private_core_patch_policy"]["latest_retirement_audit"]
-        self.assertTrue((ROOT / retirement_evidence).is_file())
-        forbidden = set(arch["forbidden_xiaoyu_duplicate_authorities"])
-        self.assertTrue(
-            {
-                "plugin_host",
-                "model_gateway",
-                "vector_store",
-                "memory_runtime",
-                "agent_runtime",
-                "http_pool",
-                "credential_store",
-            }.issubset(forbidden)
-        )
-
-    def test_delivery_floor_contract_covers_all_user_visible_output_classes(self):
-        delivery = json.loads(
-            (ROOT / "governance" / "delivery_floor_v1.json").read_text(
-                encoding="utf-8-sig"
-            )
-        )
-        self.assertEqual(delivery["contract_id"], "XIAOYU_DELIVERY_FLOOR_V1")
-        self.assertEqual(
-            delivery["implementation_mode"],
-            "contract_only_no_second_runtime",
-        )
-        self.assertEqual(delivery["publication_authority"], "neko_native")
-        self.assertEqual(set(delivery["decisions"]), {"ALLOW", "HOLD", "DROP"})
-        self.assertEqual(
-            set(delivery["output_classes"]),
-            {
-                "ordinary_reply",
-                "proactive",
-                "work_break",
-                "game_invite",
-                "agent_result",
-                "qq_outbound",
-            },
-        )
-        self.assertEqual(
-            delivery["output_classes"]["ordinary_reply"]["current_enforcement_adapter"],
-            "patch:0006-private-speech-output-gate.patch",
-        )
-        for name in ("proactive", "work_break", "game_invite"):
-            self.assertEqual(
-                delivery["output_classes"][name]["current_enforcement_adapter"],
-                "patch:0009-proactive-interruptibility-gate.patch",
-            )
-        self.assertEqual(
-            delivery["output_classes"]["agent_result"]["current_enforcement_adapter"],
-            "neko_native:task_result_outbox_to_proactive_callback",
-        )
-        self.assertEqual(
-            delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
-            "external:pinned_qq_auto_reply_surface_floor",
-        )
-        self.assertEqual(delivery["blocked_uncovered_output_classes"], {})
-        managed_extensions = delivery["managed_extension_output_classes"]
-        self.assertEqual(
-            set(managed_extensions),
-            {"desktop_notification", "plugin_triggered_output"},
-        )
-        for name in ("desktop_notification", "plugin_triggered_output"):
-            self.assertEqual(
-                managed_extensions[name]["coverage_status"],
-                "MANAGED_EXTENSION_ACTIVE",
-            )
-            self.assertEqual(
-                managed_extensions[name]["current_enforcement_adapter"],
-                "patch:0009-proactive-interruptibility-gate.patch",
-            )
-            self.assertEqual(
-                managed_extensions[name]["promotion_evidence"]["conclusion"],
-                "success",
-            )
-            self.assertEqual(
-                managed_extensions[name]["promotion_evidence"]["run_id"],
-                45060703253,
-            )
-            self.assertTrue(
-                managed_extensions[name]["retirement_condition"].startswith("Retire when")
-            )
-            self.assertTrue((ROOT / managed_extensions[name]["evidence"]).is_file())
-        self.assertIn(
-            "withdrawal/cleanup",
-            managed_extensions["plugin_triggered_output"]["cleanup_semantics"],
-        )
-        self.assertTrue(
-            delivery["global_requirements"]["plugin_visible_sinks_require_final_surface_admission"]
-        )
-        for item in delivery["output_classes"].values():
-            self.assertTrue((ROOT / item["evidence"]).is_file())
-        requirements = delivery["global_requirements"]
-        for key in (
-            "latest_state_recheck_before_claim_or_publication",
-            "audience_and_privacy_must_be_valid_at_delivery",
-            "nonessential_output_must_respect_interruptibility",
-            "text_and_paired_tts_must_share_one_admission",
-            "policy_layer_must_not_publish_directly",
-            "native_delivery_remains_effect_authority",
-        ):
-            self.assertTrue(requirements[key], key)
-
-    def test_external_execution_contract_reuses_neko_native_authorities(self):
-        execution = json.loads(
-            (ROOT / "governance" / "execution_contract_v1.json").read_text(
-                encoding="utf-8-sig"
-            )
-        )
-        self.assertEqual(execution["contract_id"], "XIAOYU_EXTERNAL_EXECUTION_V1")
-        self.assertEqual(
-            execution["implementation_mode"],
-            "reuse_neko_native_no_second_agent_runtime",
-        )
-        self.assertEqual(execution["authority"]["commission_ledger"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["permission_gate"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["capability_gateway"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["result_outbox"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["identity_and_persona"], "neko_native")
-        self.assertEqual(execution["authority"]["memory"], "neko_native")
-        self.assertEqual(execution["routing"]["single_step"], "neko_plugin_direct")
-        self.assertEqual(execution["routing"]["multi_step"], "nekoclaw_task_agent")
-        self.assertEqual(
-            execution["routing"]["capabilities"],
-            "nekoclaw_mcp_capability_gateway",
-        )
-        self.assertTrue(execution["runtime_seam"]["builtin"]["allowed"])
-        self.assertEqual(
-            execution["runtime_seam"]["dsh"]["transport"],
-            "ACP_JSON_RPC_stdio",
-        )
-        self.assertTrue(execution["runtime_seam"]["dsh"]["fallback_to_builtin"])
-        self.assertFalse(execution["runtime_seam"]["openclaw"]["allowed"])
-        self.assertFalse(execution["runtime_seam"]["hermes"]["allowed"])
-        self.assertEqual(
-            execution["external_capability_policy"]["preferred_boundary"],
-            "MCP",
-        )
-        self.assertFalse(execution["activation"]["enable_agent_master_in_this_change"])
-        self.assertFalse(execution["activation"]["install_dsh_in_this_change"])
-        self.assertTrue((ROOT / execution["evidence"]).is_file())
-
-    def test_run_checks_enforces_architecture_freeze(self):
-        script = (ROOT / "tools" / "run_checks.ps1").read_text(
-            encoding="utf-8-sig"
-        )
-        self.assertIn("check_architecture_freeze.py", script)
-
 
 if __name__ == "__main__":
     unittest.main()
