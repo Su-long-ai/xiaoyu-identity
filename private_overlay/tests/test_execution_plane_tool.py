@@ -10,7 +10,7 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from check_execution_plane import _delivery_receipt_probe, _source_contract_results
+from check_execution_plane import _acceptance_matrix_summary, _delivery_receipt_probe, _source_contract_results
 
 
 class ExecutionPlaneAcceptanceToolTests(unittest.TestCase):
@@ -75,6 +75,15 @@ outbox_mark_failed(
             results = _source_contract_results(root)
             self.assertTrue(results)
             self.assertTrue(all(item["ok"] for item in results), results)
+
+    def test_acceptance_matrix_matches_pin_and_exposes_delivery_blockers(self):
+        summary = _acceptance_matrix_summary()
+        self.assertTrue(summary["ok"], summary)
+        self.assertGreaterEqual(summary["native_covered"], 20)
+        blocker_ids = {item["id"] for item in summary["blockers"]}
+        self.assertIn("delivery.main_process_effect_receipt", blocker_ids)
+        self.assertIn("delivery.main_restart_before_effect", blocker_ids)
+        self.assertIn("delivery.duplicate_replay_after_ambiguous_effect", blocker_ids)
 
     def test_transport_acceptance_is_not_delivery_receipt(self):
         with tempfile.TemporaryDirectory() as td:
