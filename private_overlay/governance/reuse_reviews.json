@@ -1764,6 +1764,83 @@
           "rationale": "No reproduced native acceptance gap justifies a managed patch, private runtime, state store, router, daemon or second model probe."
         }
       }
+    },
+    {
+      "id": "governance:execution-paired-native-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The native Execution Plane regression currently runs only after candidate patches are applied, so unrelated failures already present in the pinned N.E.K.O baseline can be misattributed to the candidate.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private-overlay GitHub Actions Execution regression step",
+          "type": "native_ci",
+          "outcome": "selected as the single evaluation plane; retain the same explicit native test selection",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "pytest built-in JUnit XML",
+          "type": "native_test_runtime",
+          "outcome": "selected to record baseline and patched testcase outcomes without adding a plugin",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "Python xml.etree.ElementTree",
+          "type": "stdlib",
+          "outcome": "selected to compare failure identities deterministically",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "pytest-json-report or another test result service",
+          "type": "external_test_tooling",
+          "outcome": "rejected; unnecessary second dependency/evaluation plane",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "Ignore native regression failures",
+          "type": "private_shortcut",
+          "outcome": "rejected because genuine patched-only failures must remain blocking",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing workflow and pytest suite are the correct reusable regression plane. The missing primitive is only a clean-baseline outcome captured with the exact same test selection and compared against the patched outcome. Implement this inside the existing workflow using pytest JUnit XML and Python stdlib parsing.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O native tests remain the behavior authority; XiaoYu CI only attributes incremental candidate regressions.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "The clean c3 pin is the required baseline and uses the same native tests.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Current upstream equals c3; no native paired-candidate regression helper exists, so the existing test runtime is reused directly.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns N.E.K.O native pytest regression attribution for Execution Plane candidates."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External JSON-report/test services were considered; built-in pytest JUnit plus stdlib XML is sufficient and thinner.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Add baseline capture and patched-only failure comparison to the existing workflow without changing native tests.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new test service, database or custom runner is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
