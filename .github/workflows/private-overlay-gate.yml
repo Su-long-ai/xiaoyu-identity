@@ -77,7 +77,7 @@ jobs:
           git -C _neko_upstream apply --check ../private_overlay/candidates/execution_plane/outbox_effect_state.patch
           git -C _neko_upstream apply ../private_overlay/candidates/execution_plane/outbox_effect_state.patch
           python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py             _neko_upstream/tests/unit/nekoclaw/test_host_robustness.py
-          python -m pip install -q pytest pytest-asyncio
+          python -m pip install -q pytest pytest-asyncio nest-asyncio
           cd _neko_upstream
           python -m pytest -q             tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery             tests/unit/nekoclaw/test_host_robustness.py::test_sender_refuses_an_unrecorded_effect_handoff             tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect
 
