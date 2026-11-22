@@ -222,6 +222,35 @@ jobs:
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
 
+      - name: Exercise native dsh optional-runtime product acceptance
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_model_requests_go_to_each_sessions_own_model_and_report_its_usage \
+            tests/unit/nekoclaw/test_dsh_grant_wire.py::test_pinned_dsh_native_denial_precedes_host_ask \
+            tests/unit/nekoclaw/test_dsh_host_tools.py::test_each_dsh_process_has_a_token_of_its_own_that_ends_with_it \
+            tests/unit/nekoclaw/test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_nothing_is_uploaded \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_the_model_is_reached_only_through_the_drivers_endpoint \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh \
+            tests/unit/nekoclaw/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
+            tests/unit/nekoclaw/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
+            tests/unit/nekoclaw/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went \
+            tests/unit/nekoclaw/test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept
+
       - name: Exercise native Execution Plane product E2E
         run: |
           python -m pip install -q uv
