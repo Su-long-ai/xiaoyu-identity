@@ -69,5 +69,23 @@
     "new_callback_ledger": false,
     "new_asr_tts_runtime": false
   },
-  "retirement_condition": "Retire this overlay wiring when pinned N.E.K.O upstream CI runs equivalent voice-onset interruption/wrap-up ownership regressions for every pin XiaoYu consumes and XiaoYu can consume that result without duplicating test selection."
+  "retirement_condition": "Retire this overlay wiring when pinned N.E.K.O upstream CI runs equivalent voice-onset interruption/wrap-up ownership regressions for every pin XiaoYu consumes and XiaoYu can consume that result without duplicating test selection.",
+  "implementation_status": "CANDIDATE_REF_PRESERVED_PENDING_AGENT_MACHINE_GATE",
+  "implementation": {
+    "cloud": ".github/workflows/private-overlay-gate.yml / patched Companion product regression",
+    "local": "private_overlay/tools/run_checks.ps1 / Companion Voice targets",
+    "selected_targets": [
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_the_hold_is_taken_before_the_interruption_awaits",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_newer_voice_turn_takes_the_hold_over",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it",
+      "tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up"
+    ],
+    "runtime_code_changed": false,
+    "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+    "promotion_prohibited_until_agent_gate_green": true
+  }
 }

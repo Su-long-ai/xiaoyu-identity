@@ -120,7 +120,8 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_glm_tts.py"),
         (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py"),
         (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py"),
-        (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")
+        (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py"),
+        (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py")
     )
     $CompanionVoiceTargets = @(
         ("{0}::test_connect_qwen_server_vad_type_follows_model" -f (Join-Path $NekoRoot "tests\unit\test_voice_session.py")),
@@ -134,7 +135,11 @@ if (-not $StartupPreflight) {
         ("{0}::test_transport_ignores_retired_created_before_exposing_successor" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
         ("{0}::test_reconnect_retries_without_losing_held_audio" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")),
         ("{0}::test_stale_pause_cannot_finish_next_provider_turn" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")),
-        ("{0}::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py"))
+        ("{0}::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause" -f (Join-Path $NekoRoot "tests\unit\test_qwen_provider_fallback.py")),
+        ("{0}::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py")),
+        ("{0}::test_the_hold_is_taken_before_the_interruption_awaits" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py")),
+        ("{0}::test_a_newer_voice_turn_takes_the_hold_over" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py")),
+        ("{0}::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py"))
     )
     $CompanionInteractionFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_tool_calling.py"),

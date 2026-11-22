@@ -170,6 +170,10 @@ jobs:
             tests/unit/test_qwen_provider_fallback.py::test_reconnect_retries_without_losing_held_audio \
             tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn \
             tests/unit/test_qwen_provider_fallback.py::test_old_unclaimed_final_cannot_cover_pcm_sent_before_new_pause \
+            tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it \
+            tests/unit/test_voice_turn_wrap_up_hold.py::test_the_hold_is_taken_before_the_interruption_awaits \
+            tests/unit/test_voice_turn_wrap_up_hold.py::test_a_newer_voice_turn_takes_the_hold_over \
+            tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up \
             tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
             tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
             tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
@@ -234,6 +238,8 @@ jobs:
               tests/unit/test_realtime_response_ownership.py::test_retired_created_overlap_with_server_vad_fails_closed \
               tests/unit/test_realtime_response_ownership.py::test_transport_ignores_retired_created_before_exposing_successor \
               tests/unit/test_qwen_provider_fallback.py::test_stale_pause_cannot_finish_next_provider_turn \
+              tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_holds_the_debt_until_its_own_reply_pays_it \
+              tests/unit/test_voice_turn_wrap_up_hold.py::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up \
               tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
               tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
               tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
