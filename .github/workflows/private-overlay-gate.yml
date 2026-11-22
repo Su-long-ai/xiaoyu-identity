@@ -45,6 +45,7 @@ jobs:
 
       - name: Overlay contract tests
         run: |
+          python -m pip install -q "httpx[socks]>=0.28.1"
           python -m unittest -v \
             private_overlay.tests.test_overlay_contract \
             private_overlay.tests.test_reuse_first \
@@ -52,7 +53,12 @@ jobs:
             private_overlay.tests.test_execution_plane_tool \
             private_overlay.tests.test_companion_runtime_soak \
             private_overlay.tests.test_probe_neko_runtime_health \
-            private_overlay.tests.test_release_readiness
+            private_overlay.tests.test_release_readiness \
+            private_overlay.tests.test_ensure_private_plugin \
+            private_overlay.tests.test_ensure_xiaoyu_activity_preferences \
+            private_overlay.tests.test_reconcile_neko_plugin_runtime \
+            private_overlay.tests.test_xiaoyu_interaction_policy_plugin \
+            private_overlay.tests.test_native_embedding_assets
 
       - name: Compile overlay control plane
         run: |
@@ -126,7 +132,11 @@ jobs:
             tests/unit/test_assistant_speech_finalize_static.py \
             tests/unit/test_openai_compatible_tts.py \
             tests/unit/test_qwen_intl_tts_routing.py \
-            tests/unit/test_voice_management_tts.py
+            tests/unit/test_voice_management_tts.py \
+            tests/unit/test_xiaoyu_startup_performance.py \
+            tests/unit/test_token_tracker_install_hooks_idempotent.py \
+            tests/unit/test_cloudsave_lifecycle_flow.py \
+            tests/unit/test_live2d_model_config_write_locking.py
           node --test \
             tests/frontend/chat_avatar_integration.test.cjs \
             tests/frontend/live2d_audio_ownership.test.cjs \
