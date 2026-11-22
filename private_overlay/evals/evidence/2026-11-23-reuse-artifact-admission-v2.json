@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_REUSE_ARTIFACT_ADMISSION_V2_20261123",
+  "recorded_at_local": "2026-11-23T01:39:00+08:00",
+  "scope": "repository_governance_only",
+  "observed_gap": {
+    "existing_gate_covers": [
+      "managed N.E.K.O patch series",
+      "candidate .patch inventory",
+      "manifest-admitted private runtime plugins"
+    ],
+    "not_generically_covered": [
+      "managed external patch outside patches/ and candidates/",
+      "new private plugin directory not yet placed in runtime manifest",
+      "new runtime-adapter/state-store/router/daemon-shaped source artifact"
+    ]
+  },
+  "reuse_sequence": [
+    "existing check_reuse_first.py and reuse_reviews.json",
+    "existing architecture freeze and plugin admission gates",
+    "GitHub Actions push enforcement",
+    "external policy engine rejected as unnecessary"
+  ],
+  "selected_design": {
+    "implementation": "extend existing static reuse-first checker",
+    "second_policy_database": false,
+    "second_runtime": false,
+    "new_daemon": false,
+    "runtime_cost": 0,
+    "fail_closed": true,
+    "review_registry": "private_overlay/governance/reuse_reviews.json"
+  },
+  "acceptance_plan": [
+    "all .patch artifacts remain review-bound, including future external managed patch locations",
+    "every private plugin directory containing plugin.toml is review-bound even before autostart admission",
+    "adapter/store/router/daemon-shaped product source artifacts are review-bound through the same review registry",
+    "evidence/tests/governance documents are not misclassified as product runtime artifacts",
+    "existing repository remains green without weakening architecture/plugin/release gates"
+  ],
+  "retirement_condition": "Retire only if N.E.K.O or the repository provides an equivalent native artifact-to-reuse-decision admission gate that covers these classes without a second governance authority.",
+  "implementation_status": "IMPLEMENTED_ON_AGENT_GREEN_PENDING_MAIN_REPLAY",
+  "implementation_evidence": {
+    "agent_branch": "agent/companion-runtime-v1",
+    "agent_commit": "05364402936c7192c68ba5d7d8691667c0267937",
+    "agent_gate": "reuse-architecture-gate: SUCCESS"
+  }
+}
