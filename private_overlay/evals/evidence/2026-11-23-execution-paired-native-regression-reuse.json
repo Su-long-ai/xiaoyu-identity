@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_PAIRED_NATIVE_REGRESSION_20261123",
+  "recorded_at_local": "2026-11-23T03:27:00+08:00",
+  "problem": "The patched Execution Plane regression runs a mixed native suite only after candidate patches are applied. Existing failures in the pinned N.E.K.O baseline can therefore be falsely attributed to the candidate, while genuine new failures must still fail closed.",
+  "selected": {
+    "mechanism": "existing GitHub Actions job + pytest built-in JUnit XML + Python stdlib XML parser",
+    "policy": "run the exact regression selection once on clean pinned c3 and once after the candidate patches; fail only when patched failures are not a subset of baseline failures",
+    "reason": "Adds no test framework, service or persistent store; preserves strict incremental regression detection."
+  },
+  "considered": [
+    {
+      "candidate": "Keep post-patch-only pytest",
+      "outcome": "rejected",
+      "reason": "cannot distinguish candidate regressions from baseline red tests"
+    },
+    {
+      "candidate": "pytest --junitxml",
+      "outcome": "selected",
+      "reason": "built-in pytest output; already available in native test runtime"
+    },
+    {
+      "candidate": "Python xml.etree.ElementTree",
+      "outcome": "selected",
+      "reason": "stdlib comparison avoids another parser/dependency"
+    },
+    {
+      "candidate": "pytest-json-report/new test service",
+      "outcome": "rejected",
+      "reason": "unnecessary dependency/parallel evaluation authority"
+    },
+    {
+      "candidate": "Ignore all native failures",
+      "outcome": "rejected",
+      "reason": "would hide genuine candidate regressions"
+    }
+  ],
+  "invariants": [
+    "clean and patched runs use the exact same explicit test selection",
+    "patched-only failing testcase identities fail the job",
+    "baseline failures are reported but not falsely attributed to the candidate",
+    "candidate-specific effect-state/receipt/ZMQ verifiers remain mandatory independent gates",
+    "no native test is edited or weakened to accommodate the candidate"
+  ]
+}
