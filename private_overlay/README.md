@@ -90,4 +90,18 @@ This is deliberately **not** a malicious-plugin sandbox. N.E.K.O capability gran
 
 ## Reuse-first gate
 
-Every new private runtime plugin or managed N.E.K.O core patch must first have an approved entry in `governance/reuse_reviews.json`. The review records the N.E.K.O native/upstream and mature external candidates considered, supporting evidence, and why reuse alone is insufficient when a thin adapter or private implementation remains. `tools/check_reuse_first.py` is fail-closed and runs inside `tools/run_checks.ps1`; an unreviewed managed patch/plugin or an unmanaged patch file blocks the checks. If a reusable solution later becomes viable, the policy prefers replacing/deleting private code rather than keeping it because it already exists.
+Every new private runtime plugin, managed/external patch, adapter, state store, router, daemon or equivalent long-lived customization must be reuse-admitted before product promotion. `governance/reuse_reviews.json` now uses the machine-enforced `HIERARCHICAL_REUSE_V1` search order:
+
+1. L0 product/authority ownership;
+2. L1 current pinned N.E.K.O;
+3. L2 latest N.E.K.O upstream and native extension planes (Plugin SDK, PluginStore, NekoClaw, MCP, native delivery);
+4. L3 already-pinned external components;
+5. L4 broader mature external / OS-native / provider-native ecosystem;
+6. L5 thin integration;
+7. L6 private implementation.
+
+Every layer is explicitly `checked` or `not_applicable`. Checked layers require an outcome and evidence; non-applicable layers require a concrete rationale. A `thin_adapter` or `self_implement` decision is blocked if its search never escapes the local component into L2/L3/L4. New reviews cannot bypass the hierarchy by backdating `reviewed_at`; only the frozen rollout-time legacy review IDs may omit the new fields.
+
+`tools/check_reuse_first.py`, the architecture freeze, plugin admission and release readiness all run on ordinary `agent/**` pushes as well as product-main pushes. Before those checks, the workflow fetches current `private/neko-overlay-v1` and rejects an agent push with `BLOCK_AGENT_STALE_BASE` unless the latest product-main commit is already an ancestor of the agent branch. This prevents long-lived agents from stacking work on an obsolete product/gate baseline.
+
+The desired response to a red gate is to reuse a better existing capability, repair the implementation, or add real evidence for a reproduced gap. Do not weaken or remove the gate merely to make a candidate green. When a reusable native/external solution later becomes equivalent, prefer retiring the private implementation rather than preserving sunk-cost code.
