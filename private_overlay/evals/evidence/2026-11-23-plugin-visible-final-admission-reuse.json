@@ -94,8 +94,21 @@
     "blocked direct chat also prevents its paired HUD publication without altering native callback/outbox behavior",
     "agent/** push applies the full 10-patch chain and runs focused regressions"
   ],
-  "verdict": "APPROVE_THIN_EXTENSION_OF_0009_AFTER_THIS_DECISION; no 0011, no second state/router/publisher.",
+  "verdict": "PROMOTE_THIN_EXTENSION_OF_0009; no 0011, no second state/router/publisher.",
   "scope_exclusions": {
     "plugin_ui_action_effects": "media_play_url, allowlist changes and jukebox_control are execution/effect paths, not companion-authored publication; they remain under plugin capability/effect correctness rather than speech/delivery-floor policy"
+  },
+  "promotion": {
+    "status": "MANAGED_EXTENSION_ACTIVE",
+    "machine_gate": {
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45060703253,
+      "head_sha": "003a7c20b72495bcc900826ce90d07478fad0b06",
+      "conclusion": "success"
+    },
+    "managed_patch_count": 10,
+    "new_runtime_authority": false,
+    "contract": "delivery_floor_v1.managed_extension_output_classes",
+    "blocked_uncovered_output_classes_after_promotion": []
   }
 }
