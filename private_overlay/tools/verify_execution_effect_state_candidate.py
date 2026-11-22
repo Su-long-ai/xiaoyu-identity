@@ -125,6 +125,20 @@ async def _verify(neko_root: Path) -> None:
         )
         assert await ledger.outbox_delivery_state(first_claim) == "sent"
         assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        # A stale/no-effect receipt after restart must never reopen an
+        # uncertain claim for automatic retry. Only an exact positive receipt
+        # may reconcile it.
+        assert (
+            await ledger.outbox_release_delivery(
+                second_claim, "attempt-b", "claim-b"
+            )
+            == "uncertain"
+        )
+        assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        assert all(
+            item.id != second_claim
+            for item in await ledger.outbox_pending(due_by=2**62)
+        )
         await ledger.close()
 
     with tempfile.TemporaryDirectory() as td:
@@ -167,6 +181,52 @@ async def _verify(neko_root: Path) -> None:
             )
         finally:
             await second.close()
+
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "confirmed-replay.db"
+        ledger = Ledger(path)
+        item_id = await ledger.outbox_add(
+            None, "task_result", {"summary": "confirmed-once"}
+        )
+        assert await ledger.outbox_mark_handoff(item_id, "attempt-confirmed")
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "claimed"
+        )
+        assert (
+            await ledger.outbox_commit_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "committed"
+        )
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "sent"
+        )
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-replay", "claim-replay"
+            )
+            == "sent"
+        )
+        assert (
+            await ledger.outbox_release_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "sent"
+        )
+        await ledger.outbox_mark_failed(item_id, "late transport failure", 0.0)
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
+        assert all(
+            item.id != item_id
+            for item in await ledger.outbox_pending(due_by=2**62)
+        )
+        await ledger.close()
 
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "ambiguous-transport.db"
