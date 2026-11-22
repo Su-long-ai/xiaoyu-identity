@@ -371,6 +371,18 @@ jobs:
             tests/unit/nekoclaw/test_host_plugin_runs.py \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
 
+      - name: Exercise report-wait host-restart candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          python -m py_compile _neko_upstream/nekoclaw/host/ledger.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py"
+
       - name: Regress patched native Execution Plane
         run: |
           python -m pip install -q uv
