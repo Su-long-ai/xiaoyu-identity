@@ -402,6 +402,7 @@ jobs:
             plugin/plugins/qq_auto_reply/tests/test_qq_proactive_initiative.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_auto_reply_forward_client.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_buffer_no_append_after_delivery.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \

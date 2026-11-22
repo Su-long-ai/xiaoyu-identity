@@ -115,6 +115,13 @@
     ],
     "no_new_transport": true,
     "no_new_state_store": true,
-    "no_new_retry_daemon": true
+    "no_new_retry_daemon": true,
+    "implementation": {
+      "cloud": ".github/workflows/private-overlay-gate.yml / pinned QQ delivery/floor surface regression",
+      "local": "private_overlay/tools/run_checks.ps1 / $QQSurfaceTests",
+      "file": "test_qq_catchup.py",
+      "before_candidate_patch": true,
+      "branch_ref_moved": false
+    }
   }
 }

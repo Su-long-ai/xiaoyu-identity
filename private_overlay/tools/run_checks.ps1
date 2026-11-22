@@ -48,6 +48,7 @@ if (-not $StartupPreflight) {
         (Join-Path $QQPluginRoot "tests\test_qq_proactive_initiative.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_auto_reply_forward_client.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_connection_status_refresh.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_catchup.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_buffer_no_append_after_delivery.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_buffer_send_time_floor.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_runtime_transition_lock.py"),
