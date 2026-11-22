@@ -79,6 +79,17 @@ jobs:
           python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py
           python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_upstream
 
+      - name: Exercise native delivery receipt candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/native_delivery_receipt.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/native_delivery_receipt.patch"
+          python -m py_compile \
+            _neko_upstream/main_logic/agent_event_bus.py \
+            _neko_upstream/app/agent_server/api_runtime.py \
+            _neko_upstream/app/agent_server/nekoclaw_mount.py \
+            _neko_upstream/app/main_server/character_runtime.py
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_upstream
+
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
         with:
