@@ -5,13 +5,13 @@
   "status": "STABLE",
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
-  "refreshed_at_local": "2026-11-23T03:20:00+08:00",
-  "basis_commit": "4434e5b11ed70f65296aac6cb5222ac54a9a9263",
+  "refreshed_at_local": "2026-11-23T04:19:10+08:00",
+  "basis_commit": "4c2dfe845f064039704951d1c484dcc37c249826",
   "basis_commit_verification": {
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45059768210,
+    "run_id": 45065420130,
     "conclusion": "success",
-    "note": "Fully green product-main basis including hierarchical reuse, race-safe agent freshness, release-manifest consistency, patched product-state regression, Execution/QQ candidates and release readiness."
+    "note": "Fully green product-main basis after integrating Execution effect/receipt hardening and Companion delivery/lifecycle/soak hardening under hierarchical reuse and freshness gates."
   },
   "product_branch": "private/neko-overlay-v1",
   "no_open_release_blockers": true,
@@ -119,17 +119,17 @@
   },
   "verification": {
     "product_main_machine_gate": {
-      "commit": "62f4cb9e546b79ca42cbcf6cdbadc229c93ff6a4",
-      "run_id": 45058502494,
+      "commit": "4c2dfe845f064039704951d1c484dcc37c249826",
+      "run_id": 45065420130,
       "conclusion": "success"
     },
     "hierarchical_reuse_gate": "HIERARCHICAL_REUSE_V1 active; new reviews require L0-L6 checked/not_applicable evidence and local-only customization search fails closed",
     "agent_branch_freshness": "agent/** push requires current private/neko-overlay-v1 ancestor; stale bases fail BLOCK_AGENT_STALE_BASE",
     "release_readiness": "25/25 PASS",
     "canonical_c3_restart": "PASS; final cycle main/memory/agent/plugin HTTP 200, 4/4 admitted autostart plugins restored, zero new main-loop blocked/recovered events",
-    "patched_product_cloud_regression": "341 Python passed with 19 warnings; 100 Node passed; existing patched-product worktree reused",
-    "pinned_qq_surface": "173 passed, 3 warnings; product-main replay success against qq_auto_reply 54acf36",
-    "native_execution_and_receipt_candidates": "candidate-only machine regressions remain separate from stable managed patch series",
+    "patched_product_cloud_regression": "PASS in product-main run 45065420130; patched Companion switch/audio/startup product state plus bounded Companion soak completed under the shared gate.",
+    "pinned_qq_surface": "PASS in product-main run 45065420130 against qq_auto_reply 54acf36, including inbound-idempotency candidate and bounded QQ soak.",
+    "native_execution_and_receipt_candidates": "PASS in product-main run 45065420130; clean-vs-patched paired native regression and real-ZMQ receipt E2E remain candidate-only and separate from the stable managed patch series.",
     "runtime_health_self_heal": "PASS; read-only-first, at most one native reconcile repair, forbidden Agent capabilities remain blocked",
     "plugin_capability_floor": "PASS; autostart dependency/model/UI/install authority expansion fails closed",
     "upstream_main_equals_pin": true,
@@ -149,7 +149,8 @@
       "native runtime health self-heal for admitted autostart plugins",
       "NekoClaw native task execution and no-blind-retry uncertain-effect behavior",
       "Qwen clone bundle with CosyVoice retained as selectable fallback",
-      "startup event-loop responsiveness fixes contained inside managed patch 0010"
+      "startup event-loop responsiveness fixes contained inside managed patch 0010",
+      "plugin-visible chat/HUD output passes the shared final-admission delivery-floor extension"
     ],
     "excluded": [
       "Steam-specific distribution behavior in the private source-launch environment",
