@@ -391,6 +391,7 @@ jobs:
           cd _neko_upstream
           uv run --locked --group dev python -m pytest -q \
             plugin/plugins/qq_auto_reply/tests/test_qq_outbound_guard.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_send_observability.py \
             plugin/plugins/qq_auto_reply/tests/test_group_send_safety.py \
             plugin/plugins/qq_auto_reply/tests/test_proactive_budget_integration.py \
             plugin/plugins/qq_auto_reply/tests/test_qq_proactive_initiative.py \

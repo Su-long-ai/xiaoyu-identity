@@ -42,6 +42,7 @@ if (-not $StartupPreflight) {
     $QQPluginRoot = Join-Path $NekoRoot "plugin\plugins\qq_auto_reply"
     $QQSurfaceTests = @(
         (Join-Path $QQPluginRoot "tests\test_qq_outbound_guard.py"),
+        (Join-Path $QQPluginRoot "tests\test_qq_send_observability.py"),
         (Join-Path $QQPluginRoot "tests\test_group_send_safety.py"),
         (Join-Path $QQPluginRoot "tests\test_proactive_budget_integration.py"),
         (Join-Path $QQPluginRoot "tests\test_qq_proactive_initiative.py"),

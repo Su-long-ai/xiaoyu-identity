@@ -70,5 +70,14 @@
   "privacy": {
     "user_content_persisted": false,
     "credentials_persisted": false
+  },
+  "implementation_status": "STAGED_UNPUSHED_PENDING_MACHINE_GATE",
+  "implementation": {
+    "cloud_surface_step": ".github/workflows/private-overlay-gate.yml / Exercise pinned QQ delivery/floor surface regression",
+    "local_release_suite": "private_overlay/tools/run_checks.ps1 / $QQSurfaceTests",
+    "added_existing_test": "plugin/plugins/qq_auto_reply/tests/test_qq_send_observability.py",
+    "runtime_code_changed": false,
+    "branch_ref_moved": false,
+    "reason_branch_not_moved": "GitHub-hosted agent/** jobs are currently failing before runner allocation with steps=[]/no logs; do not bypass the required ordinary-push machine gate."
   }
 }

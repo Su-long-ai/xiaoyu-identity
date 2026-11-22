@@ -545,6 +545,7 @@ class OverlayContractTests(unittest.TestCase):
         required = {
             "XiaoYu pinned QQ delivery/floor regression",
             "test_qq_outbound_guard.py",
+            "test_qq_send_observability.py",
             "test_group_send_safety.py",
             "test_proactive_budget_integration.py",
             "test_qq_proactive_initiative.py",
@@ -986,6 +987,7 @@ class OverlayContractTests(unittest.TestCase):
             "Exercise pinned QQ delivery/floor surface regression",
             "uv run --locked --group dev python -m pytest -q",
             "test_qq_outbound_guard.py",
+            "test_qq_send_observability.py",
             "test_group_send_safety.py",
             "test_proactive_budget_integration.py",
             "test_qq_proactive_initiative.py",
