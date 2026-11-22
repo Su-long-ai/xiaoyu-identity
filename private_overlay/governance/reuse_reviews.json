@@ -718,6 +718,41 @@
       "acceptance_evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
       "retirement_condition": "Retire when upstream N.E.K.O provides stable task-result delivery identity and durable visible-effect receipt/reconciliation with equivalent restart semantics.",
       "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence"
+    },
+    {
+      "id": "governance:reuse-artifact-admission-v2",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The existing reuse-first machine gate covers managed N.E.K.O patches, candidate patches and manifest-admitted private runtime plugins, but a future managed external patch or newly introduced adapter/store/router/daemon-shaped private artifact can be added outside those inventories without an explicit reuse decision.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private_overlay/tools/check_reuse_first.py + governance/reuse_reviews.json",
+          "type": "existing_governance",
+          "outcome": "selected; extend the current fail-closed gate and the same review registry rather than introducing another policy database or runtime",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        {
+          "name": "Existing architecture freeze and plugin admission gates",
+          "type": "existing_governance",
+          "outcome": "reused as complementary architecture/capability checks; insufficient alone because they do not require a reuse decision for arbitrary external patch or adapter/store/router/daemon artifacts",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        {
+          "name": "GitHub Actions branch/path filters",
+          "type": "native_ci",
+          "outcome": "reused for execution on agent/** pushes, but insufficient to bind a newly added customization artifact to an approved reuse decision",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        {
+          "name": "OPA/Cedar or a second permission/policy database",
+          "type": "external_policy_engine",
+          "outcome": "rejected; adds an unnecessary second governance authority for a repository-local static admission problem",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing gate is the correct reusable enforcement plane, but its artifact inventory is narrower than the new hard rule. The residual change is limited to static repository classification plus review linkage inside the same script and JSON review registry; it adds no runtime process, daemon, state store, permission database or product dependency.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
     }
   ]
 }
