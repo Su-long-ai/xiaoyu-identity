@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_VISIBLE_FINAL_ADMISSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T03:30:00+08:00",
+  "scope": "implementation_reuse_decision_before_extending_managed_patch_0009",
+  "product_gap": {
+    "source": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
+    "result": "REPRODUCED",
+    "affected_sinks": [
+      "plugin chat visibility sink",
+      "plugin HUD/desktop notification sink"
+    ],
+    "invariant": "Every companion-authored user-visible desktop publication must pass a surface-specific final admission immediately before publication."
+  },
+  "native_reuse": {
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "upstream_main_same_as_pin": true,
+    "call_registry": {
+      "path": "plugin/core/call_registry.py",
+      "selected": true,
+      "rationale": "CallRegistry is host-owned, keyed by authenticated plugin id plus host request id, preserves Origin(kind, ref), and deliberately retains finished records for 10 seconds because push_message rides a separate uplink and may arrive after the call reply."
+    },
+    "capability_gate": {
+      "path": "plugin/server/application/plugins/capability_gate.py",
+      "selected": true,
+      "rationale": "MESSAGE_PUSH already reaches capability_gate while the authenticated plugin id and parent request id are both available; registry.lookup therefore provides the trusted origin without a new store."
+    },
+    "message_routing": {
+      "path": "plugin/core/communication.py",
+      "selected": true,
+      "rationale": "The authenticated host already overwrites plugin_id and strips _rpc_parent_request_id immediately before forwarding. The same boundary can overwrite one bounded host-only origin-kind field so plugin payloads cannot forge solicitation."
+    },
+    "reply_quiet_gate": {
+      "source_patch": "0006-private-speech-output-gate.patch",
+      "selected": true,
+      "rationale": "Existing _private_reply_output_blocked is the whole-reply explicit-quiet authority and must gate even user-solicited plugin-visible output."
+    },
+    "interruptibility_gate": {
+      "source_patch": "0009-proactive-interruptibility-gate.patch",
+      "selected": true,
+      "rationale": "Existing _proactive_interruptibility_block_reason already rechecks latest ActivitySnapshot plus on-demand Windows QUNS immediately before nonessential desktop delivery."
+    }
+  },
+  "origin_policy": {
+    "trusted_user_bound_origins": [
+      "chat_tool",
+      "chat_hook",
+      "ui_action"
+    ],
+    "nonessential_or_unattributed_origins": [
+      "run",
+      "system",
+      "plugin_self",
+      "unknown"
+    ],
+    "rules": [
+      "explicit quiet blocks every companion-authored plugin chat/HUD publication",
+      "trusted user-bound origins use the solicited floor after explicit-quiet admission and are not reclassified as ambient proactive output merely because the owner is coding or gaming",
+      "run/system/plugin_self/unknown use the existing final proactive interruptibility recheck before direct chat/HUD publication",
+      "missing or expired attribution fails conservative as plugin_self/nonessential",
+      "the plugin-supplied metadata object is never trusted for origin classification"
+    ]
+  },
+  "broader_external": {
+    "airi_main": "042eb5e3bba0d7f536db282f0e93dd1e9ff336d8",
+    "result": "concept_only_not_selected",
+    "rationale": "AIRI has notification/event delivery patterns but cannot gate N.E.K.O's existing direct sinks without replacing the frozen Companion Kernel."
+  },
+  "rejected": [
+    "new XiaoYu invocation/origin database",
+    "new delivery router or notification daemon",
+    "new private publisher",
+    "plugin-declared solicited/background metadata as authority",
+    "calling prepare_proactive_delivery for every plugin output because it would claim/rotate proactive ownership and misclassify user-solicited tool/UI results"
+  ],
+  "implementation_shape": {
+    "patch": "0009-proactive-interruptibility-gate.patch",
+    "managed_patch_count_after_change": 10,
+    "new_runtime_authority": false,
+    "host_origin_field": "bounded host-only top-level field overwritten at authenticated MESSAGE_PUSH routing",
+    "final_gate": "reuse 0006 explicit quiet + 0009 latest interruptibility helpers at character_runtime direct chat/HUD sinks",
+    "callback_behavior": "native respond/passive/silent callback routing remains unchanged; only direct user-visible plugin parts gain final admission"
+  },
+  "retirement_condition": "Remove the 0009 extension when pinned N.E.K.O natively carries trustworthy invocation origin to plugin-visible publication and routes direct plugin chat/HUD/desktop-notification sinks through equivalent surface-specific final admission; the same regressions must pass with the private extension removed.",
+  "required_acceptance": [
+    "forged plugin origin is overwritten by authenticated host classification",
+    "live/recent call-registry attribution survives asynchronous push ordering",
+    "user-bound chat_tool/chat_hook/ui_action output is not ambient-blocked after explicit-quiet passes",
+    "plugin_self/system/run/unknown output is blocked by latest gaming/QUNS/focused-work/user-engaged states according to existing proactive floor",
+    "explicit quiet blocks both solicited and unsolicited plugin chat/HUD",
+    "blocked direct chat also prevents its paired HUD publication without altering native callback/outbox behavior",
+    "agent/** push applies the full 10-patch chain and runs focused regressions"
+  ],
+  "verdict": "APPROVE_THIN_EXTENSION_OF_0009_AFTER_THIS_DECISION; no 0011, no second state/router/publisher."
+}
