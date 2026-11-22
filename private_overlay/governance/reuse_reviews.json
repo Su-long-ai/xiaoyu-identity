@@ -1758,7 +1758,15 @@
           "outcome": "New origin store/router/daemon/publisher and an eleventh patch were considered and rejected as duplicate authority or architecture-freeze violations.",
           "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
         }
-      }
+      },
+      "promotion_policy": "MANAGED_EXTENSION_ACTIVE_AFTER_FULL_MACHINE_GATE",
+      "promotion_evidence": {
+        "workflow": "XiaoYu private overlay gate",
+        "run_id": 45060703253,
+        "head_sha": "003a7c20b72495bcc900826ce90d07478fad0b06",
+        "conclusion": "success"
+      },
+      "retirement_condition": "Retire the 0009 extension when pinned N.E.K.O natively carries trustworthy invocation origin to plugin-visible publication and routes direct plugin chat/HUD/desktop-notification sinks through equivalent surface-specific final admission; the same regressions must pass with the private extension removed."
     },
     {
       "id": "governance:release-manifest-consistency-v1",
