@@ -979,6 +979,49 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_cloud_and_release_qq_surface_test_lists_stay_in_lockstep(self):
+        release = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+
+        release_start = release.index("$QQSurfaceTests = @(")
+        release_end = release.index("\n    )", release_start)
+        release_segment = release[release_start:release_end]
+        local_tests = {
+            match.group(1)
+            for match in re.finditer(
+                r'tests\\(test_[A-Za-z0-9_]+\.py)',
+                release_segment,
+            )
+        }
+
+        cloud_start = workflow.index(
+            "Exercise pinned QQ delivery/floor surface regression"
+        )
+        cloud_end = workflow.index(
+            "Exercise QQ inbound idempotency candidate",
+            cloud_start,
+        )
+        cloud_segment = workflow[cloud_start:cloud_end]
+        cloud_tests = {
+            match.group(1)
+            for match in re.finditer(
+                r"plugin/plugins/qq_auto_reply/tests/(test_[A-Za-z0-9_]+\.py)",
+                cloud_segment,
+            )
+        }
+
+        self.assertTrue(local_tests, "local QQ surface test list must not be empty")
+        self.assertEqual(
+            cloud_tests,
+            local_tests,
+            "ordinary agent pushes must execute the same pinned QQ surface files "
+            "as the local release gate",
+        )
+
     def test_github_gate_replays_pinned_qq_surface_regression(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"

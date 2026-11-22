@@ -78,6 +78,7 @@
     "added_existing_test": "plugin/plugins/qq_auto_reply/tests/test_qq_send_observability.py",
     "runtime_code_changed": false,
     "branch_ref_moved": false,
-    "reason_branch_not_moved": "GitHub-hosted agent/** jobs are currently failing before runner allocation with steps=[]/no logs; do not bypass the required ordinary-push machine gate."
+    "reason_branch_not_moved": "GitHub-hosted agent/** jobs are currently failing before runner allocation with steps=[]/no logs; do not bypass the required ordinary-push machine gate.",
+    "machine_parity_contract": "Overlay contract requires cloud pinned QQ surface test-file set to equal local $QQSurfaceTests set."
   }
 }
