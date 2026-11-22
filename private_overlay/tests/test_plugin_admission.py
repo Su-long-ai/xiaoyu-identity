@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,7 @@ CHECKER_PATH = ROOT / "tools" / "check_plugin_admission.py"
 spec = importlib.util.spec_from_file_location("check_plugin_admission", CHECKER_PATH)
 checker = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
+sys.modules["check_plugin_admission"] = checker
 spec.loader.exec_module(checker)
 
 REPO_CHECKER_PATH = ROOT / "tools" / "check_plugin_admission_repo.py"
