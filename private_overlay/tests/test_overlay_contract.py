@@ -635,6 +635,94 @@ class OverlayContractTests(unittest.TestCase):
             "managed product patches must stay in the disposable worktree",
         )
 
+    def test_xiaoyu_owned_console_launches_remain_hidden(self):
+        shortcuts = (ROOT / "tools" / "install_xiaoyu_shortcuts.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        oneclick = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        startup = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn(
+            '-ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"',
+            shortcuts,
+        )
+
+        backend_start = oneclick.index(
+            'Start-Process -FilePath "powershell.exe" -ArgumentList @('
+        )
+        backend_ready = oneclick.index(
+            '$deadline = (Get-Date).AddSeconds(180)',
+            backend_start,
+        )
+        backend_segment = oneclick[backend_start:backend_ready]
+        self.assertIn(') -WindowStyle Hidden | Out-Null', backend_segment)
+
+        restore_args = startup.index('$RestoreArgs = @(')
+        launcher_start = startup.index(
+            'Write-Host "== Start original N.E.K.O with XiaoYu private state =="',
+            restore_args,
+        )
+        restore_segment = startup[restore_args:launcher_start]
+        self.assertIn(
+            'Start-Process -FilePath $Python -ArgumentList $RestoreArgs -WindowStyle Hidden | Out-Null',
+            restore_segment,
+        )
+
+    def test_github_gate_runs_native_embedding_asset_reuse_regression(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        overlay_start = workflow.index("- name: Overlay contract tests")
+        compile_start = workflow.index("- name: Compile overlay control plane")
+        overlay_segment = workflow[overlay_start:compile_start]
+        self.assertIn(
+            "private_overlay.tests.test_native_embedding_assets",
+            overlay_segment,
+        )
+
+    def test_github_gate_runs_bootstrap_runtime_helper_regressions(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        overlay_start = workflow.index("- name: Overlay contract tests")
+        compile_start = workflow.index("- name: Compile overlay control plane")
+        overlay_segment = workflow[overlay_start:compile_start]
+        self.assertIn('python -m pip install -q "httpx[socks]>=0.28.1"', overlay_segment)
+        for module in (
+            "private_overlay.tests.test_ensure_private_plugin",
+            "private_overlay.tests.test_ensure_xiaoyu_activity_preferences",
+            "private_overlay.tests.test_reconcile_neko_plugin_runtime",
+            "private_overlay.tests.test_xiaoyu_interaction_policy_plugin",
+        ):
+            self.assertIn(module, overlay_segment)
+
+    def test_github_gate_replays_patched_startup_regression(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        product_gate = workflow.index(
+            "Exercise patched companion switch/audio ownership regression"
+        )
+        clean_candidate_gate = workflow.index("Verify pinned native Execution Plane seams")
+        product_segment = workflow[product_gate:clean_candidate_gate]
+        required = (
+            "test_xiaoyu_startup_performance.py",
+            "test_token_tracker_install_hooks_idempotent.py",
+            "test_cloudsave_lifecycle_flow.py",
+            "test_live2d_model_config_write_locking.py",
+        )
+        for item in required:
+            self.assertIn(item, product_segment)
+        self.assertIn(
+            'uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev',
+            product_segment,
+        )
+        self.assertIn('PYTHONPATH="$PRODUCT_WORKTREE"', product_segment)
+
     def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
         candidate = (
             ROOT
