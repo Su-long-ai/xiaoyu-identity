@@ -75,6 +75,7 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
         "ready_host": ready_host,
         "_emit_main_event": emit_main_event,
         "_nekoclaw_main_epoch": None,
+        "_nekoclaw_retired_main_epochs": set(),
     }
     helper_module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(helper_module)
@@ -264,16 +265,80 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_delivery_state(third) == "pending"
 
+            # A delayed barrier from the retired main process must be rejected
+            # over the real native ZMQ path before it can claim effect rights.
+            fourth = await ledger.outbox_add(
+                None, "task_result", {"summary": "retired-epoch-must-not-effect"}
+            )
+            assert await ledger.outbox_mark_handoff(fourth, "attempt-fresh")
+            stale_event_id = "stale-main-claim"
+            assert await restarted_main.publish_analyze_request(
+                {
+                    "event_type": "nekoclaw_delivery_barrier",
+                    "event_id": stale_event_id,
+                    "main_epoch": old_epoch,
+                    "action": "claim",
+                    "delivery_id": fourth,
+                    "delivery_attempt_id": "attempt-old-main",
+                    "delivery_claim_id": "claim-old-main",
+                }
+            )
+
+            async def stale_ack():
+                return next(
+                    (
+                        e
+                        for e in reversed(main_events)
+                        if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                        and e.get("event_id") == stale_event_id
+                    ),
+                    None,
+                )
+
+            stale = await _wait_until(stale_ack)
+            assert stale.get("result") == "stale_epoch"
+            assert await ledger.outbox_delivery_state(fourth) == "pending"
+            assert handlers["_nekoclaw_main_epoch"] == restarted_main.instance_id
+            assert old_epoch in handlers["_nekoclaw_retired_main_epochs"]
+
+            # The live epoch can still claim the same pending row, proving that
+            # rejecting the retired process does not wedge valid delivery.
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "claim",
+                    fourth,
+                    "attempt-fresh",
+                    "claim-fresh",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "claimed"
+            )
+            assert await ledger.outbox_delivery_state(fourth) == "claimed"
+            assert (
+                await bus.publish_nekoclaw_delivery_barrier(
+                    "release",
+                    fourth,
+                    "attempt-fresh",
+                    "claim-fresh",
+                    ack_timeout_s=2.0,
+                    retries=0,
+                )
+                == "released"
+            )
+            assert await ledger.outbox_delivery_state(fourth) == "pending"
+
             ack_events = [
                 e
                 for e in main_events
                 if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
             ]
-            assert len(ack_events) >= 5
+            assert len(ack_events) >= 8
             assert {str(e.get("result") or "") for e in ack_events} >= {
                 "claimed",
                 "committed",
                 "released",
+                "stale_epoch",
             }
         finally:
             bus.set_main_bridge(None)
