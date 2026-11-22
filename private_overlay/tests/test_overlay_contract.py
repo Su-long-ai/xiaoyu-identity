@@ -842,6 +842,7 @@ class OverlayContractTests(unittest.TestCase):
             "live_inbound_idempotency.patch",
             "54acf36bf978edad4757e5fffc743c5618360700",
             "test_qq_catchup.py",
+            "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py",
             "git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check",
         ):
             self.assertIn(required, workflow)
