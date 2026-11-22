@@ -182,5 +182,105 @@ class ReuseArtifactAdmissionTests(unittest.TestCase):
         self.assertIn("artifact 0 has invalid path: governance:test", errors)
 
 
+    def _hierarchy_entry(self, status, *, outcome=None, evidence=None, rationale=None):
+        item = {"status": status}
+        if outcome is not None:
+            item["outcome"] = outcome
+        if evidence is not None:
+            item["evidence"] = evidence
+        if rationale is not None:
+            item["rationale"] = rationale
+        return item
+
+    def _layered_review(self):
+        evidence = "governance/architecture_freeze.json"
+        return {
+            "id": "governance:test-hierarchy",
+            "reviewed_at": "2026-11-23",
+            "decision": "thin_adapter",
+            "search_layers": {
+                "L0_authority": self._hierarchy_entry(
+                    "checked", outcome="native authority retained", evidence=evidence
+                ),
+                "L1_neko_current_pin": self._hierarchy_entry(
+                    "checked", outcome="current pin checked", evidence=evidence
+                ),
+                "L2_neko_upstream_extensions": self._hierarchy_entry(
+                    "checked", outcome="upstream/extensions checked", evidence=evidence
+                ),
+                "L3_existing_pinned_external": self._hierarchy_entry(
+                    "not_applicable",
+                    rationale="No pinned external component owns this repository-local gap.",
+                ),
+                "L4_broader_external_ecosystem": self._hierarchy_entry(
+                    "not_applicable",
+                    rationale="External replacement would duplicate the already-selected authority.",
+                ),
+                "L5_thin_integration": self._hierarchy_entry(
+                    "checked", outcome="thin integration selected", evidence=evidence
+                ),
+                "L6_private_implementation": self._hierarchy_entry(
+                    "not_applicable",
+                    rationale="No private implementation is required after the thin integration.",
+                ),
+            },
+        }
+
+    def test_hierarchy_policy_and_current_reviews_are_machine_enforced(self):
+        data = mod.load(mod.REVIEWS)
+        errors = []
+        cutoff = mod.validate_hierarchy_policy(data, errors)
+        self.assertEqual(cutoff, "2026-11-23")
+        for item in data["reviews"]:
+            mod.validate_search_layers(item, cutoff, errors)
+        self.assertEqual(errors, [])
+
+    def test_hierarchy_rejects_component_local_review(self):
+        review = self._layered_review()
+        for layer in (
+            "L1_neko_current_pin",
+            "L2_neko_upstream_extensions",
+            "L3_existing_pinned_external",
+            "L4_broader_external_ecosystem",
+        ):
+            review["search_layers"][layer] = self._hierarchy_entry(
+                "not_applicable",
+                rationale=(
+                    "This layer was declared outside the local component without "
+                    "materially evaluating another reusable implementation."
+                ),
+            )
+        errors = []
+        mod.validate_search_layers(review, "2026-11-23", errors)
+        self.assertIn(
+            "hierarchical reuse is too local; fewer than two discovery layers were checked: "
+            "governance:test-hierarchy",
+            errors,
+        )
+
+    def test_hierarchy_rejects_missing_layer(self):
+        review = self._layered_review()
+        del review["search_layers"]["L4_broader_external_ecosystem"]
+        errors = []
+        mod.validate_search_layers(review, "2026-11-23", errors)
+        self.assertIn(
+            "hierarchical reuse layer missing L4_broader_external_ecosystem: "
+            "governance:test-hierarchy",
+            errors,
+        )
+
+    def test_hierarchy_rejects_checked_layer_without_evidence(self):
+        review = self._layered_review()
+        review["search_layers"]["L2_neko_upstream_extensions"].pop("evidence")
+        errors = []
+        mod.validate_search_layers(review, "2026-11-23", errors)
+        self.assertIn(
+            "checked hierarchy layer missing evidence L2_neko_upstream_extensions: "
+            "governance:test-hierarchy",
+            errors,
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
