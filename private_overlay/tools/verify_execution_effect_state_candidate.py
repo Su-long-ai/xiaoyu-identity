@@ -33,7 +33,7 @@ async def _verify(neko_root: Path) -> None:
         sender = OutboxSender(ledger, send)
         assert await sender.flush() == 0
         state = await ledger.outbox_delivery_state(item_id)
-        debug_rows = await ledger.outbox_pending(due_by=10**20)
+        debug_rows = await ledger.outbox_pending(due_by=2**62)
         debug = [(row.id, row.attempts, row.last_error, row.next_attempt_at) for row in debug_rows]
         assert state == "handoff", (state, debug)
         assert await ledger.outbox_pending() == []
