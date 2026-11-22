@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_STARTUP_HIDDEN_CONSOLE_CONTRACT_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:45:00+08:00",
+  "implementation_status": "AGENT_BRANCH_GREEN_AWAITING_MAIN_INTEGRATION",
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "current_pin_equals_latest_upstream": true,
+    "native_reference": ".github/workflows/build-desktop.yml hides projectneko_server.exe with Start-Process -WindowStyle Hidden",
+    "selected_existing_mechanism": "Windows PowerShell/shortcut -WindowStyle Hidden"
+  },
+  "observed_product_state": [
+    {
+      "file": "private_overlay/tools/install_xiaoyu_shortcuts.ps1",
+      "responsibility": "desktop main shortcut invokes start_xiaoyu_oneclick.ps1 through powershell.exe with -WindowStyle Hidden"
+    },
+    {
+      "file": "private_overlay/tools/start_xiaoyu_oneclick.ps1",
+      "responsibility": "backend child powershell.exe Start-Process includes -WindowStyle Hidden"
+    },
+    {
+      "file": "private_overlay/tools/start_xiaoyu.ps1",
+      "responsibility": "restore-state Python Start-Process includes -WindowStyle Hidden"
+    }
+  ],
+  "excluded_gui_processes": [
+    "ActivityWatch executable",
+    "NapCat Desktop executable",
+    "N.E.K.O Desktop executable"
+  ],
+  "rationale": "GUI executables are not XiaoYu-owned console shells and must not be blindly hidden; the contract targets only console-bearing launch points owned by the overlay.",
+  "implementation_constraints": {
+    "runtime_files_changed": 0,
+    "new_launcher": false,
+    "new_vbs_wrapper": false,
+    "new_daemon": false,
+    "new_external_binary": false,
+    "new_test_framework": false,
+    "startup_runtime_cost": 0
+  },
+  "acceptance_plan": [
+    "add one test_overlay_contract method that requires the main shortcut hidden argument",
+    "require the one-click child powershell Start-Process block to retain -WindowStyle Hidden",
+    "require the restore-state Python Start-Process block to retain -WindowStyle Hidden",
+    "keep the existing PowerShell parser, patched-product, execution, QQ and release gates green",
+    "do not claim that unrelated machine scheduled tasks are fixed without live Local Operator evidence"
+  ],
+  "live_acceptance": {
+    "local_operator_tunnel": "UNAVAILABLE",
+    "observed_terminal_popup_recheck": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "unrelated_scheduled_tasks_or_external_processes": "NOT_CLAIMED",
+    "claim_scope": "The repository contract proves XiaoYu-owned console launch semantics cannot silently lose Hidden; it does not prove unrelated machine tasks cannot create terminals."
+  },
+  "retirement_condition": "Retire this overlay contract only if XiaoYu's wrapper scripts/shortcut are removed in favor of a native N.E.K.O launcher path that owns equivalent no-console startup behavior.",
+  "machine_validation": {
+    "review_commit": "1d4b099638bc6d1e971b79f679de7506355cad13",
+    "review_run_id": 45056865749,
+    "review_conclusion": "success",
+    "implementation_commit": "3c0879c40c6b64f4858a29aa3f84b06e59422542",
+    "implementation_run_id": 45057268130,
+    "implementation_job_id": 137315157096,
+    "implementation_conclusion": "success",
+    "overlay_unittest_result": "Ran 134 tests in 5.136s; OK",
+    "patched_product_python": "341 passed, 19 warnings in 18.26s",
+    "patched_product_node": "100 passed, 0 failed",
+    "native_delivery_receipt_real_zmq_e2e": "success",
+    "qq_surface": "173 passed, 3 warnings in 3.74s",
+    "qq_inbound_candidate": "46 passed in 0.22s",
+    "release_evidence_gate": "success"
+  },
+  "implementation": {
+    "change": "add one static overlay contract that binds the three XiaoYu-owned console-bearing launch points to existing Windows -WindowStyle Hidden semantics",
+    "runtime_files_changed": 0,
+    "new_launcher": false,
+    "new_vbs_wrapper": false,
+    "new_daemon": false,
+    "new_external_binary": false,
+    "new_test_framework": false,
+    "startup_runtime_cost": 0
+  },
+  "product_main_integration": {
+    "status": "AWAITING_MAIN_AGENT_INTEGRATION",
+    "latest_green_main_checked": "769fe47d377af08aef38787eff559b9bae27f57b",
+    "newer_hierarchical_reuse_main_chain": "UNVERIFIED_OR_NON_GREEN"
+  },
+  "recorded_green_at_local": "2026-11-23T02:52:00+08:00"
+}
