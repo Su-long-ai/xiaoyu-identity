@@ -151,6 +151,20 @@
       "status": "windows_native_attention_final_delivery_regression_pass",
       "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
       "note": "Reuses Windows SHQueryUserNotificationState plus N.E.K.O UserActivityTracker, including an on-demand QUNS read at final delivery. No new polling loop or model call. The c3fc33ff canonical restart/health/plugin-reconcile soak completed after promotion, so restart validation is no longer pending."
+    },
+    {
+      "id": "runtime_health_self_heal",
+      "goal": "one-click startup verifies the native N.E.K.O runtime before desktop exposure and repairs missing host-approved autostart plugins at most once without enabling broader Agent capabilities",
+      "status": "bounded_read_only_first_native_health_and_single_reconcile_self_heal_pass",
+      "evidence": "evals/evidence/2026-11-23-native-runtime-health-self-heal.json",
+      "note": "Healthy startup is read-only. Repair delegates once to the existing N.E.K.O reconcile path only when host-declared autostart plugins are missing; Agent master/analyzer/computer/browser remain forbidden."
+    },
+    {
+      "id": "plugin_capability_floor",
+      "goal": "reviewed XiaoYu autostart plugins cannot silently expand declared dependencies, model capabilities, UI surfaces/permissions or install kinds",
+      "status": "manifest_capability_expansion_fail_closed_pass",
+      "evidence": "evals/evidence/2026-11-23-plugin-autostart-capability-floor.json",
+      "note": "This is admission drift control, not malicious-plugin sandboxing. N.E.K.O remains the permission/plugin runtime authority; reductions are allowed and manual-only/disabled plugins remain outside autostart admission."
     }
   ]
 }
