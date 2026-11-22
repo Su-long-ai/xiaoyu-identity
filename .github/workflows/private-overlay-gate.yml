@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: xiaoyu-private-overlay-${{ github.workflow }}-${{ github.ref }}
+  group: xiaoyu-private-overlay-v2-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
