@@ -321,6 +321,29 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("NapCatWinBootHook.dll", script)
 
 
+    def test_oneclick_backend_and_desktop_launches_are_single_flight(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "Invoke-XiaoYuSingleFlight",
+            "System.Threading.Mutex",
+            "AbandonedMutexException",
+            'Local\\XiaoYuBackendLaunchV1',
+            'Local\\XiaoYuDesktopLaunchV1',
+            "$ownerDeadline = (Get-Date).AddSeconds(180)",
+            "$desktopOwnerDeadline = (Get-Date).AddSeconds(20)",
+        }
+        for marker in required:
+            self.assertIn(marker, script)
+
+        backend_mutex = script.index('Local\\XiaoYuBackendLaunchV1')
+        backend_start = script.index('Start-Process -FilePath "powershell.exe"', backend_mutex)
+        desktop_mutex = script.index('Local\\XiaoYuDesktopLaunchV1')
+        desktop_start = script.index('Start-Process -FilePath $DesktopExe', desktop_mutex)
+        self.assertLess(backend_mutex, backend_start)
+        self.assertLess(desktop_mutex, desktop_start)
+
     def test_shortcut_installer_is_relocatable_and_covers_product_entries(self):
         script = (ROOT / "tools" / "install_xiaoyu_shortcuts.ps1").read_text(
             encoding="utf-8-sig"
