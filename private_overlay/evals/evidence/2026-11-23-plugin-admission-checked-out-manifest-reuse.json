@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_ADMISSION_CHECKED_OUT_MANIFEST_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "The repository-only plugin admission gate validates private plugin manifests regardless of runtime enablement, but before N.E.K.O/QQ checkouts exist it can only validate reviewed allowances and the pinned QQ lock. A future pin update could therefore expand a native or pinned-external plugin manifest while policy/lock stay internally consistent, without ordinary agent/** cloud CI comparing the checked-out manifest to the reviewed allowance.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "result": "Current c3 pin provides the actual proactive_controller and web_search plugin.toml files. Both fit their existing reviewed allowances."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream main remains c3fc33ff0d32e4a79fd905d1add22d45725071f5; no native plugin-admission export replaces the overlay policy."
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / PluginStore / native lifecycle",
+      "checked": true,
+      "result": "They remain runtime authorities, but do not provide a repository-time reviewed-manifest allowance for XiaoYu autostart policy. No second permission vocabulary should be created."
+    },
+    {
+      "layer": "current pinned external component",
+      "checked": true,
+      "selected": true,
+      "result": "qq_auto_reply pin 54acf36bf978edad4757e5fffc743c5618360700 equals upstream main and its real plugin.toml fits the existing reviewed entry/type/dependency/model/UI allowance."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "No external policy engine is needed; exact Git pin plus the existing N.E.K.O-manifest parser/allowance validator is sufficient."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Extend the existing repository-only checker with an optional checked-out N.E.K.O root. Reuse validate_manifest_allowance and _git_head from check_plugin_admission.py, then invoke the same checker a second time after the pinned QQ checkout."
+    },
+    {
+      "layer": "private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "Reject a second permission DB, plugin registry, manifest schema, plugin host, daemon or separate admission checker."
+    }
+  ],
+  "selected_contract": {
+    "early_repo_gate": "Without --neko-root, keep current repository-only behavior: policy shape, reviewed allowance shape, private manifest, approved private reuse review, pinned lock consistency.",
+    "checked_out_gate": "With --neko-root, additionally validate actual manifests for every neko_native and pinned_external admitted autostart plugin against the same reviewed allowance.",
+    "pinned_external_head": "For pinned_external, checked-out git HEAD must equal policy tested_commit and lock tested_commit.",
+    "private_plugin": "Continue validating the private source manifest unconditionally; runtime enabled/disabled state does not change repository admission.",
+    "active_runtime_state": "Installed runtime overrides/pending state remain owned by the existing local check_plugin_admission.py and are not simulated in cloud CI.",
+    "no_new_permission_vocabulary": true
+  },
+  "verified_current_state": {
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "qq_pin": "54acf36bf978edad4757e5fffc743c5618360700",
+    "proactive_controller_manifest_within_reviewed_allowance": true,
+    "web_search_manifest_within_reviewed_allowance": true,
+    "qq_auto_reply_manifest_within_reviewed_allowance": true
+  },
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "plugin_manifest_change": false,
+    "policy_database_change": false,
+    "new_permission_store": false,
+    "new_plugin_host": false,
+    "new_daemon": false,
+    "new_dependency": false
+  },
+  "acceptance_plan": [
+    "Unit-test optional checked-out native manifest allowance validation.",
+    "Unit-test pinned-external manifest expansion and HEAD drift fail closed.",
+    "Run early repository-only admission exactly as today.",
+    "After pinned N.E.K.O and QQ checkouts, rerun the same repository checker with --neko-root _neko_upstream.",
+    "Keep full local check_plugin_admission.py as the only installed-runtime override/pending/autostart-state gate."
+  ],
+  "retirement_condition": "Retire the optional checked-out overlay validation when N.E.K.O exposes one native, pin-aware admission verification that accepts XiaoYu's reviewed allowance policy and verifies native/external checkout provenance plus manifest authority without a second permission store."
+}

@@ -2545,6 +2545,73 @@
         }
       },
       "retirement_condition": "Retire this overlay-specific invariant only when N.E.K.O exposes one native authoritative delivery-surface manifest that includes extension publications and the XiaoYu architecture gate can consume it directly without losing private final-admission semantics."
+    },
+    {
+      "id": "governance:plugin-admission-checked-out-manifest-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The repository-only plugin admission gate validates private plugin manifests regardless of runtime enablement, but before N.E.K.O/QQ checkouts exist it can only validate reviewed allowances and the pinned QQ lock. A future pin update could therefore expand a native or pinned-external plugin manifest while policy/lock stay internally consistent, without ordinary agent/** cloud CI comparing the checked-out manifest to the reviewed allowance.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Existing check_plugin_admission_repo.py + validate_manifest_allowance",
+          "type": "existing_machine_gate",
+          "outcome": "selected; extend the existing gate instead of creating a second checker or permission model",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        {
+          "name": "Pinned N.E.K.O and qq_auto_reply checkouts",
+          "type": "existing_native_and_external",
+          "outcome": "selected as the real manifest/provenance sources after checkout",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        {
+          "name": "New XiaoYu permission DB / plugin registry / policy service",
+          "type": "private_duplicate",
+          "outcome": "rejected; N.E.K.O remains plugin/permission authority and the overlay only enforces reviewed autostart admission",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing validator already understands the reviewed manifest allowance, but the early cloud step runs before native/external checkouts exist. The residual gap is only a second invocation of the same checker against already-pinned checkouts.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains plugin lifecycle/permission authority; plugin_admission_v1 remains only autostart admission policy.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin manifests checked and within reviewed allowance.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals c3 and supplies no replacement pin-aware reviewed-manifest admission gate.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ manifest and HEAD are the external source of truth and are selected for second-phase verification.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External policy engines are unnecessary; exact Git provenance plus the existing manifest validator closes the gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: optional --neko-root on existing repo checker plus one post-QQ-checkout workflow invocation.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Second permission DB/registry/checker/daemon/plugin host rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-admission-checked-out-manifest-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire the optional checked-out overlay validation when N.E.K.O exposes one native, pin-aware admission verification that accepts XiaoYu's reviewed allowance policy and verifies native/external checkout provenance plus manifest authority without a second permission store."
     }
   ],
   "hierarchy_policy": {
