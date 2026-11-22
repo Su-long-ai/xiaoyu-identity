@@ -27,6 +27,34 @@ function Test-XiaoYuBackendReady {
            (Test-Http200 $AgentHealthUrl)
 }
 
+function Invoke-XiaoYuSingleFlight {
+    param(
+        [string]$Name,
+        [scriptblock]$Action,
+        [int]$WaitMilliseconds = 1500
+    )
+    $mutex = [System.Threading.Mutex]::new($false, $Name)
+    $owned = $false
+    try {
+        try {
+            $owned = $mutex.WaitOne([Math]::Max(0, $WaitMilliseconds))
+        } catch [System.Threading.AbandonedMutexException] {
+            # The previous launcher died while owning the launch decision.
+            # Windows transfers ownership to us; the action rechecks live state.
+            $owned = $true
+        }
+        if (-not $owned) { return $false }
+        & $Action
+        return $true
+    }
+    finally {
+        if ($owned) {
+            try { $mutex.ReleaseMutex() } catch {}
+        }
+        $mutex.Dispose()
+    }
+}
+
 function Test-TcpEndpoint([string]$HostName, [int]$Port, [int]$TimeoutMs = 250) {
     $client = $null
     try {
@@ -125,17 +153,29 @@ $NapCatRuntimeStatus = Ensure-XiaoYuNapCatForwardRuntime
 Write-Output ("XiaoYu NapCat forward runtime: {0}" -f $NapCatRuntimeStatus)
 
 if (-not (Test-XiaoYuBackendReady)) {
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", ('"{0}"' -f $StartScript)
-    ) -WindowStyle Hidden | Out-Null
+    $ownedBackendLaunch = Invoke-XiaoYuSingleFlight -Name "Local\XiaoYuBackendLaunchV1" -Action {
+        if (-not (Test-XiaoYuBackendReady)) {
+            Start-Process -FilePath "powershell.exe" -ArgumentList @(
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-File", ('"{0}"' -f $StartScript)
+            ) -WindowStyle Hidden | Out-Null
+        }
 
-    $deadline = (Get-Date).AddSeconds(180)
-    while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Seconds 1
-        if (Test-XiaoYuBackendReady) { break }
+        $ownerDeadline = (Get-Date).AddSeconds(180)
+        while ((Get-Date) -lt $ownerDeadline) {
+            if (Test-XiaoYuBackendReady) { break }
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    if (-not $ownedBackendLaunch -and -not (Test-XiaoYuBackendReady)) {
+        $followerDeadline = (Get-Date).AddSeconds(180)
+        while ((Get-Date) -lt $followerDeadline) {
+            if (Test-XiaoYuBackendReady) { break }
+            Start-Sleep -Seconds 1
+        }
     }
 }
 
@@ -189,12 +229,23 @@ if (-not (Test-Path -LiteralPath $DesktopExe)) {
 Ensure-XiaoYuDesktopGpuPreference
 
 if (-not (Get-XiaoYuDesktopProcess)) {
-    Start-Process -FilePath $DesktopExe -WorkingDirectory (Split-Path -Parent $DesktopExe) | Out-Null
+    $ownedDesktopLaunch = Invoke-XiaoYuSingleFlight -Name "Local\XiaoYuDesktopLaunchV1" -Action {
+        if (-not (Get-XiaoYuDesktopProcess)) {
+            Start-Process -FilePath $DesktopExe -WorkingDirectory (Split-Path -Parent $DesktopExe) | Out-Null
+        }
+        $desktopOwnerDeadline = (Get-Date).AddSeconds(20)
+        while ((Get-Date) -lt $desktopOwnerDeadline) {
+            if (Get-XiaoYuDesktopProcess) { break }
+            Start-Sleep -Milliseconds 500
+        }
+    }
 
-    $desktopDeadline = (Get-Date).AddSeconds(20)
-    while ((Get-Date) -lt $desktopDeadline) {
-        Start-Sleep -Milliseconds 500
-        if (Get-XiaoYuDesktopProcess) { break }
+    if (-not $ownedDesktopLaunch -and -not (Get-XiaoYuDesktopProcess)) {
+        $desktopFollowerDeadline = (Get-Date).AddSeconds(20)
+        while ((Get-Date) -lt $desktopFollowerDeadline) {
+            if (Get-XiaoYuDesktopProcess) { break }
+            Start-Sleep -Milliseconds 500
+        }
     }
 }
 
