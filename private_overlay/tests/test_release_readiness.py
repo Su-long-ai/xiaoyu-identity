@@ -9,13 +9,57 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from check_release_readiness import evaluate_matrix
+from check_release_readiness import evaluate_matrix, evaluate_release_manifest
 
 
 class ReleaseReadinessTests(unittest.TestCase):
     def test_current_acceptance_matrix_is_release_ready(self):
         matrix = json.loads((ROOT / "evals" / "acceptance_matrix.json").read_text(encoding="utf-8-sig"))
         self.assertEqual(evaluate_matrix(matrix, ROOT), [])
+
+    def test_current_stable_release_manifest_matches_authoritative_product_state(self):
+        manifest = json.loads(
+            (ROOT / "release" / "NEKO_OVERLAY_V1_FINAL.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(evaluate_release_manifest(manifest, ROOT), [])
+
+    def test_stale_release_manifest_pin_patch_acceptance_and_binding_fail_closed(self):
+        manifest = json.loads(
+            (ROOT / "release" / "NEKO_OVERLAY_V1_FINAL.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+
+        stale_pin = json.loads(json.dumps(manifest))
+        stale_pin["external_pins"]["neko"]["commit"] = "stale"
+        self.assertIn(
+            "release manifest N.E.K.O pin does not match NEKO_UPSTREAM.lock.json",
+            evaluate_release_manifest(stale_pin, ROOT),
+        )
+
+        stale_patch = json.loads(json.dumps(manifest))
+        stale_patch["managed_core_patches"]["count"] -= 1
+        self.assertIn(
+            "release manifest managed patch count is stale",
+            evaluate_release_manifest(stale_patch, ROOT),
+        )
+
+        stale_acceptance = json.loads(json.dumps(manifest))
+        stale_acceptance["acceptance"]["ids"] = stale_acceptance["acceptance"]["ids"][:-1]
+        self.assertIn(
+            "release manifest acceptance IDs are stale",
+            evaluate_release_manifest(stale_acceptance, ROOT),
+        )
+
+        stale_binding = json.loads(json.dumps(manifest))
+        stale_binding["bindings_git_blob_sha"]["QQ_PLUGIN_UPSTREAM.lock.json"] = "stale"
+        self.assertIn(
+            "release manifest binding stale: QQ_PLUGIN_UPSTREAM.lock.json",
+            evaluate_release_manifest(stale_binding, ROOT),
+        )
+
 
     def test_required_acceptance_case_cannot_be_removed(self):
         matrix = json.loads(
