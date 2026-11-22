@@ -457,6 +457,37 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_executes_native_dsh_optional_runtime_acceptance(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise native dsh optional-runtime product acceptance",
+            "test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped",
+            "test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started",
+            "test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued",
+            "test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again",
+            "test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used",
+            "test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made",
+            "test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events",
+            "test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused",
+            "test_dsh_profile.py::test_nothing_is_uploaded",
+            "test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh",
+            "test_dsh_install.py::test_another_version_on_the_disk_is_not_used",
+            "test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done",
+            "test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since",
+            "test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference",
+            "test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went",
+            "test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        dsh_gate = workflow.index("Exercise native dsh optional-runtime product acceptance")
+        execution_gate = workflow.index("Exercise native Execution Plane product E2E")
+        self.assertLess(dsh_gate, execution_gate)
+        self.assertNotIn("continue-on-error", workflow[dsh_gate:execution_gate])
+
     def test_github_gate_executes_native_execution_product_e2e(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
