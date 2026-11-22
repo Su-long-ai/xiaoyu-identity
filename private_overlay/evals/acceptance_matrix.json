@@ -22,9 +22,9 @@
     {
       "id": "plugin_autostart_restart",
       "goal": "N.E.K.O native runtime_auto_start plugins restore after product restart without enabling the Agent master",
-      "status": "native_plugin_api_reconcile_and_independent_relay_live_pass",
-      "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json",
-      "note": "N.E.K.O remains the plugin lifecycle authority. The overlay no longer scans manifests, computes dependency order, or hosts plugin processes; because embedded lifecycle is intentionally dormant while Agent master is off, a thin local adapter asks N.E.K.O to refresh its own registry, selects only host-declared approved runtime_auto_start plugins, invokes native start routes, and restores only the independent User Plugin relay. Agent analyzer/computer/browser remain disabled."
+      "status": "c3_canonical_restart_native_reconcile_4of4_pass",
+      "evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json",
+      "note": "On repeated canonical XiaoYu launches at N.E.K.O c3fc33ff, N.E.K.O remained the lifecycle/dependency/process authority and the thin reconcile adapter restored the four host-approved runtime_auto_start plugins (xiaoyu_interaction_policy, proactive_controller, qq_auto_reply, web_search) to running. Intermediate stopped states while the host starts them sequentially are not failures; final reconcile was PASS. Agent master/analyzer/computer/browser remained disabled."
     },
     {
       "id": "private_group_isolation",
@@ -106,9 +106,9 @@
     {
       "id": "neko_upstream_upgrade",
       "goal": "the current upstream N.E.K.O mother-project pin can replace the prior pin while preserving XiaoYu acceptance and deterministic managed-patch replay",
-      "status": "origin_main_6fcc_patch_replay_regression_and_canonical_live_restart_pass",
-      "evidence": "evals/evidence/2026-11-22-neko-upstream-6fccfb72-upgrade.json",
-      "note": "Promoted N.E.K.O from 899a08ce to 6fccfb72. All 10 managed patches replay unchanged. The upstream Plugin SDK permission grant store and context/budget propagation are reused directly, and Windows display-state presence now survives session reconnects. Separate targeted gates passed 353/353 main-repo and 108/108 plugin tests; canonical live health is 200 on 48911/48912/48915/48916, overlay 94/94 and release readiness 23/23."
+      "status": "origin_main_c3fc33ff_patch_replay_broad_regression_and_canonical_restart_pass",
+      "evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json",
+      "note": "Current mother-project pin is c3fc33ff. Promotion evidence proves clean-upstream startup/UI acceptance, deterministic replay of all 10 managed patches and a 1029 pass / 4 skip broad XiaoYu regression. Repeated canonical launches then proved 48911/48912/48915/48916 health and 4/4 reviewed plugin restoration with no port fallback."
     },
     {
       "id": "semantic_interaction_policy",
@@ -136,21 +136,21 @@
       "goal": "entertainment invitations do not interrupt active gaming/work and focused-work breaks never pivot into game invitations",
       "status": "interruptibility_final_delivery_regression_pass",
       "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
-      "note": "Mini-games remain enabled only for explicit leisure states. Windows/native final-delivery veto and realtime voice-nudge veto passed clean replay; live restart validation follows this release-ready regression gate."
+      "note": "Mini-games remain enabled only for explicit leisure states. Windows/native final-delivery veto and realtime voice-nudge veto passed clean replay. The promoted c3fc33ff runtime then completed repeated canonical restart/health/plugin-reconcile soak without weakening these managed delivery gates."
     },
     {
       "id": "startup_event_loop_responsiveness",
       "goal": "desktop startup/page-config heavy SDK import, model discovery, storage path resolution, and holiday SSL initialization do not block the main FastAPI event loop",
-      "status": "live_no_application_sync_blocking_stall_after_899a_reuse_fix_pass",
-      "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json",
-      "note": "Reuse consolidation keeps N.E.K.O native TokenTracker/plugin host/shared HTTP pools and moves only blocking first-import/filesystem/config/client-construction boundaries off-loop. On the 899a08ce cold restart, the previous client_registration -> SSLContext application stall did not recur. Main emitted one watchdog warning while its stack was entirely inside Windows asyncio IOCP accept/poll; Agent emitted no blocked/recovered warning."
+      "status": "c3_live_restart_httpcore_early_warmup_no_main_loop_block_pass",
+      "evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json",
+      "note": "A c3 canonical restart exposed a residual ~1.25 s main-loop stall from the first httpx transport lazily importing httpcore before the general background preload. The existing patch0010 was tightened, not expanded into a new patch: its one-time httpx/httpcore/TLS warmup now runs via asyncio.to_thread before character/session initialization and is reused later by the general preload. Isolated regression passed 69/69; full overlay gate stayed 113/113 and 23/23. The next canonical launch reached four healthy services plus 4/4 plugin restore with zero new main-loop blocked/recovered events in the launch log window."
     },
     {
       "id": "proactive_interruptibility_authority",
       "goal": "system-level attention state and latest native activity jointly veto nonessential proactive interruption even when the early activity snapshot is wrong or stale",
       "status": "windows_native_attention_final_delivery_regression_pass",
       "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
-      "note": "Reuses Windows SHQueryUserNotificationState plus N.E.K.O UserActivityTracker, including an on-demand QUNS read at final delivery. No new polling loop or model call; live restart validation follows this regression gate."
+      "note": "Reuses Windows SHQueryUserNotificationState plus N.E.K.O UserActivityTracker, including an on-demand QUNS read at final delivery. No new polling loop or model call. The c3fc33ff canonical restart/health/plugin-reconcile soak completed after promotion, so restart validation is no longer pending."
     }
   ]
 }

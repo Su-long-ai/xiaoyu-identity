@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T23:46:00+08:00",
+  "scope": "N.E.K.O c3fc33ff canonical XiaoYu restart soak and startup-loop validation",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "overlay_branch": "private/neko-overlay-v1",
+  "launch_path": "private_overlay/tools/start_xiaoyu.ps1 -> original N.E.K.O launcher.py",
+  "cycles": [
+    {
+      "cycle": 1,
+      "patch0010_variant": "c3_rebased_pre_early_httpx_warmup",
+      "services": {
+        "48911_main": 200,
+        "48912_memory": 200,
+        "48915_agent": 200,
+        "48916_plugin": 200
+      },
+      "autostart_plugins": {
+        "xiaoyu_interaction_policy": "running",
+        "proactive_controller": "running",
+        "qq_auto_reply": "running",
+        "web_search": "running"
+      },
+      "reconcile_verdict": "PASS",
+      "port_fallback_used": false,
+      "shutdown_check": "launcher task cancellation removed all 48911/48912/48915/48916 listeners"
+    },
+    {
+      "cycle": 2,
+      "patch0010_variant": "c3_rebased_pre_early_httpx_warmup",
+      "services": {
+        "48911_main": 200,
+        "48912_memory": 200,
+        "48915_agent": 200,
+        "48916_plugin": 200
+      },
+      "autostart_plugins": {
+        "xiaoyu_interaction_policy": "running",
+        "proactive_controller": "running",
+        "qq_auto_reply": "running",
+        "web_search": "running"
+      },
+      "reconcile_verdict": "PASS",
+      "port_fallback_used": false,
+      "startup_loop_observation": {
+        "event": "main_server loop-stall",
+        "blocked_ms_approx": 1253,
+        "stack_root": "httpx AsyncClient transport lazy-importing httpcore before general background preload",
+        "classification": "same_existing_0010_responsibility"
+      }
+    },
+    {
+      "cycle": 3,
+      "patch0010_variant": "early_httpx_transport_warmup_inside_existing_0010",
+      "services": {
+        "48911_main": 200,
+        "48912_memory": 200,
+        "48915_agent": 200,
+        "48916_plugin": 200
+      },
+      "autostart_plugins": {
+        "xiaoyu_interaction_policy": "running",
+        "proactive_controller": "running",
+        "qq_auto_reply": "running",
+        "web_search": "running"
+      },
+      "reconcile_verdict": "PASS",
+      "reconcile_authority": {
+        "plugin_lifecycle": "neko_native_http_api",
+        "dependency_and_process": "neko_native",
+        "agent_master_required": false
+      },
+      "port_fallback_used": false,
+      "new_main_log_lines_checked": 62,
+      "startup_loop_blocked_or_recovered_events": 0,
+      "verdict": "PASS"
+    }
+  ],
+  "patch0010_change": {
+    "patch_count_before": 10,
+    "patch_count_after": 10,
+    "new_patch_created": false,
+    "new_runtime_or_pool_created": false,
+    "implementation": [
+      "reuse existing patch0010 preload module",
+      "factor one-time httpx/httpcore/TLS transport warmup into a synchronous helper",
+      "run that helper with asyncio.to_thread before character/session initialization",
+      "later general background preload reuses the same idempotent helper"
+    ],
+    "isolated_regression": "69 passed",
+    "full_overlay_gate_after_change": "113/113 PASS; release readiness 23/23 PASS"
+  },
+  "plugin_recovery_timing": {
+    "observation": "During canonical startup plugin restore is sequential; intermediate stopped states before reconcile completion are expected.",
+    "final_required_state": "all four admitted runtime_auto_start plugins running",
+    "final_state_met_in_all_observed_cycles": true
+  },
+  "crash_recovery_note": {
+    "source_revalidated_at_c3": true,
+    "native_generic_plugin_crash_respawn_found": false,
+    "action": "NO_PRIVATE_SUPERVISOR; keep failure visible/recoverable and wait for native policy"
+  },
+  "privacy": {
+    "user_content_persisted_in_evidence": false,
+    "credentials_persisted_in_evidence": false
+  },
+  "verdict": "PASS_C3_CANONICAL_RESTART_AND_STARTUP_LOOP_SOAK"
+}

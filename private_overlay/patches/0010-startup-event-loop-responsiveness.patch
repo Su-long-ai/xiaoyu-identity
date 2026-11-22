@@ -1,5 +1,5 @@
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
-index 39a8f28c..73c24240 100644
+index d7a70e063af8a8cc63718a17229fc7b7f1865721..4859e9bbc00b5ec97d9c4b373d79fb3b78a0bb15 100644
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
 @@ -609,13 +609,16 @@ async def startup():
@@ -24,7 +24,7 @@ index 39a8f28c..73c24240 100644
          logger.warning(f"[Agent] Token tracker init failed: {e}")
  
 diff --git a/app/agent_server/plugin_host.py b/app/agent_server/plugin_host.py
-index 0a8ca542..2c325a1c 100644
+index 0a8ca542c8e1fcafc4a12d93142abe4350fdcfbe..2c325a1cbc679745349b76108d1f5e130292925b 100644
 --- a/app/agent_server/plugin_host.py
 +++ b/app/agent_server/plugin_host.py
 @@ -30,9 +30,8 @@ import asyncio
@@ -162,10 +162,31 @@ index 0a8ca542..2c325a1c 100644
          _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
          logger.debug("[Agent] UserPlugin capability check error: %s", e)
 diff --git a/app/main_server/__init__.py b/app/main_server/__init__.py
-index ba1284ec..f3027286 100644
+index 21e7e4cacc38e2e81a395b4394d0f1db86ab2473..81b3149aa170742d768cb87036295e6eb1384145 100644
 --- a/app/main_server/__init__.py
 +++ b/app/main_server/__init__.py
-@@ -1052,19 +1052,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+@@ -729,7 +729,7 @@ _runtime_startup_init_lock = asyncio.Lock()
+ _runtime_startup_init_completed = False
+ 
+ 
+-from .preload import _background_preload, _sync_preload_modules  # noqa: F401
++from .preload import _background_preload, _sync_preload_modules, _warm_httpx_transport_sync  # noqa: F401
+ 
+ 
+ async def _sync_memory_server_after_startup_import(import_result):
+@@ -1009,6 +1009,11 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+                 except Exception as e:
+                     logger.warning(f"Steam Auto-Cloud startup import failed: {e}")
+ 
++            # Character/session construction can create the process's first
++            # httpx client before the general background preload begins.
++            # Import httpcore and build/close one transport in a worker first so
++            # this one-time cost cannot block the main asyncio loop.
++            await asyncio.to_thread(_warm_httpx_transport_sync)
+             await initialize_character_data()
+             # One-time stable character_uid backfill for existing characters comes after cloudsave bootstrap/
+             # startup imports, whose seed files must remain untouched, and after
+@@ -1060,19 +1065,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
              await _init_and_mount_workshop()
              _schedule_workshop_sync(steamworks)
  
@@ -186,10 +207,39 @@ index ba1284ec..f3027286 100644
                  "Startup 初始化完成，后台正在预加载音频模块... (reason=%s)", reason
              )
 diff --git a/app/main_server/preload.py b/app/main_server/preload.py
-index e5046618..6eac2098 100644
+index e50466189227edbedbb2ee676a10a1d90ff72eeb..4e981dcd4d9fb8769da384356e5ab06e10b283c7 100644
 --- a/app/main_server/preload.py
 +++ b/app/main_server/preload.py
-@@ -37,6 +37,19 @@ async def _background_preload():
+@@ -21,6 +21,28 @@ from ._shared import runtime
+ 
+ logger = runtime.logger
+ 
++_httpx_transport_warmed = False
++
++
++def _warm_httpx_transport_sync() -> None:
++    """Warm httpcore + default TLS transport before character startup needs it.
++
++    This function is intentionally synchronous so callers can move the one-time
++    import/SSL work to a worker thread. It owns no persistent HTTP pool.
++    """
++    global _httpx_transport_warmed
++    if _httpx_transport_warmed:
++        return
++
++    import httpx
++
++    async def _warm() -> None:
++        client = httpx.AsyncClient(timeout=1.0, proxy=None, trust_env=False)
++        await client.aclose()
++
++    asyncio.run(_warm())
++    _httpx_transport_warmed = True
++
+ 
+ async def _background_preload():
+     """Preload translation libraries, dashscope, and httpx in the background.
+@@ -37,6 +59,19 @@ async def _background_preload():
          loop = asyncio.get_running_loop()
          with concurrent.futures.ThreadPoolExecutor() as pool:
              await loop.run_in_executor(pool, _sync_preload_modules)
@@ -209,7 +259,7 @@ index e5046618..6eac2098 100644
      except Exception as e:
          logger.warning(f"⚠️ 翻译与网络模块预加载失败（不影响使用）: {e}")
  
-@@ -60,6 +73,17 @@ def _sync_preload_modules():
+@@ -60,6 +95,17 @@ def _sync_preload_modules():
  
      start = time.time()
  
@@ -227,13 +277,43 @@ index e5046618..6eac2098 100644
      # 1. Translation-service modules (avoid first-conversation latency)
      try:
          # Preload translation libraries (googletrans, translatepy, etc.)
-@@ -94,7 +118,16 @@ def _sync_preload_modules():
+@@ -94,38 +140,20 @@ def _sync_preload_modules():
      except Exception as e:
          logger.debug(f"  ✗ dashscope: {e}")
  
 -    # 4. Warm the httpx SSL context (the first AsyncClient creation initializes SSL)
 +    # 4. Warm page static-asset cache versions off the main event loop.
-+    try:
+     try:
+-        import httpx
+-        import asyncio
+-
+-        async def _warmup_httpx():
+-            # per-call AsyncClient: this is the SSL warmup itself; using a shared client would defeat its purpose
+-            async with httpx.AsyncClient(
+-                timeout=1.0, proxy=None, trust_env=False
+-            ) as client:
+-                # Send a simple request to warm the SSL context
+-                try:
+-                    await client.get("http://127.0.0.1:1", timeout=0.01)
+-                except:  # noqa: E722
+-                    pass  # Failure is expected; this only initializes SSL
+-
+-        # Run on the current thread's event loop, creating a temporary loop if needed
+-        try:
+-            loop = asyncio.get_event_loop()
+-            if loop.is_running():
+-                # Use a thread pool if an event loop is already running
+-                import concurrent.futures
+-
+-                with concurrent.futures.ThreadPoolExecutor() as pool:
+-                    pool.submit(lambda: asyncio.run(_warmup_httpx())).result(
+-                        timeout=2.0
+-                    )
+-            else:
+-                loop.run_until_complete(_warmup_httpx())
+-        except RuntimeError:
+-            asyncio.run(_warmup_httpx())
+-        logger.debug("  ✓ httpx SSL context warmed up")
 +        from main_routers.pages_router import warm_asset_version_caches
 +
 +        warm_asset_version_caches()
@@ -241,15 +321,19 @@ index e5046618..6eac2098 100644
 +    except Exception as e:
 +        logger.debug(f"  ✗ page asset-version cache warmup: {e}")
 +
-+    # 5. Warm the httpx SSL context (the first AsyncClient creation initializes SSL)
-     try:
-         import httpx
-         import asyncio
++    # 5. Reuse the same one-time httpx/httpcore/TLS warmup used before
++    # character startup. This is normally a no-op here after the early warmup.
++    try:
++        _warm_httpx_transport_sync()
++        logger.debug("  ✓ httpx transport warmed up")
+     except Exception as e:
+         logger.debug(f"  ✗ httpx warmup: {e}")
+ 
 diff --git a/app/memory_server/runtime.py b/app/memory_server/runtime.py
-index de78e251..82066e97 100644
+index b0ae5d73362c4b9e72ffd1facd3446d61ce1ffa3..e010e7d9d3332b1a1a0cd2b5adbb5e0b5829a914 100644
 --- a/app/memory_server/runtime.py
 +++ b/app/memory_server/runtime.py
-@@ -1199,10 +1199,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
+@@ -1209,10 +1209,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
          try:
              from utils.token_tracker import TokenTracker, install_hooks
  
@@ -267,7 +351,7 @@ index de78e251..82066e97 100644
              logger.warning(f"[Memory] Token tracker init failed: {e}")
  
 diff --git a/main_logic/client_registration.py b/main_logic/client_registration.py
-index c24382c8..c77be5f5 100644
+index c24382c8ed820a5ee4fa91d4a3dbe99028b678bc..c77be5f560f1049ae371390d4ffe5ac4341f20c8 100644
 --- a/main_logic/client_registration.py
 +++ b/main_logic/client_registration.py
 @@ -17,6 +17,8 @@ import logging
@@ -318,10 +402,10 @@ index c24382c8..c77be5f5 100644
              logger.warning("client_registration: register HTTP failed: %s", exc)
              return False
 diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
-index af1af236..13126faf 100644
+index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680ebfa337a9 100644
 --- a/main_logic/core/tts_runtime.py
 +++ b/main_logic/core/tts_runtime.py
-@@ -885,6 +885,10 @@ class TtsRuntimeMixin:
+@@ -817,6 +817,10 @@ class TtsRuntimeMixin:
          )
          return worker, api_key, route_voice_id, provider_key, False, dict(tts_config or {})
  
@@ -332,7 +416,7 @@ index af1af236..13126faf 100644
      @staticmethod
      def _normalize_game_speech_preload_text(clean_text: str, *, normalize_spaces: bool) -> str:
          # Gated on contains_chinese exactly like normalize_text() below, which
-@@ -1529,7 +1533,12 @@ class TtsRuntimeMixin:
+@@ -1476,7 +1480,12 @@ class TtsRuntimeMixin:
                  check = None
              if check:
                  check()
@@ -346,7 +430,7 @@ index af1af236..13126faf 100644
              try:
                  await self._wait_tts_capacity(
                      asyncio.get_running_loop().time() if recovering else deadline,
-@@ -1554,7 +1563,8 @@ class TtsRuntimeMixin:
+@@ -1501,7 +1510,8 @@ class TtsRuntimeMixin:
                  self._start_tts_thread(
                      preserve_provider_exclusions=bool(
                          getattr(self, "_tts_excluded_provider_keys", frozenset())
@@ -356,7 +440,7 @@ index af1af236..13126faf 100644
                  )
              except TtsCapacityError:
                  if not recovering:
-@@ -1618,7 +1628,12 @@ class TtsRuntimeMixin:
+@@ -1565,7 +1575,12 @@ class TtsRuntimeMixin:
          local_base_url = str((tts_config or {}).get("base_url") or "").strip().lower()
          return local_base_url.startswith(("ws://", "wss://"))
  
@@ -370,7 +454,7 @@ index af1af236..13126faf 100644
          """Create and start the TTS worker thread.
  
          Selects the worker by voice_id / core_api_type, resolves the api_key,
-@@ -1648,7 +1663,7 @@ class TtsRuntimeMixin:
+@@ -1595,7 +1610,7 @@ class TtsRuntimeMixin:
  
          # Check whether TTS is disabled.
          tts_worker, api_key, route_voice_id, provider_key, disabled, tts_config = (
@@ -380,7 +464,7 @@ index af1af236..13126faf 100644
          if self._live_tts_runtime_count() >= self._tts_capacity_limit(tts_worker):
              self._tts_capacity_exhausted = True
 diff --git a/main_routers/characters_router/live2d_models.py b/main_routers/characters_router/live2d_models.py
-index c3715125..6edfe37d 100644
+index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa309215a8 100644
 --- a/main_routers/characters_router/live2d_models.py
 +++ b/main_routers/characters_router/live2d_models.py
 @@ -22,6 +22,7 @@ Split out of the former monolithic ``main_routers/characters_router.py``.
@@ -456,7 +540,7 @@ index c3715125..6edfe37d 100644
                      (
                          m for m in all_models
 diff --git a/main_routers/pages_router.py b/main_routers/pages_router.py
-index c71da609..48a9ee85 100644
+index c71da6093c39f6ebb1401d01d7da71092c737fc6..48a9ee850d176609aecd6f8018647e7d0be95f3e 100644
 --- a/main_routers/pages_router.py
 +++ b/main_routers/pages_router.py
 @@ -28,6 +28,7 @@ enforced by ``scripts/check_api_trailing_slash.py``.
@@ -576,7 +660,7 @@ index c71da609..48a9ee85 100644
      _air_basketball_asset_version_cache = (now, version)
      return {"air_basketball_asset_version": version}
 diff --git a/main_routers/proactive_feedback_router.py b/main_routers/proactive_feedback_router.py
-index 4d3c8a37..7cb8c693 100644
+index 4d3c8a377d0ff391623d67f279824b9ec08a45be..7cb8c693950e525969150963771cac13824acaa1 100644
 --- a/main_routers/proactive_feedback_router.py
 +++ b/main_routers/proactive_feedback_router.py
 @@ -5,6 +5,7 @@ import asyncio
@@ -626,7 +710,7 @@ index 4d3c8a37..7cb8c693 100644
  
  @router.on_event("startup")
 diff --git a/main_routers/storage_location_router.py b/main_routers/storage_location_router.py
-index f6a7fc3d..d169bda3 100644
+index f6a7fc3d319cf12fda8e3289a81f6f3414dcd1b5..d169bda39e0d1988d00b4cccbf9861e242752770 100644
 --- a/main_routers/storage_location_router.py
 +++ b/main_routers/storage_location_router.py
 @@ -1852,7 +1852,10 @@ async def get_storage_location_bootstrap(response: Response):
@@ -651,7 +735,7 @@ index f6a7fc3d..d169bda3 100644
  
  @router.post("/exit")
 diff --git a/main_routers/system_router/status.py b/main_routers/system_router/status.py
-index 03700feb..f64d8bff 100644
+index 03700febbd3b719005caf0b30eff4656db8a555c..f64d8bff4c6511d8fa74c4ba2a83bd17eb876e49 100644
 --- a/main_routers/system_router/status.py
 +++ b/main_routers/system_router/status.py
 @@ -18,6 +18,7 @@
@@ -674,7 +758,7 @@ index 03700feb..f64d8bff 100644
          return {
              "ok": True,
 diff --git a/services/proactive_feedback/runtime.py b/services/proactive_feedback/runtime.py
-index 5f6a4779..2d48f920 100644
+index 5f6a4779417f4f5e4fb3e9ae9c9639b2f595cb9c..2d48f9201eee560f0920cab104c1a446fa849094 100644
 --- a/services/proactive_feedback/runtime.py
 +++ b/services/proactive_feedback/runtime.py
 @@ -4,6 +4,7 @@ from __future__ import annotations
@@ -702,7 +786,7 @@ index 5f6a4779..2d48f920 100644
          self.settings_drain = settings_drain
          self.settings_pending_provider = settings_pending_provider
 diff --git a/tests/unit/test_client_registration.py b/tests/unit/test_client_registration.py
-index 6eb8eda5..48dd7771 100644
+index 6eb8eda584ea25aeb86cee3aa091e3fdea6b97ae..48dd77715809119f89295c7d08da3e64542bff79 100644
 --- a/tests/unit/test_client_registration.py
 +++ b/tests/unit/test_client_registration.py
 @@ -95,10 +95,21 @@ def test_looks_unregistered(status_code, detail, expected):
@@ -798,7 +882,7 @@ index 6eb8eda5..48dd7771 100644
  
      assert not await R.ensure_client_registered(CLOUD)
 diff --git a/tests/unit/test_cloudsave_lifecycle_flow.py b/tests/unit/test_cloudsave_lifecycle_flow.py
-index ae0e2e50..5e236f7a 100644
+index ae0e2e50f12f298b9302b33d20bc5880194df29c..5e236f7ad7ba9c8687e5a0cb404c2cbf962679f6 100644
 --- a/tests/unit/test_cloudsave_lifecycle_flow.py
 +++ b/tests/unit/test_cloudsave_lifecycle_flow.py
 @@ -377,7 +377,9 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
@@ -827,7 +911,7 @@ index ae0e2e50..5e236f7a 100644
  
  
 diff --git a/tests/unit/test_proactive_feedback_router.py b/tests/unit/test_proactive_feedback_router.py
-index 82799ae6..77046a8f 100644
+index 82799ae61a32808cab24da5d90a0d32a943b0f52..77046a8fe25b20c34647fab135f4f6ed739734be 100644
 --- a/tests/unit/test_proactive_feedback_router.py
 +++ b/tests/unit/test_proactive_feedback_router.py
 @@ -410,6 +410,31 @@ async def test_default_factory_owns_http_client_with_no_environment_proxy(tmp_pa
@@ -864,10 +948,10 @@ index 82799ae6..77046a8f 100644
  async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
 diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
 new file mode 100644
-index 00000000..7f359d2d
+index 0000000000000000000000000000000000000000..8dad12b5c552ec1c47488cd861613b9873dff5f7
 --- /dev/null
 +++ b/tests/unit/test_xiaoyu_startup_performance.py
-@@ -0,0 +1,313 @@
+@@ -0,0 +1,330 @@
 +from __future__ import annotations
 +
 +import asyncio
@@ -1181,8 +1265,25 @@ index 00000000..7f359d2d
 +    assert "_load_embedded_plugin_server_types" in start_source
 +    assert "get_internal_http_client()" in name_source
 +    assert "httpx.AsyncClient(" not in module_source
++
++
++@pytest.mark.unit
++def test_httpx_transport_is_warmed_offloop_before_character_initialization():
++    from app import main_server
++    from app.main_server import preload
++
++    startup_source = inspect.getsource(main_server._ensure_main_server_runtime_initialized)
++    warm_call = "await asyncio.to_thread(_warm_httpx_transport_sync)"
++    character_call = "await initialize_character_data()"
++    assert warm_call in startup_source
++    assert startup_source.index(warm_call) < startup_source.index(character_call)
++
++    warm_source = inspect.getsource(preload._warm_httpx_transport_sync)
++    assert "httpx.AsyncClient(" in warm_source
++    assert "await client.aclose()" in warm_source
++    assert "client.get(" not in warm_source
 diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
-index 2e8134e6..64740dbc 100644
+index 2e8134e612a34e2f5ee373dc3dddb7da739967a2..64740dbce7f82d1dc320d9e2b9f876a9158511bd 100644
 --- a/utils/holiday_cache.py
 +++ b/utils/holiday_cache.py
 @@ -40,6 +40,7 @@ from __future__ import annotations
@@ -1252,7 +1353,7 @@ index 2e8134e6..64740dbc 100644
          resp.raise_for_status()
          data = resp.json()
 diff --git a/utils/web_scraper/search_gateway.py b/utils/web_scraper/search_gateway.py
-index 4215c70f..c9fe5332 100644
+index 4215c70fec7d34c4361f29ba159aaccc16c7f1e7..c9fe5332c51c8a52b86ee0ece6ebc958d08b0d4f 100644
 --- a/utils/web_scraper/search_gateway.py
 +++ b/utils/web_scraper/search_gateway.py
 @@ -18,6 +18,7 @@ import uuid

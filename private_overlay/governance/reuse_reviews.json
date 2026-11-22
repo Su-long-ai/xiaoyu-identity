@@ -322,10 +322,16 @@
           "type": "external_dependency",
           "outcome": "reused through N.E.K.O shared clients; no XiaoYu pool or TLS lifecycle is added",
           "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "Existing patch0010 httpx transport warmup moved before character initialization",
+          "type": "private_existing_patch_reuse",
+          "outcome": "selected after c3 live restart exposed a 1.25 s lazy httpcore import on the main event loop; no new patch/runtime/pool was added, and the next canonical restart had zero new loop-stall blocked/recovered events",
+          "evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
         }
       ],
-      "why_reuse_insufficient": "N.E.K.O native TokenTracker, embedded plugin thread, internal HTTP client and external pooled HTTP client are reused directly. The residual patch only moves their uncovered first-import/filesystem/config/lazy-client construction boundaries off the event loop. The 899a08ce live cold restart proved the former client_registration -> SSLContext application stall no longer recurs; no private HTTP pool or SSL cache exists.",
-      "acceptance_evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+      "why_reuse_insufficient": "N.E.K.O native TokenTracker, embedded plugin thread, shared internal/external HTTP clients and c3 upstream startup fixes are reused directly. The residual patch remains limited to uncovered first-import/filesystem/config/client-construction boundaries. A c3 live restart showed the existing httpx warmup was scheduled too late for first character/session construction, so the same one-time warmup is now executed off-loop before character initialization; no private HTTP pool, SSL cache, runtime, or additional core patch is introduced.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
     },
     {
       "id": "upstream:neko-6fccfb72",
