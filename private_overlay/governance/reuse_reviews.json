@@ -2752,6 +2752,73 @@
         }
       },
       "retirement_condition": "Retire this overlay wiring when pinned N.E.K.O upstream CI runs equivalent voice-onset interruption/wrap-up ownership regressions for every pin XiaoYu consumes and XiaoYu can consume that result without duplicating test selection."
+    },
+    {
+      "id": "governance:proactive-presence-engagement-directive-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The XiaoYu product gate already covers the private 0009 interruptibility patch (gaming/fullscreen/QUNS/latest final admission), but it does not execute pinned N.E.K.O's native regressions for local-session return/lock/suspend presence, late engagement changes during proactive generation/regen, or explicit user wording directives. Those omissions leave restart/reconnect noise, stale delayed proactive delivery and ignored wording corrections under-tested.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Pinned N.E.K.O presence/engagement/directive regressions",
+          "type": "native_current_pin",
+          "outcome": "selected",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        {
+          "name": "Existing XiaoYu patched-product/micro-soak gate",
+          "type": "existing_governance",
+          "outcome": "selected as execution plane",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        {
+          "name": "New presence/directive/proactive runtime",
+          "type": "private_duplicate",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Runtime behavior and focused tests already exist; only XiaoYu patched-product acceptance wiring is missing.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O proactive/presence/directive runtime remains authority; XiaoYu 0009 remains the private interruptibility extension.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Selected existing c3 tests.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals c3.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "ActivityWatch stays evidence provider; no external replacement needed.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external daemon/filter/policy engine needed for regression-wiring gap.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected native pytest nodes + bounded micro-soak only.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New proactive/presence/directive/anti-repeat runtime rejected.",
+          "evidence": "evals/evidence/2026-11-23-proactive-presence-engagement-directive-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this overlay test selection when pinned N.E.K.O upstream CI executes equivalent presence/engagement/directive regressions for every XiaoYu pin and product acceptance can consume that green result directly."
     }
   ],
   "hierarchy_policy": {

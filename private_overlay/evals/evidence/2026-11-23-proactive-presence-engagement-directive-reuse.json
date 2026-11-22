@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PROACTIVE_PRESENCE_ENGAGEMENT_DIRECTIVE_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "The XiaoYu product gate already covers the private 0009 interruptibility patch (gaming/fullscreen/QUNS/latest final admission), but it does not execute pinned N.E.K.O's native regressions for local-session return/lock/suspend presence, late engagement changes during proactive generation/regen, or explicit user wording directives. Those omissions leave restart/reconnect noise, stale delayed proactive delivery and ignored wording corrections under-tested.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "selected": true,
+      "result": "c3 already contains system_presence.py, proactive engagement/repeat guards and user-directive hard gates plus focused unit regressions."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream remains c3; no new implementation is required."
+    },
+    {
+      "layer": "N.E.K.O proactive/native delivery",
+      "checked": true,
+      "selected": true,
+      "result": "Keep native presence, engagement snapshot, anti-repeat, directive and publication authority. 0009 remains only the XiaoYu-specific interruptibility extension."
+    },
+    {
+      "layer": "current pinned external component",
+      "checked": true,
+      "result": "ActivityWatch remains external activity evidence, but these presence/engagement/directive semantics are owned by N.E.K.O and require no replacement component."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "No alternate presence daemon, policy engine or prompt filter is justified for missing regression wiring."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Select existing native pytest nodes for patched-product cloud/local acceptance and a bounded repeated micro-soak subset."
+    },
+    {
+      "layer": "managed patch/private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "No new proactive engine, presence service, directive store, anti-repeat corpus, router or daemon."
+    }
+  ],
+  "selected_tests": {
+    "presence": [
+      "tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return",
+      "tests/unit/test_system_presence.py::test_lock_then_unlock",
+      "tests/unit/test_system_presence.py::test_suspend_then_resume",
+      "tests/unit/test_system_presence.py::test_remote_disconnect_forgets_state_and_reconnect_rearms_from_scratch",
+      "tests/unit/test_system_presence.py::test_missed_resume_broadcast_does_not_silence_forever",
+      "tests/unit/test_system_presence.py::test_voice_session_ignores_display_off_and_return_quiet",
+      "tests/unit/test_system_presence.py::test_voice_session_still_gated_by_lock_and_suspend"
+    ],
+    "engagement": [
+      "tests/unit/test_proactive_unanswered_repeat.py::test_normal_delivery_guards_tts_and_commit_with_engagement_snapshot",
+      "tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances",
+      "tests/unit/test_proactive_unanswered_repeat.py::test_guard_regenerates_then_drops_still_unanswered_repeat"
+    ],
+    "directives": [
+      "tests/unit/test_proactive_user_directives.py::test_ban_gate_runs_before_any_repeat_detection",
+      "tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call",
+      "tests/unit/test_proactive_user_directives.py::test_material_exempt_channel_is_still_gated",
+      "tests/unit/test_proactive_user_directives.py::test_regen_output_is_gated_too"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return",
+      "tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances",
+      "tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call"
+    ]
+  },
+  "protected_product_risks": [
+    "display/lock/suspend return produces an immediate stale proactive interruption",
+    "remote disconnect/reconnect leaves presence permanently armed or permanently silent",
+    "active voice session is incorrectly suppressed by ordinary display-off return quiet while lock/suspend still must gate",
+    "user engagement changes during proactive generation/regen but stale text/TTS still publishes",
+    "ignored proactive wording repeats without a bounded rewrite/drop path",
+    "explicit user wording correction is bypassed by first draft, material-exempt channel or regenerated output"
+  ],
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "activitywatch_change": false,
+    "new_presence_daemon": false,
+    "new_directive_store": false,
+    "new_proactive_router": false,
+    "new_anti_repeat_store": false
+  },
+  "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+  "promotion_prohibited_until_agent_gate_green": true,
+  "retirement_condition": "Retire this overlay test selection when pinned N.E.K.O upstream CI executes equivalent presence/engagement/directive regressions for every XiaoYu pin and product acceptance can consume that green result directly."
+}
