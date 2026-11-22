@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:37:00+08:00",
+  "scope": "Native NekoClaw execution seams and authority audit",
+  "sources": [
+    "D:/xiaoyu_external_audit/N.E.K.O/docs/zh-CN/architecture/agent-system.md",
+    "D:/xiaoyu_external_audit/N.E.K.O/nekoclaw/host/runtimes.py",
+    "D:/xiaoyu_external_audit/N.E.K.O/nekoclaw/host/ledger.py",
+    "D:/xiaoyu_external_audit/N.E.K.O/nekoclaw/host/permissions.py",
+    "D:/xiaoyu_external_audit/N.E.K.O/nekoclaw/host/outbox.py",
+    "D:/xiaoyu_external_audit/N.E.K.O/.agent/skills/nekoclaw/SKILL.md"
+  ],
+  "findings": {
+    "runtime_seam": "N.E.K.O officially supports built-in runtime plus optional dsh; dsh is selected per commission/session and communicates over ACP JSON-RPC on stdio.",
+    "fallback": "If dsh is unavailable/refuses/unsupported, new work falls back to the built-in runtime with the reason recorded.",
+    "permissions": "Both built-in tools and capability-gateway calls converge on the host PermissionGate; MCP servers are individually permissioned.",
+    "capabilities": "Task agents obtain plugin entries, MCP tools, keyboard/mouse and browser capabilities through the host capability gateway rather than owning a second capability runtime.",
+    "credentials": "The dsh model forwarder keeps provider keys in the host side; keys are not handed to dsh.",
+    "ledger": "Commission state, sessions, events, result outbox and task preferences are host-owned SQLite authority.",
+    "results": "Terminal commission state and task result are designed to be written together; reports enter the durable outbox before main-server delivery.",
+    "openclaw": "The current NekoClaw engineering contract explicitly says OpenClaw is not connected; the prior OpenClaw channel was retired.",
+    "local_activation": "The current XiaoYu private state contains no initialized NekoClaw ledger/permissions/dsh path, so no Agent runtime or dsh installation was activated by this audit."
+  },
+  "decision": {
+    "verdict": "REUSE_NEKOCLAW_EXECUTION_HOST_AND_MCP_GATEWAY",
+    "do_not_build": [
+      "XiaoYu agent orchestrator",
+      "XiaoYu permission store",
+      "XiaoYu task ledger",
+      "XiaoYu capability gateway"
+    ],
+    "runtime_strategy": "Use N.E.K.O built-in runtime by default; dsh is the only currently supported optional alternate runtime seam. Treat other systems as MCP capabilities unless N.E.K.O later adds a native runtime adapter.",
+    "xiaoyu_core_patch_required": false
+  }
+}

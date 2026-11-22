@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "contract_id": "XIAOYU_EXTERNAL_EXECUTION_V1",
+  "implementation_mode": "reuse_neko_native_no_second_agent_runtime",
+  "authority": {
+    "commission_ledger": "nekoclaw_host",
+    "permission_gate": "nekoclaw_host",
+    "capability_gateway": "nekoclaw_host",
+    "result_outbox": "nekoclaw_host",
+    "publication": "neko_native",
+    "identity_and_persona": "neko_native",
+    "memory": "neko_native"
+  },
+  "routing": {
+    "single_step": "neko_plugin_direct",
+    "multi_step": "nekoclaw_task_agent",
+    "capabilities": "nekoclaw_mcp_capability_gateway"
+  },
+  "runtime_seam": {
+    "builtin": {
+      "role": "default_always_available",
+      "allowed": true
+    },
+    "dsh": {
+      "role": "optional_alternate_runtime",
+      "transport": "ACP_JSON_RPC_stdio",
+      "allowed": true,
+      "install_is_user_choice": true,
+      "host_permission_guard_required": true,
+      "fallback_to_builtin": true
+    },
+    "openclaw": {
+      "role": "not_a_runtime_seam",
+      "allowed": false
+    },
+    "hermes": {
+      "role": "not_a_runtime_seam",
+      "allowed": false
+    }
+  },
+  "external_capability_policy": {
+    "preferred_boundary": "MCP",
+    "mcp_servers_are_individually_permissioned": true,
+    "credentials_remain_host_owned": true,
+    "external_tools_do_not_gain_identity_authority": true,
+    "external_tools_do_not_gain_memory_authority": true,
+    "external_tools_do_not_publish_user_visible_output_directly": true
+  },
+  "result_contract": {
+    "terminal_state_and_report_are_transactionally_coupled": true,
+    "user_visible_results_flow_through_native_outbox_and_delivery": true,
+    "uncertain_effects_must_not_be_blindly_retried": true,
+    "cancelled_commissions_are_terminal": true
+  },
+  "forbidden": [
+    "xiaoyu_agent_orchestrator",
+    "xiaoyu_permission_store",
+    "xiaoyu_task_ledger",
+    "xiaoyu_capability_gateway",
+    "xiaoyu_external_agent_memory_authority",
+    "direct_external_agent_publication"
+  ],
+  "activation": {
+    "enable_agent_master_in_this_change": false,
+    "install_dsh_in_this_change": false,
+    "reason": "Contract freeze only; runtime activation remains an explicit product/user configuration action."
+  },
+  "evidence": "evals/evidence/2026-11-22-execution-contract-native-seams-audit.json"
+}

@@ -122,7 +122,69 @@ def main() -> int:
     if qq_lock.get("tested_commit") != "54acf36bf978edad4757e5fffc743c5618360700":
         raise SystemExit("QQ delivery-floor audit no longer matches the pinned plugin commit")
 
-    print("PASS: architecture freeze and delivery floor contracts")
+    execution = load_json("execution_contract_v1.json")
+    if execution.get("contract_id") != "XIAOYU_EXTERNAL_EXECUTION_V1":
+        raise SystemExit("external execution contract id changed or missing")
+    if execution.get("implementation_mode") != "reuse_neko_native_no_second_agent_runtime":
+        raise SystemExit("external execution must reuse N.E.K.O instead of creating a second runtime")
+    authority = execution.get("authority", {})
+    for key in ("commission_ledger", "permission_gate", "capability_gateway", "result_outbox"):
+        if authority.get(key) != "nekoclaw_host":
+            raise SystemExit(f"execution authority drifted: {key}")
+    for key in ("publication", "identity_and_persona", "memory"):
+        if authority.get(key) != "neko_native":
+            raise SystemExit(f"N.E.K.O authority drifted: {key}")
+    routing = execution.get("routing", {})
+    if routing.get("single_step") != "neko_plugin_direct":
+        raise SystemExit("single-step execution must stay on native plugin direct dispatch")
+    if routing.get("multi_step") != "nekoclaw_task_agent":
+        raise SystemExit("multi-step execution must stay on NekoClaw")
+    if routing.get("capabilities") != "nekoclaw_mcp_capability_gateway":
+        raise SystemExit("external capabilities must stay behind the NekoClaw MCP gateway")
+    seams = execution.get("runtime_seam", {})
+    if seams.get("builtin", {}).get("allowed") is not True:
+        raise SystemExit("built-in NekoClaw runtime must remain available")
+    dsh = seams.get("dsh", {})
+    if (
+        dsh.get("allowed") is not True
+        or dsh.get("transport") != "ACP_JSON_RPC_stdio"
+        or dsh.get("host_permission_guard_required") is not True
+        or dsh.get("fallback_to_builtin") is not True
+    ):
+        raise SystemExit("dsh may only remain the host-guarded ACP alternate runtime")
+    for unsupported in ("openclaw", "hermes"):
+        if seams.get(unsupported, {}).get("allowed") is not False:
+            raise SystemExit(f"{unsupported} is not an approved N.E.K.O runtime seam")
+    ext = execution.get("external_capability_policy", {})
+    required_ext = {
+        "mcp_servers_are_individually_permissioned",
+        "credentials_remain_host_owned",
+        "external_tools_do_not_gain_identity_authority",
+        "external_tools_do_not_gain_memory_authority",
+        "external_tools_do_not_publish_user_visible_output_directly",
+    }
+    if ext.get("preferred_boundary") != "MCP" or any(ext.get(key) is not True for key in required_ext):
+        raise SystemExit("external capability boundary or authority policy was weakened")
+    forbidden_exec = {
+        "xiaoyu_agent_orchestrator",
+        "xiaoyu_permission_store",
+        "xiaoyu_task_ledger",
+        "xiaoyu_capability_gateway",
+        "xiaoyu_external_agent_memory_authority",
+        "direct_external_agent_publication",
+    }
+    if not forbidden_exec.issubset(set(execution.get("forbidden", []))):
+        raise SystemExit("execution contract no longer forbids duplicate XiaoYu agent authorities")
+    activation = execution.get("activation", {})
+    if activation.get("enable_agent_master_in_this_change") is not False:
+        raise SystemExit("architecture freeze must not silently enable Agent master")
+    if activation.get("install_dsh_in_this_change") is not False:
+        raise SystemExit("architecture freeze must not silently install dsh")
+    exec_evidence = str(execution.get("evidence") or "")
+    if not exec_evidence or not (ROOT / exec_evidence).is_file():
+        raise SystemExit(f"execution contract evidence missing: {exec_evidence}")
+
+    print("PASS: architecture, delivery and external execution contracts")
     return 0
 
 

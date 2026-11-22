@@ -70,6 +70,13 @@ The private product direction is frozen by governance/architecture_freeze.json a
 
 User-visible output is governed by governance/delivery_floor_v1.json. This is a contract, not another runtime. It inventories ordinary replies, proactive output, work-break reminders, game invitations, background-agent results, and QQ outbound delivery under one ALLOW/HOLD/DROP vocabulary. Policy may decide whether output is admissible, but only N.E.K.O native delivery (or its pinned connector path) performs publication. Existing managed patches 0006 and 0009 remain the narrow enforcement adapters for whole-reply admission and proactive final-delivery admission; new core code is not justified merely to make the implementation look more uniform.
 
+
+### External execution contract
+
+`governance/execution_contract_v1.json` freezes the execution seam without adding another XiaoYu agent framework. One-step work stays on N.E.K.O plugin direct dispatch; multi-step work stays on NekoClaw task agents. Commission state, permissions, capability routing and result outbox remain host-owned. The built-in runtime is the default; N.E.K.O's optional dsh runtime is the only currently approved alternate runtime seam and is host-guarded over ACP. Other external systems are capabilities behind MCP unless N.E.K.O later adds a native runtime adapter. They never become XiaoYu identity, memory, permission, ledger or publication authorities.
+
+This freeze does not enable Agent master or install dsh. Runtime activation remains an explicit product/user configuration choice.
+
 ## Reuse-first gate
 
 Every new private runtime plugin or managed N.E.K.O core patch must first have an approved entry in `governance/reuse_reviews.json`. The review records the N.E.K.O native/upstream and mature external candidates considered, supporting evidence, and why reuse alone is insufficient when a thin adapter or private implementation remains. `tools/check_reuse_first.py` is fail-closed and runs inside `tools/run_checks.ps1`; an unreviewed managed patch/plugin or an unmanaged patch file blocks the checks. If a reusable solution later becomes viable, the policy prefers replacing/deleting private code rather than keeping it because it already exists.

@@ -457,6 +457,45 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertTrue(requirements[key], key)
 
+    def test_external_execution_contract_reuses_neko_native_authorities(self):
+        execution = json.loads(
+            (ROOT / "governance" / "execution_contract_v1.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(execution["contract_id"], "XIAOYU_EXTERNAL_EXECUTION_V1")
+        self.assertEqual(
+            execution["implementation_mode"],
+            "reuse_neko_native_no_second_agent_runtime",
+        )
+        self.assertEqual(execution["authority"]["commission_ledger"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["permission_gate"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["capability_gateway"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["result_outbox"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["identity_and_persona"], "neko_native")
+        self.assertEqual(execution["authority"]["memory"], "neko_native")
+        self.assertEqual(execution["routing"]["single_step"], "neko_plugin_direct")
+        self.assertEqual(execution["routing"]["multi_step"], "nekoclaw_task_agent")
+        self.assertEqual(
+            execution["routing"]["capabilities"],
+            "nekoclaw_mcp_capability_gateway",
+        )
+        self.assertTrue(execution["runtime_seam"]["builtin"]["allowed"])
+        self.assertEqual(
+            execution["runtime_seam"]["dsh"]["transport"],
+            "ACP_JSON_RPC_stdio",
+        )
+        self.assertTrue(execution["runtime_seam"]["dsh"]["fallback_to_builtin"])
+        self.assertFalse(execution["runtime_seam"]["openclaw"]["allowed"])
+        self.assertFalse(execution["runtime_seam"]["hermes"]["allowed"])
+        self.assertEqual(
+            execution["external_capability_policy"]["preferred_boundary"],
+            "MCP",
+        )
+        self.assertFalse(execution["activation"]["enable_agent_master_in_this_change"])
+        self.assertFalse(execution["activation"]["install_dsh_in_this_change"])
+        self.assertTrue((ROOT / execution["evidence"]).is_file())
+
     def test_run_checks_enforces_architecture_freeze(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"
