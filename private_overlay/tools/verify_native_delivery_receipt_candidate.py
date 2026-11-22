@@ -343,6 +343,15 @@ def _verify_wiring(root: Path) -> None:
         'if delivery_mode != "silent":',
     )
     assert "delivery_effect_seen = True" in main
+    direct_start = main.index('if event.get("direct_reply"):')
+    direct_end = main.index("# Build structured callback", direct_start)
+    direct_branch = main[direct_start:direct_end]
+    _ordered(
+        direct_branch,
+        "if delivered:",
+        "await _settle_nekoclaw_delivery(delivery_claim, True)",
+        "return",
+    )
     assert "_settle_nekoclaw_callback_ack" in main
     assert "_spawn_nekoclaw_delivery_settler" in main
     # Unknown settlement must remain fenced; the adapter must not synthesize a retry.
