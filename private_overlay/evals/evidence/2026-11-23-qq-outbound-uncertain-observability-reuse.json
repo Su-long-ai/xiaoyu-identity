@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_QQ_OUTBOUND_UNCERTAIN_OBSERVABILITY_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "The pinned first-class QQ surface already distinguishes confirmed send from unconfirmed/None transport results and logs undelivered reasons, but XiaoYu's product cloud/release QQ regression list does not execute that existing observability contract.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "result": "Host Plugin SDK/native delivery remains the runtime host; no XiaoYu transport is introduced."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest N.E.K.O main still equals c3fc33ff0d32e4a79fd905d1add22d45725071f5; no host-level QQ receipt abstraction replaces the pinned plugin behavior."
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / PluginStore / native delivery",
+      "checked": true,
+      "result": "Reused unchanged. They do not add OneBot send receipts or idempotency keys for this plugin."
+    },
+    {
+      "layer": "current pinned external component",
+      "checked": true,
+      "selected": true,
+      "result": "Pinned qq_auto_reply 54acf36bf978edad4757e5fffc743c5618360700 (also upstream main) already contains test_qq_send_observability.py and fail-closed delivered=False/None semantics."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "No second QQ transport/receipt broker is justified merely to test existing pinned semantics; adding one would widen authority and recovery surface."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Only extend the existing QQ cloud/local product regression list to execute the pinned observability test file."
+    },
+    {
+      "layer": "private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "Reject new retry daemon, receipt DB, idempotency store, OneBot transport wrapper or router in this unit."
+    }
+  ],
+  "selected_contract": {
+    "confirmed_send": "Successful delivery produces one [Send] success log and delivered=True.",
+    "unconfirmed_send": "None/unconfirmed delivery must not be logged as sent; it produces an undelivered diagnostic and delivered=False.",
+    "empty_content": "A plan with no deliverable content is reported as not delivered rather than silently treated as success.",
+    "private_and_group": "Observability covers both private and group sends.",
+    "retry_policy": "No automatic resend is added for ambiguous transport outcome because the current pinned path has no durable provider receipt/idempotency key proving that a retry cannot duplicate a message."
+  },
+  "selected_existing_test": "plugin/plugins/qq_auto_reply/tests/test_qq_send_observability.py",
+  "optional_mutation_evidence": "plugin/plugins/qq_auto_reply/tests/verify_send_undelivered_fail_to_pass.py",
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "new_transport": false,
+    "new_retry_loop": false,
+    "new_daemon": false,
+    "new_state_store": false,
+    "new_router": false,
+    "no_desktop_quns_on_qq": true
+  },
+  "acceptance_plan": [
+    "Execute test_qq_send_observability.py in the existing pinned QQ product surface step on ordinary agent pushes.",
+    "Execute the same file in private_overlay/tools/run_checks.ps1 local release QQ suite.",
+    "Keep pinned QQ/N.E.K.O authority and existing delivery semantics unchanged."
+  ],
+  "retirement_condition": "Retire this overlay wiring when pinned QQ upstream CI executes an equivalent confirmed-vs-unconfirmed send observability contract and XiaoYu can consume that result, or when a host-owned durable QQ receipt/idempotency contract supersedes the current send-result semantics.",
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  }
+}

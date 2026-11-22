@@ -2412,6 +2412,73 @@
         }
       },
       "retirement_condition": "Retire this invariant when managed patches disappear or N.E.K.O/private overlay gains one native authoritative patch-to-acceptance manifest that both cloud and local release gates consume directly."
+    },
+    {
+      "id": "governance:qq-outbound-uncertain-observability-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The pinned first-class QQ surface already distinguishes confirmed send from unconfirmed/None transport results and logs undelivered reasons, but XiaoYu's product cloud/release QQ regression list does not execute that existing observability contract.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Pinned qq_auto_reply test_qq_send_observability.py",
+          "type": "external_pinned",
+          "outcome": "selected; existing behavior-level regression for confirmed and unconfirmed sends",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        {
+          "name": "Existing private-overlay QQ cloud/release suite",
+          "type": "existing_governance",
+          "outcome": "selected as execution plane; extend list only",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        {
+          "name": "New XiaoYu retry/receipt runtime",
+          "type": "private_duplicate",
+          "outcome": "rejected; no durable native receipt/idempotency authority exists to make automatic retry safe",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The behavior and regression already exist in the pinned QQ component. The only gap is that XiaoYu's product acceptance does not execute the existing test file. No runtime implementation is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains host/runtime authority and qq_auto_reply remains QQ surface authority.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies host Plugin SDK/native delivery but no QQ-specific durable receipt contract.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest N.E.K.O main equals c3; no replacement receipt/idempotency seam.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ commit equals upstream main and already contains the required observability regression.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "A second transport/supervisor/receipt layer is unnecessary for this acceptance gap and would widen authority.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: add one existing pinned test file to both product QQ test lists.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Reject new retry loop, daemon, receipt DB, idempotency store, transport wrapper or router.",
+          "evidence": "evals/evidence/2026-11-23-qq-outbound-uncertain-observability-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this overlay wiring when pinned QQ upstream CI executes an equivalent confirmed-vs-unconfirmed send observability contract and XiaoYu can consume that result, or when a host-owned durable QQ receipt/idempotency contract supersedes the current send-result semantics."
     }
   ],
   "hierarchy_policy": {
