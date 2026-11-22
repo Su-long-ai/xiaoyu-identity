@@ -155,13 +155,30 @@ if (-not $StartupPreflight) {
     $CompanionPolicyFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py"),
         (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py"),
-        (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py")
+        (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py"),
+        (Join-Path $NekoRoot "tests\unit\test_system_presence.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_unanswered_repeat.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_user_directives.py")
     )
     $CompanionPolicyTargets = @(
         ("{0}::test_maybe_deliver_is_leisure_only" -f (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py")),
         ("{0}::test_maybe_deliver_allows_explicit_leisure_states" -f (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py")),
         ("{0}::test_break_reminder_respects_round_ownership" -f (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py")),
-        ("{0}::test_voice_nudge_respects_interruptibility_gate" -f (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py"))
+        ("{0}::test_voice_nudge_respects_interruptibility_gate" -f (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py")),
+        ("{0}::test_display_off_then_on_suppresses_and_keeps_quiet_after_return" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_lock_then_unlock" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_suspend_then_resume" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_remote_disconnect_forgets_state_and_reconnect_rearms_from_scratch" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_missed_resume_broadcast_does_not_silence_forever" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_voice_session_ignores_display_off_and_return_quiet" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_voice_session_still_gated_by_lock_and_suspend" -f (Join-Path $NekoRoot "tests\unit\test_system_presence.py")),
+        ("{0}::test_normal_delivery_guards_tts_and_commit_with_engagement_snapshot" -f (Join-Path $NekoRoot "tests\unit\test_proactive_unanswered_repeat.py")),
+        ("{0}::test_regenerated_delivery_aborts_when_engagement_cutoff_advances" -f (Join-Path $NekoRoot "tests\unit\test_proactive_unanswered_repeat.py")),
+        ("{0}::test_guard_regenerates_then_drops_still_unanswered_repeat" -f (Join-Path $NekoRoot "tests\unit\test_proactive_unanswered_repeat.py")),
+        ("{0}::test_ban_gate_runs_before_any_repeat_detection" -f (Join-Path $NekoRoot "tests\unit\test_proactive_user_directives.py")),
+        ("{0}::test_banned_draft_is_dropped_without_any_llm_call" -f (Join-Path $NekoRoot "tests\unit\test_proactive_user_directives.py")),
+        ("{0}::test_material_exempt_channel_is_still_gated" -f (Join-Path $NekoRoot "tests\unit\test_proactive_user_directives.py")),
+        ("{0}::test_regen_output_is_gated_too" -f (Join-Path $NekoRoot "tests\unit\test_proactive_user_directives.py"))
     )
     $CompanionNodeTests = @(
         (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),

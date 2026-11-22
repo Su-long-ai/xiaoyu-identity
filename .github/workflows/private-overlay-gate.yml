@@ -194,6 +194,20 @@ jobs:
             tests/unit/test_mini_game_invite.py::test_maybe_deliver_allows_explicit_leisure_states \
             tests/unit/test_proactive_service_boundary.py::test_break_reminder_respects_round_ownership \
             tests/unit/test_proactive_vision_revocation.py::test_voice_nudge_respects_interruptibility_gate \
+            tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return \
+            tests/unit/test_system_presence.py::test_lock_then_unlock \
+            tests/unit/test_system_presence.py::test_suspend_then_resume \
+            tests/unit/test_system_presence.py::test_remote_disconnect_forgets_state_and_reconnect_rearms_from_scratch \
+            tests/unit/test_system_presence.py::test_missed_resume_broadcast_does_not_silence_forever \
+            tests/unit/test_system_presence.py::test_voice_session_ignores_display_off_and_return_quiet \
+            tests/unit/test_system_presence.py::test_voice_session_still_gated_by_lock_and_suspend \
+            tests/unit/test_proactive_unanswered_repeat.py::test_normal_delivery_guards_tts_and_commit_with_engagement_snapshot \
+            tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances \
+            tests/unit/test_proactive_unanswered_repeat.py::test_guard_regenerates_then_drops_still_unanswered_repeat \
+            tests/unit/test_proactive_user_directives.py::test_ban_gate_runs_before_any_repeat_detection \
+            tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call \
+            tests/unit/test_proactive_user_directives.py::test_material_exempt_channel_is_still_gated \
+            tests/unit/test_proactive_user_directives.py::test_regen_output_is_gated_too \
             tests/unit/test_windows_interruptibility_signal.py \
             tests/unit/test_xiaoyu_capability_shadow.py \
             tests/unit/test_proactive_sid_guard.py \
@@ -252,6 +266,9 @@ jobs:
               tests/unit/test_private_speech_output_gate.py::PrivateReplyGateTests::test_quiet_truncation_recovery_settles_turn_without_text_or_tts \
               tests/unit/test_mini_game_invite.py::test_maybe_deliver_is_leisure_only \
               tests/unit/test_proactive_vision_revocation.py::test_voice_nudge_respects_interruptibility_gate \
+              tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return \
+              tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances \
+              tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call \
               tests/unit/test_windows_interruptibility_signal.py::test_one_shot_notification_state_reads_windows_authority_when_available \
               tests/unit/test_proactive_sid_guard.py \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \

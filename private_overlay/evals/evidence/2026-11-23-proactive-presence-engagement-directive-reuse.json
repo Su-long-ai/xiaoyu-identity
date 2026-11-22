@@ -89,5 +89,40 @@
   },
   "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
   "promotion_prohibited_until_agent_gate_green": true,
-  "retirement_condition": "Retire this overlay test selection when pinned N.E.K.O upstream CI executes equivalent presence/engagement/directive regressions for every XiaoYu pin and product acceptance can consume that green result directly."
+  "retirement_condition": "Retire this overlay test selection when pinned N.E.K.O upstream CI executes equivalent presence/engagement/directive regressions for every XiaoYu pin and product acceptance can consume that green result directly.",
+  "implementation_status": "CANDIDATE_REF_PRESERVED_PENDING_AGENT_MACHINE_GATE",
+  "implementation": {
+    "cloud": ".github/workflows/private-overlay-gate.yml / patched Companion product regression",
+    "local": "private_overlay/tools/run_checks.ps1 / Companion Policy targets",
+    "selected_tests": {
+      "presence": [
+        "tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return",
+        "tests/unit/test_system_presence.py::test_lock_then_unlock",
+        "tests/unit/test_system_presence.py::test_suspend_then_resume",
+        "tests/unit/test_system_presence.py::test_remote_disconnect_forgets_state_and_reconnect_rearms_from_scratch",
+        "tests/unit/test_system_presence.py::test_missed_resume_broadcast_does_not_silence_forever",
+        "tests/unit/test_system_presence.py::test_voice_session_ignores_display_off_and_return_quiet",
+        "tests/unit/test_system_presence.py::test_voice_session_still_gated_by_lock_and_suspend"
+      ],
+      "engagement": [
+        "tests/unit/test_proactive_unanswered_repeat.py::test_normal_delivery_guards_tts_and_commit_with_engagement_snapshot",
+        "tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances",
+        "tests/unit/test_proactive_unanswered_repeat.py::test_guard_regenerates_then_drops_still_unanswered_repeat"
+      ],
+      "directives": [
+        "tests/unit/test_proactive_user_directives.py::test_ban_gate_runs_before_any_repeat_detection",
+        "tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call",
+        "tests/unit/test_proactive_user_directives.py::test_material_exempt_channel_is_still_gated",
+        "tests/unit/test_proactive_user_directives.py::test_regen_output_is_gated_too"
+      ],
+      "repeated_micro_soak": [
+        "tests/unit/test_system_presence.py::test_display_off_then_on_suppresses_and_keeps_quiet_after_return",
+        "tests/unit/test_proactive_unanswered_repeat.py::test_regenerated_delivery_aborts_when_engagement_cutoff_advances",
+        "tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call"
+      ]
+    },
+    "runtime_code_changed": false,
+    "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+    "promotion_prohibited_until_agent_gate_green": true
+  }
 }
