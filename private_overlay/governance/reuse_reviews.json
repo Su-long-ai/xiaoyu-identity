@@ -1611,6 +1611,87 @@
           "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
         }
       }
+    },
+    {
+      "id": "readiness:agent-master-native-preflight-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Agent master enablement needs product-level preflight for configuration, permissions, runtime, capability, restart and user-visible failure readiness without silently enabling features or creating a XiaoYu execution authority.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin console switches/runtime/permissions + runtime intent",
+          "type": "native_current_pin",
+          "outcome": "selected; these native read-only/control surfaces already own the readiness truth and restart semantics",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; upstream main equals the current c3fc33ff pin, so no newer readiness seam needs adoption",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / NekoClaw / MCP / native PermissionStore",
+          "type": "native_extension_planes",
+          "outcome": "reused as the existing capability and permission authorities observed by preflight; no XiaoYu gateway is added",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "Pinned external connectors",
+          "type": "external_pinned",
+          "outcome": "not selected; none owns Agent master, NekoClaw runtime, or native capability readiness",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "Mature external agent/workflow runtimes",
+          "type": "external_ecosystem",
+          "outcome": "rejected for this gap because another readiness/orchestration authority would duplicate N.E.K.O rather than validate it",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "XiaoYu runtime adapter/state store/router/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected; existing native read surfaces are sufficient for a non-mutating product preflight",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        }
+      ],
+      "acceptance_evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json",
+      "retirement_condition": "Retire overlay readiness acceptance wiring when pinned N.E.K.O ships and gates an equivalent product-level Agent readiness acceptance suite.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole Agent/runtime/permission/configuration authority; preflight may observe native state but may not own or mutate a parallel state model.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin exposes /console/switches, /console/runtime, /console/permissions, existing power routing, persisted intent restore and user-visible failure reasons.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main resolves to the same c3fc33ff pin; no newer native readiness contract supersedes the selected surfaces.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surface connectors do not own Agent master or NekoClaw runtime readiness and must stay downstream of native authority."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External agent/workflow runtimes were considered and rejected because they would introduce a second orchestration/readiness authority for state N.E.K.O already owns.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "not_applicable",
+          "rationale": "No runtime adapter is required; acceptance can directly exercise N.E.K.O native console, intent, permission and runtime surfaces."
+        },
+        "L6_private_implementation": {
+          "status": "not_applicable",
+          "rationale": "No reproduced native acceptance gap justifies a managed patch, private runtime, state store, router, daemon or second model probe."
+        }
+      }
     }
   ],
   "hierarchy_policy": {
