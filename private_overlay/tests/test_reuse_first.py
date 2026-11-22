@@ -282,5 +282,19 @@ class ReuseArtifactAdmissionTests(unittest.TestCase):
 
 
 
+    def test_hierarchy_rejects_backdated_new_review(self):
+        review = self._layered_review()
+        review["id"] = "governance:new-backdated-review"
+        review["reviewed_at"] = "2026-11-22"
+        errors = []
+        mod.validate_search_layers(review, "2026-11-23", errors)
+        self.assertIn(
+            "non-legacy review cannot predate hierarchy rollout: "
+            "governance:new-backdated-review",
+            errors,
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
