@@ -669,6 +669,55 @@
       ],
       "why_reuse_insufficient": "The candidate does not introduce new state. It reuses the pinned plugin's existing persisted recent_ids, but extends the claim boundary to the live receive path before create_task and orders persisted-state loading before the receive loop.",
       "acceptance_evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+    },
+    {
+      "id": "candidate:execution_plane/native_delivery_receipt.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "NekoClaw task-result handoff needs an exact main-process visible-effect receipt/reconciliation barrier; transport acceptance alone is insufficient.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O green-base NekoClaw outbox effect-state candidate",
+          "type": "native",
+          "outcome": "selected as sole durable ledger/outbox authority",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer task-result durable receipt seam",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O DELIVERY_ACK_FUTURE_KEY + resolve_callback_delivery_ack + topic delivery pattern",
+          "type": "native",
+          "outcome": "selected for actual callback delivery confirmation; do not create a parallel delivery receipt subsystem",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / PluginStore / MCP",
+          "type": "native_sdk",
+          "outcome": "reuse for capability execution; not a publication receipt authority",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "Pinned QQ surface component",
+          "type": "external_pinned",
+          "outcome": "surface-specific; not reusable for native desktop callback receipt",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "External transactional outbox/workflow engines",
+          "type": "external",
+          "outcome": "not selected because they would duplicate the frozen NekoClaw authority",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native N.E.K.O already has the task/result ledger, native callback delivery acknowledgement, and acknowledged process bridge; the gap is only their missing connection. The candidate is restricted to that thin connection.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
+      "retirement_condition": "Retire when upstream N.E.K.O provides stable task-result delivery identity and durable visible-effect receipt/reconciliation with equivalent restart semantics.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence"
     }
   ]
 }
