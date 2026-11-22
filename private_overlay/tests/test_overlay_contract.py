@@ -39,6 +39,87 @@ class OverlayContractTests(unittest.TestCase):
             self.assertTrue(patch["reason"].strip())
             self.assertTrue((ROOT / patch["evidence"]).is_file())
 
+    def test_managed_patch_test_files_are_wired_into_product_acceptance(self):
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        release = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        cloud_start = workflow.index(
+            "Exercise patched companion switch/audio ownership regression"
+        )
+        cloud_end = workflow.index(
+            "Verify pinned native Execution Plane seams",
+            cloud_start,
+        )
+        cloud_product = workflow[cloud_start:cloud_end]
+
+        local_start = release.index(
+            "XiaoYu native companion switch/audio ownership regression"
+        )
+        local_end = release.index(
+            "XiaoYu native execution-plane regression",
+            local_start,
+        )
+        local_product = release[local_start:local_end]
+
+        touched_test_header = re.compile(
+            r"^diff --git a/(tests/[^ ]+) b/tests/[^\n]+$",
+            re.MULTILINE,
+        )
+        for patch in series["patches"]:
+            patch_path = ROOT / "patches" / patch["file"]
+            patch_text = patch_path.read_text(encoding="utf-8-sig")
+            touched_tests = sorted(set(touched_test_header.findall(patch_text)))
+            for test_path in touched_tests:
+                basename = Path(test_path).name
+                with self.subTest(
+                    patch=patch["file"],
+                    test=test_path,
+                    acceptance="cloud",
+                ):
+                    self.assertIn(
+                        basename,
+                        cloud_product,
+                        f"{patch['file']} touches {test_path}, but the patched-product "
+                        "cloud gate executes no test from that file",
+                    )
+                with self.subTest(
+                    patch=patch["file"],
+                    test=test_path,
+                    acceptance="local_release",
+                ):
+                    self.assertIn(
+                        basename,
+                        local_product,
+                        f"{patch['file']} touches {test_path}, but the local release "
+                        "gate executes no test from that file",
+                    )
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        review = {
+            item["id"]: item for item in reviews["reviews"]
+        }["governance:managed-patch-product-regression-coverage-v1"]
+        self.assertEqual(review["status"], "approved")
+        self.assertEqual(review["decision"], "reuse_native")
+        self.assertTrue(
+            (
+                ROOT
+                / "evals"
+                / "evidence"
+                / "2026-11-23-managed-patch-product-regression-coverage-reuse.json"
+            ).is_file()
+        )
+
     def test_identity_contract_has_required_hard_invariants(self):
         data = json.loads(
             (ROOT / "identity" / "invariants.json").read_text(encoding="utf-8-sig")
