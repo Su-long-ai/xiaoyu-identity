@@ -17,6 +17,22 @@ class ReleaseReadinessTests(unittest.TestCase):
         matrix = json.loads((ROOT / "evals" / "acceptance_matrix.json").read_text(encoding="utf-8-sig"))
         self.assertEqual(evaluate_matrix(matrix, ROOT), [])
 
+    def test_required_acceptance_case_cannot_be_removed(self):
+        matrix = json.loads(
+            (ROOT / "evals" / "acceptance_matrix.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        matrix["tests"] = [
+            case for case in matrix["tests"]
+            if case.get("id") != "runtime_health_self_heal"
+        ]
+        problems = evaluate_matrix(matrix, ROOT)
+        self.assertIn(
+            "missing required acceptance id: runtime_health_self_heal",
+            problems,
+        )
+
     def test_pending_case_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             overlay = Path(td)
