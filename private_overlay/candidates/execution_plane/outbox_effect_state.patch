@@ -94,7 +94,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
  
      async def outbox_question_state(self, item_id: int) -> str:
          """Say whether an unsent question may still go out, read in one transaction.
-@@ -3778,12 +3798,131 @@
+@@ -3778,21 +3798,144 @@
          """Remove an unsent report that is out of date."""
          await self.run(lambda conn: conn.execute("DELETE FROM outbox WHERE id = ? AND sent_at IS NULL", (item_id,)))
  
@@ -234,7 +234,6 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +            return "pending"
 +        return await self.run(work)
  
-@@ -3790,9 +3929,13 @@
      async def outbox_mark_failed(self, item_id: int, error: str, next_attempt_at: float) -> None:
          await self.run(
              lambda conn: conn.execute(
