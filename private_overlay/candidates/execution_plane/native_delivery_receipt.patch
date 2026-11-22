@@ -861,7 +861,18 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                          logger.warning(
                              "[EventBus] render_chat_blocks failed; continuing delivery: %s",
                              e,
-@@ -1566,30 +1701,36 @@
+@@ -1503,7 +1638,9 @@
+                     if delivered:
++                        if isinstance(delivery_claim, _NekoClawDeliveryClaim):
++                            await _settle_nekoclaw_delivery(delivery_claim, True)
+                         # detail_text is a user-facing response; do not write it to logger.
+                         logger.info(
+                             "[EventBus] direct task_result reply delivered (detail_len=%d)",
+                             len(detail_text),
+                         )
+                         return
+ 
+@@ -1566,30 +1703,36 @@
                  cb_coalesce_key = event.get("coalesce_key")
                  if not isinstance(cb_coalesce_key, str):
                      cb_coalesce_key = ""
@@ -922,7 +933,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                      if delivery_mode == "passive":
                          # Passive cues keep the direct enqueue-only path:
                          # they must NOT interrupt; the next user turn drains
-@@ -1704,9 +1845,11 @@
+@@ -1704,9 +1847,11 @@
                              notif["error_message"] = err_msg[
                                  :USER_NOTIFICATION_ERROR_MAX_CHARS
                              ]
@@ -937,7 +948,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                              "[EventBus] agent_notification sent to frontend (text_len=%d)",
                              len(text),
                          )
-@@ -1714,12 +1857,27 @@
+@@ -1714,12 +1859,27 @@
                          logger.warning(
                              "[EventBus] agent_notification WS send failed: %s", e
                          )
