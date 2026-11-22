@@ -29,17 +29,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Require latest product main on agent pushes
+      - name: Require product main current at agent commit boundary
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/agent/') }}
         run: |
           git fetch --no-tags origin +refs/heads/private/neko-overlay-v1:refs/remotes/origin/private/neko-overlay-v1
-          PRODUCT_MAIN="$(git rev-parse refs/remotes/origin/private/neko-overlay-v1)"
-          if ! git merge-base --is-ancestor "$PRODUCT_MAIN" HEAD; then
-            echo "BLOCK_AGENT_STALE_BASE: agent branch does not contain latest private/neko-overlay-v1 ($PRODUCT_MAIN)"
+          PRODUCT_MAIN_LATEST="$(git rev-parse refs/remotes/origin/private/neko-overlay-v1)"
+          AGENT_COMMIT_TIME="$(git show -s --format=%cI HEAD)"
+          PRODUCT_MAIN_REQUIRED="$(git rev-list --first-parent -1 --before="$AGENT_COMMIT_TIME" refs/remotes/origin/private/neko-overlay-v1)"
+          if [ -z "$PRODUCT_MAIN_REQUIRED" ]; then
+            echo "BLOCK_AGENT_STALE_BASE: cannot resolve product main at agent commit boundary"
+            exit 6
+          fi
+          if ! git merge-base --is-ancestor "$PRODUCT_MAIN_REQUIRED" HEAD; then
+            echo "BLOCK_AGENT_STALE_BASE: agent branch missed product main available before its HEAD ($PRODUCT_MAIN_REQUIRED)"
             echo "Sync origin/private/neko-overlay-v1 before continuing long-lived implementation."
             exit 6
           fi
-          echo "PASS: agent branch contains latest product main $PRODUCT_MAIN"
+          if git merge-base --is-ancestor "$PRODUCT_MAIN_LATEST" HEAD; then
+            echo "PASS: agent branch contains current product main $PRODUCT_MAIN_LATEST"
+          else
+            echo "PASS_RACE: product main advanced after agent HEAD; this push is valid, next agent push must resync ($PRODUCT_MAIN_LATEST)"
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5

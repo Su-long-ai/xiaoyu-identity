@@ -1541,7 +1541,7 @@
       "id": "governance:agent-product-main-freshness-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "Long-lived agent/** branches can continue pushing after product main advances, accumulating stale architecture/reuse context and large integration drift.",
+      "problem": "Long-lived agent branches must not start a commit from a product-main state that was already stale, while concurrent product-main commits created after the agent HEAD must not retroactively invalidate that push.",
       "decision": "thin_adapter",
       "candidates": [
         {
@@ -1553,7 +1553,7 @@
         {
           "name": "Git merge-base --is-ancestor",
           "type": "native_tooling",
-          "outcome": "selected as exact branch ancestry check",
+          "outcome": "selected with native git rev-list commit-boundary resolution; enforce ancestry against product main available when the agent HEAD was committed",
           "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
         },
         {
@@ -1575,7 +1575,7 @@
           "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
         }
       ],
-      "why_reuse_insufficient": "The existing workflow is the correct reusable enforcement plane, but it does not currently bind an agent push to the latest product-main commit. The residual change is a single native Git ancestry check in the same job.",
+      "why_reuse_insufficient": "The existing workflow and native Git ancestry are still the correct enforcement plane. The original latest-at-job-start check was too strict under concurrent main pushes; the residual fix uses the agent HEAD commit boundary so an already-valid push is not retroactively invalidated while the next push still must resync.",
       "acceptance_evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json",
       "search_layers": {
         "L0_authority": {
@@ -1602,7 +1602,7 @@
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Add one agent-only fetch/merge-base step to the existing global workflow.",
+          "outcome": "Use existing GitHub Actions plus native git rev-list/merge-base to enforce product-main ancestry at the agent HEAD commit boundary; no service/state is added.",
           "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
         },
         "L6_private_implementation": {
@@ -1757,6 +1757,78 @@
           "status": "checked",
           "outcome": "New origin store/router/daemon/publisher and an eleventh patch were considered and rejected as duplicate authority or architecture-freeze violations.",
           "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:release-manifest-consistency-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The stable release manifest can drift from authoritative N.E.K.O/QQ locks, managed patch inventory and acceptance matrix because release readiness currently validates evidence but not the release projection itself.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing check_release_readiness.py",
+          "type": "existing_governance",
+          "outcome": "selected as the single release validation plane; extend it rather than creating another checker/service",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        {
+          "name": "Authoritative N.E.K.O/QQ/Desktop locks, patch series and acceptance matrix",
+          "type": "existing_governance",
+          "outcome": "selected as source-of-truth inputs for the release projection",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and equal to the current c3fc33ff pin at review time",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        {
+          "name": "GitHub Releases/external release database or policy service",
+          "type": "external_policy_engine",
+          "outcome": "rejected as unnecessary duplicate release authority for a private repository projection",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing release readiness checker is the correct reusable enforcement plane, but it does not compare NEKO_OVERLAY_V1_FINAL.json against the repository authorities it summarizes. The residual change is a static consistency function in the same checker plus tests.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Repository locks, managed patch series and acceptance matrix remain authoritative; the release manifest is only a derived stable-product projection.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O pin is read from NEKO_UPSTREAM.lock.json rather than duplicated as a new authority.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main was checked and equals the current c3fc33ff pin; no upstream release metadata mechanism replaces the private product manifest.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ and desktop-shell lock files remain the external binding authorities summarized by the release manifest.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "GitHub Releases/external release databases were considered and rejected because a private JSON projection needs no second service or authority.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Extend check_release_readiness.py with deterministic static comparisons and reuse its existing CI invocation.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new release daemon/database/checker service is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
         }
       }
     }
