@@ -62,6 +62,31 @@ jobs:
             private_overlay/migration \
             private_overlay/evals
 
+      - name: Parse product PowerShell entrypoints
+        shell: pwsh
+        run: |
+          $scripts = @(Get-ChildItem "private_overlay/tools" -Filter "*.ps1" -File | Sort-Object FullName)
+          if ($scripts.Count -eq 0) {
+            throw "No private_overlay PowerShell scripts were discovered."
+          }
+          $failed = $false
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $script.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              Write-Error ("PowerShell parse failed: {0}" -f $script.FullName)
+              $errors | Format-List | Out-String | Write-Error
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host ("PASS: parsed {0} XiaoYu PowerShell product scripts" -f $scripts.Count)
+
       - name: Checkout pinned N.E.K.O runtime
         uses: actions/checkout@v4
         with:

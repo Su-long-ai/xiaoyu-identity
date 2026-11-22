@@ -581,6 +581,19 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(invariant, verifier)
 
+    def test_github_gate_parses_all_product_powershell_entrypoints(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "Parse product PowerShell entrypoints",
+            "System.Management.Automation.Language.Parser",
+            'Get-ChildItem "private_overlay/tools" -Filter "*.ps1" -File',
+            "No private_overlay PowerShell scripts were discovered.",
+        ):
+            self.assertIn(required, workflow)
+        self.assertNotIn("PSScriptAnalyzer", workflow)
+
     def test_github_gate_replays_patched_companion_switch_audio_regression(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"

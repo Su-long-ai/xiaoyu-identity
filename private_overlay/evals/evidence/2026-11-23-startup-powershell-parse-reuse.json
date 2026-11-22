@@ -2,7 +2,7 @@
   "schema_version": 1,
   "evidence_id": "XIAOYU_STARTUP_POWERSHELL_PARSE_REUSE_20261123",
   "recorded_at_local": "2026-11-23T02:19:00+08:00",
-  "implementation_status": "REVIEW_ONLY_BEFORE_CODE",
+  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_PENDING_REPLAY",
   "problem": "The product push gate compiles Python and exercises runtime candidates but does not parse XiaoYu's PowerShell product entrypoints. A syntax regression in one-click/startup/setup/shortcut/release scripts can therefore survive cloud development until the Windows machine is used.",
   "reuse_order": [
     {
@@ -41,5 +41,13 @@
     "all discovered PowerShell scripts are parsed instead of maintaining a second hard-coded list",
     "overlay contract test prevents silent removal of the parse step"
   ],
-  "retirement_condition": "Retire this overlay parse step only when XiaoYu no longer owns PowerShell product entrypoints or an equivalent existing product gate parses the same files."
+  "retirement_condition": "Retire this overlay parse step only when XiaoYu no longer owns PowerShell product entrypoints or an equivalent existing product gate parses the same files.",
+  "product_main_implementation": {
+    "review_parent": "05396bd3d851c5144b4290a45017fb09b2c58af9",
+    "selected_boundary": "existing private-overlay-gate.yml",
+    "parser": "System.Management.Automation.Language.Parser",
+    "discovery": "private_overlay/tools/*.ps1",
+    "new_dependency": false,
+    "replay": "pending"
+  }
 }
