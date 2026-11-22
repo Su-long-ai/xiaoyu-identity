@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_PLUGIN_CRASH_RECOVERY_GAP_20261123",
+  "recorded_at_local": "2026-11-23T03:43:00+08:00",
+  "scope": "machine_probe_only_no_runtime_change",
+  "authority": {
+    "companion_kernel": "N.E.K.O",
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "pin_equals_upstream_main": true,
+    "existing_reuse_review": "runtime:plugin-crash-recovery"
+  },
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "result": "selected for crash detection, plugin status, explicit start/stop/reload and lifecycle ownership",
+      "evidence": [
+        "plugin/core/status.py classifies a dead host as crashed unless exitcode is the clean-stop code",
+        "plugin/core/host.py logs a crashed plugin process",
+        "plugin/server/application/plugins/lifecycle_service.py owns explicit plugin start/stop/reload and stale-host replacement"
+      ]
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "result": "identical to current pin; no newer native crash-restart seam is available"
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / PluginStore / native lifecycle",
+      "result": "checked; SDK lifecycle hooks cover startup/shutdown/reload/freeze/unfreeze/config_change and bus lifecycle records are observable, but there is no plugin-management start/restart API for a plugin to heal another plugin"
+    },
+    {
+      "layer": "current pinned external components",
+      "result": "not selected; QQ/ActivityWatch/provider components do not own N.E.K.O plugin process lifecycle"
+    },
+    {
+      "layer": "mature external process supervisors",
+      "candidates": [
+        "Supervisor autorestart",
+        "system process supervisor pattern"
+      ],
+      "result": "rejected as product authority: process-level restart does not carry N.E.K.O admission/runtime intent/host-registry semantics and would create a second lifecycle owner",
+      "reference": "https://supervisord.org/configuration.html"
+    },
+    {
+      "layer": "thin adapter",
+      "result": "existing reconcile_neko_plugin_runtime remains selected only for explicit/startup recovery through N.E.K.O native refresh/list/start APIs; no background watcher is added"
+    },
+    {
+      "layer": "managed patch/private implementation",
+      "result": "rejected: architecture freeze already has 10 managed patches and a private crash watchdog cannot reliably distinguish host/user intentional stop from an unexpected child exit without new native intent/event authority"
+    }
+  ],
+  "current_native_gap": {
+    "crash_detection": true,
+    "explicit_lifecycle_operations": true,
+    "lifecycle_event_bus": true,
+    "crash_specific_lifecycle_event": false,
+    "generic_native_crash_restart_policy": false,
+    "plugin_sdk_restart_management_api": false,
+    "hot_reload_recovery_is_generic_crash_recovery": false
+  },
+  "machine_probe": {
+    "path": "private_overlay/candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py",
+    "requirements": [
+      "native crash classification must still exist",
+      "explicit lifecycle event publication must still exist",
+      "no crash-specific lifecycle event may appear without forcing re-audit",
+      "no Plugin SDK start/restart management API may appear without forcing re-audit",
+      "no documented restart-on-crash policy may appear without forcing re-audit"
+    ]
+  },
+  "product_policy": {
+    "promotion_prohibited": true,
+    "new_daemon": false,
+    "new_watchdog": false,
+    "new_state_store": false,
+    "new_router": false,
+    "new_managed_patch": false,
+    "current_recovery": "explicit/startup native reconcile only",
+    "critical_safety_note": "identity, memory, whole-reply quiet admission and final proactive interruptibility remain outside the private interaction-policy plugin process"
+  },
+  "retirement_condition": "Delete this gap probe and re-run reuse selection when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
+  "conclusion": "MACHINE_CONFIRMED_NATIVE_GAP: keep native detection + explicit/startup reconcile only; no private supervisor/watchdog/daemon or new managed patch.",
+  "validation": {
+    "workflow_run_id": 45062056924,
+    "head_sha": "dbbcc5e25c817cbcb86274f35cd6e43e16a79d58",
+    "conclusion": "success",
+    "machine_results": {
+      "freshness": "PASS",
+      "reuse_first": "PASS",
+      "architecture_freeze": "PASS",
+      "plugin_admission": "PASS",
+      "overlay_contract": "PASS",
+      "native_crash_gap_probe": "PASS",
+      "patched_companion_product_regression": "PASS",
+      "execution_plane": "PASS",
+      "delivery_receipt_real_zmq": "PASS",
+      "pinned_qq_surface": "PASS",
+      "qq_inbound_candidate": "PASS",
+      "release_evidence_gate": "PASS"
+    }
+  }
+}

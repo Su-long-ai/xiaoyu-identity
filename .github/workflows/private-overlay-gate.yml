@@ -9,6 +9,12 @@ on:
     branches:
       - "private/neko-overlay-v1"
   workflow_dispatch:
+    inputs:
+      soak_rounds:
+        description: "Companion Runtime repeated-race soak rounds (1-50)"
+        required: false
+        default: "12"
+        type: string
 
 permissions:
   contents: read
@@ -156,6 +162,8 @@ jobs:
             tests/unit/test_qwen_intl_tts_routing.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
+            tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
+            plugin/tests/unit/server/test_xiaoyu_push_origin.py \
             tests/unit/test_token_tracker_install_hooks_idempotent.py \
             tests/unit/test_cloudsave_lifecycle_flow.py \
             tests/unit/test_live2d_model_config_write_locking.py
@@ -165,6 +173,31 @@ jobs:
             tests/frontend/assistant-audio-lifecycle.test.cjs \
             tests/frontend/voice_recovery_races.cjs \
             tests/frontend/voice_preview_races.cjs
+
+          SOAK_ROUNDS=3
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SOAK_ROUNDS="${{ inputs.soak_rounds }}"
+          fi
+          if ! [[ "$SOAK_ROUNDS" =~ ^[0-9]+$ ]] || [ "$SOAK_ROUNDS" -lt 1 ] || [ "$SOAK_ROUNDS" -gt 50 ]; then
+            echo "BLOCK_INVALID_SOAK_ROUNDS: expected integer 1..50, got '$SOAK_ROUNDS'" >&2
+            exit 7
+          fi
+          for round in $(seq 1 "$SOAK_ROUNDS"); do
+            echo "::group::Companion Runtime soak round $round/$SOAK_ROUNDS"
+            PYTHONPATH="$PRODUCT_WORKTREE" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+              tests/unit/test_character_switch_queue.py \
+              tests/unit/test_character_runtime_voice_identity.py \
+              tests/unit/test_model_switch_keeps_live_budget.py \
+              tests/unit/test_cosyvoice_audio_done_generation.py \
+              tests/unit/test_proactive_sid_guard.py \
+              tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
+              plugin/tests/unit/server/test_xiaoyu_push_origin.py
+            node --test \
+              tests/frontend/live2d_audio_ownership.test.cjs \
+              tests/frontend/assistant-audio-lifecycle.test.cjs \
+              tests/frontend/voice_recovery_races.cjs
+            echo "::endgroup::"
+          done
 
       - name: Verify pinned native Execution Plane seams
         run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
@@ -337,7 +370,41 @@ jobs:
           cp _neko_upstream/plugin/plugins/qq_auto_reply/runtime_ops_service.py _qq_candidate_test/runtime_ops_service.py
           cp _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py _qq_candidate_test/tests/test_qq_catchup.py
           cp _neko_upstream/utils/file_utils.py _qq_candidate_test/utils/file_utils.py
-          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null             _qq_candidate_test/tests/test_qq_catchup.py
+          PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \
+            _qq_candidate_test/tests/test_qq_catchup.py \
+            private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py
+
+          SOAK_ROUNDS=3
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SOAK_ROUNDS="${{ inputs.soak_rounds }}"
+          fi
+          if ! [[ "$SOAK_ROUNDS" =~ ^[0-9]+$ ]] || [ "$SOAK_ROUNDS" -lt 1 ] || [ "$SOAK_ROUNDS" -gt 50 ]; then
+            echo "BLOCK_INVALID_SOAK_ROUNDS: expected integer 1..50, got '$SOAK_ROUNDS'" >&2
+            exit 7
+          fi
+          for round in $(seq 1 "$SOAK_ROUNDS"); do
+            echo "::group::QQ Runtime soak round $round/$SOAK_ROUNDS"
+            (
+              cd _neko_upstream
+              uv run --locked --group dev python -m pytest -q \
+                plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
+            )
+            PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \
+              _qq_candidate_test/tests/test_qq_catchup.py \
+              private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py
+            echo "::endgroup::"
+          done
+
+      - name: Probe plugin-visible delivery-floor native gap
+        run: |
+          python private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py --neko-root _neko_upstream
+
+      - name: Probe native plugin crash-recovery gap
+        run: |
+          python private_overlay/candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py --neko-root _neko_upstream
 
       - name: Release evidence gate
         run: python private_overlay/tools/check_release_readiness.py

@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_RUNTIME_SOAK_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T03:35:00+08:00",
+  "problem": "XiaoYu has broad deterministic product regressions but no repeated patched-product soak that stresses switch/voice/delivery and QQ reconnect/idempotency races across multiple consecutive rounds.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "ref": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "result": "selected; existing native switch, voice, proactive and plugin publication regressions are the actual product behavior tests"
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "ref": "main",
+      "result": "identical to current pin; no newer soak facility replaces the selected tests"
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / native delivery",
+      "result": "selected; existing plugin-visible final-admission, call-registry attribution and proactive delivery tests remain the authority"
+    },
+    {
+      "layer": "pinned QQ external component",
+      "ref": "54acf36bf978edad4757e5fffc743c5618360700",
+      "result": "selected; existing reconnect/runtime-transition/buffer/idempotency suites are reused unchanged"
+    },
+    {
+      "layer": "mature external test framework",
+      "result": "pytest, Node test runner and GitHub Actions already in repository are selected; no pytest-repeat or new soak framework is needed"
+    },
+    {
+      "layer": "thin integration",
+      "result": "selected; only bounded repetition wiring in the existing private-overlay gate plus a static contract"
+    },
+    {
+      "layer": "private implementation",
+      "result": "rejected; no synthetic companion runtime, watchdog, state store, runner daemon or duplicate lifecycle manager"
+    }
+  ],
+  "phase_1_contract": {
+    "ordinary_push_rounds": 3,
+    "manual_default_rounds": 12,
+    "manual_max_rounds": 50,
+    "product_focus": [
+      "tests/unit/test_character_switch_queue.py",
+      "tests/unit/test_character_runtime_voice_identity.py",
+      "tests/unit/test_model_switch_keeps_live_budget.py",
+      "tests/unit/test_cosyvoice_audio_done_generation.py",
+      "tests/unit/test_proactive_sid_guard.py",
+      "tests/unit/test_xiaoyu_plugin_visible_final_admission.py",
+      "plugin/tests/unit/server/test_xiaoyu_push_origin.py",
+      "tests/frontend/live2d_audio_ownership.test.cjs",
+      "tests/frontend/assistant-audio-lifecycle.test.cjs",
+      "tests/frontend/voice_recovery_races.cjs"
+    ],
+    "qq_focus": [
+      "plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py",
+      "plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py",
+      "plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py",
+      "plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py",
+      "patched test_qq_catchup.py",
+      "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py"
+    ],
+    "invariants": [
+      "managed 10-patch product tree is applied once before repeated product rounds",
+      "repeated rounds do not modify product configuration or durable user state",
+      "QQ idempotency candidate remains candidate-only",
+      "ordinary push cost remains bounded; longer runs require workflow_dispatch",
+      "physical microphone, NapCat, Windows GUI and idle-resource soak remain unclaimed until local runtime is available"
+    ]
+  },
+  "machine_gate": ".github/workflows/private-overlay-gate.yml",
+  "retirement_condition": "Retire the repetition wiring if pinned N.E.K.O and pinned QQ upstream provide an equivalent integrated multi-round companion soak covering the same patched-product race surfaces, or when those private managed patches are fully retired.",
+  "verdict": "PHASE_1_PASS: bounded multi-round cloud soak is active on agent/** pushes; keep physical/local and longer manual soak claims separate.",
+  "validation": {
+    "workflow_run_id": 45061386378,
+    "head_sha": "d2db37920ea2b6fdc731d75b570432fa43a03d82",
+    "conclusion": "success",
+    "total_wall_clock_seconds": 169,
+    "ordinary_push_rounds": 3,
+    "baseline": {
+      "patched_product_python": "352 passed, 19 warnings",
+      "patched_product_node": "100 passed",
+      "pinned_qq_surface": "173 passed, 3 warnings",
+      "qq_candidate": "49 passed"
+    },
+    "repeated_product_soak": {
+      "rounds": 3,
+      "per_round_python": "86 passed, 9 warnings",
+      "per_round_node": "73 passed",
+      "result": "3/3 PASS",
+      "observed_python_seconds": [
+        4.46,
+        4.47,
+        4.4
+      ],
+      "observed_node_ms": [
+        914.23,
+        909.43,
+        899.6
+      ]
+    },
+    "repeated_qq_soak": {
+      "rounds": 3,
+      "per_round_pinned_reconnect_runtime": "26 passed",
+      "per_round_candidate_idempotency": "49 passed",
+      "result": "3/3 PASS",
+      "observed_pinned_seconds": [
+        0.73,
+        0.72,
+        0.7
+      ],
+      "observed_candidate_seconds": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    "release_evidence_gate": "PASS",
+    "remaining_unclaimed": [
+      "physical microphone/VAD soak",
+      "Windows desktop idle CPU/RAM soak",
+      "live NapCat reconnect/network-flap soak",
+      "manual workflow_dispatch 12+ round soak"
+    ]
+  }
+}

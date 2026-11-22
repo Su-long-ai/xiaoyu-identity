@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_RUNTIME_PLUGIN_PROCESS_SOAK_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T04:05:00+08:00",
+  "problem": "The existing read-only live companion soak records N.E.K.O endpoint health plus desktop/backend process CPU/RSS, but it cannot attribute plugin child PID/RSS/CPU or detect plugin PID churn across a long idle/use soak. Those metrics are required for plugin restore latency/reliability and resource-leak diagnosis.",
+  "authority": {
+    "companion_kernel": "N.E.K.O",
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "pin_equals_upstream_main": true
+  },
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "selected": true,
+      "asset": "GET /plugin/status + plugin/core/host.py HealthCheckResponse",
+      "reason": "Native status owns plugin liveness and exposes host-derived pid, exitcode and running/stopped/crashed/not_started without scanning process command lines."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "selected": false,
+      "result": "identical to the current pin; no newer process-metrics surface is needed"
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / PluginStore / native lifecycle",
+      "selected": true,
+      "result": "native plugin status is preferred over Plugin SDK self-reporting because the host must remain the process-liveness authority"
+    },
+    {
+      "layer": "current pinned/existing external components",
+      "selected": true,
+      "asset": "optional psutil already used by companion_runtime_soak.py",
+      "result": "reuse psutil only to sample RSS/CPU for host-provided PIDs; no new process discovery authority"
+    },
+    {
+      "layer": "broader external ecosystem",
+      "selected": false,
+      "result": "no new monitoring stack is justified for a local read-only soak; Prometheus/process-exporter style systems would add deployment/state complexity without improving host PID authority"
+    },
+    {
+      "layer": "thin adapter",
+      "selected": true,
+      "result": "extend the existing read-only soak to query /plugin/status, parse host PIDs, sample those exact PIDs with psutil, and summarize PID churn/RSS/CPU"
+    },
+    {
+      "layer": "managed patch/private runtime implementation",
+      "selected": false,
+      "result": "reject runtime patch, daemon, watchdog, metrics service, state store or background collector"
+    }
+  ],
+  "implementation_contract": {
+    "tool": "private_overlay/tools/companion_runtime_soak.py",
+    "runtime_behavior_change": false,
+    "new_process": false,
+    "new_daemon": false,
+    "new_state_store": false,
+    "new_dependency": false,
+    "reads_conversation_text": false,
+    "records_credentials": false,
+    "added_native_endpoint": "http://127.0.0.1:48916/plugin/status",
+    "metrics": [
+      "per-plugin host status/pid/exitcode",
+      "per-plugin RSS max and approximate CPU percent for stable PID",
+      "distinct PID count / PID churn",
+      "missing native-status samples"
+    ],
+    "policy": [
+      "PID must come from N.E.K.O native status, never inferred from arbitrary process command lines",
+      "metrics remain observational by default",
+      "optional fail-on-plugin-pid-churn may be used for controlled idle soak; default remains non-failing because intentional reload is valid",
+      "unavailable psutil or unavailable native status remains explicit evidence rather than fabricated zero values"
+    ]
+  },
+  "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority.",
+  "verdict": "APPROVE_READ_ONLY_THIN_EXTENSION"
+}

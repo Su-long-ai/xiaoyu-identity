@@ -575,7 +575,46 @@
         }
       ],
       "why_reuse_insufficient": "Current N.E.K.O has crash detection but no generic auto-restart policy. The residual gap is intentionally tolerated because critical identity, memory, ordinary-reply admission and final proactive admission do not depend on the private policy plugin. Recovery remains explicit/startup reconciliation until upstream provides a native restart policy or lifecycle extension seam.",
-      "acceptance_evidence": "evals/evidence/2026-11-22-live-plugin-crash-recovery-gap.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json",
+      "machine_probe": "candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py",
+      "retirement_condition": "Delete this gap probe and re-run reuse selection when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process authority; XiaoYu may observe and reconcile only through native lifecycle APIs.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 detects crashed processes and owns explicit start/stop/reload, but has no generic crash restart.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3; no newer native restart/event seam exists.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ/ActivityWatch/provider components do not own N.E.K.O plugin process lifecycle.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Mature process supervisors can autorestart exited OS processes but would duplicate N.E.K.O lifecycle ownership and do not preserve its admission/runtime-intent/host-registry semantics.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing explicit/startup reconcile helper remains the only selected thin recovery path; no polling/background watcher is introduced.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private watchdog/daemon/new state store/eleventh managed patch remain rejected until a native intent/event seam can distinguish crash from intentional stop.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        }
+      }
     },
     {
       "id": "upstream:neko-c3fc33ff",
@@ -1923,6 +1962,388 @@
           "rationale": "No reproduced native runtime gap justifies private implementation in this unit."
         }
       }
+    },
+    {
+      "id": "candidate:delivery-floor/plugin-visible-output-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XIAOYU_DELIVERY_FLOOR_V1 does not yet cover desktop_notification or future plugin-triggered visible output. On the current N.E.K.O pin, Plugin SDK push_message routes its AI callback through native proactive delivery, but visibility=['chat'] and visibility=['hud'] have direct user-visible host sinks that can publish even when ai_behavior='blind' skips the LLM delivery channel.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff plugin push_message + proactive delivery",
+          "type": "native_current_pin",
+          "outcome": "selected as the only publication authority to probe; no XiaoYu publisher is introduced, but current direct chat/HUD sinks leave a final-admission gap",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to the current pin; no newer upstream final-admission seam exists to absorb",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK push_message / proactive_bridge / native delivery manager",
+          "type": "native_extension_planes",
+          "outcome": "reused for the probe because they are the actual host paths; the probe must distinguish callback delivery from direct chat/HUD publication",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "AIRI main 042eb5e3 notification/event delivery patterns",
+          "type": "broader_external",
+          "outcome": "checked for reusable delivery/receipt ideas; not selected because it cannot gate N.E.K.O's existing publication sinks without replacing the companion kernel",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        }
+      ],
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains Companion Kernel and publication authority; XiaoYu delivery_floor_v1 remains policy/acceptance only.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin source proves separate direct chat/HUD sinks plus native proactive callback delivery.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and exposes the same Plugin SDK/proactive paths; there is no newer seam to reuse.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "The gap is inside N.E.K.O host publication after Plugin SDK ingress; the pinned QQ connector does not own desktop plugin chat/HUD publication."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "AIRI notification/event delivery patterns were checked; replacing the N.E.K.O host would violate the frozen kernel boundary and still would not transparently gate existing N.E.K.O sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "No runtime integration is admitted in this unit; only a candidate probe may be added. A future thin seam requires a separate reuse decision after the probe.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A second publisher/router/notification daemon is rejected before implementation because it would duplicate N.E.K.O publication authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        }
+      }
+    },
+    {
+      "id": "governance:plugin-visible-final-admission-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "N.E.K.O Plugin SDK push_message can publish direct plugin chat blocks, HUD notifications, and html_card chat/AgentHUD create-update publications outside the proactive callback's final delivery admission. XiaoYu must close that native acceptance gap without treating user-solicited plugin results as ambient proactive chatter and without adding an eleventh managed patch or a second delivery authority.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O CallRegistry + capability_gate MESSAGE_PUSH attribution",
+          "type": "native_current_pin",
+          "outcome": "selected as the trusted origin authority; existing host records already distinguish chat_tool, chat_hook, ui_action, run, system and plugin_self while retaining recent calls for delayed push attribution",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to the current pin; no newer native final-admission seam exists",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "Existing 0006 whole-reply quiet gate",
+          "type": "existing_managed_patch",
+          "outcome": "selected for explicit quiet across both solicited and unsolicited companion-authored plugin-visible output",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "Existing 0009 proactive interruptibility final recheck",
+          "type": "existing_managed_patch",
+          "outcome": "selected for nonessential/unattributed direct plugin publication; extend the same patch rather than creating patch 0011",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        {
+          "name": "AIRI notification/event delivery patterns",
+          "type": "broader_external",
+          "outcome": "checked but not selected because replacing or interposing on the N.E.K.O host would widen authority and violate the architecture freeze",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The needed authorities already exist but are not connected at the direct plugin chat/HUD/card publication sinks. The residual implementation is limited to propagating one host-derived bounded origin kind through the existing N.E.K.O message path and consulting the existing 0006/0009 final-admission helpers immediately before those sinks. No new state store, router, daemon, plugin runtime, publisher, polling loop, model call or eleventh managed patch is introduced.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains publication/call-chain authority; XiaoYu only owns private admission policy and acceptance.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies CallRegistry, capability_gate, authenticated MESSAGE_PUSH routing, Plugin SDK sinks and native proactive delivery used by the design.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and has no equivalent final-admission seam for direct plugin chat/HUD sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "No pinned external component owns desktop Plugin SDK publication; existing 0006/0009 private managed seams are reused instead of adding external runtime authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "AIRI notification/event delivery patterns were examined; they do not provide a drop-in seam for N.E.K.O's existing host sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: host-derived origin propagation plus final calls to existing 0006/0009 admission helpers; keep managed patch count at 10.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New origin store/router/daemon/publisher and an eleventh patch were considered and rejected as duplicate authority or architecture-freeze violations.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
+        }
+      },
+      "promotion_policy": "MANAGED_EXTENSION_ACTIVE_AFTER_FULL_MACHINE_GATE",
+      "promotion_evidence": {
+        "workflow": "XiaoYu private overlay gate",
+        "run_id": 45060703253,
+        "head_sha": "003a7c20b72495bcc900826ce90d07478fad0b06",
+        "conclusion": "success"
+      },
+      "retirement_condition": "Retire the 0009 extension when pinned N.E.K.O natively carries trustworthy invocation origin to plugin-visible publication and routes direct plugin chat/HUD/desktop-notification sinks through equivalent surface-specific final admission; the same regressions must pass with the private extension removed."
+    },
+    {
+      "id": "governance:companion-runtime-micro-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Companion Runtime has strong one-shot patched-product and QQ regressions but no repeated soak on ordinary agent pushes, so race/flaky switch, voice, final-delivery and reconnect failures can remain below one-shot detection probability.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Pinned N.E.K.O patched-product regression set",
+          "type": "native_current_pin",
+          "outcome": "selected; repeat the existing switch/voice/proactive/plugin-visible tests instead of building a synthetic runtime",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin; no newer integrated soak replaces the selected tests",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "Pinned QQ reconnect/runtime/idempotency suites",
+          "type": "pinned_external",
+          "outcome": "selected; repeat existing real plugin tests after the existing candidate apply boundary",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        {
+          "name": "pytest + Node test runner + existing GitHub Actions",
+          "type": "mature_external",
+          "outcome": "selected; simple bounded shell repetition is sufficient, so no pytest-repeat or second CI framework is added",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The tests already exist and are authoritative, but they execute once per push. The only residual work is bounded repetition in the existing gate, with a higher manual workflow_dispatch round count. This introduces no runtime code or authority.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O/QQ remain behavior authorities; XiaoYu only owns product acceptance and private patch integration.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already supplies the selected switch, voice, proactive, Plugin SDK and delivery regression capabilities.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and adds no replacement integrated soak facility.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ plugin supplies the reconnect, runtime-transition, buffering and catch-up tests to repeat.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest, Node test runner and GitHub Actions are sufficient; another soak framework would add dependency/CI complexity without behavior coverage gain.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: bounded loop around existing targeted suites inside the existing push gate, with manual higher-round input.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected synthetic runtime/watchdog/soak daemon/new state store; no product implementation is needed.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-soak-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire when pinned N.E.K.O and QQ provide an equivalent integrated multi-round soak for the same product race surfaces or the private managed patch surfaces disappear."
+    },
+    {
+      "id": "candidate:plugin-lifecycle/native-crash-recovery-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Current N.E.K.O c3 detects dead/crashed plugin processes but exposes no crash-specific lifecycle event, generic crash restart policy, or Plugin SDK restart-management API. A probe is needed to make any future native seam force re-evaluation without introducing a private watchdog.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3 crash status + lifecycle service",
+          "type": "native_current_pin",
+          "outcome": "selected for the probe; it is the lifecycle authority and already detects crash/stale host state",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to c3; no newer native crash-restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK lifecycle/bus/cross-plugin APIs",
+          "type": "native_extension_planes",
+          "outcome": "checked; lifecycle observation exists but no plugin start/restart management API is exposed",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "Supervisor/system process supervision",
+          "type": "broader_external",
+          "outcome": "rejected for product ownership because process autorestart cannot preserve N.E.K.O plugin admission/runtime intent/host registry semantics without a second lifecycle authority",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "existing reconcile_neko_plugin_runtime",
+          "type": "thin_adapter",
+          "outcome": "retained only for explicit/startup recovery through native N.E.K.O APIs; not converted into a background watcher",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native host can detect crash and explicitly restart a stale host when asked, but it does not currently publish a crash-specific intent-bearing event or native restart policy that distinguishes unexpected exit from intentional stop. Therefore only a machine gap probe is admitted; no runtime recovery implementation is promoted.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process authority.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 crash detection and explicit lifecycle operations are reused by the probe.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3 and adds no native crash-restart seam.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ/ActivityWatch/provider components do not own N.E.K.O plugin process lifecycle.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Mature OS process supervisors were checked and rejected as a second lifecycle authority.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only existing explicit/startup reconcile remains selected; the new artifact is a read-only probe.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private watchdog/daemon/state store/router and an eleventh managed patch remain rejected.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        }
+      },
+      "retirement_condition": "Retire this probe when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
+      "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION"
+    },
+    {
+      "id": "governance:companion-runtime-plugin-process-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The existing read-only live companion soak records N.E.K.O endpoint health plus desktop/backend process CPU/RSS, but it cannot attribute plugin child PID/RSS/CPU or detect plugin PID churn across a long idle/use soak. Those metrics are required for plugin restore latency/reliability and resource-leak diagnosis.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O /plugin/status host health",
+          "type": "native_current_pin",
+          "outcome": "selected as the sole plugin PID/liveness authority",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin; no newer replacement needed",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "existing optional psutil sampling",
+          "type": "existing_external",
+          "outcome": "selected only for RSS/CPU sampling of native host-provided PIDs",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "new monitoring daemon / exporter / process scanner",
+          "type": "private_duplicate",
+          "outcome": "rejected; duplicates native lifecycle/process authority and adds long-running state",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "N.E.K.O already exposes trustworthy plugin pid/liveness and the existing soak already has psutil sampling. The only missing piece is a read-only join between those two existing surfaces plus summary math; no runtime service or new monitoring authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains plugin lifecycle/process authority; XiaoYu only observes native status.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 /plugin/status and HealthCheckResponse provide pid/exitcode/liveness.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3; no newer equivalent long-soak metrics surface is required.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing optional psutil is already used by the soak and is reused only against host-provided PIDs.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "A new exporter/monitoring stack would add deployment/state complexity without improving N.E.K.O host authority; not selected.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: extend existing read-only soak parser/sampler/summary only.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New daemon/watchdog/store/process-discovery service/runtime patch rejected.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
     }
   ],
   "hierarchy_policy": {

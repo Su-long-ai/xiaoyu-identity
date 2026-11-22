@@ -1027,5 +1027,126 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("check_architecture_freeze.py", script)
 
 
+    def test_github_gate_runs_bounded_companion_micro_soak(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn("soak_rounds:", workflow)
+        self.assertIn('default: "12"', workflow)
+        self.assertIn("SOAK_ROUNDS=3", workflow)
+        self.assertGreaterEqual(
+            workflow.count('for round in $(seq 1 "$SOAK_ROUNDS")'),
+            2,
+        )
+        self.assertGreaterEqual(
+            workflow.count('"$SOAK_ROUNDS" -gt 50'),
+            2,
+        )
+        for required in (
+            "Companion Runtime soak round",
+            "QQ Runtime soak round",
+            "test_character_switch_queue.py",
+            "test_character_runtime_voice_identity.py",
+            "test_model_switch_keeps_live_budget.py",
+            "test_xiaoyu_plugin_visible_final_admission.py",
+            "test_qq_connection_status_refresh.py",
+            "test_qq_runtime_transition_lock.py",
+            "test_qq_catchup.py",
+            "test_live_inbound_idempotency_faults.py",
+        ):
+            self.assertIn(required, workflow)
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review = by_id["governance:companion-runtime-micro-soak-v1"]
+        self.assertEqual(review["status"], "approved")
+        self.assertEqual(review["decision"], "reuse_native")
+        self.assertTrue(
+            (
+                ROOT
+                / "evals"
+                / "evidence"
+                / "2026-11-23-companion-runtime-soak-reuse.json"
+            ).is_file()
+        )
+
+    def test_native_plugin_crash_recovery_remains_probe_only(self):
+        probe = (
+            ROOT
+            / "candidates"
+            / "plugin_lifecycle"
+            / "probe_native_crash_recovery_gap.py"
+        )
+        evidence_path = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-23-native-plugin-crash-recovery-gap.json"
+        )
+        self.assertTrue(probe.is_file())
+        self.assertTrue(evidence_path.is_file())
+
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8-sig"))
+        self.assertTrue(evidence["product_policy"]["promotion_prohibited"])
+        for forbidden in (
+            "new_daemon",
+            "new_watchdog",
+            "new_state_store",
+            "new_router",
+            "new_managed_patch",
+        ):
+            self.assertFalse(evidence["product_policy"][forbidden])
+        self.assertEqual(
+            evidence["product_policy"]["current_recovery"],
+            "explicit/startup native reconcile only",
+        )
+
+        reviews = json.loads(
+            (ROOT / "governance" / "reuse_reviews.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        by_id = {item["id"]: item for item in reviews["reviews"]}
+        review = by_id["runtime:plugin-crash-recovery"]
+        self.assertEqual(review["status"], "approved")
+        self.assertEqual(review["decision"], "reuse_native")
+        self.assertEqual(
+            review["machine_probe"],
+            "candidates/plugin_lifecycle/probe_native_crash_recovery_gap.py",
+        )
+        self.assertTrue(review["retirement_condition"])
+        self.assertTrue(
+            all(
+                layer["status"] == "checked"
+                for layer in review["search_layers"].values()
+            )
+        )
+
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertEqual(len(series["patches"]), 10)
+        self.assertFalse(
+            any(
+                "crash" in item["file"].lower()
+                or "watchdog" in item["file"].lower()
+                for item in series["patches"]
+            )
+        )
+
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn("Probe native plugin crash-recovery gap", workflow)
+        self.assertIn(
+            "private_overlay/candidates/plugin_lifecycle/"
+            "probe_native_crash_recovery_gap.py --neko-root _neko_upstream",
+            workflow,
+        )
+
 if __name__ == "__main__":
     unittest.main()

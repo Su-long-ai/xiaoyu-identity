@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_VISIBLE_DELIVERY_FLOOR_GAP_20261123",
+  "recorded_at_local": "2026-11-23T03:12:00+08:00",
+  "scope": "candidate_probe_only_no_runtime_change",
+  "authority": {
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "companion_delivery_authority": "neko_native"
+  },
+  "native_source_audit": {
+    "plugin_sdk_push_message": {
+      "path": ".agent/skills/neko-plugin/references/plugin-system-surface-map.md",
+      "facts": [
+        "push_message visibility can render plugin parts verbatim in chat and/or HUD",
+        "submitted=True means locally accepted, not final user delivery",
+        "current host judges/audits messages:push but documentation says refusal and push_message pre-check are planned, not implemented"
+      ]
+    },
+    "proactive_bridge": {
+      "path": "plugin/server/messaging/proactive_bridge.py",
+      "facts": [
+        "plugin push_message is translated into proactive_message for main_server",
+        "ai_behavior controls the LLM callback mode independently from visibility"
+      ]
+    },
+    "character_runtime": {
+      "path": "app/main_server/character_runtime.py",
+      "facts": [
+        "visibility=chat renders plugin blocks directly through render_chat_blocks before the proactive callback is built",
+        "proactive ai_behavior submits the LLM callback to submit_proactive_callback",
+        "visibility=hud sends agent_notification directly to the websocket after the callback submission block",
+        "silent/blind skips the LLM channel while the HUD sink can still fire"
+      ]
+    }
+  },
+  "broader_external_search": {
+    "airi_main": "042eb5e3bba0d7f536db282f0e93dd1e9ff336d8",
+    "observed_reusable_ideas": [
+      "core-agent notification receiver deduplicates by event ID and treats acknowledgement as durable receipt",
+      "AIRI exposes plugin-host and desktop notification primitives"
+    ],
+    "decision": "do_not_replace_neko_host_or_copy_airi_runtime; these ideas do not provide an insertion point that can gate N.E.K.O's existing direct chat/HUD sinks"
+  },
+  "acceptance_gap": {
+    "required_contract": "all companion-authored user-visible plugin/desktop-notification outputs must pass surface-specific final admission immediately before publication",
+    "current_result": "GAP_REPRODUCED_STATICALLY",
+    "counterexamples": [
+      "plugin push_message visibility=['chat'], ai_behavior='blind' can render a system bubble without entering proactive delivery",
+      "plugin push_message visibility=['hud'], ai_behavior='blind' can render an agent_notification while the LLM delivery channel is intentionally skipped"
+    ],
+    "non_gap": [
+      "plugin push_message ai_behavior='respond' callback itself already enters the native proactive delivery manager",
+      "operational status/configuration toasts are not automatically XiaoYu companion-authored output and must not be indiscriminately suppressed"
+    ]
+  },
+  "candidate_contract": {
+    "promotion_prohibited": true,
+    "candidate_goal": "machine-verify the native acceptance gap and define the minimum seam needed before any runtime patch is considered",
+    "no_new_router": true,
+    "no_new_state_store": true,
+    "no_new_daemon": true,
+    "no_new_plugin_runtime": true,
+    "no_new_publisher": true,
+    "next_machine_evidence": "private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py",
+    "retirement_condition": "Delete the probe when the pinned N.E.K.O host has one final-admission seam covering companion-authored plugin chat/HUD publication and the probe's counterexamples no longer bypass that seam.",
+    "machine_gate": ".github/workflows/private-overlay-gate.yml::Probe plugin-visible delivery-floor native gap",
+    "contract_visibility": "delivery_floor_v1 explicitly lists desktop_notification and plugin_triggered_output as BLOCKED_NATIVE_GAP_PROBE until repaired"
+  },
+  "conclusion": "KEEP_AS_PROBE_ONLY. Do not mark desktop_notification or future_plugin_triggered_output as delivery-floor PASS, and do not add a managed core patch until an executable native-gap probe passes and a separate implementation reuse decision exists."
+}
