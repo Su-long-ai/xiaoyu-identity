@@ -238,7 +238,6 @@ class ReuseArtifactAdmissionTests(unittest.TestCase):
     def test_hierarchy_rejects_component_local_review(self):
         review = self._layered_review()
         for layer in (
-            "L1_neko_current_pin",
             "L2_neko_upstream_extensions",
             "L3_existing_pinned_external",
             "L4_broader_external_ecosystem",
@@ -253,7 +252,8 @@ class ReuseArtifactAdmissionTests(unittest.TestCase):
         errors = []
         mod.validate_search_layers(review, "2026-11-23", errors)
         self.assertIn(
-            "hierarchical reuse is too local; fewer than two discovery layers were checked: "
+            "custom implementation search stayed inside the local component; "
+            "check upstream/extensions, pinned external, or broader ecosystem: "
             "governance:test-hierarchy",
             errors,
         )
