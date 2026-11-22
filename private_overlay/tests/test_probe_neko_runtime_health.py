@@ -51,6 +51,30 @@ class RuntimeHealthTests(unittest.TestCase):
         self.assertEqual(reconcile_calls, [])
         self.assertLess(time.monotonic() - started, .25)
 
+    def test_safety_preflight_defers_missing_plugin_recovery(self):
+        with patch.object(mod.runtime_reconcile, "_json_request", side_effect=_responses(running=False)):
+            result = mod.safety_preflight(
+                service_urls={"main": "http://host/main-health"},
+                plugin_url="http://host", agent_url="http://host",
+                request_timeout=.1,
+            )
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["mode"], "safety_only")
+        self.assertEqual(result["plugin_recovery_deferred"], ["alpha"])
+
+    def test_safety_preflight_still_fails_for_forbidden_agent_capability(self):
+        with patch.object(mod.runtime_reconcile, "_json_request", side_effect=_responses(forbidden=True)):
+            result = mod.safety_preflight(
+                service_urls={"main": "http://host/main-health"},
+                plugin_url="http://host", agent_url="http://host",
+                request_timeout=.1,
+            )
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertEqual(
+            result["observed"]["forbidden_agent_capabilities_enabled"],
+            ["computer"],
+        )
+
     def test_missing_plugin_reconciles_exactly_once_then_reprobes(self):
         calls = []
         request = _responses(running=False)
