@@ -453,6 +453,58 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_release_gate_executes_pinned_qq_surface_contracts_but_startup_does_not(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "XiaoYu pinned QQ delivery/floor regression",
+            "test_qq_outbound_guard.py",
+            "test_group_send_safety.py",
+            "test_proactive_budget_integration.py",
+            "test_qq_proactive_initiative.py",
+            "test_qq_auto_reply_forward_client.py",
+            "test_qq_connection_status_refresh.py",
+            "test_qq_buffer_no_append_after_delivery.py",
+            "test_qq_buffer_send_time_floor.py",
+            "test_qq_runtime_transition_lock.py",
+            "test_qq_reply_buffer_switch.py",
+            "$NekoPython -m pytest -q $QQSurfaceTests",
+        }
+        for item in required:
+            self.assertIn(item, script)
+        qq_gate = script.index("XiaoYu pinned QQ delivery/floor regression")
+        startup_gate_end = script.index('Write-Host "== XiaoYu reuse-first admission gate =="')
+        self.assertLess(qq_gate, startup_gate_end)
+        self.assertIn("if (-not $StartupPreflight)", script[:qq_gate])
+
+    def test_release_gate_executes_native_switch_and_audio_ownership_contracts(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        required = {
+            "XiaoYu native companion switch/audio ownership regression",
+            "test_character_switch_queue.py",
+            "test_character_runtime_voice_identity.py",
+            "test_model_switch_keeps_live_budget.py",
+            "test_cosyvoice_audio_done_generation.py",
+            "test_proactive_sid_guard.py",
+            "test_assistant_speech_finalize_static.py",
+            "chat_avatar_integration.test.cjs",
+            "live2d_audio_ownership.test.cjs",
+            "assistant-audio-lifecycle.test.cjs",
+            "voice_recovery_races.cjs",
+            "voice_preview_races.cjs",
+            "$NekoPython -m pytest -q $CompanionPythonTests",
+            "--test $CompanionNodeTests",
+        }
+        for item in required:
+            self.assertIn(item, script)
+        gate = script.index("XiaoYu native companion switch/audio ownership regression")
+        startup_gate_end = script.index('Write-Host "== XiaoYu reuse-first admission gate =="')
+        self.assertLess(gate, startup_gate_end)
+        self.assertIn("if (-not $StartupPreflight)", script[:gate])
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
