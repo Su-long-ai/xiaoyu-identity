@@ -88,7 +88,7 @@ def validate_hierarchy_policy(data: dict, errors: list[str]) -> str:
     )
     cutoff = str(policy.get("enforce_reviewed_at_or_after") or "").strip()
     require(
-        bool(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", cutoff)),
+        bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff)),
         "hierarchy policy enforcement cutoff must be YYYY-MM-DD",
         errors,
     )
