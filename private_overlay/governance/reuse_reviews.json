@@ -639,7 +639,43 @@
         }
       ],
       "why_reuse_insufficient": "The candidate reuses N.E.K.O's existing SQLite ledger, durable outbox, host retry loop, and main transport. The missing product primitive is a durable distinction between transport handoff, main effect claim, uncertain visible effect, and confirmed completion. No native extension point currently supplies that distinction.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "NekoClaw host remains the sole commission ledger, result outbox and publication authority; no XiaoYu durability authority is allowed.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin Ledger + OutboxSender + main transport are reused as the implementation base.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream/native delivery acknowledgement seams were checked; they do not already provide the missing durable effect-state distinction.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No existing pinned external component owns generic NekoClaw commission/result durability; surface connectors such as QQ must remain downstream consumers."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Temporal/Restate-style workflow durability was considered and rejected for this narrow gap because it would replace or duplicate native authority.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate extends the existing native ledger/outbox state machine without adding another queue, ledger or runtime.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A XiaoYu task ledger/queue/outbox was explicitly rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        }
+      }
     },
     {
       "id": "candidate:qq/live_inbound_idempotency.patch",
@@ -668,7 +704,42 @@
         }
       ],
       "why_reuse_insufficient": "The candidate does not introduce new state. It reuses the pinned plugin's existing persisted recent_ids, but extends the claim boundary to the live receive path before create_task and orders persisted-state loading before the receive loop.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Pinned qq_auto_reply remains the sole QQ inbound transport and persisted message-id authority.",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the plugin host; no host-level second QQ transport or idempotency database is introduced.",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "The reproduced defect is inside the pinned connector's receive ordering before handler task creation; N.E.K.O host extension planes cannot move that connector-internal claim boundary without replacing the connector transport."
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "The pinned plugin's existing persisted recent_ids and handler/session machinery are reused; no new state authority is added.",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "This is not a missing QQ capability or transport selection problem but a narrow ordering defect in the already-selected connector; replacing the connector stack would widen authority and scope rather than repair the gap."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate is limited to extending the existing recent_ids claim boundary into live receive before create_task and loading persisted state before receive starts.",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new XiaoYu inbound database or proxy was considered and rejected as duplicate state/transport authority.",
+          "evidence": "evals/evidence/2026-11-23-qq-inbound-idempotency-candidate.json"
+        }
+      }
     },
     {
       "id": "candidate:execution_plane/native_delivery_receipt.patch",
@@ -717,7 +788,44 @@
       "why_reuse_insufficient": "Native N.E.K.O already has the task/result ledger, native callback delivery acknowledgement, and acknowledged process bridge; the gap is only their missing connection. The candidate is restricted to that thin connection.",
       "acceptance_evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
       "retirement_condition": "Retire when upstream N.E.K.O provides stable task-result delivery identity and durable visible-effect receipt/reconciliation with equivalent restart semantics.",
-      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence"
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "NekoClaw host owns result durability and N.E.K.O native delivery owns publication/effect authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already contains the task/result ledger and callback-delivery acknowledgement primitives selected for reuse.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream plus Plugin SDK/PluginStore/MCP/native delivery seams were checked; no complete task-result durable receipt seam exists.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ surface delivery was checked and rejected as surface-specific rather than a generic native desktop receipt authority.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External transactional outbox/workflow engines were considered and rejected because they would duplicate frozen NekoClaw authority.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only connects existing native durable outbox identity to existing native callback acknowledgement/reconciliation.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A parallel XiaoYu receipt subsystem is rejected by the single-authority execution contract; candidate remains a narrow native patch until upstream equivalence exists.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        }
+      }
     },
     {
       "id": "governance:reuse-artifact-admission-v2",
@@ -752,7 +860,41 @@
         }
       ],
       "why_reuse_insufficient": "The existing gate is the correct reusable enforcement plane, but its artifact inventory is narrower than the new hard rule. The residual change is limited to static repository classification plus review linkage inside the same script and JSON review registry; it adds no runtime process, daemon, state store, permission database or product dependency.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Existing reuse-first registry/checker remains the single repository customization-admission authority.",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O runtime does not own XiaoYu repository governance/admission metadata."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "Plugin/NekoClaw/MCP extension planes are product runtime seams, not repository policy-admission engines."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned runtime component is an appropriate authority for XiaoYu repository-local reuse metadata."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "OPA/Cedar and a second policy database were considered and rejected as unnecessary duplicate governance authority.",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing checker and JSON registry are extended with static artifact classification/linkage only.",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A second policy service/database/runtime was explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-reuse-artifact-admission-v2.json"
+        }
+      }
     },
     {
       "id": "governance:qq-surface-push-regression-v1",
@@ -805,7 +947,44 @@
         }
       ],
       "why_reuse_insufficient": "All runtime and test capabilities already exist. The only residual gap is CI wiring: the existing push gate must execute the already-frozen QQ surface regression files against the existing pinned N.E.K.O and QQ checkouts. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains runtime authority; existing private-overlay gate remains cloud regression execution authority.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O pin and its Plugin SDK/native delivery are the host under test.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest N.E.K.O upstream and extension planes were checked before adding CI wiring.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned qq_auto_reply and its existing regression files are reused directly.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "The connector's own upstream CI was checked and reused where applicable; it does not execute XiaoYu's required surface behavior suite.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only the existing GitHub gate wiring is extended to invoke the frozen test list against pinned checkouts.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new QQ runtime, transport, state store or second test framework is unnecessary and rejected.",
+          "evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+        }
+      }
     },
     {
       "id": "governance:companion-switch-product-regression-v1",
@@ -852,7 +1031,42 @@
         }
       ],
       "why_reuse_insufficient": "Native N.E.K.O already owns the runtime and the targeted race/ownership tests. The residual gap is only that XiaoYu cloud pushes do not apply the existing managed patch series before executing those native tests. A thin CI worktree replay is sufficient and avoids a second runtime, router, state store, daemon or test framework.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains authoritative for character/model/voice runtime; XiaoYu only replays its managed product state in CI.",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies the runtime and targeted native ownership/race tests.",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked and exposes no newer native replacement that retires the managed product patches.",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "The gap is CI replay of N.E.K.O character/model/voice product state, not behavior owned by a pinned external connector."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "No external runtime or test framework is needed for replaying existing N.E.K.O tests against XiaoYu's already-managed patch state."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing GitHub workflow plus an ephemeral git worktree replays the product patch series before native tests.",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new switch runtime, voice runtime, session router or second test harness was explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        }
+      }
     },
     {
       "id": "governance:startup-powershell-parse-v1",
@@ -887,7 +1101,142 @@
         }
       ],
       "why_reuse_insufficient": "The parser already exists and is reused directly; the only missing product behavior is wiring it into the current global push gate for all overlay PowerShell entrypoints.",
-      "acceptance_evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+      "acceptance_evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Existing product push gate owns repository syntax admission; runtime authority remains unchanged.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O/product layout was checked; it provides no overlay PowerShell syntax admission seam.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was considered together with the current pin; no native extension changes the need to parse XiaoYu-owned PowerShell entrypoints.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external product component is the parser authority for XiaoYu-owned PowerShell scripts."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "PSScriptAnalyzer/custom parser alternatives were considered; built-in System.Management.Automation.Language.Parser is sufficient.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Existing GitHub Actions job is wired to the native PowerShell parser; no new parser/runtime is introduced.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A custom parser was considered and rejected as unnecessary.",
+          "evidence": "evals/evidence/2026-11-23-startup-powershell-parse-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:hierarchical-reuse-search-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Reuse admission proves that a customization has review/evidence but does not prove the review escaped its local component and checked the full authority/native/external/integration hierarchy.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing check_reuse_first.py + reuse_reviews.json",
+          "type": "existing_governance",
+          "outcome": "selected; extend the current fail-closed gate and registry",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        {
+          "name": "Existing architecture freeze + plugin admission gates",
+          "type": "existing_governance",
+          "outcome": "reused as complementary authority/capability checks but insufficient to prove search breadth",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        {
+          "name": "Existing private-overlay GitHub Actions gate",
+          "type": "native_ci",
+          "outcome": "selected as execution plane on product and agent pushes",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        {
+          "name": "OPA/Cedar or second policy database/service",
+          "type": "external_policy_engine",
+          "outcome": "rejected as duplicate governance authority for repository-local static validation",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        {
+          "name": "Prompt-only hierarchy rules",
+          "type": "prompt_policy",
+          "outcome": "rejected because they are not machine-enforceable",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing reuse checker is the correct enforcement plane; the residual gap is only that its review schema does not encode search breadth. Extend the same static checker/registry rather than adding a second policy runtime.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Existing reuse-first checker/registry remains the single repository customization-admission authority.",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O product runtime does not own XiaoYu repository-governance schema validation."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O extension planes are runtime capability seams, not repository policy engines."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned runtime component is an appropriate authority for repository reuse-admission metadata."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "OPA/Cedar/second policy-service alternatives were considered and rejected as unnecessary duplicate governance.",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Extend the existing checker, registry and existing GitHub gate only.",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new policy database/service and prompt-only substitute were rejected.",
+          "evidence": "evals/evidence/2026-11-23-hierarchical-reuse-search-gate.json"
+        }
+      }
     }
-  ]
+  ],
+  "hierarchy_policy": {
+    "id": "HIERARCHICAL_REUSE_V1",
+    "enforce_reviewed_at_or_after": "2026-11-23",
+    "layer_order": [
+      "L0_authority",
+      "L1_neko_current_pin",
+      "L2_neko_upstream_extensions",
+      "L3_existing_pinned_external",
+      "L4_broader_external_ecosystem",
+      "L5_thin_integration",
+      "L6_private_implementation"
+    ],
+    "semantics": {
+      "checked": "Layer was materially evaluated; outcome and evidence are mandatory.",
+      "not_applicable": "Layer cannot own or solve this gap without violating the declared authority boundary; rationale is mandatory."
+    },
+    "decision_requirements": {
+      "reuse_native": "L1_neko_current_pin or L2_neko_upstream_extensions must be checked",
+      "reuse_external": "L3_existing_pinned_external or L4_broader_external_ecosystem must be checked",
+      "thin_adapter": "L5_thin_integration must be checked",
+      "self_implement": "L6_private_implementation must be checked"
+    },
+    "purpose": "Prevent component-local reuse reviews from passing without explicitly checking higher authority, native/upstream, pinned external and broader ecosystem layers."
+  }
 }
