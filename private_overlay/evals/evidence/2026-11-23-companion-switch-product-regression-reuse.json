@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_SWITCH_PRODUCT_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:02:00+08:00",
+  "implementation_status": "REVIEWED_BEFORE_PRODUCT_MAIN_IMPLEMENTATION",
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "current_pin_equals_latest_upstream": true,
+    "native_authorities": [
+      "N.E.K.O switch/avatar runtime",
+      "N.E.K.O voice/TTS ownership runtime",
+      "N.E.K.O native pytest/node regression tests",
+      "N.E.K.O uv.lock"
+    ],
+    "overlay_product_authority": [
+      "private_overlay/patches/series.json",
+      "private_overlay/tools/setup_local.ps1"
+    ],
+    "selected_design": "ephemeral git worktree from pinned N.E.K.O -> apply managed patches in series order -> run native regression files"
+  },
+  "observed_gap": {
+    "local_release_gate": "private_overlay/tools/run_checks.ps1",
+    "local_live_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "github_push_gate": "does not currently execute switch/voice ownership regression against managed-patch product state",
+    "risk": [
+      "A→B→A latest intent loss",
+      "avatar missing after failed switch recovery",
+      "stale speech/TTS ownership after switch",
+      "model switch budget/session ownership regression",
+      "proactive SID ownership regression",
+      "voice provider/recovery/preview race regression"
+    ]
+  },
+  "product_state_requirement": {
+    "managed_patch_count": 10,
+    "series": "private_overlay/patches/series.json",
+    "decisive_switch_patch": "0005-latest-character-switch-intent-replay.patch",
+    "additional_voice_delivery_interactions": [
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0006-private-speech-output-gate.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0009-proactive-interruptibility-gate.patch"
+    ],
+    "clean_pin_only_test_is_insufficient": true
+  },
+  "authoritative_python_tests": [
+    "tests/unit/test_character_switch_queue.py",
+    "tests/unit/test_character_runtime_voice_identity.py",
+    "tests/unit/test_model_switch_keeps_live_budget.py",
+    "tests/unit/test_cosyvoice_audio_done_generation.py",
+    "tests/unit/test_proactive_sid_guard.py",
+    "tests/unit/test_assistant_speech_finalize_static.py",
+    "tests/unit/test_openai_compatible_tts.py",
+    "tests/unit/test_qwen_intl_tts_routing.py",
+    "tests/unit/test_voice_management_tts.py"
+  ],
+  "authoritative_node_tests": [
+    "tests/frontend/chat_avatar_integration.test.cjs",
+    "tests/frontend/live2d_audio_ownership.test.cjs",
+    "tests/frontend/assistant-audio-lifecycle.test.cjs",
+    "tests/frontend/voice_recovery_races.cjs",
+    "tests/frontend/voice_preview_races.cjs"
+  ],
+  "implementation_constraints": {
+    "new_runtime": false,
+    "new_switch_router": false,
+    "new_voice_runtime": false,
+    "new_test_framework": false,
+    "use_existing_git_checkout": true,
+    "ephemeral_worktree": true,
+    "apply_all_managed_patches_in_order": true,
+    "preserve_clean_pin_for_other_candidates": true,
+    "fail_closed_ci": true,
+    "startup_runtime_cost": 0
+  },
+  "acceptance_plan": [
+    "create disposable worktree at exact pinned N.E.K.O commit",
+    "git apply --check and apply every managed patch in series.json order",
+    "run the 9 existing Python tests with the pinned N.E.K.O uv --locked dev environment",
+    "run the 5 existing Node tests with node --test",
+    "always remove disposable worktree",
+    "add static overlay contract coverage so ordinary agent/** push cannot silently drop the product-state regression step",
+    "keep local Windows/avatar/NapCat live acceptance explicitly pending until Local Operator returns"
+  ],
+  "retirement_condition": "Retire this overlay replay only when XiaoYu no longer carries managed N.E.K.O patches that can affect switch/avatar/voice/delivery ownership, or when an equivalent upstream/product CI contract tests the same patched product state without duplicate authority.",
+  "preimplementation_machine_validation": {
+    "branch": "agent/companion-runtime-v1",
+    "commit": "a38375b95599e298271b0d5cca3444eb3a77c324",
+    "workflow": "XiaoYu private overlay gate",
+    "run_id": 45052864568,
+    "job_id": 137301612050,
+    "conclusion": "success"
+  },
+  "product_main_implementation": "pending_after_review_commit"
+}

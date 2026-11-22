@@ -806,6 +806,53 @@
       ],
       "why_reuse_insufficient": "All runtime and test capabilities already exist. The only residual gap is CI wiring: the existing push gate must execute the already-frozen QQ surface regression files against the existing pinned N.E.K.O and QQ checkouts. No new transport, plugin runtime, state store, router, daemon or test framework is justified.",
       "acceptance_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json"
+    },
+    {
+      "id": "governance:companion-switch-product-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Character/model/voice ownership and rapid-switch regression is executable only in the local release path. Ordinary agent/** cloud pushes do not prove the actual XiaoYu product state because the product applies the managed N.E.K.O patch series, including the latest-intent avatar recovery patch and voice/output patches, while the existing cloud gate tests a clean pinned N.E.K.O checkout for other candidates.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+          "type": "native_current_pin",
+          "outcome": "checked first; provides the authoritative switch, avatar, TTS, proactive SID and voice ownership tests plus the native uv project",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; upstream main is still the same c3fc33ff pin, so no newer native switch/runtime replacement exists to absorb the XiaoYu product patches",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        {
+          "name": "N.E.K.O native pytest/node tests and uv.lock",
+          "type": "native_test_runtime",
+          "outcome": "selected; run the existing native Python and Node ownership/race tests rather than creating a XiaoYu switch test framework",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        {
+          "name": "Existing private_overlay/patches/series.json + setup_local.ps1 patch ordering",
+          "type": "existing_governance",
+          "outcome": "selected as the product-state authority; cloud regression must apply the same managed patches in declared order before testing",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        {
+          "name": "Existing private-overlay-gate.yml pinned N.E.K.O checkout",
+          "type": "native_ci",
+          "outcome": "selected as the execution plane; create an ephemeral git worktree from the already checked-out pin so product-state regression cannot contaminate clean-pin execution candidates",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        },
+        {
+          "name": "New switch runtime, voice runtime, session router or second test harness",
+          "type": "private_implementation",
+          "outcome": "rejected; the product behavior and tests already exist, only cloud product-state replay is missing",
+          "evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native N.E.K.O already owns the runtime and the targeted race/ownership tests. The residual gap is only that XiaoYu cloud pushes do not apply the existing managed patch series before executing those native tests. A thin CI worktree replay is sufficient and avoids a second runtime, router, state store, daemon or test framework.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-switch-product-regression-reuse.json"
     }
   ]
 }
