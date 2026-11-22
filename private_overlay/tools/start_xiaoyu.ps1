@@ -26,6 +26,11 @@ $env:NEKO_RUNTIME_STATE_DIR = Join-Path $ResolvedStorage ".runtime"
 # N.E.K.O's native session fence so Steam Auto-Cloud cannot import/export this
 # private state while still leaving Steamworks available to other native features.
 $env:NEKO_CLOUDSAVE_DISABLED = "xiaoyu_private_local_authority"
+# One product startup budget drives both the native launcher readiness window
+# and the detached native-plugin reconcile waiter. N.E.K.O keeps its own
+# default at 60s when this overlay is not active.
+$StartupReadyBudgetSeconds = 180
+$env:NEKO_SERVER_READY_TIMEOUT_SECONDS = [string]$StartupReadyBudgetSeconds
 
 # Private product routing: N.E.K.O core only exposes the generic first-round
 # forced-tool bridge. XiaoYu owns the tool name and conservative retrospective
@@ -143,7 +148,7 @@ $RestoreArgs = @(
     "--plugin-url", "http://127.0.0.1:48916",
     "--agent-url", "http://127.0.0.1:48915",
     "--lanlan-name", "XiaoYu",
-    "--wait-seconds", "90",
+    "--wait-seconds", [string]$StartupReadyBudgetSeconds,
     "--result-path", $PluginRestoreResult
 )
 Start-Process -FilePath $Python -ArgumentList $RestoreArgs -WindowStyle Hidden | Out-Null

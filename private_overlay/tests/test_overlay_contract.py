@@ -354,6 +354,21 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("Push-Location $RepoRoot", script)
         self.assertIn("Pop-Location", script)
 
+    def test_startup_uses_one_cold_ready_budget_for_launcher_and_plugin_reconcile(self):
+        script = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("$StartupReadyBudgetSeconds = 180", script)
+        self.assertIn(
+            "$env:NEKO_SERVER_READY_TIMEOUT_SECONDS = [string]$StartupReadyBudgetSeconds",
+            script,
+        )
+        self.assertIn(
+            '"--wait-seconds", [string]$StartupReadyBudgetSeconds',
+            script,
+        )
+        self.assertNotIn('"--wait-seconds", "90"', script)
+
     def test_startup_preflight_skips_developer_only_checks_but_keeps_safety_gates(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"
