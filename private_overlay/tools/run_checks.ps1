@@ -73,6 +73,10 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_character_runtime_voice_identity.py"),
         (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
         (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
+        (Join-Path $NekoRoot "tests\unit\test_private_speech_output_gate.py"),
+        (Join-Path $NekoRoot "tests\unit\test_windows_interruptibility_signal.py"),
+        (Join-Path $NekoRoot "tests\unit\test_xiaoyu_capability_shadow.py"),
+        (Join-Path $NekoRoot "tests\unit\test_xiaoyu_plugin_visible_final_admission.py"),
         (Join-Path $NekoRoot "tests\unit\test_proactive_sid_guard.py"),
         (Join-Path $NekoRoot "tests\unit\test_assistant_speech_finalize_static.py"),
         (Join-Path $NekoRoot "tests\unit\test_openai_compatible_tts.py"),
@@ -100,6 +104,17 @@ if (-not $StartupPreflight) {
         ("{0}::test_a_superseded_flow_cannot_release_the_newer_starts_slot" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")),
         ("{0}::test_the_automatic_restart_stands_down_at_every_resumption_point" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py"))
     )
+    $CompanionPolicyFiles = @(
+        (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py"),
+        (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py")
+    )
+    $CompanionPolicyTargets = @(
+        ("{0}::test_maybe_deliver_is_leisure_only" -f (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py")),
+        ("{0}::test_maybe_deliver_allows_explicit_leisure_states" -f (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py")),
+        ("{0}::test_break_reminder_respects_round_ownership" -f (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py")),
+        ("{0}::test_voice_nudge_respects_interruptibility_gate" -f (Join-Path $NekoRoot "tests\unit\test_proactive_vision_revocation.py"))
+    )
     $CompanionNodeTests = @(
         (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),
         (Join-Path $NekoRoot "tests\frontend\live2d_audio_ownership.test.cjs"),
@@ -107,7 +122,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
     )
-    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionNodeTests)) {
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
         if (-not (Test-Path -LiteralPath $CompanionTest)) {
             throw "Native companion regression test missing: $CompanionTest"
         }
@@ -121,6 +136,10 @@ if (-not $StartupPreflight) {
         & $NekoPython -m pytest -q $CompanionOwnershipTargets
         $CompanionOwnershipExit = $LASTEXITCODE
         if ($CompanionOwnershipExit -ne 0) { exit $CompanionOwnershipExit }
+
+        & $NekoPython -m pytest -q $CompanionPolicyTargets
+        $CompanionPolicyExit = $LASTEXITCODE
+        if ($CompanionPolicyExit -ne 0) { exit $CompanionPolicyExit }
 
         $NodeCommand = Get-Command node -ErrorAction Stop
         & $NodeCommand.Source --test $CompanionNodeTests
