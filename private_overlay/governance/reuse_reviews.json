@@ -678,9 +678,9 @@
       "decision": "thin_adapter",
       "candidates": [
         {
-          "name": "N.E.K.O green-base NekoClaw outbox effect-state candidate",
+          "name": "N.E.K.O NekoClaw outbox effect-state candidate",
           "type": "native",
-          "outcome": "selected as sole durable ledger/outbox authority",
+          "outcome": "selected as sole durable ledger/outbox authority candidate; promotion remains blocked until its own machine gate is green",
           "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
         },
         {
