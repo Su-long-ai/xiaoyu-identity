@@ -131,6 +131,7 @@ def _load_epoch_observer(root: Path):
         "logger": _Logger(),
         "ready_host": ready_host,
         "_nekoclaw_main_epoch": None,
+        "_nekoclaw_retired_main_epochs": set(),
     }
     helper_module = ast.Module(body=[node], type_ignores=[])
     ast.fix_missing_locations(helper_module)
@@ -151,10 +152,19 @@ async def _verify_main_restart_epoch(root: Path) -> None:
 
     assert await observe("main-b") == "reconciled:2"
     assert ledger.calls == 1
+    # A delayed barrier/announcement from the retired process must never move
+    # authority back to its epoch. Otherwise that old process could claim a
+    # row again before crossing a visible effect boundary.
+    assert await observe("main-a") == "stale"
+    assert ledger.calls == 1
     assert await observe("main-b") == "same"
     assert ledger.calls == 1
     assert await observe("main-c") == "reconciled:2"
     assert ledger.calls == 2
+    assert await observe("main-a") == "stale"
+    assert await observe("main-b") == "stale"
+    assert ledger.calls == 2
+    assert await observe("main-c") == "same"
 
 
 async def _verify_receipt_faults(root: Path) -> None:
@@ -163,6 +173,32 @@ async def _verify_receipt_faults(root: Path) -> None:
     # Legacy/non-NekoClaw events preserve the native path with no new barrier.
     assert await helpers._claim_nekoclaw_delivery({"event_type": "task_result"}) is None
     assert calls == []
+
+    # A retired main epoch is rejected by the agent-side barrier. The main
+    # process must treat any non-"claimed" answer as "do not cross effect".
+    claim_globals = helpers._claim_nekoclaw_delivery.__globals__
+    native_publish = claim_globals["publish_nekoclaw_delivery_barrier"]
+    stale_calls = []
+
+    async def stale_publish(action, delivery_id, attempt_id, claim_id, *, lanlan_name=None, **_kwargs):
+        stale_calls.append((action, delivery_id, attempt_id, claim_id, lanlan_name))
+        return "stale_epoch"
+
+    claim_globals["publish_nekoclaw_delivery_barrier"] = stale_publish
+    try:
+        assert (
+            await helpers._claim_nekoclaw_delivery(
+                {"delivery_id": 6, "delivery_attempt_id": "retired-main"}
+            )
+            is False
+        )
+        assert len(stale_calls) == 1 and stale_calls[0][0:3] == (
+            "claim",
+            6,
+            "retired-main",
+        )
+    finally:
+        claim_globals["publish_nekoclaw_delivery_barrier"] = native_publish
 
     # Malformed partial identity is rejected before any effect and before IPC.
     assert (
@@ -215,6 +251,17 @@ async def _verify_receipt_faults(root: Path) -> None:
         pass
     assert len(calls) == before, "ambiguous cancellation must not emit commit/release"
 
+    # A native receipt future that itself fails is equally ambiguous. Do not
+    # turn transport/consumer failure into a proven no-effect release.
+    fourth = await helpers._claim_nekoclaw_delivery(
+        {"delivery_id": 10, "delivery_attempt_id": "attempt-d"}
+    )
+    before = len(calls)
+    future = asyncio.get_running_loop().create_future()
+    future.set_exception(RuntimeError("receipt channel lost"))
+    await helpers._settle_nekoclaw_callback_ack(fourth, future)
+    assert len(calls) == before, "failed receipt must remain fenced"
+
 
 def _verify_wiring(root: Path) -> None:
     bus = _text(root, "main_logic/agent_event_bus.py")
@@ -254,8 +301,13 @@ def _verify_wiring(root: Path) -> None:
     assert '"nekoclaw_delivery_barrier_ack"' in api
     assert '"nekoclaw_main_epoch_ack"' in api
     assert "async def _observe_nekoclaw_main_epoch" in api
+    assert "_nekoclaw_retired_main_epochs: set[str] = set()" in api
+    assert 'if epoch in _nekoclaw_retired_main_epochs:' in api
+    assert '_nekoclaw_retired_main_epochs.add(previous)' in api
     assert "async def _handle_nekoclaw_main_epoch" in api
     assert "outbox_mark_main_restart_uncertain" in api
+    assert 'if epoch_state == "stale":' in api
+    assert 'result = "stale_epoch"' in api
     assert 'if event_type == "nekoclaw_main_epoch":' in api
     assert "_create_tracked_task(_handle_nekoclaw_main_epoch(event))" in api
     restore_start = api.index('if event_type == "agent_intent_restore_signal":')
