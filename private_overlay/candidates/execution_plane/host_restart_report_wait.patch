@@ -1,0 +1,74 @@
+diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
+--- a/nekoclaw/host/ledger.py
++++ b/nekoclaw/host/ledger.py
+@@ -1116,11 +1116,14 @@
+         if rows:
+             logger.info("ledger: %d commission(s) of an earlier build given their sessions", len(rows))
+ 
+-    def _reconcile(self, conn: sqlite3.Connection, path: Path) -> None:
+-        """Fail what a previous host process left unfinished.
+-
+-        Nobody is working on those commissions any more. A blocked one stays
+-        blocked, and a deferred one stays as it is: until its deadline its
++    def _reconcile(self, conn: sqlite3.Connection, path: Path) -> None:
++        """Reconcile what a previous host process left unfinished.
++
++        Nobody is working on those commissions any more. A report-style
++        question is already a durable checkpoint: it stays waiting because a
++        later host can answer it through the existing transcript-tail resume
++        path without replaying work. Other active work is failed. A blocked
++        one stays blocked, and a deferred one stays as it is: until its deadline its
+         plugin's result may still arrive, and past it the task brain's sweep
+         fails it with the same report as when the host kept running.
+         Questions of the failed ones that were never sent are dropped. With a
+@@ -1165,15 +1168,30 @@
+                 (self.instance,),
+             ).fetchall()
+             self._unfire(conn, [int(row["id"]) for row in on_its_way], None, "")
+-            rows = conn.execute(
+-                "SELECT id FROM commissions WHERE status IN ('queued','working','waiting_user') "
+-                "AND COALESCE(host_instance, '') != ? "
+-                "AND deferred_until IS NULL "
+-                "AND NOT (status = 'working' AND resting_since IS NOT NULL)",
+-                (self.instance,),
+-            ).fetchall()
+-            for row in rows:
+-                moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
++            rows = conn.execute(
++                "SELECT id, status, pending_question FROM commissions "
++                "WHERE status IN ('queued','working','waiting_user') "
++                "AND COALESCE(host_instance, '') != ? "
++                "AND deferred_until IS NULL "
++                "AND NOT (status = 'working' AND resting_since IS NOT NULL)",
++                (self.instance,),
++            ).fetchall()
++            failed_rows = 0
++            for row in rows:
++                if row["status"] == "waiting_user":
++                    try:
++                        question = json.loads(row["pending_question"] or "")
++                    except (TypeError, ValueError):
++                        question = None
++                    if isinstance(question, dict) and question.get("kind") == "report":
++                        # Its run is already at a durable user checkpoint.
++                        # The new host owns it only when the answer moves it
++                        # back to working; until then the native question/outbox
++                        # and transcript remain exactly as the old host left them.
++                        continue
++                moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
++                if moved.applied:
++                    failed_rows += 1
+                 if moved.applied and moved.commission is not None and self._reconcile_report is not None:
+                     report = self._reconcile_report(moved.commission)
+                     if report is not None:
+@@ -1195,8 +1213,8 @@
+             with self._stop_note_lock:
+                 if self._stop_owed(path) == owed:
+                     self._forget_stop_owed(path)
+-        if rows:
+-            logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", len(rows))
++        if failed_rows:
++            logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", failed_rows)
+ 
+     # -- a stop of everything that could not be written ---------------------
+     #
