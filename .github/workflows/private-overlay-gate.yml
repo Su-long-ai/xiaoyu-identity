@@ -211,6 +211,7 @@ jobs:
             tests/unit/nekoclaw/test_host_delivery.py \
             tests/unit/nekoclaw/test_host_robustness.py \
             tests/unit/nekoclaw/test_agent_wiring.py \
+            tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name \
             tests/test_agent_rewrite_regression.py
 
       - name: Checkout pinned QQ plugin candidate base
