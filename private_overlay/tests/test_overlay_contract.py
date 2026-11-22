@@ -402,6 +402,21 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("python -m compileall", script)
         self.assertIn("check_release_readiness.py", script)
 
+    def test_github_agent_branches_run_machine_reuse_gate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        for required in (
+            '"agent/**"',
+            '"private/neko-overlay-v1"',
+            "check_reuse_first.py",
+            "check_architecture_freeze.py",
+            "test_plugin_admission",
+            "check_release_readiness.py",
+            "reuse-architecture-gate",
+        ):
+            self.assertIn(required, workflow)
+
     def test_run_checks_enforces_reuse_first_gate(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("check_reuse_first.py", script)
