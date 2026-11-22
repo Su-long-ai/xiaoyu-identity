@@ -99,26 +99,32 @@ def _load_receipt_helpers(root: Path):
     return SimpleNamespace(**namespace), calls
 
 
-def _load_epoch_observer(root: Path):
+def _load_epoch_observer(root: Path, *, hold_first_reconcile: bool = False):
     source = _text(root, "app/agent_server/api_runtime.py")
     module = ast.parse(source)
-    node = next(
-        (
-            item
-            for item in module.body
-            if isinstance(item, ast.AsyncFunctionDef)
-            and item.name == "_observe_nekoclaw_main_epoch"
-        ),
-        None,
-    )
-    assert node is not None, "missing main epoch observer"
+    wanted = {
+        "_observe_nekoclaw_main_epoch",
+        "_observe_nekoclaw_main_epoch_locked",
+    }
+    body = [
+        item
+        for item in module.body
+        if isinstance(item, ast.AsyncFunctionDef) and item.name in wanted
+    ]
+    found = {item.name for item in body}
+    assert found == wanted, f"missing main epoch observer helpers: {sorted(wanted - found)}"
 
     class Ledger:
         def __init__(self):
             self.calls = 0
+            self.first_reconcile_entered = asyncio.Event()
+            self.release_first_reconcile = asyncio.Event()
 
         async def outbox_mark_main_restart_uncertain(self):
             self.calls += 1
+            if hold_first_reconcile and self.calls == 1:
+                self.first_reconcile_entered.set()
+                await self.release_first_reconcile.wait()
             return 2
 
     ledger = Ledger()
@@ -128,12 +134,14 @@ def _load_epoch_observer(root: Path):
 
     namespace = {
         "Any": object,
+        "asyncio": asyncio,
         "logger": _Logger(),
         "ready_host": ready_host,
         "_nekoclaw_main_epoch": None,
         "_nekoclaw_retired_main_epochs": set(),
+        "_nekoclaw_main_epoch_lock": asyncio.Lock(),
     }
-    helper_module = ast.Module(body=[node], type_ignores=[])
+    helper_module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(helper_module)
     exec(compile(helper_module, "<main-epoch-observer>", "exec"), namespace)
     return SimpleNamespace(**namespace), ledger
@@ -165,6 +173,30 @@ async def _verify_main_restart_epoch(root: Path) -> None:
     assert await observe("main-b") == "stale"
     assert ledger.calls == 2
     assert await observe("main-c") == "same"
+
+    # Epoch changes are delivered as independently scheduled agent tasks. Force
+    # the first restart reconciliation to pause so a second new epoch arrives
+    # concurrently; the observer must serialize them so both predecessors are
+    # retired exactly once and the newest epoch remains authoritative.
+    raced, raced_ledger = _load_epoch_observer(
+        root, hold_first_reconcile=True
+    )
+    raced_observe = raced._observe_nekoclaw_main_epoch
+    assert await raced_observe("race-a") == "initialized"
+    to_b = asyncio.create_task(raced_observe("race-b"))
+    await raced_ledger.first_reconcile_entered.wait()
+    to_c = asyncio.create_task(raced_observe("race-c"))
+    await asyncio.sleep(0)
+    assert not to_c.done(), "second epoch must wait behind the native epoch lock"
+    assert raced_ledger.calls == 1
+    raced_ledger.release_first_reconcile.set()
+    assert await to_b == "reconciled:2"
+    assert await to_c == "reconciled:2"
+    assert raced_ledger.calls == 2
+    assert raced._nekoclaw_main_epoch == "race-c"
+    assert raced._nekoclaw_retired_main_epochs >= {"race-a", "race-b"}
+    assert await raced_observe("race-b") == "stale"
+    assert raced_ledger.calls == 2
 
 
 async def _verify_receipt_faults(root: Path) -> None:
@@ -301,6 +333,9 @@ def _verify_wiring(root: Path) -> None:
     assert '"nekoclaw_delivery_barrier_ack"' in api
     assert '"nekoclaw_main_epoch_ack"' in api
     assert "async def _observe_nekoclaw_main_epoch" in api
+    assert "_nekoclaw_main_epoch_lock = asyncio.Lock()" in api
+    assert "async with _nekoclaw_main_epoch_lock:" in api
+    assert "async def _observe_nekoclaw_main_epoch_locked" in api
     assert "_nekoclaw_retired_main_epochs: set[str] = set()" in api
     assert 'if epoch in _nekoclaw_retired_main_epochs:' in api
     assert '_nekoclaw_retired_main_epochs.add(previous)' in api
