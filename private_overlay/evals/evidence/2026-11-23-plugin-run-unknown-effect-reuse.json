@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_RUN_UNKNOWN_EFFECT_SEMANTICS_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "NekoClaw plugin runs whose run_id is known but terminal status cannot be read after repeated polling transport/protocol failures.",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "native_gap": {
+    "poller": "nekoclaw/host/plugin_runs.py returns status=failed with lost=true after MAX_CONSECUTIVE_POLL_ERRORS, even though RunOutcome explicitly documents unknown as a valid last status.",
+    "cancellation": "the runner asks the server to cancel the lost run, but a cancel can race after a real external effect; cancellation acceptance is not proof that the effect never happened.",
+    "server_evidence": "POST /runs/{run_id}/cancel returns the current RunRecord. If the run was already terminal, manager.cancel_run returns that terminal record unchanged.",
+    "direct_route": "plugin_terminal_status currently maps every success=false to failed, and TaskBrain maps failed to a terminal commission that native ledger rules explicitly allow to be taken up again.",
+    "gateway": "CapabilityGateway turns failed plugin outcomes into MCP tool errors, which invites task-agent retry even though the effect may already exist."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin RunOutcome unknown status + commission blocked status + existing plugin run cancellation",
+      "outcome": "selected",
+      "reason": "RunOutcome already reserves unknown, and blocked is already the native commission state for work that must not continue automatically."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin",
+      "reason": "No newer upstream unknown-effect reconciliation semantics exist at review time."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O Plugin Run API / NekoClaw gateway / native ledger",
+      "outcome": "selected",
+      "reason": "Existing run_id, RunRecord, cancel path, call audit, blocked commission semantics and gateway result channel are sufficient; no new store or protocol is required."
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external components",
+      "outcome": "not_applicable",
+      "reason": "The ambiguity occurs inside N.E.K.O's host-to-plugin run protocol before any surface-specific component."
+    },
+    {
+      "order": 5,
+      "candidate": "External workflow/idempotency engines",
+      "outcome": "rejected",
+      "reason": "Temporal/Restate-style replacement would duplicate the frozen NekoClaw execution and ledger authority for a gap already representable with native states."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin native semantics patch",
+      "outcome": "candidate_selected",
+      "reason": "Classify lost polling as existing unknown, map direct work to existing blocked semantics, and return a non-error no-repeat safety result to task agents."
+    },
+    {
+      "order": 7,
+      "candidate": "Private uncertain-effect store/router/daemon",
+      "outcome": "rejected",
+      "reason": "Would create a second execution-state authority."
+    }
+  ],
+  "candidate_contract": {
+    "unknown_source": "Only a run whose run_id was created and whose terminal state became unreadable after repeated polling failures is effect-unknown.",
+    "runner": "Return RunOutcome.status=unknown and reason=effect_uncertain; keep best-effort native cancel behavior but never interpret cancel acceptance as proof of failure.",
+    "direct_plugin": "Map status=unknown to the existing blocked commission state, not failed, so native scheduling does not automatically continue it.",
+    "gateway": "Return an explicit non-error tool result stating that the effect is uncertain and the same action must not be repeated automatically. This prevents the runtime's ordinary tool-error retry path while allowing the task agent to report uncertainty.",
+    "audit": "Record the call as blocked/uncertain via existing call audit fields; no new audit table.",
+    "reconciliation": "A later positive native terminal result may be handled by future reconciliation work; absence of evidence never changes unknown into failed.",
+    "forbidden": [
+      "new state store",
+      "new task ledger",
+      "new plugin run store",
+      "new retry daemon",
+      "automatic fresh execution after an unknown outcome"
+    ]
+  },
+  "machine_acceptance": [
+    "Repeated unreadable/transport status polls produce status=unknown rather than failed.",
+    "The existing lost-run cancel path still runs and remains tracked until cancel acceptance.",
+    "A direct plugin commission with unknown effect becomes blocked, not failed.",
+    "A gateway plugin call with unknown effect returns a non-error no-repeat safety result and records plugin_run_ended status unknown.",
+    "Confirmed plugin failures remain failed.",
+    "Existing plugin runner, task brain, gateway and run-manager regressions stay green."
+  ],
+  "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+  "retirement_condition": "Delete this candidate when upstream N.E.K.O natively distinguishes unknown plugin effect from confirmed failure across PluginRunner, direct commissions and task-agent gateway calls, with equivalent no-blind-retry and reconciliation coverage.",
+  "conclusion": "THIN_NATIVE_SEMANTICS_CANDIDATE. Reuse RunOutcome unknown and native blocked/tool-result semantics; do not create another effect-state authority."
+}
