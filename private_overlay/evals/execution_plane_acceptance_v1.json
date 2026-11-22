@@ -156,6 +156,13 @@
       "test": "tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went"
     },
     {
+      "id": "effect.plugin_run_create_ambiguous_response",
+      "domain": "effect",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "PluginRunner does not yet pass the plugin server's native idempotency_key when creating /runs, so a response lost after run creation can be reported as failure while the plugin effect may already exist; candidate plugin_run_idempotency.patch reuses the native RunStore dedupe primitive but is not a live managed patch."
+    },
+    {
       "id": "delivery.main_process_effect_receipt",
       "domain": "delivery",
       "status": "acceptance_gap",
