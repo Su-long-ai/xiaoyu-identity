@@ -46,6 +46,29 @@ HIERARCHY_LAYERS = (
 HIERARCHY_LAYER_STATUSES = {"checked", "not_applicable"}
 HIERARCHY_DISCOVERY_LAYERS = HIERARCHY_LAYERS[:5]
 
+HIERARCHY_LEGACY_REVIEW_IDS = frozenset({
+    "patch:0001-proactive-autostart-idle-gate.patch",
+    "patch:0002-full-chat-native-voice-entry.patch",
+    "patch:0003-qwen38-server-vad-reliability.patch",
+    "patch:0004-native-ingress-activity-before-backpressure.patch",
+    "patch:0005-latest-character-switch-intent-replay.patch",
+    "patch:0006-private-speech-output-gate.patch",
+    "patch:0007-private-first-round-tool-route.patch",
+    "plugin:xiaoyu_interaction_policy",
+    "patch:0008-qwen-clone-provider-routing.patch",
+    "patch:0009-proactive-interruptibility-gate.patch",
+    "patch:0010-startup-event-loop-responsiveness.patch",
+    "upstream:neko-6fccfb72",
+    "plugin:xiaoyu_interaction_policy-model-slot",
+    "upstream:neko-e4f87d32",
+    "plugin:xiaoyu_interaction_policy-store",
+    "upstream:neko-1e8ff0d0",
+    "startup:native-plugin-runtime-reconcile",
+    "upstream:neko-99b479a0",
+    "runtime:plugin-crash-recovery",
+    "upstream:neko-c3fc33ff",
+})
+
 
 def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -86,6 +109,18 @@ def validate_hierarchy_policy(data: dict, errors: list[str]) -> str:
         "hierarchy policy layer_order must match the frozen reuse hierarchy",
         errors,
     )
+    legacy_review_ids = policy.get("legacy_review_ids")
+    require(
+        isinstance(legacy_review_ids, list),
+        "hierarchy policy legacy_review_ids must be a list",
+        errors,
+    )
+    if isinstance(legacy_review_ids, list):
+        require(
+            set(legacy_review_ids) == set(HIERARCHY_LEGACY_REVIEW_IDS),
+            "hierarchy policy legacy_review_ids must match the frozen rollout set",
+            errors,
+        )
     cutoff = str(policy.get("enforce_reviewed_at_or_after") or "").strip()
     require(
         bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff)),
@@ -101,10 +136,20 @@ def validate_search_layers(
     errors: list[str],
 ) -> None:
     reviewed_at = str(item.get("reviewed_at") or "").strip()
-    if not cutoff or not reviewed_at or reviewed_at < cutoff:
+    rid = str(item.get("id") or "")
+    if rid in HIERARCHY_LEGACY_REVIEW_IDS:
+        require(
+            bool(reviewed_at) and bool(cutoff) and reviewed_at < cutoff,
+            f"legacy hierarchy review must remain before rollout cutoff: {rid}",
+            errors,
+        )
         return
 
-    rid = str(item.get("id") or "")
+    require(
+        bool(reviewed_at) and bool(cutoff) and reviewed_at >= cutoff,
+        f"non-legacy review cannot predate hierarchy rollout: {rid}",
+        errors,
+    )
     layers = item.get("search_layers")
     require(
         isinstance(layers, dict),
