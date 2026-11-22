@@ -113,9 +113,9 @@
     {
       "id": "semantic_interaction_policy",
       "goal": "explicit natural-language interaction controls become deterministic whole-reply quiet/resume and autonomous-screen hard state while preserving N.E.K.O native authorities",
-      "status": "live_whole_reply_quiet_resume_restart_and_native_screen_privacy_roundtrip_pass",
-      "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json",
-      "note": "Private plugin 0.6.0 is live. Proactive execution remains N.E.K.O proactive_controller; screen privacy is written through the native user conversation-settings CAS route; reply output now has one durable quiet authority before the UI/TTS split, so policy cannot intentionally publish text without its paired voice. Legacy speech_muted is compatibility-only and normalized false. Retrospective activity delegates to ActivityWatch instead of a private timeline."
+      "status": "live_native_plugin_model_slot_quiet_resume_pass",
+      "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json",
+      "note": "Private plugin 0.6.6 is live. Semantic classification now uses N.E.K.O's host-managed Plugin SDK model gateway through the interaction_classifier usage bound to the native agent_small host-follow slot; the plugin no longer reads provider credentials or builds its own LLM client. Proactive execution remains N.E.K.O proactive_controller, screen privacy remains on the native conversation-settings CAS route, and whole-reply quiet admission remains before the UI/TTS split. Live semantic quiet/resume passed and final state returned to quiet=false."
     },
     {
       "id": "recent_activity_recall",

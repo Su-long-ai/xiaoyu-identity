@@ -349,6 +349,41 @@
       ],
       "why_reuse_insufficient": "These native additions strengthen capability hosting and presence continuity but do not expose an authoritative interruptibility provider arbitration hook, an equivalent-cost plugin model binding for the private semantic classifier, or the first-round main-conversation tool arbitration required to retire patches 0007/0009.",
       "acceptance_evidence": "evals/evidence/2026-11-22-neko-upstream-6fccfb72-upgrade.json"
+    },
+    {
+      "id": "plugin:xiaoyu_interaction_policy-model-slot",
+      "status": "approved",
+      "reviewed_at": "2026-11-22",
+      "problem": "The private interaction-policy plugin directly read host provider configuration and credentials to create its semantic classifier client, duplicating a capability now provided by N.E.K.O Plugin SDK model slots.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O Plugin SDK model gateway (ctx.models)",
+          "type": "native_sdk",
+          "outcome": "selected as the only classifier model invocation path; provider, endpoint, credentials, usage accounting and slot resolution remain host-owned",
+          "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
+        },
+        {
+          "name": "N.E.K.O ModelConfigService.ensure_host_follow_binding",
+          "type": "native_sdk",
+          "outcome": "selected for first-install binding; the short-lived installer synchronously reuses the native method only when the usage has never been touched",
+          "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
+        },
+        {
+          "name": "N.E.K.O agent_small host-follow slot",
+          "type": "native_config",
+          "outcome": "selected as the low-cost default for the classifier; later user-managed bindings and explicit unbinds are preserved",
+          "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
+        },
+        {
+          "name": "private get_model_api_config/create_chat_llm_async path",
+          "type": "private_legacy",
+          "outcome": "retired",
+          "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
+        }
+      ],
+      "why_reuse_insufficient": "No external or private model runtime is required. The only private logic left is the XiaoYu-specific classification prompt, deterministic hard-control admission policy, and a one-time installer preference from the native default agent slot to the native agent_small slot.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
     }
   ]
 }

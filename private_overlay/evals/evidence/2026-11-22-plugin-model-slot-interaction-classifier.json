@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "evidence_id": "2026-11-22-plugin-model-slot-interaction-classifier",
+  "observed_at_local": "2026-11-22T18:33:00+08:00",
+  "verdict": "PASS_LIVE_NATIVE_PLUGIN_MODEL_SLOT",
+  "plugin": {
+    "id": "xiaoyu_interaction_policy",
+    "version": "0.6.6",
+    "runtime_status": "running",
+    "native_package_install": true,
+    "native_plugin_catalog": true,
+    "native_plugin_runner": true
+  },
+  "reuse": {
+    "model_gateway": "N.E.K.O Plugin SDK ctx.models",
+    "usage_id": "interaction_classifier",
+    "binding_authority": "N.E.K.O ModelConfigService",
+    "binding_source": "host_follow",
+    "host_api": "agent_small",
+    "binding_version": 2,
+    "resolved_live_model": "qwen3.7-flash",
+    "direct_private_provider_config_removed": true,
+    "direct_private_api_key_access_removed": true,
+    "direct_private_llm_client_removed": true,
+    "second_model_registry_added": false
+  },
+  "installer": {
+    "finding": "The native post-install auto-bind runs on a daemon thread; a short-lived private CLI can exit before the native binding write completes.",
+    "resolution": "For a never-touched unbound usage only, the installer synchronously calls N.E.K.O ModelConfigService.ensure_host_follow_binding, then migrates only the initial native agent host-follow binding to agent_small.",
+    "explicit_unbind_preserved": true,
+    "user_managed_binding_preserved": true,
+    "existing_agent_small_binding_preserved_on_0_6_6_upgrade": true,
+    "plugin_models_sha256_before_upgrade": "7CF6E14496CAFF3F3A4FC7E9B91AA44AB2420430700FEAEB4F0C87D535FB1E50",
+    "plugin_models_sha256_after_upgrade": "7CF6E14496CAFF3F3A4FC7E9B91AA44AB2420430700FEAEB4F0C87D535FB1E50"
+  },
+  "live_validation": {
+    "semantic_quiet": {
+      "run_status": "succeeded",
+      "decisions": 1,
+      "quiet_after": true
+    },
+    "semantic_resume": {
+      "run_status": "succeeded",
+      "decisions": 1,
+      "quiet_after": false,
+      "natural_english_resume_gate_regression_fixed": true
+    },
+    "final_state": {
+      "quiet": false,
+      "speech_muted": false,
+      "vision_blocked": false,
+      "last_action": "resume:voice"
+    },
+    "model_gateway_request_delta": 2,
+    "model_gateway_success_delta": 2,
+    "model_gateway_reported_usage_delta": 2,
+    "model_gateway_total_tokens_delta": 1538,
+    "health": {
+      "48911": 200,
+      "48912": 200,
+      "48915": 200,
+      "48916": 200
+    },
+    "application_loop_stalls_after_18_30_start": 0,
+    "autostart_restore": "PASS"
+  },
+  "regression": {
+    "overlay_unit_tests": "101/101 PASS",
+    "release_readiness": "23/23 PASS",
+    "native_binding_tests": "fresh unbound auto-bind, explicit unbind preservation, initial agent migration, and user-managed binding preservation PASS",
+    "autostart_fixture_deadline_seconds": 8
+  },
+  "privacy": {
+    "user_or_test_text_persisted_in_plugin_state": false,
+    "user_or_test_text_persisted_in_evidence": false,
+    "provider_credentials_persisted_in_evidence": false,
+    "plugin_state_contains_only_bounded_control_state_and_event_ids": true
+  }
+}

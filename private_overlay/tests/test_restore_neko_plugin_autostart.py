@@ -184,7 +184,7 @@ class RestoreAutostartTests(unittest.TestCase):
             plugin_url=base,
             agent_url=base,
             lanlan_name="XiaoYu",
-            deadline=time.monotonic() + 3,
+            deadline=time.monotonic() + 8,
             request_timeout=1,
         )
         self.assertEqual(result["verdict"], "PASS")

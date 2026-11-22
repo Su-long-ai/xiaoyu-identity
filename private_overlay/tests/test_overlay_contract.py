@@ -201,6 +201,21 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIsNone(re.search(pattern, value))
 
 
+
+    def test_interaction_classifier_reuses_native_plugin_model_gateway(self):
+        source_dir = ROOT / "plugins" / "xiaoyu_interaction_policy"
+        source = (source_dir / "__init__.py").read_text(encoding="utf-8-sig")
+        config = tomllib.loads((source_dir / "plugin.toml").read_text(encoding="utf-8"))
+
+        models = config["plugin"].get("models", {})
+        usage = models.get("interaction_classifier", {})
+        self.assertTrue(usage.get("required"))
+        self.assertEqual(usage.get("capabilities"), ["text"])
+        self.assertIn("self.ctx.models.get_client()", source)
+        self.assertIn('model=_CLASSIFIER_MODEL_USAGE', source)
+        self.assertNotIn("from utils.config_manager import get_config_manager", source)
+        self.assertNotIn("from utils.llm_client import", source)
+
     def test_private_plugin_ensure_uses_native_package_workflow(self):
         script = (ROOT / "tools" / "ensure_private_plugin.py").read_text(
             encoding="utf-8-sig"

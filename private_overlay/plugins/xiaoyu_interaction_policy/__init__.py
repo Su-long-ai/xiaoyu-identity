@@ -30,6 +30,7 @@ _CONTROLLER = "proactive_controller"
 _STATE_VERSION = 5
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
+_CLASSIFIER_MODEL_USAGE = "interaction_classifier"
 _MAX_TEXT_CHARS = 500
 _ACTIVITYWATCH_BASE_URL = "http://127.0.0.1:5600/api/0"
 _ACTIVITYWATCH_TIMEOUT_SECONDS = 4.0
@@ -246,7 +247,7 @@ _SEMANTIC_SPEECH_UNMUTE_RE = re.compile(
     r"(?:可以|能|允许|继续|恢复|重新|开始|尽管|现在可以).{0,10}(?:说话|讲话|开口|出声|发声|说|讲)"
     r"|(?:解除|取消).{0,6}(?:静音|禁言)"
     r"|(?:resume|continue|start)\s+(?:talking|speaking)"
-    r"|(?:speak|talk)\s+again"
+    r"|(?:speak|talk)(?:\s+(?:to|with)\s+me)?\s+again"
     r")",
     re.IGNORECASE,
 )
@@ -1067,34 +1068,30 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         return Ok({"watcher": "active", **self._public_state(self._load_state())})
 
     async def _classify(self, text: str) -> dict[str, Any]:
-        from utils.config_manager import get_config_manager
-        from utils.llm_client import HumanMessage, SystemMessage, create_chat_llm_async
+        """Classify through N.E.K.O's host-managed Plugin SDK model gateway.
 
+        The manifest declares a stable interaction_classifier usage. The host
+        owns its provider credentials and model-slot binding; XiaoYu never reads
+        either directly. The private installer migrates only the first automatic
+        binding to the native agent_small tier and then leaves user changes alone.
+        """
         try:
-            cfg = await get_config_manager().aget_model_api_config("emotion")
-            model = cfg.get("model")
-            api_key = cfg.get("api_key")
-            base_url = cfg.get("base_url")
-            if not model or not api_key:
-                return {"action": "none", "duration_minutes": None, "speech_action": "unchanged", "vision_action": "unchanged"}
-            llm = await create_chat_llm_async(
-                model,
-                base_url,
-                api_key,
-                temperature=0.0,
-                max_completion_tokens=96,
+            client = await self.ctx.models.get_client()
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=_CLASSIFIER_MODEL_USAGE,
+                    messages=[
+                        {"role": "system", "content": _CLASSIFIER_SYSTEM},
+                        {"role": "user", "content": text},
+                    ],
+                    temperature=0.0,
+                    max_tokens=96,
+                ),
                 timeout=_CLASSIFIER_TIMEOUT_SECONDS,
-                provider_type=cfg.get("provider_type"),
             )
-            async with llm:
-                response = await asyncio.wait_for(
-                    llm.ainvoke([
-                        SystemMessage(content=_CLASSIFIER_SYSTEM),
-                        HumanMessage(content=text),
-                    ]),
-                    timeout=_CLASSIFIER_TIMEOUT_SECONDS,
-                )
-            raw = getattr(response, "content", "") or ""
+            choices = getattr(response, "choices", None)
+            message = getattr(choices[0], "message", None) if choices else None
+            raw = getattr(message, "content", "") or ""
             decision = parse_classifier_output(raw if isinstance(raw, str) else str(raw))
             self.logger.info(
                 "semantic interaction decision action={} duration_set={} input_chars={}",

@@ -6,6 +6,7 @@ import types
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sdk = types.ModuleType("plugin.sdk.plugin")
@@ -54,6 +55,48 @@ spec = importlib.util.spec_from_file_location("xiaoyu_interaction_policy", MODUL
 mod = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(mod)
+
+
+class ModelGatewayClassifierTests(unittest.IsolatedAsyncioTestCase):
+    async def test_classifier_uses_declared_native_model_usage(self):
+        calls = []
+
+        class Completions:
+            async def create(self, **kwargs):
+                calls.append(kwargs)
+                return SimpleNamespace(
+                    choices=[
+                        SimpleNamespace(
+                            message=SimpleNamespace(
+                                content='{"action":"quiet","duration_minutes":null,"speech_action":"mute","vision_action":"unchanged"}'
+                            )
+                        )
+                    ]
+                )
+
+        class Models:
+            async def get_client(self):
+                return SimpleNamespace(
+                    chat=SimpleNamespace(completions=Completions())
+                )
+
+        plugin = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        plugin.ctx = SimpleNamespace(models=Models())
+        plugin.logger = SimpleNamespace(
+            info=lambda *args, **kwargs: None,
+            warning=lambda *args, **kwargs: None,
+        )
+
+        result = await plugin._classify("别说话")
+        self.assertEqual(result["action"], "quiet")
+        self.assertEqual(result["speech_action"], "mute")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["model"], mod._CLASSIFIER_MODEL_USAGE)
+        self.assertEqual(calls[0]["model"], "interaction_classifier")
+        self.assertEqual(calls[0]["temperature"], 0.0)
+        self.assertLessEqual(calls[0]["max_tokens"], 96)
+        self.assertEqual(calls[0]["messages"][0]["role"], "system")
+        self.assertEqual(calls[0]["messages"][1], {"role": "user", "content": "别说话"})
 
 
 class InterruptibilityCapabilityTests(unittest.IsolatedAsyncioTestCase):
@@ -268,6 +311,24 @@ class ParserTests(unittest.TestCase):
             },
         )
 
+    def test_semantic_hard_gate_allows_talk_to_me_again(self):
+        self.assertEqual(
+            mod.gate_semantic_hard_control(
+                "You can talk to me again now.",
+                {
+                    "action": "resume",
+                    "duration_minutes": None,
+                    "speech_action": "unmute",
+                    "vision_action": "unchanged",
+                },
+            ),
+            {
+                "action": "resume",
+                "duration_minutes": None,
+                "speech_action": "unmute",
+                "vision_action": "unchanged",
+            },
+        )
     def test_semantic_hard_gate_separates_proactive_from_speech_mute(self):
         self.assertEqual(
             mod.gate_semantic_hard_control(

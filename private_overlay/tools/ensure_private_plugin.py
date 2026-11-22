@@ -16,6 +16,10 @@ from pathlib import Path
 
 
 PLUGIN_ID = "xiaoyu_interaction_policy"
+CLASSIFIER_MODEL_USAGE = "interaction_classifier"
+CLASSIFIER_HOST_API = "agent_small"
+CLASSIFIER_SLOT_NAME = "Small familiar model"
+CLASSIFIER_SLOT_TIMEOUT_SECONDS = 8.0
 IGNORED_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 TEXT_PAYLOAD_SUFFIXES = {
     ".py", ".toml", ".json", ".md", ".txt", ".yaml", ".yml",
@@ -97,6 +101,110 @@ def _migrate_reply_output_state(
     os.replace(temp, path)
     return True
 
+
+
+def _classifier_binding_status(service) -> dict[str, object]:
+    """Return the host-owned binding state for the classifier usage."""
+    bindings = service.get_bindings(PLUGIN_ID)
+    usages = bindings.get("requirements") if isinstance(bindings, dict) else None
+    usage = usages.get(CLASSIFIER_MODEL_USAGE) if isinstance(usages, dict) else None
+    if not isinstance(usage, dict):
+        return {"declared": False, "status": "not_declared"}
+
+    slot_id = str(usage.get("slot_id") or "")
+    version = int(usage.get("version") or 0)
+    if not slot_id:
+        return {
+            "declared": True,
+            "status": "unbound",
+            "slot_id": "",
+            "version": version,
+        }
+    slot = service.get_slot(slot_id)
+    return {
+        "declared": True,
+        "status": str(usage.get("status") or "bound"),
+        "slot_id": slot_id,
+        "version": version,
+        "source": str(slot.get("source") or ""),
+        "host_api": str(slot.get("host_api") or ""),
+    }
+
+
+def _ensure_classifier_model_binding(service=None) -> dict[str, object]:
+    """Prefer the native small familiar tier without overriding user choices.
+
+    N.E.K.O automatically binds a newly declared usage to its seeded agent
+    host-follow slot and records binding version 1. That exact state is the only
+    binding we migrate. Any later version or non-default slot is user-managed
+    and is preserved.
+    """
+    if service is None:
+        from plugin.server.application.model_config_service import ModelConfigService
+        service = ModelConfigService()
+
+    state = _classifier_binding_status(service)
+    if not state.get("declared"):
+        return state
+
+    # N.E.K.O normally performs this after install commit on a daemon thread.
+    # XiaoYu's installer is intentionally short-lived, so that background
+    # thread can be terminated with the CLI process before it fsyncs. Reuse
+    # the same native auto-bind synchronously only for a never-touched usage.
+    if state.get("status") == "unbound" and int(state.get("version") or 0) == 0:
+        ensure_native = getattr(service, "ensure_host_follow_binding", None)
+        if callable(ensure_native):
+            ensure_native(PLUGIN_ID)
+            state = _classifier_binding_status(service)
+        if state.get("status") == "unbound" and int(state.get("version") or 0) == 0:
+            return {**state, "migration": "native_autobind_unavailable"}
+
+    if state.get("host_api") == CLASSIFIER_HOST_API:
+        return {**state, "migration": "already_small"}
+
+    auto_agent = (
+        state.get("status") == "bound"
+        and state.get("source") == "host_follow"
+        and state.get("host_api") == "agent"
+        and state.get("version") == 1
+    )
+    if not auto_agent:
+        return {**state, "migration": "user_binding_preserved"}
+
+    slots_payload = service.list_slots()
+    slots = slots_payload.get("slots") if isinstance(slots_payload, dict) else []
+    target = next(
+        (
+            item for item in (slots or [])
+            if isinstance(item, dict)
+            and item.get("source") == "host_follow"
+            and item.get("host_api") == CLASSIFIER_HOST_API
+            and "text" in (item.get("capabilities") or [])
+        ),
+        None,
+    )
+    if target is None:
+        target = service.create_slot({
+            "name": CLASSIFIER_SLOT_NAME,
+            "source": "host_follow",
+            "host_api": CLASSIFIER_HOST_API,
+            "capabilities": ["text"],
+            "timeout_seconds": CLASSIFIER_SLOT_TIMEOUT_SECONDS,
+        })
+
+    target_id = str(target.get("id") or "")
+    if not target_id:
+        raise RuntimeError("N.E.K.O did not return an id for the agent_small model slot")
+    service.set_binding(
+        PLUGIN_ID,
+        CLASSIFIER_MODEL_USAGE,
+        target_id,
+        expected_version=int(state.get("version") or 0),
+    )
+    return {
+        **_classifier_binding_status(service),
+        "migration": "auto_agent_to_agent_small",
+    }
 
 def _runtime_ports_open(
     ports: tuple[int, ...] = (48911, 48916),
@@ -196,6 +304,7 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
         pass
 
     if exact:
+        model_binding = _ensure_classifier_model_binding()
         return {
             "ok": True,
             "changed": False,
@@ -203,6 +312,7 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
             "version": desired_version,
             "status": "current",
             "installed_dir": str(installed),
+            "classifier_model_binding": model_binding,
         }
 
     if args.verify_only:
@@ -286,6 +396,7 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
     exact_after, after_reason = _installed_matches_source(source, installed)
     if not exact_after:
         raise RuntimeError(f"installed XiaoYu plugin does not match private source: {after_reason}")
+    model_binding = _ensure_classifier_model_binding()
 
     return {
         "ok": True,
@@ -298,6 +409,7 @@ async def _ensure(args: argparse.Namespace) -> dict[str, object]:
         "package_path": str(build.package_path),
         "payload_hash": str(build.payload_hash),
         "state_migrated": state_migrated,
+        "classifier_model_binding": model_binding,
     }
 
 
