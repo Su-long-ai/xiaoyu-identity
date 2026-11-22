@@ -130,7 +130,7 @@
     {
       "id": "plugin:xiaoyu_interaction_policy",
       "status": "approved",
-      "reviewed_at": "2026-11-21",
+      "reviewed_at": "2026-11-22",
       "problem": "Owner interaction controls need deterministic native state changes without a permanent high-frequency polling loop; retrospective activity still needs a queryable local authority.",
       "decision": "thin_adapter",
       "candidates": [
@@ -151,9 +151,21 @@
           "type": "external",
           "outcome": "selected as recent-activity authority; no private duplicate timeline",
           "evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK model gateway (ctx.models)",
+          "type": "native_sdk",
+          "outcome": "not selected yet for the semantic classifier: the SDK removes direct provider credentials, but fresh plugin usages auto-bind to SHARED_HOST_API='agent'. The current classifier intentionally uses the cheaper emotion-tier model; the manifest has no preference for agent_small, so automatic migration would silently increase cost/latency.",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK SystemInfo/settings surface",
+          "type": "native_sdk",
+          "outcome": "read-only for this need: get_system_config/get_server_settings exist, but no SDK conversation-settings CAS write is exposed. Keep the narrow native /api/config/conversation-settings adapter for explicit owner vision-consent changes rather than inventing a second settings authority.",
+          "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json"
         }
       ],
-      "why_reuse_insufficient": "The plugin remains only semantic intent mediation and a read-only bridge to native/external authorities. Text observation now uses N.E.K.O conversations_v2 rather than polling memory; a 30-second timer remains only for bounded-quiet expiry, watcher recovery, and a conversations_v2 incremental fallback. It does not own a second memory, proactive engine, vision runtime, or activity datastore.",
+      "why_reuse_insufficient": "The plugin remains semantic intent mediation only. Text observation uses N.E.K.O conversations_v2; hard proactive execution uses proactive_controller; screen consent writes use the native conversation-settings CAS route; retrospective activity uses ActivityWatch. N.E.K.O 899a08ce's model gateway was reviewed but its automatic binding targets the full agent tier, not the current cheap emotion classifier, and the manifest cannot request agent_small. SystemInfo has no conversation-settings CAS writer. These direct host calls therefore remain narrow temporary adapters until an equivalent-cost model binding preference and native settings-write SDK exist.",
       "acceptance_evidence": "evals/evidence/2026-11-21-interaction-policy-event-driven-performance.json"
     },
     {
