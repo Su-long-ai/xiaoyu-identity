@@ -844,6 +844,8 @@ class OverlayContractTests(unittest.TestCase):
             "test_qq_catchup.py",
             "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py",
             "private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py",
+            "tests/unit/test_xiaoyu_plugin_visible_final_admission.py",
+            "plugin/tests/unit/server/test_xiaoyu_push_origin.py",
             "git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check",
         ):
             self.assertIn(required, workflow)
