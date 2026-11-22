@@ -131,6 +131,23 @@ async def _verify(neko_root: Path) -> None:
         finally:
             await second.close()
 
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "effect-ledger.db"
+        ledger = Ledger(path)
+        item_id = await ledger.outbox_add(None, "task_result", {"summary": "guard"})
+
+        async def invalid_send(_item):
+            return DeliveryHandoff("not-recorded")
+
+        sender = OutboxSender(ledger, invalid_send)
+        assert await sender.flush() == 0
+        assert await ledger.outbox_delivery_state(item_id) == "pending"
+        pending = await ledger.outbox_pending()
+        assert [item.id for item in pending] == [item_id]
+        assert pending[0].attempts == 1
+        assert "not persisted before transport" in pending[0].last_error
+        await ledger.close()
+
 
 
 def main() -> int:
