@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T19:16:00+08:00",
+  "phase": "isolated_upstream_audit",
+  "candidate": {
+    "current_live_pin": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6",
+    "candidate_commit": "e4f87d32b505200b97a293baf81a6593517f797a",
+    "upstream_delta_commits": 5,
+    "notable_changes": [
+      "memory-browser followups and event-log/snapshot behavior",
+      "vision now follows chat model; separate vision config is deprecated fallback",
+      "API settings rename/hide changes",
+      "neko-plugin link scan ignores gitignored paths",
+      "protocol association cleanup"
+    ]
+  },
+  "patch_replay": {
+    "managed_patch_count": 10,
+    "git_apply_check": "PASS 10/10",
+    "git_apply": "PASS 10/10",
+    "git_diff_check": "PASS",
+    "patch_retirement_count": 0
+  },
+  "regression": {
+    "vision_core": "101/101 PASS (38 + 31 + 26 + 6)",
+    "memory_followups": "86/86 PASS",
+    "xiaoyu_core_targets": "697 PASS, 4 skipped",
+    "connectivity_frontend": "11/11 PASS"
+  },
+  "blocker": {
+    "test": "tests/frontend/test_api_settings.py::test_custom_model_headers_own_their_capsule_shape[chromium]",
+    "patched_candidate": "FAIL: exposedMenuCenterIsVisible=false",
+    "clean_upstream_reproduction": "FAIL with the same geometry assertion after the clean server reached the UI test",
+    "clean_first_cold_attempt": "setup timeout before UI assertion because clean upstream lacks XiaoYu patch 0010 and reproduced multi-second OpenAI-import/client-registration stalls; live ZMQ port contention was also observed",
+    "classification": "UPSTREAM_FRONTEND_REGRESSION_OR_FLAKE_NOT_CAUSED_BY_XIAOYU_PATCHES",
+    "private_patch_added": false
+  },
+  "reuse_assessment": {
+    "decision": "HOLD_CURRENT_PIN",
+    "reason": "The candidate is functionally compatible with XiaoYu core/memory/model-connectivity paths and all ten managed patches replay cleanly, but an upstream API-settings frontend regression reproduces without XiaoYu patches. Do not create a private fix merely to chase upstream HEAD.",
+    "current_pin_remains": "6fccfb72e14c90e023ff1ae87d5abb2fad9a50c6"
+  },
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  },
+  "verdict": "PASS_COMPATIBILITY_HOLD_PROMOTION_UPSTREAM_FRONTEND_BLOCKER"
+}
