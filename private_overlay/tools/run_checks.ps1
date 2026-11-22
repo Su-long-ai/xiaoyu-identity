@@ -44,6 +44,10 @@ Write-Host "== XiaoYu frozen architecture/delivery contract =="
 python (Join-Path $OverlayRoot "tools\check_architecture_freeze.py")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== XiaoYu plugin autostart admission =="
+python (Join-Path $OverlayRoot "tools\check_plugin_admission.py") --neko-root $NekoRoot --storage-root $StorageRoot
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== XiaoYu/N.E.K.O authority contract =="
 $env:NEKO_ROOT = $NekoRoot
 python (Join-Path $OverlayRoot "tools\check_overlay.py")

@@ -77,6 +77,13 @@ User-visible output is governed by governance/delivery_floor_v1.json. This is a 
 
 This freeze does not enable Agent master or install dsh. Runtime activation remains an explicit product/user configuration choice.
 
+
+### Plugin autostart admission
+
+`governance/plugin_admission_v1.json` controls only which plugins may become implicit XiaoYu runtime residents. `tools/check_plugin_admission.py` fails closed when an enabled + auto-start plugin is not in the reviewed admission set, and it verifies the pinned QQ checkout against its lock. Native N.E.K.O plugins and the reviewed private interaction-policy plugin keep their existing host lifecycle; no XiaoYu plugin host or permission database is introduced.
+
+This is deliberately **not** a malicious-plugin sandbox. N.E.K.O capability grants and process boundaries remain host-owned, and explicit owner-started/manual-only plugins stay outside this auto-start policy. The admission gate prevents a newly installed third-party plugin from silently becoming a permanent XiaoYu resident; finer-grained hostile-plugin isolation should be reused from a future native N.E.K.O capability boundary rather than emulated in the overlay.
+
 ## Reuse-first gate
 
 Every new private runtime plugin or managed N.E.K.O core patch must first have an approved entry in `governance/reuse_reviews.json`. The review records the N.E.K.O native/upstream and mature external candidates considered, supporting evidence, and why reuse alone is insufficient when a thin adapter or private implementation remains. `tools/check_reuse_first.py` is fail-closed and runs inside `tools/run_checks.ps1`; an unreviewed managed patch/plugin or an unmanaged patch file blocks the checks. If a reusable solution later becomes viable, the policy prefers replacing/deleting private code rather than keeping it because it already exists.
