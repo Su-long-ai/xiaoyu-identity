@@ -2,11 +2,11 @@
   "schema_version": 1,
   "kind": "agent_product_main_freshness_gate",
   "decided_at_local": "2026-11-23T03:08:00+08:00",
-  "problem": "Long-lived agent branches can keep producing commits after product main advances, so they may execute an inherited but stale architecture/reuse context and accumulate large integration drift.",
+  "problem": "Long-lived agent branches must not start a commit from a product-main state that was already stale, while concurrent product-main commits created after the agent HEAD must not retroactively invalidate that push.",
   "authority": "Git commit ancestry between origin/private/neko-overlay-v1 and the pushed agent/** HEAD",
   "selected": {
     "mechanism": "existing private-overlay GitHub Actions workflow + git fetch + merge-base --is-ancestor",
-    "behavior": "fail ordinary agent/** pushes unless the current product-main HEAD is already an ancestor of the pushed agent HEAD",
+    "behavior": "For agent/** pushes, resolve the newest product-main first-parent commit whose committer timestamp is at or before the agent HEAD committer timestamp; require that commit to be an ancestor. A newer product-main commit created after the agent HEAD is reported as PASS_RACE and becomes mandatory on the next agent push.",
     "reason": "Uses the repository's existing CI and Git's native ancestry semantics; adds no scheduler, branch database, bot or second governance service."
   },
   "considered": [
@@ -37,9 +37,11 @@
     }
   ],
   "acceptance": [
-    "Every ordinary agent/** push fetches the current product-main ref.",
-    "The push fails unless current product main is an ancestor of agent HEAD.",
-    "Product-main pushes and PR synthetic refs do not require the agent-only ancestry condition.",
-    "Reuse/architecture/plugin/release gates remain unchanged and execute after freshness on eligible pushes."
-  ]
+    "Every ordinary agent/** push fetches current product main.",
+    "The newest product-main commit available at or before the agent HEAD commit boundary must be an ancestor of the agent HEAD.",
+    "Product-main commits created after the agent HEAD do not retroactively fail that already-created agent commit.",
+    "If current product main advanced after the agent HEAD, the run reports PASS_RACE and the next agent push must resync.",
+    "Reuse/architecture/plugin/release gates remain unchanged and execute after freshness."
+  ],
+  "race_safety": "prevents moving-target false failures during concurrent product-main and agent development while still blocking a genuinely stale next implementation commit"
 }
