@@ -82,6 +82,22 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(_FakeHandler.state["refreshes"],1)
         self.assertEqual(_FakeHandler.state["starts"],["alpha","beta"])
 
+    def test_running_autostart_is_not_restarted_and_crashed_plugin_is_recovered(self):
+        _FakeHandler.state["plugins"][0]["status"] = "running"
+        _FakeHandler.state["plugins"][1]["status"] = "crashed"
+
+        result = mod.reconcile_native_autostart(
+            plugin_url=self.base,
+            request_timeout=1,
+        )
+
+        self.assertEqual(result["host_selected_candidates"], ["alpha", "beta"])
+        self.assertEqual(result["running"], ["alpha", "beta"])
+        self.assertEqual(result["not_running"], [])
+        self.assertEqual(result["attempts"]["alpha"], ["already_running"])
+        self.assertEqual(result["attempts"]["beta"], ["started"])
+        self.assertEqual(_FakeHandler.state["starts"], ["beta"])
+
     def test_relay_preserves_master_and_builtin_flags(self):
         result=mod.ensure_user_plugin_relay(agent_url=self.base,lanlan_name="XiaoYu",request_timeout=1)
         self.assertTrue(result["user_plugin_enabled"]); self.assertFalse(result["analyzer_enabled"])
