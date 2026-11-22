@@ -561,10 +561,20 @@ class OverlayContractTests(unittest.TestCase):
         for required in (
             "outbox_effect_state.patch",
             "git -C _neko_upstream apply --check",
-            "test_effect_handoff_is_not_mistaken_for_delivery",
-            "test_restart_retries_preclaim_handoff_but_freezes_claimed_effect",
+            "verify_execution_effect_state_candidate.py",
         ):
             self.assertIn(required, workflow)
+
+        verifier = (
+            ROOT / "tools" / "verify_execution_effect_state_candidate.py"
+        ).read_text(encoding="utf-8-sig")
+        for invariant in (
+            "outbox_mark_handoff",
+            "outbox_claim_delivery",
+            "wrong-main-claim",
+            "not persisted before transport",
+        ):
+            self.assertIn(invariant, verifier)
 
     def test_qq_inbound_idempotency_candidate_is_reviewed_but_not_live(self):
         candidate = ROOT / "candidates" / "qq" / "live_inbound_idempotency.patch"
