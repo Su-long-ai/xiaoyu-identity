@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_BOOTSTRAP_RUNTIME_HELPER_PUSH_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:27:00+08:00",
+  "implementation_status": "AGENT_BRANCH_GREEN_AWAITING_MAIN_INTEGRATION",
+  "product_main_base": "769fe47d377af08aef38787eff559b9bae27f57b",
+  "agent_base": "fb000f783c052ffe637c25d56771a907f2016a27",
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "current_pin_equals_latest_upstream": true,
+    "native_authorities": [
+      "N.E.K.O Plugin SDK",
+      "N.E.K.O PluginStore",
+      "N.E.K.O model slots",
+      "N.E.K.O plugin package/install planning",
+      "N.E.K.O plugin registry/start HTTP surface",
+      "N.E.K.O user_preferences.json"
+    ],
+    "selected_execution_plane": "existing private-overlay-gate.yml Overlay contract tests step"
+  },
+  "existing_reuse_decisions": [
+    "plugin:xiaoyu_interaction_policy",
+    "plugin:xiaoyu_interaction_policy-model-slot",
+    "plugin:xiaoyu_interaction_policy-store",
+    "startup:native-plugin-runtime-reconcile",
+    "patch:0009-proactive-interruptibility-gate.patch"
+  ],
+  "omitted_existing_tests": [
+    {
+      "module": "private_overlay.tests.test_ensure_private_plugin",
+      "scope": "exact private plugin source/install matching, live replacement fence, native model-slot migration/preservation"
+    },
+    {
+      "module": "private_overlay.tests.test_ensure_xiaoyu_activity_preferences",
+      "scope": "native user_preferences activity override only, unrelated-field preservation, verify-only and idempotency"
+    },
+    {
+      "module": "private_overlay.tests.test_reconcile_neko_plugin_runtime",
+      "scope": "host-selected approved autostart, crash recovery at explicit reconcile point, no healthy-process bounce, pending approval preservation, bounded deadline"
+    },
+    {
+      "module": "private_overlay.tests.test_xiaoyu_interaction_policy_plugin",
+      "scope": "native model usage, PluginStore authority, event-driven text/voice control, ActivityWatch privacy/unknown semantics, whole-reply quiet and native vision CAS"
+    }
+  ],
+  "determinism_and_environment": {
+    "external_network_required": false,
+    "physical_windows_required": false,
+    "napcat_required": false,
+    "activitywatch_daemon_required": false,
+    "plugin_process_required": false,
+    "fake_local_http_only": "test_reconcile_neko_plugin_runtime uses a ThreadingHTTPServer bound to loopback",
+    "interaction_policy_sdk": "test module stubs the narrow Plugin SDK decorator/types it needs"
+  },
+  "implementation_constraints": {
+    "new_runtime": false,
+    "new_plugin_supervisor": false,
+    "new_state_store": false,
+    "new_router": false,
+    "new_daemon": false,
+    "new_preference_database": false,
+    "new_polling_loop": false,
+    "new_test_framework": false,
+    "ordinary_agent_push_must_execute": true,
+    "use_existing_unittest_invocation": true
+  },
+  "acceptance_plan": [
+    "append the four existing unittest modules to the existing Overlay contract tests command",
+    "do not add a second workflow or dependency environment unless the tests prove a real missing declared dependency",
+    "require reuse/architecture/plugin admission/PowerShell/product-state/execution/QQ/release steps to remain green",
+    "record exact test count and full-gate result",
+    "keep live Windows/NapCat/ActivityWatch daemon acceptance separate and pending when Local Operator is unavailable"
+  ],
+  "retirement_condition": "Retire this overlay CI wiring only when the bootstrap helpers themselves retire into N.E.K.O native behavior or an equivalent product-main CI contract runs the same responsibilities without duplicate authority.",
+  "machine_validation": {
+    "review_commit": "9cfb806479ef2aece5db67060e3beefce3c6f213",
+    "review_run_id": 45055267734,
+    "review_conclusion": "success",
+    "implementation_commit": "f2bc2a408132a9ef7c95e2058ad60fadb41307ff",
+    "implementation_run_id": 45055497389,
+    "implementation_job_id": 137309692917,
+    "implementation_conclusion": "success",
+    "overlay_unittest_result": "Ran 128 tests in 5.105s; OK",
+    "newly_covered_existing_tests": 57,
+    "patched_product_python": "341 passed, 19 warnings in 17.29s",
+    "patched_product_node": "100 passed, 0 failed",
+    "native_delivery_receipt_real_zmq_e2e": "success",
+    "qq_surface": "173 passed, 3 warnings in 3.34s",
+    "qq_inbound_candidate": "46 passed in 0.23s",
+    "release_evidence_gate": "success"
+  },
+  "implementation": {
+    "change": "append four existing bootstrap/runtime helper unittest modules to the existing Overlay contract tests command and install the official N.E.K.O httpx[socks]>=0.28.1 constraint in that same runner environment",
+    "new_runtime": false,
+    "new_plugin_supervisor": false,
+    "new_state_store": false,
+    "new_router": false,
+    "new_daemon": false,
+    "new_preference_database": false,
+    "new_polling_loop": false,
+    "new_test_framework": false
+  },
+  "live_acceptance": {
+    "local_operator_tunnel": "UNAVAILABLE",
+    "windows_bootstrap_live_run": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "napcat_live_plugin_reconcile": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "activitywatch_daemon_live_recheck": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "claim_scope": "Repository/cloud regressions are green; this evidence does not claim a fresh live Windows/NapCat/ActivityWatch daemon run."
+  },
+  "product_main_integration": {
+    "status": "AWAITING_MAIN_AGENT_INTEGRATION",
+    "latest_main_checked": "769fe47d377af08aef38787eff559b9bae27f57b"
+  },
+  "recorded_green_at_local": "2026-11-23T02:31:00+08:00"
+}
