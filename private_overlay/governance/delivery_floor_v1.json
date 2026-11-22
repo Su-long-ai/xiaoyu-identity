@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "contract_id": "XIAOYU_DELIVERY_FLOOR_V1",
+  "implementation_mode": "contract_only_no_second_runtime",
+  "publication_authority": "neko_native",
+  "decisions": [
+    "ALLOW",
+    "HOLD",
+    "DROP"
+  ],
+  "global_requirements": {
+    "latest_state_recheck_before_claim_or_publication": true,
+    "audience_and_privacy_must_be_valid_at_delivery": true,
+    "nonessential_output_must_respect_interruptibility": true,
+    "text_and_paired_tts_must_share_one_admission": true,
+    "policy_layer_must_not_publish_directly": true,
+    "native_delivery_remains_effect_authority": true,
+    "surface_specific_interruptibility_is_allowed": true
+  },
+  "output_classes": {
+    "ordinary_reply": {
+      "kind": "solicited",
+      "current_enforcement_adapter": "patch:0006-private-speech-output-gate.patch",
+      "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json",
+      "required_semantics": [
+        "whole_reply_quiet_gate_before_text_tts_split",
+        "ownership_guard_before_paired_tts"
+      ]
+    },
+    "proactive": {
+      "kind": "unsolicited",
+      "current_enforcement_adapter": "patch:0009-proactive-interruptibility-gate.patch",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
+      "required_semantics": [
+        "latest_activity_recheck",
+        "windows_notification_propriety_recheck",
+        "final_check_before_claim"
+      ]
+    },
+    "work_break": {
+      "kind": "unsolicited_exception",
+      "current_enforcement_adapter": "patch:0009-proactive-interruptibility-gate.patch",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
+      "required_semantics": [
+        "uses_shared_proactive_delivery_admission",
+        "focused_work_exception_is_explicit"
+      ]
+    },
+    "game_invite": {
+      "kind": "unsolicited_entertainment",
+      "current_enforcement_adapter": "patch:0009-proactive-interruptibility-gate.patch",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
+      "required_semantics": [
+        "leisure_only",
+        "uses_shared_proactive_delivery_admission"
+      ]
+    },
+    "agent_result": {
+      "kind": "background_completion",
+      "current_enforcement_adapter": "neko_native:task_result_outbox_to_proactive_callback",
+      "evidence": "evals/evidence/2026-11-22-delivery-floor-agent-qq-audit.json",
+      "required_semantics": [
+        "durable_outbox_before_main_server_handoff",
+        "proactive_results_use_shared_proactive_callback_delivery",
+        "passive_results_wait_for_user_turn",
+        "silent_results_skip_llm_delivery",
+        "native_delivery_only"
+      ]
+    },
+    "qq_outbound": {
+      "kind": "cross_surface",
+      "current_enforcement_adapter": "external:pinned_qq_auto_reply_surface_floor",
+      "evidence": "evals/evidence/2026-11-22-delivery-floor-agent-qq-audit.json",
+      "required_semantics": [
+        "audience_target_validation",
+        "group_outbound_guard_and_mute_rate_safety",
+        "proactive_private_quiet_hours_budget_gap_and_recent_activity",
+        "surface_specific_interruptibility_not_desktop_quns",
+        "pinned_connector_delivery_only"
+      ]
+    }
+  }
+}

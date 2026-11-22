@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:32:00+08:00",
+  "scope": "XIAOYU_DELIVERY_FLOOR_V1 agent_result and qq_outbound path audit",
+  "agent_result": {
+    "verdict": "REUSE_NATIVE_DELIVERY_PATH",
+    "path": [
+      "nekoclaw.host.reports.Reporter.task_result_report",
+      "nekoclaw.host.outbox.OutboxSender",
+      "app.agent_server.nekoclaw_mount.send_report",
+      "app.main_server.character_runtime task_result handler",
+      "ProactiveMixin proactive callback manager for delivery_mode=proactive"
+    ],
+    "observations": [
+      "NekoClaw stores task_result in its durable outbox before sending to main server.",
+      "delivery_mode=proactive is submitted to the native proactive callback delivery manager.",
+      "delivery_mode=passive is enqueue-only and waits for the next user turn.",
+      "delivery_mode=silent skips the LLM delivery channel.",
+      "NekoClaw task_result_report hard-codes direct_reply=false, so background task results do not use the direct-reply bypass."
+    ],
+    "xiaoyu_patch_required": false,
+    "existing_final_interruptibility_adapter": "0009-proactive-interruptibility-gate.patch"
+  },
+  "qq_outbound": {
+    "verdict": "REUSE_PINNED_SURFACE_SPECIFIC_FLOOR",
+    "plugin": "qq_auto_reply",
+    "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+    "guards": [
+      "QQOutboundGuardService for group content/dedup admission",
+      "GroupSendSafety for mute and burst admission",
+      "QQProactiveInitiativeService quiet hours",
+      "shared proactive daily budget and minimum gap",
+      "recent admin-activity grace before proactive private send",
+      "validated group/private target routing",
+      "NapCat/OneBot or official connector remains actual delivery authority"
+    ],
+    "surface_semantics": "Desktop QUNS is intentionally not imposed on QQ: desktop busy/fullscreen does not prove the owner is unreachable on the cross-device surface. QQ uses its own quiet-hours/budget/recent-activity floor.",
+    "targeted_regression": "126 passed in 9.44s: test_qq_outbound_guard.py, test_group_send_safety.py, test_proactive_budget_integration.py, test_qq_proactive_initiative.py",
+    "xiaoyu_patch_required": false
+  },
+  "overall": "NO_NEW_RUNTIME_OR_CORE_PATCH_JUSTIFIED"
+}

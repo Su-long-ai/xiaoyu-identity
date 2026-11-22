@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "decision_id": "XIAOYU_ARCHITECTURE_FREEZE_V1",
+  "frozen_at_local": "2026-11-22T21:30:00+08:00",
+  "companion_runtime_authority": "neko_native",
+  "extension_plane_default": "neko_plugin_sdk",
+  "external_execution_boundaries": [
+    "neko_external_agent",
+    "neko_mcp",
+    "neko_plugin_sdk"
+  ],
+  "memory": {
+    "authority": "neko_native",
+    "external_candidates_mode": "shadow_only_until_explicit_promotion"
+  },
+  "forbidden_xiaoyu_duplicate_authorities": [
+    "plugin_host",
+    "model_gateway",
+    "vector_store",
+    "memory_runtime",
+    "agent_runtime",
+    "http_pool",
+    "credential_store"
+  ],
+  "private_core_patch_policy": {
+    "mode": "exception_only",
+    "requires_reuse_review": true,
+    "requires_reproduced_product_gap": true,
+    "retire_when_native_extension_exists": true,
+    "max_managed_patch_budget": 10
+  },
+  "principles": {
+    "no_second_runtime": true,
+    "reuse_native_before_external": true,
+    "reuse_external_before_private_implementation": true,
+    "stable_contracts_over_implementation_ownership": true
+  }
+}

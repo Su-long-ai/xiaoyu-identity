@@ -63,6 +63,13 @@ tools/run_checks.ps1 ends with a fail-closed release gate. Every case in evals/a
 
 The bundled rates were rechecked against Alibaba Cloud Model Studio's public pricing pages on 2026-11-20 for the Beijing endpoint used by XiaoYu. They are reference rates rather than an account invoice. The report keeps genuinely unpriced calls separate and uses conservative ranges where N.E.K.O stores less billing detail than the provider: tiered historical aggregates, mixed-modality Realtime input/output tokens, and TTS character counts (N.E.K.O stores Python character length while Bailian bills CJK ideographs as two characters). Provider billing remains authoritative. Budget warnings are informational and never stop requests.
 
+
+## Frozen architecture direction
+
+The private product direction is frozen by governance/architecture_freeze.json and enforced by tools/check_architecture_freeze.py. N.E.K.O remains the sole companion/runtime authority and its Plugin SDK is the default extension plane. XiaoYu must not grow a second plugin host, model gateway, vector store/memory runtime, agent runtime, HTTP pool, or credential store. External execution belongs behind N.E.K.O's existing external-agent, MCP, or Plugin SDK boundaries. N.E.K.O memory stays authoritative; alternative memory engines may be evaluated only in shadow mode until an explicit promotion decision.
+
+User-visible output is governed by governance/delivery_floor_v1.json. This is a contract, not another runtime. It inventories ordinary replies, proactive output, work-break reminders, game invitations, background-agent results, and QQ outbound delivery under one ALLOW/HOLD/DROP vocabulary. Policy may decide whether output is admissible, but only N.E.K.O native delivery (or its pinned connector path) performs publication. Existing managed patches 0006 and 0009 remain the narrow enforcement adapters for whole-reply admission and proactive final-delivery admission; new core code is not justified merely to make the implementation look more uniform.
+
 ## Reuse-first gate
 
 Every new private runtime plugin or managed N.E.K.O core patch must first have an approved entry in `governance/reuse_reviews.json`. The review records the N.E.K.O native/upstream and mature external candidates considered, supporting evidence, and why reuse alone is insufficient when a thin adapter or private implementation remains. `tools/check_reuse_first.py` is fail-closed and runs inside `tools/run_checks.ps1`; an unreviewed managed patch/plugin or an unmanaged patch file blocks the checks. If a reusable solution later becomes viable, the policy prefers replacing/deleting private code rather than keeping it because it already exists.

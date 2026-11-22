@@ -40,6 +40,10 @@ Write-Host "== XiaoYu reuse-first admission gate =="
 python (Join-Path $OverlayRoot "tools\check_reuse_first.py")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== XiaoYu frozen architecture/delivery contract =="
+python (Join-Path $OverlayRoot "tools\check_architecture_freeze.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== XiaoYu/N.E.K.O authority contract =="
 $env:NEKO_ROOT = $NekoRoot
 python (Join-Path $OverlayRoot "tools\check_overlay.py")

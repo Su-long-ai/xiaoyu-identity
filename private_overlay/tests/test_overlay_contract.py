@@ -368,5 +368,101 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIn("plugin:" + plugin["id"], ids)
 
 
+    def test_architecture_freeze_is_machine_enforced(self):
+        arch = json.loads(
+            (ROOT / "governance" / "architecture_freeze.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(
+            arch["decision_id"],
+            "XIAOYU_ARCHITECTURE_FREEZE_V1",
+        )
+        self.assertEqual(arch["companion_runtime_authority"], "neko_native")
+        self.assertEqual(arch["extension_plane_default"], "neko_plugin_sdk")
+        self.assertTrue(arch["principles"]["no_second_runtime"])
+        self.assertEqual(arch["memory"]["authority"], "neko_native")
+        self.assertEqual(
+            arch["memory"]["external_candidates_mode"],
+            "shadow_only_until_explicit_promotion",
+        )
+        self.assertTrue(arch["private_core_patch_policy"]["requires_reuse_review"])
+        self.assertTrue(
+            arch["private_core_patch_policy"]["retire_when_native_extension_exists"]
+        )
+        forbidden = set(arch["forbidden_xiaoyu_duplicate_authorities"])
+        self.assertTrue(
+            {
+                "plugin_host",
+                "model_gateway",
+                "vector_store",
+                "memory_runtime",
+                "agent_runtime",
+                "http_pool",
+                "credential_store",
+            }.issubset(forbidden)
+        )
+
+    def test_delivery_floor_contract_covers_all_user_visible_output_classes(self):
+        delivery = json.loads(
+            (ROOT / "governance" / "delivery_floor_v1.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual(delivery["contract_id"], "XIAOYU_DELIVERY_FLOOR_V1")
+        self.assertEqual(
+            delivery["implementation_mode"],
+            "contract_only_no_second_runtime",
+        )
+        self.assertEqual(delivery["publication_authority"], "neko_native")
+        self.assertEqual(set(delivery["decisions"]), {"ALLOW", "HOLD", "DROP"})
+        self.assertEqual(
+            set(delivery["output_classes"]),
+            {
+                "ordinary_reply",
+                "proactive",
+                "work_break",
+                "game_invite",
+                "agent_result",
+                "qq_outbound",
+            },
+        )
+        self.assertEqual(
+            delivery["output_classes"]["ordinary_reply"]["current_enforcement_adapter"],
+            "patch:0006-private-speech-output-gate.patch",
+        )
+        for name in ("proactive", "work_break", "game_invite"):
+            self.assertEqual(
+                delivery["output_classes"][name]["current_enforcement_adapter"],
+                "patch:0009-proactive-interruptibility-gate.patch",
+            )
+        self.assertEqual(
+            delivery["output_classes"]["agent_result"]["current_enforcement_adapter"],
+            "neko_native:task_result_outbox_to_proactive_callback",
+        )
+        self.assertEqual(
+            delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
+            "external:pinned_qq_auto_reply_surface_floor",
+        )
+        for item in delivery["output_classes"].values():
+            self.assertTrue((ROOT / item["evidence"]).is_file())
+        requirements = delivery["global_requirements"]
+        for key in (
+            "latest_state_recheck_before_claim_or_publication",
+            "audience_and_privacy_must_be_valid_at_delivery",
+            "nonessential_output_must_respect_interruptibility",
+            "text_and_paired_tts_must_share_one_admission",
+            "policy_layer_must_not_publish_directly",
+            "native_delivery_remains_effect_authority",
+        ):
+            self.assertTrue(requirements[key], key)
+
+    def test_run_checks_enforces_architecture_freeze(self):
+        script = (ROOT / "tools" / "run_checks.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("check_architecture_freeze.py", script)
+
+
 if __name__ == "__main__":
     unittest.main()
