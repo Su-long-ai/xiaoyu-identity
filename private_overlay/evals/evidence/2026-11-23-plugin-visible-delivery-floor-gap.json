@@ -63,7 +63,9 @@
     "no_new_plugin_runtime": true,
     "no_new_publisher": true,
     "next_machine_evidence": "private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py",
-    "retirement_condition": "Delete the probe when the pinned N.E.K.O host has one final-admission seam covering companion-authored plugin chat/HUD publication and the probe's counterexamples no longer bypass that seam."
+    "retirement_condition": "Delete the probe when the pinned N.E.K.O host has one final-admission seam covering companion-authored plugin chat/HUD publication and the probe's counterexamples no longer bypass that seam.",
+    "machine_gate": ".github/workflows/private-overlay-gate.yml::Probe plugin-visible delivery-floor native gap",
+    "contract_visibility": "delivery_floor_v1 explicitly lists desktop_notification and plugin_triggered_output as BLOCKED_NATIVE_GAP_PROBE until repaired"
   },
   "conclusion": "KEEP_AS_PROBE_ONLY. Do not mark desktop_notification or future_plugin_triggered_output as delivery-floor PASS, and do not add a managed core patch until an executable native-gap probe passes and a separate implementation reuse decision exists."
 }
