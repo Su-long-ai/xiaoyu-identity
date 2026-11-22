@@ -90,7 +90,7 @@
     {
       "id": "patch:0006-private-speech-output-gate.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-21",
+      "reviewed_at": "2026-11-22",
       "problem": "An independent assistant-speech mute can create policy-induced text-only replies; the required contract is one whole-reply quiet gate before text/TTS split.",
       "decision": "thin_adapter",
       "candidates": [
@@ -102,12 +102,12 @@
         }
       ],
       "why_reuse_insufficient": "The native text and TTS pipelines are reused unchanged after admission. The narrow patch only supplies the missing opt-in common boundary so private quiet intent cannot split text from its paired audio.",
-      "acceptance_evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json"
+      "acceptance_evidence": "evals/evidence/2026-11-22-core-patch-retirement-audit-v2.json"
     },
     {
       "id": "patch:0007-private-first-round-tool-route.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-20",
+      "reviewed_at": "2026-11-22",
       "problem": "Qwen3.8 auto tool selection skips a negative recent-activity question.",
       "decision": "thin_adapter",
       "candidates": [
@@ -125,7 +125,7 @@
         }
       ],
       "why_reuse_insufficient": "Provider-native forced tool is used directly. The remaining patch is only a generic per-turn bridge because N.E.K.O has no configuration/plugin hook to select first-round tool_choice from private policy and then restore ordinary reasoning.",
-      "acceptance_evidence": "evals/evidence/2026-11-20-private-first-round-provider-native-tool-route.json"
+      "acceptance_evidence": "evals/evidence/2026-11-22-core-patch-retirement-audit-v2.json"
     },
     {
       "id": "plugin:xiaoyu_interaction_policy",
@@ -278,7 +278,7 @@
         }
       ],
       "why_reuse_insufficient": "N.E.K.O 899a08ce system_presence is reused for sleep/lock/display-off/return gating; SystemSignalCollector + ActivitySnapshot remain the activity authority; PluginCatalog/PluginRunner remain the provider lifecycle/discovery/execution path. The narrow residual patch only adds the non-overlapping Windows QUNS busy/fullscreen/presentation signal, final-delivery native snapshot recheck, leisure-only game admission, and non-authoritative interruptibility_v1 shadow observation. No second presence watcher, game database, plugin host, registry or model call is introduced.",
-      "acceptance_evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+      "acceptance_evidence": "evals/evidence/2026-11-22-core-patch-retirement-audit-v2.json"
     },
     {
       "id": "patch:0010-startup-event-loop-responsiveness.patch",

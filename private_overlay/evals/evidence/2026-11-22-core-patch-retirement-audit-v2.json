@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T21:06:00+08:00",
+  "upstream_checked": "origin/main 99b479a0",
+  "patches": {
+    "0006": {
+      "verdict": "KEEP_THIN_CORE_BOUNDARY",
+      "reason": "Latest Plugin SDK entry hooks apply to plugin entries, not synchronous main-chat final text/TTS publication. on_event is observational and cannot provide a fail-closed output veto.",
+      "native_reuse": [
+        "PluginStore durable quiet state",
+        "native text publication",
+        "native TTS pipeline"
+      ],
+      "remaining_gap": "one synchronous whole-reply admission before text/TTS split; rebuildable quiet projection avoids main-process dependency on plugin IPC/SQLite",
+      "external_replacement": "none with lower coupling/latency"
+    },
+    "0007": {
+      "verdict": "KEEP_THIN_PROVIDER_NATIVE_BRIDGE",
+      "reason": "Plugin @llm_tool metadata has no trigger/priority/forced-route condition. Plugin Model Gateway and low-level LLM clients accept tool_choice only for calls initiated by their caller; main conversation exposes no per-turn plugin arbitration hook.",
+      "native_reuse": [
+        "standard @llm_tool registration",
+        "provider-native tool_choice",
+        "provider-native reasoning_effort"
+      ],
+      "remaining_gap": "narrow first-round selection bridge for one proven auto-selection miss",
+      "rejected_replacements": [
+        "extra classifier/router model per turn",
+        "plugin-owned duplicate conversation orchestration"
+      ]
+    },
+    "0009": {
+      "verdict": "KEEP_NATIVE_PLUS_SHADOW_GATE",
+      "reason": "Upstream system presence is reused for sleep/lock/display-off but does not cover QUNS busy/fullscreen/presentation/quiet, final-delivery latest ActivitySnapshot recheck, leisure-only game invite policy or replaceable shadow observation.",
+      "native_reuse": [
+        "N.E.K.O ActivitySnapshot",
+        "upstream system_presence",
+        "Windows SHQueryUserNotificationState",
+        "PluginCatalog/PluginRunner shadow entry"
+      ],
+      "external_candidates": {
+        "ActivityWatch": "kept as retrospective auxiliary; not a synchronous interruption authority",
+        "Playnite": "not selected as authority; only covers Playnite-managed games and cannot cover work/presentation/fullscreen generally"
+      },
+      "new_polling_loop_added": false,
+      "new_model_call_added": false
+    }
+  },
+  "overall": "NO_PATCH_RETIREMENT_JUSTIFIED; KEEP CURRENT IMPLEMENTATIONS AND WAIT FOR TRUE N.E.K.O EXTENSION POINTS",
+  "privacy": {
+    "user_content_persisted": false,
+    "credentials_persisted": false
+  }
+}
