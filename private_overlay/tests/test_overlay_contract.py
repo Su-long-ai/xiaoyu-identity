@@ -571,8 +571,13 @@ class OverlayContractTests(unittest.TestCase):
         for invariant in (
             "outbox_mark_handoff",
             "outbox_claim_delivery",
+            "outbox_release_delivery",
             "wrong-main-claim",
-            "not persisted before transport",
+            "late-main-claim",
+            "fresh-main-claim",
+            '== "expired"',
+            '== "released"',
+            '== "uncertain"',
         ):
             self.assertIn(invariant, verifier)
 
