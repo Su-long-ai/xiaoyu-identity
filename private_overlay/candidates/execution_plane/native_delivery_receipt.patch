@@ -367,6 +367,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +
 +_nekoclaw_main_epoch: str | None = None
++_nekoclaw_retired_main_epochs: set[str] = set()
 +
 +
 +async def _observe_nekoclaw_main_epoch(raw_epoch: Any) -> str:
@@ -375,6 +376,8 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +    epoch = str(raw_epoch or "").strip()
 +    if not epoch:
 +        return "missing"
++    if epoch in _nekoclaw_retired_main_epochs:
++        return "stale"
 +    previous = _nekoclaw_main_epoch
 +    if previous is None:
 +        _nekoclaw_main_epoch = epoch
@@ -383,6 +386,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +        return "same"
 +    host = await ready_host()
 +    changed = await host.ledger.outbox_mark_main_restart_uncertain()
++    _nekoclaw_retired_main_epochs.add(previous)
 +    _nekoclaw_main_epoch = epoch
 +    logger.info(
 +        "[NekoClaw] main delivery epoch changed; froze %d claimed result(s)",
@@ -412,21 +416,24 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +    attempt_id = str(event.get("delivery_attempt_id") or "")
 +    claim_id = str(event.get("delivery_claim_id") or "")
 +    raw_delivery_id = event.get("delivery_id")
-+    await _observe_nekoclaw_main_epoch(event.get("main_epoch"))
++    epoch_state = await _observe_nekoclaw_main_epoch(event.get("main_epoch"))
 +    result = "invalid"
 +    try:
-+        if isinstance(raw_delivery_id, bool):
-+            raise ValueError("boolean delivery id")
-+        delivery_id = int(raw_delivery_id)
-+        if delivery_id <= 0 or not attempt_id or not claim_id:
-+            raise ValueError("invalid delivery barrier identity")
-+        host = await ready_host()
-+        if action == "claim":
-+            result = await host.ledger.outbox_claim_delivery(delivery_id, attempt_id, claim_id)
-+        elif action == "commit":
-+            result = await host.ledger.outbox_commit_delivery(delivery_id, attempt_id, claim_id)
-+        elif action == "release":
-+            result = await host.ledger.outbox_release_delivery(delivery_id, attempt_id, claim_id)
++        if epoch_state == "stale":
++            result = "stale_epoch"
++        else:
++            if isinstance(raw_delivery_id, bool):
++                raise ValueError("boolean delivery id")
++            delivery_id = int(raw_delivery_id)
++            if delivery_id <= 0 or not attempt_id or not claim_id:
++                raise ValueError("invalid delivery barrier identity")
++            host = await ready_host()
++            if action == "claim":
++                result = await host.ledger.outbox_claim_delivery(delivery_id, attempt_id, claim_id)
++            elif action == "commit":
++                result = await host.ledger.outbox_commit_delivery(delivery_id, attempt_id, claim_id)
++            elif action == "release":
++                result = await host.ledger.outbox_release_delivery(delivery_id, attempt_id, claim_id)
 +    except Exception as exc:
 +        logger.warning("[NekoClaw] delivery barrier failed: action=%s type=%s", action, type(exc).__name__)
 +        result = "error"
