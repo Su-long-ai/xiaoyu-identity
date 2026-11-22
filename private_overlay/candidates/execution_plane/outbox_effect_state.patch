@@ -58,12 +58,12 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +        def work(conn: sqlite3.Connection) -> list[OutboxItem]:
 +            sql = (
 +                "SELECT * FROM outbox WHERE sent_at IS NULL "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
++                "AND last_error NOT LIKE 'delivery_claimed:%' "
++                "AND last_error NOT LIKE 'delivery_uncertain:%'"
 +            )
 +            params: list[Any] = []
 +            if due_by is None:
-+                sql += " AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%'"
++                sql += " AND last_error NOT LIKE 'delivery_handoff:%'"
 +            else:
 +                sql += " AND next_attempt_at <= ?"
 +                params.append(due_by)
@@ -86,8 +86,8 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +        def work(conn: sqlite3.Connection) -> float | None:
 +            row = conn.execute(
 +                "SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
++                "AND last_error NOT LIKE 'delivery_claimed:%' "
++                "AND last_error NOT LIKE 'delivery_uncertain:%'"
 +            ).fetchone()
 +            return None if row is None or row["due"] is None else float(row["due"])
 +        return await self.run(work)
@@ -234,28 +234,6 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +            return "pending"
 +        return await self.run(work)
  
-@@ -3790,9 +3929,13 @@
--    async def outbox_mark_failed(self, item_id: int, error: str, next_attempt_at: float) -> None:
--        await self.run(
--            lambda conn: conn.execute(
--                "UPDATE outbox SET attempts = attempts + 1, last_error = ?, next_attempt_at = ? WHERE id = ?",
--                (error, next_attempt_at, item_id),
--            )
--            and None
--        )
-+    async def outbox_mark_failed(self, item_id: int, error: str, next_attempt_at: float) -> None:
-+        """Record a transport failure without overwriting a possible effect."""
-+        await self.run(
-+            lambda conn: conn.execute(
-+                "UPDATE outbox SET attempts = attempts + 1, last_error = ?, next_attempt_at = ? "
-+                "WHERE id = ? AND sent_at IS NULL "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
-+                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'",
-+                (error, next_attempt_at, item_id),
-+            )
-+            and None
-+        )
- 
 diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 --- a/nekoclaw/host/outbox.py
 +++ b/nekoclaw/host/outbox.py
@@ -298,7 +276,7 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
  
  # Far beyond any sensible maximum wait, and still a finite float.
  _MAX_EXPONENT = 60
-@@ -92,43 +102,48 @@
+@@ -92,43 +102,40 @@
          if self._task is None or self._task.done():
              self._task = asyncio.ensure_future(self._run())
  
@@ -355,24 +333,16 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 +                    continue
 +            try:
 +                result = await send(item)
-+                if isinstance(result, DeliveryHandoff):
-+                    # A sender may report a handoff only after the same row is
-+                    # durably leased. This keeps the callback contract honest
-+                    # and prevents IPC from outrunning the ledger boundary.
-+                    state = await self._ledger.outbox_delivery_state(item.id)
-+                    if state in {"handoff", "claimed", "sent"}:
-+                        if state == "sent":
-+                            delivered += 1
-+                        continue
-+                    accepted = False
-+                    error = "delivery handoff was not persisted before transport"
-+                accepted = bool(result)
-+                error = "" if accepted else "not accepted"
 +            except asyncio.CancelledError:
 +                raise
 +            except Exception as exc:
 +                accepted = False
 +                error = f"{type(exc).__name__}: {exc}"
++            else:
++                if isinstance(result, DeliveryHandoff):
++                    continue
++                accepted = bool(result)
++                error = "" if accepted else "not accepted"
 +            if accepted:
 +                await self._ledger.outbox_mark_sent(item.id)
 +                delivered += 1
