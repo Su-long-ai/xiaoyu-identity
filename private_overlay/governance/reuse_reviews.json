@@ -1536,6 +1536,81 @@
           "evidence": "evals/evidence/2026-11-23-startup-hidden-console-contract-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:agent-product-main-freshness-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Long-lived agent/** branches can continue pushing after product main advances, accumulating stale architecture/reuse context and large integration drift.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private-overlay GitHub Actions workflow",
+          "type": "native_ci",
+          "outcome": "selected as the existing enforcement plane on every agent/** push",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        {
+          "name": "Git merge-base --is-ancestor",
+          "type": "native_tooling",
+          "outcome": "selected as exact branch ancestry check",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        {
+          "name": "Manual prompt reminder",
+          "type": "prompt_policy",
+          "outcome": "rejected because it is not machine enforceable",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        {
+          "name": "GitHub branch protection/ruleset",
+          "type": "native_repo_policy",
+          "outcome": "not selected for this direct-push freshness check; current connector lacks Administration write access",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        {
+          "name": "External bot/daemon/policy service",
+          "type": "external_policy_engine",
+          "outcome": "rejected as duplicate governance for a deterministic Git graph check",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing workflow is the correct reusable enforcement plane, but it does not currently bind an agent push to the latest product-main commit. The residual change is a single native Git ancestry check in the same job.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "origin/private/neko-overlay-v1 is the single product-main lineage authority for long-lived agent branches.",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "This is repository branch-governance state, not behavior owned by the N.E.K.O runtime pin."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O runtime extension planes cannot enforce Git ancestry between XiaoYu repository branches."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned runtime component owns or should own XiaoYu repository branch freshness."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "GitHub rulesets and external policy bots were considered; existing Actions plus native Git ancestry is narrower and sufficient.",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Add one agent-only fetch/merge-base step to the existing global workflow.",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A custom branch database, bot, scheduler or daemon is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
