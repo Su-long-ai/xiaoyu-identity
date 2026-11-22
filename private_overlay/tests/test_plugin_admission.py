@@ -3,8 +3,10 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,15 @@ spec = importlib.util.spec_from_file_location("check_plugin_admission", CHECKER_
 checker = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
 spec.loader.exec_module(checker)
+
+REPO_CHECKER_PATH = ROOT / "tools" / "check_plugin_admission_repo.py"
+repo_spec = importlib.util.spec_from_file_location(
+    "check_plugin_admission_repo",
+    REPO_CHECKER_PATH,
+)
+repo_checker = importlib.util.module_from_spec(repo_spec)
+assert repo_spec and repo_spec.loader
+repo_spec.loader.exec_module(repo_checker)
 
 
 class PluginAdmissionTests(unittest.TestCase):
@@ -127,6 +138,84 @@ class PluginAdmissionTests(unittest.TestCase):
         manifest["models"]["interaction_classifier"]["capabilities"].append("vision")
         with self.assertRaisesRegex(RuntimeError, "model capability expansion"):
             checker.validate_manifest_allowance("xiaoyu_interaction_policy", manifest, allowance)
+
+    def test_repo_checkout_native_manifest_expansion_fails_closed(self):
+        policy = copy.deepcopy(self.policy)
+        policy["admitted_autostart_plugins"] = {
+            "proactive_controller": policy["admitted_autostart_plugins"][
+                "proactive_controller"
+            ]
+        }
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            plugin = root / "plugin" / "plugins" / "proactive_controller"
+            plugin.mkdir(parents=True)
+            (plugin / "plugin.toml").write_text(
+                """
+[plugin]
+id = "proactive_controller"
+entry = "plugin.plugins.proactive_controller:ProactiveControllerPlugin"
+
+[[plugin.dependency]]
+id = "surprise_plugin"
+untested = ">=0"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "dependency expansion"):
+                repo_checker.validate_repo(policy, neko_root=root)
+
+    def test_repo_checkout_pinned_external_manifest_and_head_are_verified(self):
+        policy = copy.deepcopy(self.policy)
+        policy["admitted_autostart_plugins"] = {
+            "qq_auto_reply": policy["admitted_autostart_plugins"][
+                "qq_auto_reply"
+            ]
+        }
+        expected = policy["admitted_autostart_plugins"]["qq_auto_reply"][
+            "tested_commit"
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            plugin = root / "plugin" / "plugins" / "qq_auto_reply"
+            plugin.mkdir(parents=True)
+            manifest = """
+[plugin]
+id = "qq_auto_reply"
+type = "plugin"
+entry = "plugin.plugins.qq_auto_reply:QQAutoReplyPlugin"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+entry = "static/index.html"
+context = "qq_auto_reply"
+permissions = ["state:read", "action:call"]
+""".strip() + "\n"
+            (plugin / "plugin.toml").write_text(manifest, encoding="utf-8")
+
+            with patch.object(repo_checker, "_git_head", return_value=expected):
+                self.assertEqual(
+                    repo_checker.validate_repo(policy, neko_root=root),
+                    ["qq_auto_reply"],
+                )
+
+            expanded = manifest.replace(
+                'permissions = ["state:read", "action:call"]',
+                'permissions = ["state:read", "action:call", "filesystem:write"]',
+            )
+            (plugin / "plugin.toml").write_text(expanded, encoding="utf-8")
+            with patch.object(repo_checker, "_git_head", return_value=expected):
+                with self.assertRaisesRegex(RuntimeError, "UI permission expansion"):
+                    repo_checker.validate_repo(policy, neko_root=root)
+
+            (plugin / "plugin.toml").write_text(manifest, encoding="utf-8")
+            with patch.object(repo_checker, "_git_head", return_value="deadbeef"):
+                with self.assertRaisesRegex(RuntimeError, "checkout drifted"):
+                    repo_checker.validate_repo(policy, neko_root=root)
 
     def test_manual_only_manifest_drift_is_unaffected(self):
         active = checker.validate_state(

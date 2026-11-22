@@ -74,5 +74,21 @@
     "After pinned N.E.K.O and QQ checkouts, rerun the same repository checker with --neko-root _neko_upstream.",
     "Keep full local check_plugin_admission.py as the only installed-runtime override/pending/autostart-state gate."
   ],
-  "retirement_condition": "Retire the optional checked-out overlay validation when N.E.K.O exposes one native, pin-aware admission verification that accepts XiaoYu's reviewed allowance policy and verifies native/external checkout provenance plus manifest authority without a second permission store."
+  "retirement_condition": "Retire the optional checked-out overlay validation when N.E.K.O exposes one native, pin-aware admission verification that accepts XiaoYu's reviewed allowance policy and verifies native/external checkout provenance plus manifest authority without a second permission store.",
+  "implementation_status": "STAGED_UNPUSHED_PENDING_MACHINE_GATE",
+  "implementation": {
+    "checker": "private_overlay/tools/check_plugin_admission_repo.py",
+    "workflow": ".github/workflows/private-overlay-gate.yml",
+    "tests": "private_overlay/tests/test_plugin_admission.py",
+    "early_behavior_preserved": true,
+    "checked_out_mode": "--neko-root _neko_upstream",
+    "validates": [
+      "neko_native actual manifest allowance",
+      "pinned_external actual manifest allowance",
+      "pinned_external actual git HEAD"
+    ],
+    "runtime_state_simulated": false,
+    "new_permission_vocabulary": false,
+    "branch_ref_moved": false
+  }
 }

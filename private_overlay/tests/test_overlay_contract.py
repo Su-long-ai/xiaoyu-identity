@@ -538,6 +538,28 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_rechecks_plugin_admission_after_native_and_external_checkout(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        early = workflow.index("Repository-only plugin admission gate")
+        native_checkout = workflow.index("Checkout pinned N.E.K.O runtime")
+        qq_checkout = workflow.index("Checkout pinned QQ plugin candidate base")
+        checked_out = workflow.index("Checked-out plugin admission gate")
+        qq_surface = workflow.index(
+            "Exercise pinned QQ delivery/floor surface regression"
+        )
+
+        self.assertLess(early, native_checkout)
+        self.assertLess(native_checkout, qq_checkout)
+        self.assertLess(qq_checkout, checked_out)
+        self.assertLess(checked_out, qq_surface)
+        checked_segment = workflow[checked_out:qq_surface]
+        self.assertIn(
+            "check_plugin_admission_repo.py --neko-root _neko_upstream",
+            checked_segment,
+        )
+
     def test_release_gate_executes_pinned_qq_surface_contracts_but_startup_does_not(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"

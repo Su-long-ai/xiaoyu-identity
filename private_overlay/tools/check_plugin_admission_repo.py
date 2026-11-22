@@ -9,9 +9,17 @@ check_plugin_admission.py remains the full installed-runtime gate.
 """
 from __future__ import annotations
 
+import argparse
+from pathlib import Path
 from typing import Any
 
-from check_plugin_admission import ROOT, _load, _manifest, validate_manifest_allowance
+from check_plugin_admission import (
+    ROOT,
+    _git_head,
+    _load,
+    _manifest,
+    validate_manifest_allowance,
+)
 
 
 def _validate_reviewed_allowance(plugin_id: str, item: dict[str, Any]) -> None:
@@ -27,7 +35,35 @@ def _validate_reviewed_allowance(plugin_id: str, item: dict[str, Any]) -> None:
     validate_manifest_allowance(plugin_id, allowance, allowance)
 
 
-def validate_repo(policy: dict[str, Any]) -> list[str]:
+def _validate_checked_out_manifest(
+    plugin_id: str,
+    item: dict[str, Any],
+    neko_root: Path,
+) -> None:
+    source = neko_root / str(item.get("source") or "")
+    if not source.is_dir():
+        raise RuntimeError(f"checked-out admitted plugin missing: {plugin_id}: {source}")
+    manifest = _manifest(source)
+    validate_manifest_allowance(
+        plugin_id,
+        manifest,
+        item.get("reviewed_manifest"),
+    )
+
+    if item.get("provenance") == "pinned_external":
+        expected = str(item.get("tested_commit") or "")
+        actual = _git_head(source)
+        if actual != expected:
+            raise RuntimeError(
+                f"pinned plugin checkout drifted: {plugin_id}: {actual} != {expected}"
+            )
+
+
+def validate_repo(
+    policy: dict[str, Any],
+    *,
+    neko_root: Path | None = None,
+) -> list[str]:
     if policy.get("policy_id") != "XIAOYU_PLUGIN_AUTOSTART_ADMISSION_V1":
         raise RuntimeError("plugin admission policy id changed or missing")
 
@@ -81,12 +117,15 @@ def validate_repo(policy: dict[str, Any]) -> list[str]:
                 raise RuntimeError(
                     f"pinned external admission disagrees with lock: {plugin_id}"
                 )
+            if neko_root is not None:
+                _validate_checked_out_manifest(plugin_id, raw, neko_root)
         elif provenance == "neko_native":
-            # GitHub CI deliberately has no installed N.E.K.O checkout. Native
-            # manifest drift is therefore enforced by the full local gate after
-            # an upstream pin changes; the reviewed allowance still has to be
-            # well-formed here.
-            pass
+            # The early repository-only invocation intentionally runs before a
+            # N.E.K.O checkout exists. A later invocation passes --neko-root
+            # and validates the real pinned native manifest against the same
+            # reviewed allowance without inventing another permission model.
+            if neko_root is not None:
+                _validate_checked_out_manifest(plugin_id, raw, neko_root)
         else:
             raise RuntimeError(f"unknown plugin provenance: {plugin_id}: {provenance}")
         checked.append(plugin_id)
@@ -95,11 +134,17 @@ def validate_repo(policy: dict[str, Any]) -> list[str]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--neko-root", type=Path)
+    args = parser.parse_args()
+
     policy = _load(ROOT / "governance" / "plugin_admission_v1.json")
-    checked = validate_repo(policy)
+    neko_root = args.neko_root.resolve() if args.neko_root is not None else None
+    checked = validate_repo(policy, neko_root=neko_root)
     print(
         "PASS: repository-only plugin admission "
-        f"({len(checked)} reviewed plugin(s): {', '.join(checked)})"
+        + ("with checked-out manifests " if neko_root is not None else "")
+        + f"({len(checked)} reviewed plugin(s): {', '.join(checked)})"
     )
     return 0
 
