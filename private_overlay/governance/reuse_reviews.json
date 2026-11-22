@@ -2677,6 +2677,98 @@
           "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution-plane/host-restart-continuity-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Pinned N.E.K.O preserves task-agent session/transcript state and can recover runtime-process loss, but Ledger._reconcile intentionally fails prior-host queued/working/waiting_user commissions on host restart. Blind auto-requeue is also unsafe when a host call was interrupted after an external effect.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger + TaskAgentManager + transcript/session recovery",
+          "type": "native_current_pin",
+          "outcome": "selected for a machine gap probe and any future thin reconciliation",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to c3 at review time; no newer host-restart continuation seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "N.E.K.O NekoClaw call audit/runtime/native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the existing effect-boundary, resume and result-delivery authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to NekoClaw host-level commission lifecycle",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Temporal/Restate/Durable Task/workflow engines",
+          "type": "broader_external",
+          "outcome": "rejected as product authority because they would introduce a second orchestrator/task ledger; only conceptual comparison is relevant",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Thin N.E.K.O restart reconciliation",
+          "type": "thin_adapter",
+          "outcome": "not admitted yet; first classify interrupted call safety with a probe",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Private recovery journal/state store/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native durability is sufficient for sessions, transcripts, ledger state, call audit and outbox, but current host-restart policy terminates ordinary active commissions. The first admitted unit is therefore a read-only machine gap probe plus native recovery test selection, not a recovery implementation.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json",
+      "machine_probe": "candidates/execution_plane/probe_host_restart_continuity_gap.py",
+      "retirement_condition": "Retire this probe when pinned N.E.K.O natively provides host-restart continuation/reconciliation for active commissions with explicit treatment of interrupted/uncertain external effects, or when upstream changes the relevant ledger/session/call-audit semantics and this review is re-run.",
+      "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission ledger, session, call-audit, runtime and outbox authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 preserves session/transcript/runtime resume primitives but fails prior-host queued/working/waiting_user commissions in Ledger._reconcile.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3; no newer host-restart continuation seam exists.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surface/provider components do not own the internal NekoClaw host commission lifecycle."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Mature durable workflow engines were considered but would duplicate the frozen N.E.K.O orchestration/ledger authority.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only a read-only gap probe is admitted now; effect-aware thin reconciliation requires a separate decision after interrupted-call classification.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private recovery journals, stores, routers, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
