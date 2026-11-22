@@ -356,7 +356,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,87 @@
+@@ -539,9 +539,111 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
@@ -367,14 +367,23 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +
 +_nekoclaw_main_epoch: str | None = None
++_nekoclaw_retired_main_epochs: set[str] = set()
++_nekoclaw_main_epoch_lock = asyncio.Lock()
 +
 +
 +async def _observe_nekoclaw_main_epoch(raw_epoch: Any) -> str:
++    async with _nekoclaw_main_epoch_lock:
++        return await _observe_nekoclaw_main_epoch_locked(raw_epoch)
++
++
++async def _observe_nekoclaw_main_epoch_locked(raw_epoch: Any) -> str:
 +    """Freeze old main claims when the native MainServerAgentBridge instance changes."""
 +    global _nekoclaw_main_epoch
 +    epoch = str(raw_epoch or "").strip()
 +    if not epoch:
 +        return "missing"
++    if epoch in _nekoclaw_retired_main_epochs:
++        return "stale"
 +    previous = _nekoclaw_main_epoch
 +    if previous is None:
 +        _nekoclaw_main_epoch = epoch
@@ -383,6 +392,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +        return "same"
 +    host = await ready_host()
 +    changed = await host.ledger.outbox_mark_main_restart_uncertain()
++    _nekoclaw_retired_main_epochs.add(previous)
 +    _nekoclaw_main_epoch = epoch
 +    logger.info(
 +        "[NekoClaw] main delivery epoch changed; froze %d claimed result(s)",
@@ -406,13 +416,12 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +
 +async def _handle_nekoclaw_delivery_barrier(event: Dict[str, Any]) -> None:
-+    """Persist an effect barrier before acknowledging main_server."""
++    """Persist one exact effect barrier under the same epoch serialization."""
 +    event_id = str(event.get("event_id") or "")
 +    action = str(event.get("action") or "")
 +    attempt_id = str(event.get("delivery_attempt_id") or "")
 +    claim_id = str(event.get("delivery_claim_id") or "")
 +    raw_delivery_id = event.get("delivery_id")
-+    await _observe_nekoclaw_main_epoch(event.get("main_epoch"))
 +    result = "invalid"
 +    try:
 +        if isinstance(raw_delivery_id, bool):
@@ -420,13 +429,28 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +        delivery_id = int(raw_delivery_id)
 +        if delivery_id <= 0 or not attempt_id or not claim_id:
 +            raise ValueError("invalid delivery barrier identity")
-+        host = await ready_host()
-+        if action == "claim":
-+            result = await host.ledger.outbox_claim_delivery(delivery_id, attempt_id, claim_id)
-+        elif action == "commit":
-+            result = await host.ledger.outbox_commit_delivery(delivery_id, attempt_id, claim_id)
-+        elif action == "release":
-+            result = await host.ledger.outbox_release_delivery(delivery_id, attempt_id, claim_id)
++        async with _nekoclaw_main_epoch_lock:
++            epoch_state = await _observe_nekoclaw_main_epoch_locked(
++                event.get("main_epoch")
++            )
++            host = await ready_host()
++            if epoch_state == "stale" and action != "commit":
++                result = "stale_epoch"
++            elif action == "claim":
++                result = await host.ledger.outbox_claim_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
++            elif action == "commit":
++                # A retired process cannot acquire/release effect rights, but
++                # its exact late positive receipt may reconcile the claim that
++                # the restart fence already moved to uncertain.
++                result = await host.ledger.outbox_commit_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
++            elif action == "release":
++                result = await host.ledger.outbox_release_delivery(
++                    delivery_id, attempt_id, claim_id
++                )
 +    except Exception as exc:
 +        logger.warning("[NekoClaw] delivery barrier failed: action=%s type=%s", action, type(exc).__name__)
 +        result = "error"
@@ -447,7 +471,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
      event_type = (event or {}).get("event_type")
      if event_type == "agent_intent_restore_signal":
          # First-real-client-session signal from main_server (sent on
-@@ -570,8 +648,14 @@
+@@ -570,8 +672,14 @@
      if event_type == "conversation_fact_observed":
          _forward_conversation_fact(event)
          return
@@ -467,107 +491,60 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 diff --git a/app/agent_server/nekoclaw_mount.py b/app/agent_server/nekoclaw_mount.py
 --- a/app/agent_server/nekoclaw_mount.py
 +++ b/app/agent_server/nekoclaw_mount.py
-@@ -42,8 +42,9 @@
- and ``GET /tasks`` answer without touching the ledger.
- """
- 
--import asyncio
--import time
-+import asyncio
-+import time
-+import uuid
- from datetime import datetime, timezone
- from typing import Any, Callable, Dict, List, Optional
- 
-@@ -258,42 +259,52 @@
+@@ -258,11 +258,38 @@
          _queue_update(task)
  
  
--async def send_report(item: Any) -> bool:
--    """Deliver one outbox row to the main server. True once the bridge has taken it."""
--    payload = dict(item.payload or {})
--    if item.kind == "task_result":
--        return await _send_main_event({"event_type": "task_result", **payload, "timestamp": _now_iso()})
--    text = str(payload.get("text") or "").strip()
--    if not text:
--        # Nothing to say; a row like this is not worth retrying.
--        return True
--    task_id = str(payload.get("task_id") or "")
--    reason = str(payload.get("reason") or payload.get("receipt") or "")
--    event = {
--        "event_type": "proactive_message",
--        "lanlan_name": payload.get("lanlan_name"),
--        "text": text,
--        "summary": text,
--        "detail": text,
--        "task_id": task_id,
--        "channel": "nekoclaw",
--        "source_kind": "system",
--        "source_name": "",
--        # A correction is something that went wrong; the rest is information.
--        "status": "blocked" if item.kind == "correction" and reason != "filed" else "completed",
--        "success": True,
--        "delivery_mode": payload.get("delivery_mode") or "proactive",
--        # For her only: neither a chat bubble nor a HUD toast shows it.
--        # Unless the row says it is for the HUD: what NekoClaw tells the
--        # user of its own settings is shown to the user as it is written,
--        # and goes into no model's context (its delivery mode is silent).
--        "visibility": ["hud"] if "hud" in (payload.get("visibility") or ()) else [],
--        "priority": _NOTICE_PRIORITY,
--        "coalesce_key": f"nekoclaw:{item.kind}:{task_id or item.id}",
--        "metadata": {"nekoclaw_kind": item.kind, "nekoclaw_reason": reason},
--        "timestamp": _now_iso(),
--    }
--    return await _send_main_event(event)
-+async def _send_effect_report(item: Any, event: Dict[str, Any]) -> Any:
-+    """Persist handoff before the existing agent→main transport sees the event."""
-+    from nekoclaw.host.outbox import DeliveryHandoff
-+    host = peek_host()
-+    if host is None:
-+        return False
-+    attempt_id = uuid.uuid4().hex
-+    if not await host.ledger.outbox_mark_handoff(item.id, attempt_id):
-+        return False
-+    payload = dict(event)
-+    payload["delivery_id"] = int(item.id)
-+    payload["delivery_attempt_id"] = attempt_id
-+    accepted = await _send_main_event(payload)
-+    return DeliveryHandoff(attempt_id) if accepted else False
++_DELIVERY_ID_PAYLOAD_KEY = "__nekoclaw_delivery_id"
++_DELIVERY_ATTEMPT_PAYLOAD_KEY = "__nekoclaw_delivery_attempt_id"
 +
 +
-+async def send_report(item: Any) -> Any:
-+    """Hand off one durable row; visible effect needs a later receipt."""
-+    payload = dict(item.payload or {})
++def _effect_receipt_required(item: Any) -> bool:
++    """Only rows with a real native delivery effect need the barrier protocol."""
 +    if item.kind == "task_result":
-+        return await _send_effect_report(item, {"event_type": "task_result", **payload, "timestamp": _now_iso()})
-+    text = str(payload.get("text") or "").strip()
-+    if not text:
 +        return True
-+    task_id = str(payload.get("task_id") or "")
-+    reason = str(payload.get("reason") or payload.get("receipt") or "")
-+    event = {
-+        "event_type": "proactive_message",
-+        "lanlan_name": payload.get("lanlan_name"),
-+        "text": text,
-+        "summary": text,
-+        "detail": text,
-+        "task_id": task_id,
-+        "channel": "nekoclaw",
-+        "source_kind": "system",
-+        "source_name": "",
-+        "status": "blocked" if item.kind == "correction" and reason != "filed" else "completed",
-+        "success": True,
-+        "delivery_mode": payload.get("delivery_mode") or "proactive",
-+        "visibility": ["hud"] if "hud" in (payload.get("visibility") or ()) else [],
-+        "priority": _NOTICE_PRIORITY,
-+        "coalesce_key": f"nekoclaw:{item.kind}:{task_id or item.id}",
-+        "metadata": {"nekoclaw_kind": item.kind, "nekoclaw_reason": reason},
-+        "timestamp": _now_iso(),
-+    }
-+    return await _send_effect_report(item, event)
++    return bool(str((item.payload or {}).get("text") or "").strip())
++
++
++def _with_delivery_identity(event: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
++    """Move private outbox handoff identity onto the existing agent→main event."""
++    delivery_id = payload.pop(_DELIVERY_ID_PAYLOAD_KEY, None)
++    attempt_id = str(payload.pop(_DELIVERY_ATTEMPT_PAYLOAD_KEY, "") or "")
++    if delivery_id is not None and attempt_id:
++        event["delivery_id"] = int(delivery_id)
++        event["delivery_attempt_id"] = attempt_id
++    return event
++
++
+ async def send_report(item: Any) -> bool:
+     """Deliver one outbox row to the main server. True once the bridge has taken it."""
+     payload = dict(item.payload or {})
+     if item.kind == "task_result":
+-        return await _send_main_event({"event_type": "task_result", **payload, "timestamp": _now_iso()})
++        event = _with_delivery_identity(
++            {"event_type": "task_result", **payload, "timestamp": _now_iso()},
++            payload,
++        )
++        event.pop(_DELIVERY_ID_PAYLOAD_KEY, None)
++        event.pop(_DELIVERY_ATTEMPT_PAYLOAD_KEY, None)
++        return await _send_main_event(event)
+     text = str(payload.get("text") or "").strip()
+     if not text:
+         # Nothing to say; a row like this is not worth retrying.
+@@ -293,9 +320,12 @@
+         "metadata": {"nekoclaw_kind": item.kind, "nekoclaw_reason": reason},
+         "timestamp": _now_iso(),
+     }
+-    return await _send_main_event(event)
++    return await _send_main_event(_with_delivery_identity(event, payload))
  
  
++send_report._nekoclaw_effect_receipt_required = _effect_receipt_required  # type: ignore[attr-defined]
++
++
  async def _count_task_agent_request(commission_id: str) -> bool:
+     """Count one model request of a task agent against the free daily quota of the agent model.
+ 
 diff --git a/app/main_server/character_runtime.py b/app/main_server/character_runtime.py
 --- a/app/main_server/character_runtime.py
 +++ b/app/main_server/character_runtime.py
@@ -854,7 +831,18 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                          logger.warning(
                              "[EventBus] render_chat_blocks failed; continuing delivery: %s",
                              e,
-@@ -1566,30 +1701,36 @@
+@@ -1503,8 +1638,10 @@
+                     if delivered:
++                        if isinstance(delivery_claim, _NekoClawDeliveryClaim):
++                            await _settle_nekoclaw_delivery(delivery_claim, True)
+                         # detail_text is a user-facing response; do not write it to logger.
+                         logger.info(
+                             "[EventBus] direct task_result reply delivered (detail_len=%d)",
+                             len(detail_text),
+                         )
+                         return
+ 
+@@ -1566,30 +1703,36 @@
                  cb_coalesce_key = event.get("coalesce_key")
                  if not isinstance(cb_coalesce_key, str):
                      cb_coalesce_key = ""
@@ -915,7 +903,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                      if delivery_mode == "passive":
                          # Passive cues keep the direct enqueue-only path:
                          # they must NOT interrupt; the next user turn drains
-@@ -1704,9 +1845,11 @@
+@@ -1704,9 +1847,11 @@
                              notif["error_message"] = err_msg[
                                  :USER_NOTIFICATION_ERROR_MAX_CHARS
                              ]
@@ -930,7 +918,7 @@ diff --git a/app/main_server/character_runtime.py b/app/main_server/character_ru
                              "[EventBus] agent_notification sent to frontend (text_len=%d)",
                              len(text),
                          )
-@@ -1714,12 +1857,27 @@
+@@ -1714,12 +1859,27 @@
                          logger.warning(
                              "[EventBus] agent_notification WS send failed: %s", e
                          )
