@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "xiaoyu_hierarchical_reuse_gate_decision",
+  "decided_at_local": "2026-11-23T02:41:00+08:00",
+  "problem": "Reuse admission currently proves that a customization has a review and evidence, but does not prove that the review escaped the local component and checked higher/lower reuse layers.",
+  "selected": {
+    "plane": "existing private_overlay/tools/check_reuse_first.py + governance/reuse_reviews.json + private-overlay-gate.yml",
+    "mode": "extend existing static repository gate",
+    "reason": "Preserves one governance authority and turns the existing review registry into a hierarchical search contract without adding runtime dependencies."
+  },
+  "considered": [
+    {
+      "candidate": "Existing reuse-first checker and review registry",
+      "outcome": "selected",
+      "note": "Already fail-closes patches/plugins/adapters and already runs on private/neko-overlay-v1 plus agent/** pushes."
+    },
+    {
+      "candidate": "Existing architecture freeze and plugin admission gates",
+      "outcome": "reused as complementary checks",
+      "note": "They constrain authority/capability ownership but do not prove search breadth."
+    },
+    {
+      "candidate": "GitHub Actions",
+      "outcome": "reused as execution plane",
+      "note": "No second CI workflow or service is required."
+    },
+    {
+      "candidate": "OPA/Cedar/policy database",
+      "outcome": "rejected",
+      "note": "Repository-local static JSON validation does not justify another policy authority or service."
+    },
+    {
+      "candidate": "Prompt-only hierarchy instructions",
+      "outcome": "rejected",
+      "note": "Not machine-enforceable and can be skipped by long-lived agent branches."
+    }
+  ],
+  "hierarchy": [
+    "L0_authority",
+    "L1_neko_current_pin",
+    "L2_neko_upstream_extensions",
+    "L3_existing_pinned_external",
+    "L4_broader_external_ecosystem",
+    "L5_thin_integration",
+    "L6_private_implementation"
+  ],
+  "acceptance": [
+    "Every strict review explicitly records every hierarchy layer as checked or not_applicable.",
+    "Checked layers carry evidence and an outcome.",
+    "not_applicable layers carry a rationale.",
+    "thin_adapter requires L5 checked; self_implement requires L6 checked.",
+    "reuse_native requires L1 or L2 checked; reuse_external requires L3 or L4 checked.",
+    "Reviews dated before the enforcement cutoff remain historically intact rather than being falsely backfilled."
+  ]
+}
