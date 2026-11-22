@@ -155,17 +155,17 @@
         {
           "name": "N.E.K.O Plugin SDK model gateway (ctx.models)",
           "type": "native_sdk",
-          "outcome": "not selected yet for the semantic classifier: the SDK removes direct provider credentials, but fresh plugin usages auto-bind to SHARED_HOST_API='agent'. The current classifier intentionally uses the cheaper emotion-tier model; the manifest has no preference for agent_small, so automatic migration would silently increase cost/latency.",
-          "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json"
+          "outcome": "selected in plugin 0.6.6 for semantic classification; interaction_classifier is host-managed and bound to the native agent_small host-follow slot, so the private plugin no longer reads provider credentials or constructs its own LLM client",
+          "evidence": "evals/evidence/2026-11-22-plugin-model-slot-interaction-classifier.json"
         },
         {
           "name": "N.E.K.O Plugin SDK SystemInfo/settings surface",
           "type": "native_sdk",
-          "outcome": "read-only for this need: get_system_config/get_server_settings exist, but no SDK conversation-settings CAS write is exposed. Keep the narrow native /api/config/conversation-settings adapter for explicit owner vision-consent changes rather than inventing a second settings authority.",
+          "outcome": "still read-only for this need on N.E.K.O 6fccfb72: get_system_config/get_server_settings exist, but no SDK conversation-settings CAS writer is exposed. Keep the narrow native /api/config/conversation-settings adapter for explicit owner vision-consent changes.",
           "evidence": "evals/evidence/2026-11-22-neko-upstream-899a08ce-upgrade.json"
         }
       ],
-      "why_reuse_insufficient": "The plugin remains semantic intent mediation only. Text observation uses N.E.K.O conversations_v2; hard proactive execution uses proactive_controller; screen consent writes use the native conversation-settings CAS route; retrospective activity uses ActivityWatch. N.E.K.O 899a08ce's model gateway was reviewed but its automatic binding targets the full agent tier, not the current cheap emotion classifier, and the manifest cannot request agent_small. SystemInfo has no conversation-settings CAS writer. These direct host calls therefore remain narrow temporary adapters until an equivalent-cost model binding preference and native settings-write SDK exist.",
+      "why_reuse_insufficient": "Text observation uses N.E.K.O conversations_v2; semantic classification now uses the native Plugin SDK model gateway on agent_small; hard proactive execution uses proactive_controller; retrospective activity uses ActivityWatch. The only remaining direct host adapter is the native conversation-settings CAS route for explicit owner vision-consent changes because the current Plugin SDK settings surface is read-only for that user-owned field.",
       "acceptance_evidence": "evals/evidence/2026-11-21-interaction-policy-event-driven-performance.json"
     },
     {
