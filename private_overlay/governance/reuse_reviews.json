@@ -551,7 +551,7 @@
     {
       "id": "runtime:plugin-crash-recovery",
       "status": "approved",
-      "reviewed_at": "2026-11-23",
+      "reviewed_at": "2026-11-22",
       "problem": "A force-terminated auto-start plugin is detected by N.E.K.O but is not generically auto-restarted; adding a private watchdog could duplicate lifecycle ownership and confuse an intentional manual stop with a crash.",
       "decision": "reuse_native",
       "candidates": [
@@ -1951,6 +1951,86 @@
         }
       },
       "retirement_condition": "Retire when pinned N.E.K.O and QQ provide an equivalent integrated multi-round soak for the same product race surfaces or the private managed patch surfaces disappear."
+    },
+    {
+      "id": "candidate:plugin-lifecycle/native-crash-recovery-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Current N.E.K.O c3 detects dead/crashed plugin processes but exposes no crash-specific lifecycle event, generic crash restart policy, or Plugin SDK restart-management API. A probe is needed to make any future native seam force re-evaluation without introducing a private watchdog.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3 crash status + lifecycle service",
+          "type": "native_current_pin",
+          "outcome": "selected for the probe; it is the lifecycle authority and already detects crash/stale host state",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to c3; no newer native crash-restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK lifecycle/bus/cross-plugin APIs",
+          "type": "native_extension_planes",
+          "outcome": "checked; lifecycle observation exists but no plugin start/restart management API is exposed",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "Supervisor/system process supervision",
+          "type": "broader_external",
+          "outcome": "rejected for product ownership because process autorestart cannot preserve N.E.K.O plugin admission/runtime intent/host registry semantics without a second lifecycle authority",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        {
+          "name": "existing reconcile_neko_plugin_runtime",
+          "type": "thin_adapter",
+          "outcome": "retained only for explicit/startup recovery through native N.E.K.O APIs; not converted into a background watcher",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native host can detect crash and explicitly restart a stale host when asked, but it does not currently publish a crash-specific intent-bearing event or native restart policy that distinguishes unexpected exit from intentional stop. Therefore only a machine gap probe is admitted; no runtime recovery implementation is promoted.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process authority.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 crash detection and explicit lifecycle operations are reused by the probe.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3 and adds no native crash-restart seam.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ/ActivityWatch/provider components do not own N.E.K.O plugin process lifecycle.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Mature OS process supervisors were checked and rejected as a second lifecycle authority.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only existing explicit/startup reconcile remains selected; the new artifact is a read-only probe.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private watchdog/daemon/state store/router and an eleventh managed patch remain rejected.",
+          "evidence": "evals/evidence/2026-11-23-native-plugin-crash-recovery-gap.json"
+        }
+      },
+      "retirement_condition": "Retire this probe when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
+      "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION"
     }
   ],
   "hierarchy_policy": {
