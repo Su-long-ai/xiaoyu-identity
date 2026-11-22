@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_QQ_INBOUND_IDEMPOTENCY_CANDIDATE_20261123",
+  "recorded_at_local": "2026-11-23T01:20:00+08:00",
+  "pinned_qq_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+  "source_audit": {
+    "persisted_recent_ids_exists": true,
+    "catchup_history_dedup_exists": true,
+    "live_receive_pre_task_claim": false,
+    "persisted_recent_ids_loaded_before_live_receive_loop": false,
+    "observed_order": [
+      "runtime_ops_service starts _process_messages()",
+      "then catchup.start() loads persisted state",
+      "message_dispatcher creates _run_message_handler task without a stable message_id claim"
+    ]
+  },
+  "reuse_decision": {
+    "selected": "reuse QQMessageCatchupService._recent_ids as the single inbound idempotency authority",
+    "new_database": false,
+    "new_transport": false,
+    "new_runtime": false,
+    "new_background_service": false,
+    "candidate_only": true
+  },
+  "candidate_contract": {
+    "stable_message_id": "synchronous claim before create_task; duplicate event is dropped",
+    "missing_message_id": "preserve existing behavior; do not invent heuristic identity",
+    "live_catchup_overlap": "both paths converge on the same recent_ids claim",
+    "restart": "load persisted recent_ids before starting live receive loop",
+    "promotion_requires": [
+      "fresh pinned QQ apply check",
+      "patched catchup regression suite",
+      "full XiaoYu reuse/architecture gates",
+      "live repeated-event fault injection when local operator is available"
+    ]
+  },
+  "conclusion": "KEEP_AS_CANDIDATE. Do not set QQ_PLUGIN_UPSTREAM.external_patch_required and do not create a managed qq_patches series until the candidate passes executable and live replay evidence."
+}
