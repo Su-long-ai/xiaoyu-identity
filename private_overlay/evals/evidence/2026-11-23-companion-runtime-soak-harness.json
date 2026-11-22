@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_RUNTIME_SOAK_HARNESS_20261123",
+  "recorded_at_local": "2026-11-23T01:05:00+08:00",
+  "implementation": {
+    "tool": "private_overlay/tools/companion_runtime_soak.py",
+    "mode": "read_only_observer",
+    "service_surfaces": [
+      "48911 main",
+      "48912 memory",
+      "48915 agent",
+      "48916 plugin"
+    ],
+    "plugin_rule": "host-declared runtime_enabled + runtime_auto_start + not pending must remain running",
+    "optional_process_metrics": [
+      "desktop/backend process count",
+      "RSS max",
+      "approx CPU percent from CPU-time delta"
+    ],
+    "actions_performed": [],
+    "new_runtime_authority": false
+  },
+  "privacy": {
+    "conversation_text_recorded": false,
+    "credentials_recorded": false,
+    "window_titles_recorded": false
+  },
+  "verification": {
+    "fake_http_tests": "ADDED",
+    "live_soak": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY"
+  }
+}
