@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_TTS_FALLBACK_IDENTITY_GATE_20261123",
+  "recorded_at_local": "2026-11-23T01:29:00+08:00",
+  "neko_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "reuse_verdict": "NATIVE_ALREADY_OWNS_TTS_FALLBACK_IDENTITY; NO_XIAOYU_ADAPTER",
+  "source_findings": [
+    "LLMSessionManager tracks failed configured providers and sets _tts_fallback_uses_default_voice",
+    "_effective_tts_route returns an empty replacement voice during fallback, preserving the character card while preventing failed-provider voice leakage",
+    "native tests verify replacement workers receive neither failed custom voice IDs nor failed provider credentials",
+    "Qwen realtime TTS resolves a safe Qwen TTS model when another provider model remains configured",
+    "voice-management tests bind imported clone metadata to its captured provider/endpoint identity across later provider switches"
+  ],
+  "release_gate_added": [
+    "tests/unit/test_openai_compatible_tts.py",
+    "tests/unit/test_qwen_intl_tts_routing.py",
+    "tests/unit/test_voice_management_tts.py"
+  ],
+  "verification": {
+    "source_audit": "PASS",
+    "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY"
+  }
+}
