@@ -491,7 +491,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 diff --git a/app/agent_server/nekoclaw_mount.py b/app/agent_server/nekoclaw_mount.py
 --- a/app/agent_server/nekoclaw_mount.py
 +++ b/app/agent_server/nekoclaw_mount.py
-@@ -258,12 +258,39 @@
+@@ -258,11 +258,38 @@
          _queue_update(task)
  
  
@@ -531,19 +531,20 @@ diff --git a/app/agent_server/nekoclaw_mount.py b/app/agent_server/nekoclaw_moun
      text = str(payload.get("text") or "").strip()
      if not text:
          # Nothing to say; a row like this is not worth retrying.
-         return True
-@@ -301,7 +328,10 @@
+@@ -293,9 +320,12 @@
          "metadata": {"nekoclaw_kind": item.kind, "nekoclaw_reason": reason},
          "timestamp": _now_iso(),
      }
 -    return await _send_main_event(event)
 +    return await _send_main_event(_with_delivery_identity(event, payload))
-+
-+
+ 
+ 
 +send_report._nekoclaw_effect_receipt_required = _effect_receipt_required  # type: ignore[attr-defined]
- 
- 
++
++
  async def _count_task_agent_request(commission_id: str) -> bool:
+     """Count one model request of a task agent against the free daily quota of the agent model.
+ 
 diff --git a/app/main_server/character_runtime.py b/app/main_server/character_runtime.py
 --- a/app/main_server/character_runtime.py
 +++ b/app/main_server/character_runtime.py
