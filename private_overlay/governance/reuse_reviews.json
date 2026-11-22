@@ -2031,6 +2031,79 @@
       },
       "retirement_condition": "Retire this probe when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
       "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION"
+    },
+    {
+      "id": "governance:companion-runtime-plugin-process-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The existing read-only live companion soak records N.E.K.O endpoint health plus desktop/backend process CPU/RSS, but it cannot attribute plugin child PID/RSS/CPU or detect plugin PID churn across a long idle/use soak. Those metrics are required for plugin restore latency/reliability and resource-leak diagnosis.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O /plugin/status host health",
+          "type": "native_current_pin",
+          "outcome": "selected as the sole plugin PID/liveness authority",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin; no newer replacement needed",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "existing optional psutil sampling",
+          "type": "existing_external",
+          "outcome": "selected only for RSS/CPU sampling of native host-provided PIDs",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        {
+          "name": "new monitoring daemon / exporter / process scanner",
+          "type": "private_duplicate",
+          "outcome": "rejected; duplicates native lifecycle/process authority and adds long-running state",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "N.E.K.O already exposes trustworthy plugin pid/liveness and the existing soak already has psutil sampling. The only missing piece is a read-only join between those two existing surfaces plus summary math; no runtime service or new monitoring authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains plugin lifecycle/process authority; XiaoYu only observes native status.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 /plugin/status and HealthCheckResponse provide pid/exitcode/liveness.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3; no newer equivalent long-soak metrics surface is required.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing optional psutil is already used by the soak and is reused only against host-provided PIDs.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "A new exporter/monitoring stack would add deployment/state complexity without improving N.E.K.O host authority; not selected.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: extend existing read-only soak parser/sampler/summary only.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New daemon/watchdog/store/process-discovery service/runtime patch rejected.",
+          "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
     }
   ],
   "hierarchy_policy": {
