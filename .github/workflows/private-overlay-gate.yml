@@ -92,7 +92,14 @@ jobs:
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"
           python -m pip install -q pytest pytest-randomly
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" python -m pytest -q             _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py
+          mkdir -p _qq_test_shim/plugin/plugins/qq_auto_reply _qq_test_shim/utils
+          touch _qq_test_shim/plugin/__init__.py
+          touch _qq_test_shim/plugin/plugins/__init__.py
+          touch _qq_test_shim/plugin/plugins/qq_auto_reply/__init__.py
+          touch _qq_test_shim/utils/__init__.py
+          cp _neko_upstream/plugin/plugins/qq_auto_reply/catchup_service.py _qq_test_shim/plugin/plugins/qq_auto_reply/catchup_service.py
+          cp _neko_upstream/utils/file_utils.py _qq_test_shim/utils/file_utils.py
+          PYTHONPATH="$GITHUB_WORKSPACE/_qq_test_shim" python -m pytest -q             _neko_upstream/plugin/plugins/qq_auto_reply/tests/test_qq_catchup.py
 
       - name: Release evidence gate
         run: python private_overlay/tools/check_release_readiness.py
