@@ -39,5 +39,28 @@
     "no continue-on-error is introduced",
     "both candidates remain candidate-only"
   ],
-  "retirement_condition": "Delete this composition-specific evidence/order contract when either candidate retires or upstream N.E.K.O natively covers both semantics so the candidate sequence disappears."
+  "retirement_condition": "Delete this composition-specific evidence/order contract when either candidate retires or upstream N.E.K.O natively covers both semantics so the candidate sequence disappears.",
+  "full_execution_candidate_replay": {
+    "order": [
+      "outbox_effect_state.patch",
+      "native_delivery_receipt.patch",
+      "plugin_run_unknown_effect.patch",
+      "plugin_run_idempotency.patch"
+    ],
+    "pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "verdict": "CLEAN_COMPOSITION",
+    "files_verified": [
+      "nekoclaw/host/ledger.py",
+      "nekoclaw/host/outbox.py",
+      "main_logic/agent_event_bus.py",
+      "app/agent_server/api_runtime.py",
+      "app/agent_server/nekoclaw_mount.py",
+      "app/main_server/character_runtime.py",
+      "nekoclaw/host/plugin_runs.py",
+      "nekoclaw/host/task_brain.py",
+      "nekoclaw/host/gateway.py",
+      "tests/unit/nekoclaw/test_host_plugin_runs.py"
+    ],
+    "note": "All unified-diff hunks apply sequentially in the workflow order after placing unknown-effect before idempotency. This is static composition evidence only; pytest/real-ZMQ/runtime behavior remains gated by CI."
+  }
 }
