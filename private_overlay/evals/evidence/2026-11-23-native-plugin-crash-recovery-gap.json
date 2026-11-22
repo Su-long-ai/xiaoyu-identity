@@ -80,5 +80,24 @@
     "critical_safety_note": "identity, memory, whole-reply quiet admission and final proactive interruptibility remain outside the private interaction-policy plugin process"
   },
   "retirement_condition": "Delete this gap probe and re-run reuse selection when pinned N.E.K.O exposes a trustworthy crash-specific lifecycle event, native restart policy, or equivalent host-owned extension seam that preserves explicit-stop intent and plugin admission semantics.",
-  "conclusion": "KEEP_NATIVE_GAP_PROBE_ONLY. Do not implement a private supervisor from this evidence."
+  "conclusion": "MACHINE_CONFIRMED_NATIVE_GAP: keep native detection + explicit/startup reconcile only; no private supervisor/watchdog/daemon or new managed patch.",
+  "validation": {
+    "workflow_run_id": 45062056924,
+    "head_sha": "dbbcc5e25c817cbcb86274f35cd6e43e16a79d58",
+    "conclusion": "success",
+    "machine_results": {
+      "freshness": "PASS",
+      "reuse_first": "PASS",
+      "architecture_freeze": "PASS",
+      "plugin_admission": "PASS",
+      "overlay_contract": "PASS",
+      "native_crash_gap_probe": "PASS",
+      "patched_companion_product_regression": "PASS",
+      "execution_plane": "PASS",
+      "delivery_receipt_real_zmq": "PASS",
+      "pinned_qq_surface": "PASS",
+      "qq_inbound_candidate": "PASS",
+      "release_evidence_gate": "PASS"
+    }
+  }
 }
