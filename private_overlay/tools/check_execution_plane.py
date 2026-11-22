@@ -10,6 +10,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "NEKO_UPSTREAM.lock.json"
+MATRIX = ROOT / "evals" / "execution_plane_acceptance_v1.json"
 
 CORE_TESTS = (
     "tests/unit/nekoclaw/test_host_ledger.py",
@@ -128,6 +129,48 @@ def _source_contract_results(neko_root: Path) -> list[dict[str, Any]]:
         )
     return results
 
+def _acceptance_matrix_summary() -> dict[str, Any]:
+    data = json.loads(MATRIX.read_text(encoding="utf-8-sig"))
+    lock = json.loads(LOCK.read_text(encoding="utf-8-sig"))
+    cases = list(data.get("cases") or [])
+    ids = [str(item.get("id") or "") for item in cases]
+    duplicate_ids = sorted({case_id for case_id in ids if case_id and ids.count(case_id) > 1})
+    malformed = [
+        str(item.get("id") or "<missing-id>")
+        for item in cases
+        if item.get("status") not in {"native_covered", "acceptance_gap"}
+    ]
+    blockers = [
+        {
+            "id": str(item.get("id") or ""),
+            "domain": str(item.get("domain") or ""),
+            "reason": str(item.get("reason") or ""),
+        }
+        for item in cases
+        if item.get("status") == "acceptance_gap" and item.get("severity") == "blocker"
+    ]
+    pinned = str(lock.get("tested_commit") or "")
+    matrix_pin = str(data.get("pinned_commit") or "")
+    ok = (
+        bool(cases)
+        and not duplicate_ids
+        and not malformed
+        and bool(pinned)
+        and matrix_pin == pinned
+    )
+    return {
+        "ok": ok,
+        "case_count": len(cases),
+        "native_covered": sum(item.get("status") == "native_covered" for item in cases),
+        "acceptance_gap_count": sum(item.get("status") == "acceptance_gap" for item in cases),
+        "blockers": blockers,
+        "duplicate_ids": duplicate_ids,
+        "malformed": malformed,
+        "pinned_commit": matrix_pin,
+        "lock_commit": pinned,
+    }
+
+
 def _delivery_receipt_probe(neko_root: Path) -> dict[str, Any]:
     mount = neko_root / "app/agent_server/nekoclaw_mount.py"
     bus = neko_root / "main_logic/agent_event_bus.py"
@@ -200,12 +243,14 @@ def build_report(
     run_pytest: bool = True,
     full: bool = False,
     strict_delivery_receipt: bool = False,
+    strict_product_gaps: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     lock = json.loads(LOCK.read_text(encoding="utf-8-sig"))
     pinned = str(lock.get("tested_commit") or "")
     head = _git(neko_root, "rev-parse", "HEAD")
     source_contracts = _source_contract_results(neko_root)
     delivery_receipt = _delivery_receipt_probe(neko_root)
+    acceptance_matrix = _acceptance_matrix_summary()
     tests: dict[str, Any] | None = None
     if run_pytest:
         tests = _run_tests(neko_root, _resolve_python(neko_root, python), full)
@@ -214,7 +259,9 @@ def build_report(
         and head == pinned
         and all(item["ok"] for item in source_contracts)
         and (tests is None or bool(tests["ok"]))
+        and bool(acceptance_matrix["ok"])
         and (not strict_delivery_receipt or bool(delivery_receipt["ok"]))
+        and (not strict_product_gaps or not acceptance_matrix["blockers"])
     )
     report = {
         "schema_version": 1,
@@ -226,8 +273,10 @@ def build_report(
         "working_tree_status": _git(neko_root, "status", "--porcelain"),
         "source_contracts": source_contracts,
         "delivery_receipt": delivery_receipt,
+        "acceptance_matrix": acceptance_matrix,
         "pytest": tests,
         "strict_delivery_receipt": strict_delivery_receipt,
+        "strict_product_gaps": strict_product_gaps,
         "ok": ok,
     }
     return report, ok
@@ -244,6 +293,7 @@ def main() -> int:
     parser.add_argument("--no-pytest", action="store_true")
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--strict-delivery-receipt", action="store_true")
+    parser.add_argument("--strict-product-gaps", action="store_true")
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -254,6 +304,7 @@ def main() -> int:
         run_pytest=not args.no_pytest,
         full=args.full,
         strict_delivery_receipt=args.strict_delivery_receipt,
+        strict_product_gaps=args.strict_product_gaps,
     )
     encoded = json.dumps(report, ensure_ascii=False, indent=2)
     if args.json_out:
