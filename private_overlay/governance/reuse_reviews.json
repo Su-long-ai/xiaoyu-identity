@@ -1237,6 +1237,29 @@
       "thin_adapter": "L5_thin_integration must be checked",
       "self_implement": "L6_private_implementation must be checked"
     },
-    "purpose": "Prevent component-local reuse reviews from passing without explicitly checking higher authority, native/upstream, pinned external and broader ecosystem layers."
+    "purpose": "Prevent component-local reuse reviews from passing without explicitly checking higher authority, native/upstream, pinned external and broader ecosystem layers.",
+    "legacy_review_ids": [
+      "patch:0001-proactive-autostart-idle-gate.patch",
+      "patch:0002-full-chat-native-voice-entry.patch",
+      "patch:0003-qwen38-server-vad-reliability.patch",
+      "patch:0004-native-ingress-activity-before-backpressure.patch",
+      "patch:0005-latest-character-switch-intent-replay.patch",
+      "patch:0006-private-speech-output-gate.patch",
+      "patch:0007-private-first-round-tool-route.patch",
+      "plugin:xiaoyu_interaction_policy",
+      "patch:0008-qwen-clone-provider-routing.patch",
+      "patch:0009-proactive-interruptibility-gate.patch",
+      "patch:0010-startup-event-loop-responsiveness.patch",
+      "upstream:neko-6fccfb72",
+      "plugin:xiaoyu_interaction_policy-model-slot",
+      "upstream:neko-e4f87d32",
+      "plugin:xiaoyu_interaction_policy-store",
+      "upstream:neko-1e8ff0d0",
+      "startup:native-plugin-runtime-reconcile",
+      "upstream:neko-99b479a0",
+      "runtime:plugin-crash-recovery",
+      "upstream:neko-c3fc33ff"
+    ],
+    "legacy_rule": "Only these rollout-time historical review IDs may omit search_layers. The list is frozen by check_reuse_first.py; new reviews cannot bypass the hierarchy by backdating reviewed_at."
   }
 }
