@@ -457,6 +457,28 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_exercises_plugin_run_idempotency_candidate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "tests/unit/nekoclaw/test_host_plugin_runs.py",
+            "plugin/tests/unit/server/test_run_manager_idempotency.py",
+            "Exercise plugin-run idempotency candidate",
+            "candidates/execution_plane/plugin_run_idempotency.patch",
+            "candidates/execution_plane/test_plugin_run_idempotency_candidate.py",
+            "test_retry_after_lost_response_executes_once",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        baseline = workflow.index("Capture clean native Execution Plane regression baseline")
+        candidate = workflow.index("Exercise plugin-run idempotency candidate")
+        regression = workflow.index("Regress patched native Execution Plane")
+        self.assertLess(baseline, candidate)
+        self.assertLess(candidate, regression)
+        self.assertNotIn("continue-on-error", workflow[candidate:regression])
+
     def test_github_gate_executes_native_dsh_optional_runtime_acceptance(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
