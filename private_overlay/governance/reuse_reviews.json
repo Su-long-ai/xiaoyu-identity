@@ -2344,6 +2344,85 @@
         }
       },
       "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
+    },
+    {
+      "id": "governance:physical-release-snapshot-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Refreshing physical Windows release acceptance currently requires manual orchestration of already-existing one-click launch, native runtime health, release readiness, desktop-process and NapCat/OneBot checks.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing XiaoYu one-click launcher + runtime health probe + release readiness gate",
+          "type": "existing_governance",
+          "outcome": "selected as the complete authority set; compose them rather than adding another runtime/service",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        {
+          "name": "Windows native process and TCP inspection",
+          "type": "native_os",
+          "outcome": "selected for read-only desktop/NapCat/OneBot presence checks",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        {
+          "name": "N.E.K.O current pin/upstream native launch and plugin lifecycle",
+          "type": "native_current_pin",
+          "outcome": "retained as runtime/process authority; the snapshot does not replace native lifecycle behavior",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        {
+          "name": "External monitoring/daemon/test orchestration products",
+          "type": "external",
+          "outcome": "rejected; unnecessary for a one-shot local release snapshot and would add lifecycle/state authority",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        {
+          "name": "Second XiaoYu launcher/watchdog/release database",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate authority",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "All required capabilities already exist; only a thin one-shot PowerShell composition is missing so the physical refresh can produce one machine-readable snapshot instead of scattered terminal outputs.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json",
+      "retirement_condition": "Retire when native N.E.K.O/XiaoYu offers an equivalent one-command physical release snapshot.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O and existing XiaoYu launch/health/release tools remain authoritative; the new artifact is orchestration only.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O lifecycle and process behavior remains the runtime being observed, not replaced.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Current upstream equals the pin and exposes no single physical release snapshot command covering XiaoYu private state.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned NapCat/QQ remains the external QQ authority; only its configured local endpoint/process state is observed.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External monitoring/test orchestration is unnecessary for a bounded one-shot local snapshot.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: invoke existing launcher/health/release tools and serialize read-only observations.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected a second launcher, daemon, watchdog, QQ authority, runtime health service or release database.",
+          "evidence": "evals/evidence/2026-11-23-physical-release-snapshot-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
