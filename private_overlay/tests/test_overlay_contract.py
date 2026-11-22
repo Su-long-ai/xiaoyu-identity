@@ -457,6 +457,37 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_executes_native_execution_product_e2e(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise native Execution Plane product E2E",
+            "test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end",
+            "test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind",
+            "test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command",
+            "test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped",
+            "test_host_task_agents.py::test_web_search_runs_the_search_plugin",
+            "test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen",
+            "test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway",
+            "test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running",
+            "test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next",
+            "test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded",
+            "from nekoclaw.builtin.browser import launcher",
+            "launcher.find_browsers()",
+            "BLOCK_REAL_BROWSER_ACCEPTANCE",
+            "NEKO_TEST_REAL_BROWSER=1",
+            "test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read",
+            "test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        product_e2e = workflow.index("Exercise native Execution Plane product E2E")
+        effect_candidate = workflow.index("Exercise effect-state candidate on fresh native pin")
+        self.assertLess(product_e2e, effect_candidate)
+        self.assertNotIn("continue-on-error", workflow[product_e2e:effect_candidate])
+
     def test_release_gate_executes_pinned_qq_surface_contracts_but_startup_does_not(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"
