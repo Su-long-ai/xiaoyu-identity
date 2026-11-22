@@ -36,7 +36,19 @@
   },
   "current_targeted_tests": [
     "tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery",
+    "tests/unit/nekoclaw/test_host_robustness.py::test_sender_refuses_an_unrecorded_effect_handoff",
     "tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect"
   ],
-  "conclusion": "KEEP_AS_CANDIDATE. The native ledger/outbox remain authority. The candidate may prove missing effect-state semantics in CI, but must not become an 11th live managed patch until the end-to-end main-server receipt/reconciliation chain is closed."
+  "conclusion": "KEEP_AS_CANDIDATE. The native ledger/outbox remain authority. The candidate may prove missing effect-state semantics in CI, but must not become an 11th live managed patch until the end-to-end main-server receipt/reconciliation chain is closed.",
+  "ci_bootstrap": {
+    "runner": "python-3.11",
+    "packages": [
+      "pytest",
+      "pytest-asyncio",
+      "pytest-randomly",
+      "nest-asyncio",
+      "uvicorn"
+    ],
+    "policy": "honor pinned N.E.K.O pytest.ini deterministic seed; do not disable upstream plugins/config"
+  }
 }
