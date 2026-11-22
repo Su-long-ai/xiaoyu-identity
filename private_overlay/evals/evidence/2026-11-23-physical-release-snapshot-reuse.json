@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PHYSICAL_RELEASE_SNAPSHOT_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "The stable product has one-click launch, runtime health repair, and release-readiness checks, but refreshing physical Windows acceptance still requires manually invoking several existing tools and collecting their outputs by hand.",
+  "selected": {
+    "mode": "thin orchestration only",
+    "reused": [
+      "private_overlay/tools/start_xiaoyu_oneclick.ps1",
+      "private_overlay/tools/probe_neko_runtime_health.py",
+      "private_overlay/tools/check_release_readiness.py",
+      "Windows native process/TCP inspection",
+      "existing N.E.K.O and NapCat process authorities"
+    ],
+    "output": "one JSON snapshot under the configured XiaoYu state root"
+  },
+  "rejected": [
+    "a second launcher",
+    "a second runtime health service",
+    "a resident watchdog/daemon",
+    "a new QQ/NapCat process authority",
+    "a new release database",
+    "automatic user-visible QQ sends or microphone interactions"
+  ],
+  "automation_boundary": {
+    "automated": [
+      "optional reuse of the existing one-click launcher",
+      "main/memory/agent/plugin health",
+      "forbidden Agent capability state through the existing health probe",
+      "native plugin recovery result",
+      "stable release-manifest consistency",
+      "official desktop-process presence",
+      "NapCat process/OneBot endpoint reachability when configured",
+      "snapshot serialization"
+    ],
+    "manual_remaining": [
+      "physical microphone/realtime speech quality",
+      "audible interrupt/cancel behavior",
+      "rapid character/model visual switch observation",
+      "real QQ inbound/outbound content observation"
+    ]
+  },
+  "acceptance": [
+    "No product/runtime authority is introduced.",
+    "No network side effect beyond existing local health requests and optional existing launcher behavior.",
+    "The result distinguishes automated PASS from manual observations still required.",
+    "NoLaunch mode is available for read-only inspection of an already-running product.",
+    "Output contains the stable release basis and check verdicts."
+  ],
+  "retirement_condition": "Retire when N.E.K.O/XiaoYu exposes one native release snapshot command covering the same launch, runtime health, process, QQ endpoint and release-manifest evidence without reducing the manual-boundary disclosure."
+}
