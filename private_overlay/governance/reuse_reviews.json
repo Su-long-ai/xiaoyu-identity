@@ -2520,6 +2520,91 @@
           "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/plugin_run_unknown_effect.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A NekoClaw plugin run whose run_id is known but whose terminal state becomes unreadable after repeated polling failures is currently collapsed to failed. That is unsafe because the plugin effect may already have happened, failed commissions are resumable, and gateway tool errors may invite a fresh call.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin RunOutcome unknown + native blocked commission semantics",
+          "type": "native",
+          "outcome": "selected as the existing effect-uncertainty and stop-without-auto-continuation vocabulary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer unknown-effect semantics",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O plugin Run API / NekoClaw gateway / ledger / call audit",
+          "type": "native_sdk",
+          "outcome": "selected; use existing run_id, cancellation, blocked commission, audit and tool-result channels",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal host-to-plugin polling boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "External workflow/idempotency engines",
+          "type": "external",
+          "outcome": "rejected because they would duplicate native execution/ledger authority for a state already expressible natively",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "XiaoYu uncertain-effect store/router/daemon",
+          "type": "private_duplicate",
+          "outcome": "rejected by single-authority execution freeze",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The required states and transport paths already exist natively, but current wiring maps a lost run to confirmed failure. The candidate is restricted to native semantic wiring: lost polling becomes RunOutcome.status=unknown, direct work uses blocked rather than failed, and the gateway returns a non-error no-repeat safety result.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively distinguishes unknown plugin effect from confirmed failure across PluginRunner, direct commissions and task-agent gateway calls, with equivalent no-blind-retry and reconciliation coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole run, commission, audit and publication authority; no parallel uncertainty store is allowed.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already has RunOutcome unknown, native blocked commissions, run cancellation and the affected direct/gateway paths.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and contains no complete unknown-effect wiring.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned surface/provider component owns the internal plugin-run polling result."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/idempotency systems would replace or duplicate native authority and are unnecessary for this semantics-only gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate changes only status interpretation and existing direct/gateway result handling; it adds no durable state.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private effect stores, routers, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
