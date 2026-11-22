@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "name": "XiaoYu Execution Plane / NekoClaw native acceptance v1",
+  "authority": "Project-N-E-K-O/N.E.K.O",
+  "pinned_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "policy": {
+    "native_runtime_authority": true,
+    "second_task_ledger_forbidden": true,
+    "second_result_outbox_forbidden": true,
+    "unknown_effect_blind_retry_forbidden": true,
+    "dsh_optional_only": true
+  },
+  "cases": [
+    {
+      "id": "commission.dispatch",
+      "domain": "commission",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_dispatch_route_returns_the_receipt_and_the_task_runs"
+    },
+    {
+      "id": "commission.master_off",
+      "domain": "commission",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_dispatch_with_the_master_switch_off_builds_nothing"
+    },
+    {
+      "id": "restart.restore_tasks",
+      "domain": "recovery",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_the_task_list_right_after_a_restart_has_what_was_left_under_way"
+    },
+    {
+      "id": "restart.stop_before_handover",
+      "domain": "recovery",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_a_task_left_by_an_earlier_process_can_be_stopped_before_anything_else_happens"
+    },
+    {
+      "id": "cancel.plugin_and_terminal_report",
+      "domain": "cancellation",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_cancel_stops_the_task_tells_the_plugin_and_reports_it"
+    },
+    {
+      "id": "deferred.restart_overdue",
+      "domain": "recovery",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_a_deferred_result_that_ran_out_while_the_process_was_down_fails_when_the_tasks_are_first_read"
+    },
+    {
+      "id": "deferred.restart_rearm",
+      "domain": "recovery",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_agent_wiring.py::test_a_deferred_result_still_in_time_is_timed_again_when_the_tasks_are_first_read"
+    },
+    {
+      "id": "ledger.atomic_terminal_outbox",
+      "domain": "effect",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_robustness.py::test_transition_stores_its_report_in_the_same_transaction"
+    },
+    {
+      "id": "ledger.atomic_rollback",
+      "domain": "effect",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_robustness.py::test_a_report_that_cannot_be_stored_undoes_the_transition"
+    },
+    {
+      "id": "outbox.restart_resend",
+      "domain": "delivery",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_robustness.py::test_reports_left_unsent_before_a_restart_go_out_on_first_use"
+    },
+    {
+      "id": "permission.revoked_during_result",
+      "domain": "permission",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_delivery.py::test_revoking_the_input_grant_while_the_target_works_stops_the_return"
+    },
+    {
+      "id": "permission.gateway_revoked_after_ask",
+      "domain": "permission",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_gateway.py::test_gateway_observes_the_plugin_switch_after_asking"
+    },
+    {
+      "id": "permission.browser_revoked_while_queued",
+      "domain": "permission",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running"
+    },
+    {
+      "id": "mcp.per_server_permission",
+      "domain": "mcp",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen"
+    },
+    {
+      "id": "mcp.denied_not_called",
+      "domain": "mcp",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_gateway.py::test_declined_mcp_server_is_not_called"
+    },
+    {
+      "id": "builtin.browser_gateway",
+      "domain": "capability",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway"
+    },
+    {
+      "id": "dsh.acp_timeout_late_drop",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped"
+    },
+    {
+      "id": "dsh.abort",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued"
+    },
+    {
+      "id": "dsh.resume",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again"
+    },
+    {
+      "id": "dsh.readiness",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it"
+    },
+    {
+      "id": "dsh.permission_host_authority",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made"
+    },
+    {
+      "id": "dsh.mcp_host_gateway",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events"
+    },
+    {
+      "id": "dsh.answer_requeue_when_not_received",
+      "domain": "dsh",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_dsh_driver.py::test_what_a_call_was_handed_is_queued_again_when_its_answer_does_not_reach_dsh"
+    },
+    {
+      "id": "agent_master.optional_dsh_install",
+      "domain": "readiness",
+      "status": "native_covered",
+      "test": "tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went"
+    },
+    {
+      "id": "delivery.main_process_effect_receipt",
+      "domain": "delivery",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "host outbox currently treats ZeroMQ PUSH acceptance as delivery; no stable outbox delivery identity plus main-server effect receipt/reconciliation exists"
+    },
+    {
+      "id": "delivery.main_restart_before_effect",
+      "domain": "recovery",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "main callback queue is in-memory; result handed off before visible effect can be lost across main-server restart"
+    },
+    {
+      "id": "delivery.duplicate_replay_after_ambiguous_effect",
+      "domain": "effect",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "blind retry after an ambiguous visible effect can duplicate delivery; must reconcile or remain uncertain"
+    }
+  ]
+}
