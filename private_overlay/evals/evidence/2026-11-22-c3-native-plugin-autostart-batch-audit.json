@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-22T23:55:00+08:00",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "scope": "Native plugin autostart batch reuse audit with Agent master disabled",
+  "native_findings": {
+    "registry_groups": "PluginRegistryService.list_autostart_plugin_groups splits independent plugins for bounded concurrent start and dependent plugins for serial topological start.",
+    "lifecycle_batch": "plugin.server.lifecycle._refresh_registry_and_start_autostart_plugins calls start_plugins_batch during full plugin lifecycle startup.",
+    "public_http_surface": "The plugin HTTP surface exposes refresh and per-plugin start/reload plus reload-all, but no start-autostart-batch endpoint.",
+    "agent_gate": "Agent Server intentionally defers plugin lifecycle startup while analyzer/master is OFF; user_plugin_enabled alone is insufficient and logs that enable is deferred until the master switch is ON.",
+    "xiaoyu_policy": "XiaoYu keeps Agent master/analyzer OFF, so full lifecycle startup is intentionally unavailable."
+  },
+  "validation": {
+    "targeted_native_tests": "38 passed, 18 deselected",
+    "tests": [
+      "plugin/tests/unit/server/test_autostart_concurrency.py",
+      "plugin/tests/unit/server/test_plugin_registry_service.py -k autostart/auto_start"
+    ],
+    "live_reconcile_evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
+  },
+  "decision": {
+    "verdict": "KEEP_THIN_SERIAL_HTTP_RECONCILE",
+    "rationale": [
+      "Do not enable Agent master merely to obtain native autostart batching.",
+      "Do not invent XiaoYu concurrency/dependency grouping because N.E.K.O already owns that logic internally and the public surface does not expose it.",
+      "Continue delegating registry refresh, dependency validation and each process start to native HTTP routes.",
+      "Retire the thin adapter when N.E.K.O exposes an Agent-master-independent lifecycle/autostart entry point."
+    ],
+    "private_parallel_starter_required": false,
+    "new_core_patch_required": false,
+    "agent_master_change_required": false
+  }
+}

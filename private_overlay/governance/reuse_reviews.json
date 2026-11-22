@@ -502,10 +502,16 @@
           "type": "private_legacy",
           "outcome": "retired",
           "evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+        },
+        {
+          "name": "N.E.K.O c3 native autostart batch (registry groups + lifecycle start_plugins_batch)",
+          "type": "native",
+          "outcome": "reused when full plugin lifecycle owns startup, but not directly callable in XiaoYu mode: Agent Server intentionally defers lifecycle startup while Agent master/analyzer is OFF and the public plugin HTTP API has no autostart-batch endpoint",
+          "evidence": "evals/evidence/2026-11-22-c3-native-plugin-autostart-batch-audit.json"
         }
       ],
-      "why_reuse_insufficient": "Current embedded mode exposes no lifecycle-start route independent of Agent master. A thin loopback adapter is still required only to invoke existing host APIs and replay user_plugin_enabled; it does not reimplement plugin lifecycle internals.",
-      "acceptance_evidence": "evals/evidence/2026-11-22-native-plugin-runtime-reconcile.json"
+      "why_reuse_insufficient": "N.E.K.O c3 already owns concurrent/ordered autostart grouping and dependency semantics inside full plugin lifecycle startup, and its targeted native tests pass. XiaoYu intentionally keeps Agent master/analyzer OFF, which causes Agent Server to defer that lifecycle; the public plugin HTTP surface exposes refresh and per-plugin start but not the native autostart batch. The existing thin adapter therefore remains limited to asking N.E.K.O to refresh/select/start host-declared autostarts. It must stay serial rather than duplicate N.E.K.O dependency/concurrency logic, and should be retired if upstream exposes an Agent-master-independent lifecycle/autostart entry.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-c3-native-plugin-autostart-batch-audit.json"
     },
     {
       "id": "upstream:neko-99b479a0",
