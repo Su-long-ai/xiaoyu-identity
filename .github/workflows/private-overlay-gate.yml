@@ -179,6 +179,9 @@ jobs:
             tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
             tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
             tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send \
+            tests/unit/test_tts_handoff_transport_failures.py::test_timed_out_handler_does_not_block_successor_tts_start \
+            tests/unit/test_tts_handoff_transport_failures.py::test_stalled_frame_closes_only_captured_socket_and_releases_lock \
+            tests/unit/test_tts_handoff_transport_failures.py::test_pipeline_clear_cannot_steal_stopping_handlers_wakeup \
             tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot \
             tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point \
             tests/unit/test_cosyvoice_audio_done_generation.py \
@@ -236,6 +239,7 @@ jobs:
               tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
               tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
               tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
+              tests/unit/test_tts_handoff_transport_failures.py::test_stalled_frame_closes_only_captured_socket_and_releases_lock \
               tests/unit/test_cosyvoice_audio_done_generation.py \
               tests/unit/test_private_speech_output_gate.py::PrivateReplyGateTests::test_fast_exact_quiet_closes_current_turn_race \
               tests/unit/test_private_speech_output_gate.py::PrivateReplyGateTests::test_fast_resume_overrides_stale_file_for_current_turn \

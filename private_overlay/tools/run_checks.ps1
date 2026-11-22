@@ -96,6 +96,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_connection_recovery.py"),
         (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_host_turn_identity.py"),
         (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py"),
+        (Join-Path $NekoRoot "tests\unit\test_tts_handoff_transport_failures.py"),
         (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")
     )
     $CompanionOwnershipTargets = @(
@@ -108,6 +109,9 @@ if (-not $StartupPreflight) {
         ("{0}::test_the_rotation_stands_down_when_a_turn_starts_during_response_done" -f (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_host_turn_identity.py")),
         ("{0}::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py")),
         ("{0}::test_runtime_handoff_drains_status_blocked_inside_websocket_send" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py")),
+        ("{0}::test_timed_out_handler_does_not_block_successor_tts_start" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_transport_failures.py")),
+        ("{0}::test_stalled_frame_closes_only_captured_socket_and_releases_lock" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_transport_failures.py")),
+        ("{0}::test_pipeline_clear_cannot_steal_stopping_handlers_wakeup" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_transport_failures.py")),
         ("{0}::test_a_superseded_flow_cannot_release_the_newer_starts_slot" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")),
         ("{0}::test_the_automatic_restart_stands_down_at_every_resumption_point" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py"))
     )

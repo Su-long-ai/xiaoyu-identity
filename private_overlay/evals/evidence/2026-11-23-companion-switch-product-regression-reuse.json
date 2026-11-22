@@ -186,5 +186,23 @@
       "ambiguous same-name Live2D model selects wrong source"
     ],
     "rationale": "Use pinned native latest-intent/model-selection contracts on the actual patched product worktree; no XiaoYu avatar/session runtime."
+  },
+  "tts_transport_failure_extension": {
+    "reused_native_file": "tests/unit/test_tts_handoff_transport_failures.py",
+    "selected_targets": [
+      "test_timed_out_handler_does_not_block_successor_tts_start",
+      "test_stalled_frame_closes_only_captured_socket_and_releases_lock",
+      "test_pipeline_clear_cannot_steal_stopping_handlers_wakeup"
+    ],
+    "repeated_micro_soak": [
+      "test_stalled_frame_closes_only_captured_socket_and_releases_lock"
+    ],
+    "protected_failures": [
+      "timed-out retired handler blocks successor TTS startup",
+      "stalled old audio frame closes the replacement websocket or keeps shared audio lock",
+      "pipeline clear consumes a stopping handler's wakeup and leaves stale handler alive"
+    ],
+    "new_runtime_code": false,
+    "reuse_review": "governance:companion-switch-product-regression-v1"
   }
 }
