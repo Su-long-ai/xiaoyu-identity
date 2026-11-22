@@ -91,9 +91,8 @@ async def test_reopen_still_fails_question_types_without_a_native_resume_continu
         assert ended.status == "failed"
         assert ended.status_reason == "the host process ended before this finished"
         assert await reopened.outbox_question_state(outbox_id) == "gone"
-        assert await reopened.outbox_pending() != []
-        # The reconcile failure report may be present when a reporter hook is
-        # configured, but the stale question itself must not survive.
+        # A reconcile failure report is optional here because this bare Ledger
+        # has no reporter hook. The stale question itself must not survive.
         assert all(row.id != outbox_id for row in await reopened.outbox_pending())
     finally:
         await reopened.close()
