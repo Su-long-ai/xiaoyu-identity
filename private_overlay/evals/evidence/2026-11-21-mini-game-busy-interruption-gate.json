@@ -1,14 +1,19 @@
 {
   "evidence_id": "2026-11-21-mini-game-busy-interruption-gate",
   "date": "2026-11-21",
-  "verdict": "PASS_NATIVE_CONFIG_PLUS_LEISURE_ONLY_INVITE_GATE",
-  "symptom": "XiaoYu periodically proposed a mini-game while the owner still had work to do.",
+  "verdict": "PASS_NATIVE_CONFIG_PLUS_WINDOWS_INTERRUPTIBILITY_AND_LEISURE_GATE",
+  "symptom": "XiaoYu proposed mini-games while the owner still had work to do, and later again while a game was active because N.E.K.O misclassified the activity as interruptible.",
   "upstream_diagnosis": {
     "known_gap": "N.E.K.O proactive-chat user-directives reference documents #3013: rest reminders, mini-game invitations and voice reminders do not pass the directive output gate.",
     "ordinary_invite_before": "Canned mini-game delivery blocked missing activity, restricted_screen_only, away and unfinished_thread, but otherwise a 10-second delivery idle window could admit transitioning/chatting/voice_engaged/stale_returning states.",
     "work_break_before": {
       "native_default_probability": 0.5,
       "meaning": "A focused-work water/stretch break reminder had a 50% branch into a rest-plus-mini-game invitation."
+    },
+    "post_first_fix_recurrence": {
+      "time": "2026-11-21 23:18:54",
+      "observation": "mini-game invite declined after leisure-only 0009 was live",
+      "root_cause": "the mini-game gate trusted ActivitySnapshot state; the upstream activity classifier can miss an active game, so a false idle/casual state can still pass the allowlist"
     }
   },
   "live_observation": {
@@ -44,6 +49,24 @@
       ],
       "new_model_call": false,
       "new_activity_store": false
+    },
+    "windows_interruptibility": {
+      "authority": "Windows Shell SHQueryUserNotificationState",
+      "api": "SHQueryUserNotificationState",
+      "blocking_states": {
+        "1": "NOT_PRESENT",
+        "2": "BUSY",
+        "3": "RUNNING_D3D_FULL_SCREEN",
+        "4": "PRESENTATION_MODE",
+        "6": "QUIET_TIME"
+      },
+      "nonblocking_states": {
+        "5": "ACCEPTS_NOTIFICATIONS",
+        "7": "APP"
+      },
+      "integration": "sampled inside the existing 5-second SystemSignalCollector executor hop; no new timer, thread, database, or model call",
+      "decision_axis": "does not rewrite ActivitySnapshot.state; when Windows says normal notification UI is inappropriate, only propensity is narrowed to closed",
+      "remote_behavior": "ignored when os_signals_available is false so a remote backend cannot veto based on the server desktop"
     }
   },
   "regression": {
@@ -52,7 +75,9 @@
     "private_activity_preference_helper": "3/3 PASS",
     "overlay_full_gate": "83/83 PASS",
     "release_readiness": "21/21 PASS",
-    "managed_patch_replay": "0001..0009 CHAIN_PASS from pinned 6261a5f653af066d2a7da8e265f624e3df03e3f7"
+    "managed_patch_replay": "0001..0009 CHAIN_PASS from pinned 6261a5f653af066d2a7da8e265f624e3df03e3f7",
+    "windows_interruptibility_plus_mini_game": "170/170 PASS",
+    "broader_activity_proactive_suite": "297/297 PASS"
   },
   "live_deployment": {
     "status": "PASS",
@@ -68,5 +93,18 @@
       "Steamworks API initialization failure continues as native nonblocking fallback",
       "startup-only loop stalls around 1-2 seconds recovered automatically"
     ]
+  },
+  "external_validation": {
+    "first_live_probe": {
+      "state": 2,
+      "label": "QUNS_BUSY",
+      "blocking": true
+    },
+    "later_live_probe": {
+      "state": 5,
+      "label": "QUNS_ACCEPTS_NOTIFICATIONS",
+      "blocking": false
+    },
+    "meaning": "the external authority tracks current Windows receptivity rather than permanently classifying the user as busy"
   }
 }

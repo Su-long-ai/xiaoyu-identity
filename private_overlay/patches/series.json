@@ -42,9 +42,14 @@
       "evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
     },
     {
-      "file": "0009-mini-game-leisure-only-gate.patch",
-      "reason": "N.E.K.O's own proactive-chat documentation tracks mini-game invitations as a known user-directive coverage gap (#3013). The ordinary canned invite path already blocks restricted_screen_only and away, but otherwise treats a short input gap as enough evidence of free time, so transitioning/chatting/voice-engaged/returning states can still be interrupted. Reuse the native ActivitySnapshot authority and admit proactive game invitations only for explicit leisure states casual_browsing and idle. The focused-work break reminder's game branch is not patched: XiaoYu sets the supported native activity.work_break_game_invite_probability preference to 0.0.",
-      "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+      "file": "0009-proactive-interruptibility-gate.patch",
+      "reason": "Live use reproduced a mini-game invitation while the owner was actively gaming, showing that early ActivitySnapshot classification alone is not a sufficient interruption authority. Reuse Windows SHQueryUserNotificationState in the existing SystemSignalCollector, preserve the native ActivitySnapshot, keep canned game invites leisure-only, and recheck the latest native snapshot again inside prepare_proactive_delivery immediately before claim. Windows BUSY/fullscreen/presentation/quiet states veto every nonessential proactive delivery; native busy states veto ambient/entertainment delivery, with focused_work allowed only for the dedicated work-break reminder. Optional providers are now observed in shadow through N.E.K.O's existing PluginCatalog/PluginRunner and hidden plugin entries; they cannot alter or delay the native verdict. No new plugin host, polling loop, game database, or model call.",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+    },
+    {
+      "file": "0010-startup-event-loop-responsiveness.patch",
+      "reason": "Live watchdog stacks exposed four synchronous hot paths on the main FastAPI event loop: token_tracker.install_hooks first-imported the OpenAI SDK (~1.39s), page_config recursively scanned Live2D roots (~1.63s), storage status resolved filesystem paths (~1.03s), and holiday warmup constructed the default SSLContext (~2.11s). Latest upstream origin/main was checked and contains no equivalent scheduling fix. Reuse the existing background preload worker for token hooks; keep TokenTracker periodic save on its owning asyncio loop; use asyncio.to_thread for Live2D discovery and storage payload construction; and build/reuse one holiday SSLContext off-loop while preserving async httpx requests. No cross-request Live2D cache is added.",
+      "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

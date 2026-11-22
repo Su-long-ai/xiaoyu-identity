@@ -1,0 +1,65 @@
+{
+  "evidence_id": "2026-11-21-interaction-policy-event-driven-performance",
+  "date": "2026-11-21",
+  "verdict": "PASS_EVENT_DRIVEN_TEXT_CONTROL_AND_PERMISSION_REDUCTION_LIVE",
+  "before": {
+    "plugin_version": "0.6.0",
+    "text_control_path": "timer_interval every 1 second -> bus.memory.get(bucket XiaoYu, limit 20)",
+    "quiet_reconcile_cost": "while quiet, the same timer also queried proactive_controller state every scan",
+    "analyzed_capabilities": [
+      "memory.read"
+    ],
+    "risk": "permanent polling generated avoidable IPC/storage reads and amplified quiet-mode controller RPC/log traffic"
+  },
+  "after": {
+    "plugin_version": "0.6.3",
+    "primary_text_control_path": "startup conversations_v2.get baseline -> conversations_v2 record watcher; no healthy-path memory polling",
+    "event": "watcher record subscription with event-id dedupe and observed_at high-water cursor",
+    "timer": "30-second reconcile only for bounded quiet expiry, watcher restart, or bounded incremental conversations_v2 fallback",
+    "voice_path": "existing voice_transcript_observed event remains unchanged",
+    "analyzed_capabilities": [
+      "conversations.read"
+    ],
+    "removed_capabilities": [
+      "memory.read"
+    ],
+    "persisted_user_text": false
+  },
+  "migration": {
+    "state_version": 5,
+    "new_fields": [
+      "conversation_cursor_initialized",
+      "last_conversation_observed_at"
+    ],
+    "first_upgrade_behavior": "explicit one-shot conversations_v2.get baselines recent text without replaying old control commands",
+    "restart_behavior": "later initial views process only unseen records newer than the high-water cursor"
+  },
+  "verification": {
+    "interaction_policy_unit_tests": "31/31 PASS",
+    "overlay_full_gate": "88/88 PASS",
+    "release_readiness": "21/21 PASS",
+    "capability_analyzer": {
+      "status": "completed",
+      "capabilities": [
+        "conversations.read"
+      ],
+      "warnings": []
+    },
+    "native_upgrade_plan": "upgrade 0.6.0 -> 0.6.1 with confirmation token"
+  },
+  "expected_steady_state_reduction": {
+    "normal_mode": "60 memory reads/minute -> 0 memory reads/minute on healthy watcher",
+    "quiet_mode": "up to ~60 controller-state reconciliations/minute -> at most ~2/minute from 30-second reconcile",
+    "fallback": "only when watcher is inactive/unavailable"
+  },
+  "live_verification": {
+    "installed_version": "0.6.3",
+    "conversation_cursor_initialized": true,
+    "watcher_log": "source=conversations_v2 event=record role=user input_source=text",
+    "old_scan_user_timer_lines": 0,
+    "memory_get_lines": 0,
+    "plugin_errors_after_final_restart": 0,
+    "cross_loop_error_after_final_restart": false,
+    "observed_window": "22:43:35-22:44:36"
+  }
+}

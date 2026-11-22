@@ -37,7 +37,12 @@ sdk.SdkError = _SdkError
 sdk.lifecycle = _identity
 sdk.neko_plugin = lambda cls: cls
 sdk.on_event = _identity
-sdk.plugin_entry = _identity
+def _plugin_entry(*_a, **kwargs):
+    def decorate(obj):
+        obj.__test_plugin_entry_meta__ = dict(kwargs)
+        return obj
+    return decorate
+sdk.plugin_entry = _plugin_entry
 sdk.llm_tool = _llm_tool
 sdk.timer_interval = _identity
 sys.modules.setdefault("plugin", types.ModuleType("plugin"))
@@ -49,6 +54,52 @@ spec = importlib.util.spec_from_file_location("xiaoyu_interaction_policy", MODUL
 mod = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(mod)
+
+
+class InterruptibilityCapabilityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hidden_shadow_provider_abstains_and_returns_bounded_evidence(self):
+        async def fake_recent(_minutes):
+            return {
+                "source": "ActivityWatch",
+                "coverage": {"complete": True},
+                "summary": {
+                    "active_seconds": 73.25,
+                    "by_app_seconds": {"private-game.exe": 70.0},
+                },
+                "segments": [{"app": "private-game.exe"}],
+            }
+
+        plugin = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        with patch.object(mod, "query_activitywatch_recent", new=fake_recent):
+            result = await plugin.interruptibility_v1(
+                activity_state="gaming",
+                notification_state=3,
+                os_signals_available=True,
+                allow_focused_work=False,
+                native_block_reason="windows_notification_state:3",
+            )
+
+        payload = result.value
+        self.assertEqual(payload["contract"], "interruptibility.v1")
+        self.assertEqual(payload["decision"], "abstain")
+        self.assertEqual(payload["reason"], "activitywatch_shadow_evidence_only")
+        self.assertTrue(payload["native"]["blocked"])
+        self.assertEqual(
+            payload["evidence"],
+            {
+                "source": "ActivityWatch",
+                "available": True,
+                "coverage_complete": True,
+                "active_seconds": 73.25,
+            },
+        )
+        self.assertNotIn("by_app_seconds", payload["evidence"])
+        self.assertNotIn("segments", payload["evidence"])
+
+        meta = mod.XiaoYuInteractionPolicyPlugin.interruptibility_v1.__test_plugin_entry_meta__
+        self.assertEqual(meta["id"], "interruptibility_v1")
+        self.assertTrue(meta["metadata"]["agent_hidden"])
+
 
 
 class ParserTests(unittest.TestCase):
@@ -78,17 +129,19 @@ class ParserTests(unittest.TestCase):
             {"action": "quiet", "duration_minutes": 30, "speech_action": "unchanged", "vision_action": "unchanged"},
         )
 
-    def test_v4_state_normalization_collapses_legacy_speech_mute_into_quiet(self):
+    def test_v5_state_normalization_collapses_legacy_speech_mute_and_adds_conversation_cursor(self):
         state = mod._normalize_state({
             "version": 1,
             "quiet": True,
             "speech_muted": True,
             "previous_proactive_chat_enabled": True,
         })
-        self.assertEqual(state["version"], 4)
+        self.assertEqual(state["version"], 5)
         self.assertTrue(state["quiet"])
         self.assertFalse(state["speech_muted"])
         self.assertFalse(state["vision_blocked"])
+        self.assertFalse(state["conversation_cursor_initialized"])
+        self.assertIsNone(state["last_conversation_observed_at"])
         self.assertTrue(state["previous_proactive_chat_enabled"])
 
     def test_ambiguous_v1_quiet_does_not_invent_speech_mute(self):
@@ -350,6 +403,139 @@ class ReplyOutputContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(state["quiet"])
         self.assertFalse(state["speech_muted"])
         self.assertEqual(proactive_writes, [False, True])
+
+
+class CrossLoopLockTests(unittest.TestCase):
+    def test_lock_can_be_reused_across_distinct_asyncio_event_loops(self):
+        lock = mod._CrossLoopAsyncLock()
+        seen = []
+
+        async def once(label):
+            async with lock:
+                self.assertTrue(lock.locked())
+                seen.append(label)
+            self.assertFalse(lock.locked())
+
+        asyncio.run(once("first"))
+        asyncio.run(once("second"))
+        self.assertEqual(seen, ["first", "second"])
+
+
+class ConversationWatcherTests(unittest.IsolatedAsyncioTestCase):
+    def _message(self, message_id, text, observed_at):
+        return types.SimpleNamespace(
+            id=message_id,
+            text=text,
+            observed_at=float(observed_at),
+            input_source="text",
+        )
+
+    def _obj_with_state(self, state):
+        obj = object.__new__(mod.XiaoYuInteractionPolicyPlugin)
+        obj._lock = mod._CrossLoopAsyncLock()
+        obj._conversation_watcher = None
+        obj.logger = types.SimpleNamespace(
+            info=lambda *_a, **_k: None,
+            warning=lambda *_a, **_k: None,
+        )
+        holder = {"state": mod._normalize_state(state)}
+        obj._load_state = lambda: dict(holder["state"])
+
+        def save(value):
+            holder["state"] = mod._normalize_state(dict(value))
+        obj._save_state = save
+
+        async def expire(value):
+            return value
+        obj._expire_if_needed = expire
+
+        async def enforce(_value):
+            return None
+        obj._enforce_quiet_if_needed = enforce
+        return obj, holder
+
+    async def test_explicit_baseline_does_not_replay_old_controls(self):
+        obj, holder = self._obj_with_state({"initialized": True})
+        records = (
+            self._message("m2", "说吧", 20),
+            self._message("m1", "别说话", 10),
+        )
+
+        async def get(**kwargs):
+            self.assertEqual(kwargs["order"], "desc")
+            self.assertEqual(kwargs["max_count"], 20)
+            return records
+
+        obj.bus = types.SimpleNamespace(
+            conversations_v2=types.SimpleNamespace(get=get)
+        )
+        applied = []
+
+        async def apply(value, text, *, reason):
+            applied.append((text, reason))
+            return value, 1
+        obj._apply_control_text = apply
+
+        await obj._baseline_conversation_cursor()
+
+        self.assertEqual(applied, [])
+        self.assertTrue(holder["state"]["conversation_cursor_initialized"])
+        self.assertEqual(holder["state"]["last_conversation_observed_at"], 20.0)
+        self.assertEqual(holder["state"]["seen_event_ids"][-2:], ["m1", "m2"])
+
+    async def test_new_record_is_processed_once_after_baseline(self):
+        obj, holder = self._obj_with_state({
+            "initialized": True,
+            "conversation_cursor_initialized": True,
+            "last_conversation_observed_at": 10.0,
+            "seen_event_ids": ["m1"],
+        })
+        applied = []
+
+        async def apply(value, text, *, reason):
+            applied.append((text, reason))
+            value["last_action"] = "tested"
+            return value, 1
+        obj._apply_control_text = apply
+
+        message = self._message("m2", "你先别主动找我", 11)
+        await obj._conversation_control_record(message)
+        await obj._conversation_control_record(message)
+
+        self.assertEqual(applied, [("你先别主动找我", "text")])
+        self.assertEqual(holder["state"]["last_conversation_observed_at"], 11.0)
+        self.assertIn("m2", holder["state"]["seen_event_ids"])
+
+    async def test_active_reconcile_timer_does_not_self_deadlock(self):
+        obj, holder = self._obj_with_state({
+            "initialized": True,
+            "conversation_cursor_initialized": True,
+        })
+        obj._conversation_watcher = types.SimpleNamespace(_active=True)
+        entered = []
+
+        async def reconcile():
+            async with obj._lock:
+                entered.append(True)
+        obj._reconcile_state = reconcile
+
+        result = await asyncio.wait_for(
+            obj.reconcile_interaction_state(),
+            timeout=0.25,
+        )
+        self.assertEqual(entered, [True])
+        self.assertEqual(result.value["watcher"], "active")
+        self.assertFalse(holder["state"]["quiet"])
+
+    def test_text_control_source_is_event_driven_not_one_second_memory_polling(self):
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn("self.bus.conversations_v2.watch(", source)
+        self.assertIn('subscribe(on="record")', source)
+        self.assertIn("self.bus.conversations_v2.get(", source)
+        self.assertIn('seconds=30', source)
+        self.assertNotIn("self.bus.memory.get(", source)
+        self.assertNotIn('subscribe(on="change")', source)
+        self.assertNotIn('seconds=1, auto_start=True', source)
 
 
 class VoiceControlEventTests(unittest.IsolatedAsyncioTestCase):

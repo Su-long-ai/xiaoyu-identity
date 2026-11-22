@@ -133,10 +133,24 @@
     },
     {
       "id": "proactive_game_timing",
-      "goal": "mini-game invitations do not interrupt focused or ambiguous active states, and focused-work break reminders remain rest reminders rather than game invitations",
-      "status": "native_activity_preference_and_leisure_only_gate_pass",
-      "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json",
-      "note": "XiaoYu keeps proactiveMiniGameInviteEnabled=true. Native activity preference sets work_break_game_invite_probability=0.0, while ordinary canned invitations are eligible only in ActivitySnapshot states casual_browsing or idle."
+      "goal": "entertainment invitations do not interrupt active gaming/work and focused-work breaks never pivot into game invitations",
+      "status": "interruptibility_final_delivery_regression_pass",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
+      "note": "Mini-games remain enabled only for explicit leisure states. Windows/native final-delivery veto and realtime voice-nudge veto passed clean replay; live restart validation follows this release-ready regression gate."
+    },
+    {
+      "id": "startup_event_loop_responsiveness",
+      "goal": "desktop startup/page-config heavy SDK import, model discovery, storage path resolution, and holiday SSL initialization do not block the main FastAPI event loop",
+      "status": "live_full_desktop_pass_zero_loop_stall_events",
+      "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json",
+      "note": "Backend-only and full desktop live A/B passed after moving the four measured blocking paths off-loop. The final 23:15 full desktop validation showed only watchdog startup INFO and zero blocked/recovered loop-stall events."
+    },
+    {
+      "id": "proactive_interruptibility_authority",
+      "goal": "system-level attention state and latest native activity jointly veto nonessential proactive interruption even when the early activity snapshot is wrong or stale",
+      "status": "windows_native_attention_final_delivery_regression_pass",
+      "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json",
+      "note": "Reuses Windows SHQueryUserNotificationState plus N.E.K.O UserActivityTracker, including an on-demand QUNS read at final delivery. No new polling loop or model call; live restart validation follows this regression gate."
     }
   ]
 }

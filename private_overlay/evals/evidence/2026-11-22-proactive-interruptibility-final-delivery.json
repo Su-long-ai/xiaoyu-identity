@@ -1,0 +1,91 @@
+{
+  "evidence_id": "2026-11-22-proactive-interruptibility-final-delivery",
+  "date": "2026-11-22",
+  "verdict": "REGRESSION_PASS_LIVE_GATE_PROVIDER_SHADOW_ACTIVE",
+  "symptom": "A mini-game invitation was delivered while the owner was actively gaming after the earlier leisure-only gate.",
+  "live_trigger": {
+    "latest_reproduced_decline": "2026-11-21 23:18:54",
+    "failure_mode": "early ActivitySnapshot could be wrong or stale before final delivery"
+  },
+  "reuse_first": {
+    "windows_SHQueryUserNotificationState": "already present in N.E.K.O SystemSignalCollector; selected",
+    "neko_activity_snapshot": "already present; selected",
+    "activitywatch": "kept as auxiliary retrospective evidence, not final hard authority",
+    "playnite": "not installed locally; not added as a dependency",
+    "new_polling_loop": false,
+    "new_model_call": false,
+    "new_game_database": false,
+    "neko_plugin_catalog_runner": "selected for provider discovery/execution; the private CapabilityRegistry prototype was removed"
+  },
+  "policy": {
+    "windows_blocking_states": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "ordinary_allowed_states": [
+      "idle",
+      "casual_browsing"
+    ],
+    "ordinary_blocked_states": [
+      "away",
+      "stale_returning",
+      "gaming",
+      "focused_work",
+      "focused_video",
+      "chatting",
+      "voice_engaged",
+      "transitioning",
+      "private"
+    ],
+    "focused_work_exception": "only dedicated channel=work_break; Windows blocking state still vetoes it",
+    "final_recheck": "prepare_proactive_delivery checks latest native snapshot at entry and immediately before claim; final Windows QUNS is also read on demand so the normal collector interval cannot leave a stale notification-state window",
+    "voice_nudge": "realtime ambient proactive nudge uses the same interruptibility veto; agent task-result callbacks are intentionally not treated as low-priority ambient chatter"
+  },
+  "verification": {
+    "windows_signal_and_one_shot": "11/11 PASS",
+    "proactive_final_delivery": "50/50 PASS",
+    "voice_proactive_nudge_suite": "27/27 PASS",
+    "mini_game": "161/161 PASS",
+    "unanswered_repeat": "36/36 PASS",
+    "service_boundary": "106/106 PASS",
+    "clean_replay_combined": "391/391 PASS",
+    "patch_diff_check": "PASS",
+    "patch_clean_apply": "PASS from 0001-0008 baseline c5bfd120",
+    "setup_verify": "0001..0010 all applied; managed patch count=10",
+    "capability_shadow_core_regression": "122/122 PASS across shadow, Windows signal, and proactive service-boundary suites",
+    "private_provider_tests": "32/32 PASS",
+    "plugin_package_check": "0 errors on xiaoyu_interaction_policy 0.6.4",
+    "patch_full_chain": "0001..0010 clean apply PASS from pinned base 6261a5f",
+    "patch_0009_live_reverse_check": "PASS",
+    "live_provider_e2e": "PASS: main_logic.capability_shadow -> native PluginCatalog -> native PluginRunner -> xiaoyu_interaction_policy:interruptibility_v1 returned success=true, decision=abstain",
+    "core_scheduler_live_e2e": "PASS with 5.0s shadow timeout: ProactiveMixin returned native windows_notification_state:3 immediately, scheduled one background provider task, and native PluginCatalog/PluginRunner completed xiaoyu_interaction_policy:interruptibility_v1 with success=true, decision=abstain"
+  },
+  "live_deployment": {
+    "status": "active",
+    "backend_ports": [
+      48911,
+      48912,
+      48915,
+      48916
+    ],
+    "plugin_status": "xiaoyu_interaction_policy 0.6.4 running with interruptibility_v1 entry",
+    "native_gate_observed": "live main log previously showed repeated prepare_proactive_delivery vetoes for activity_state:away after the patch",
+    "provider_shadow_e2e": "synthetic gaming/QUNS=3 payload reached the live plugin process and returned abstain; this proves the provider path only",
+    "real_game_reacceptance": "not yet re-run after this provider-shadow addition",
+    "core_scheduler_provider_shadow": "PASS: synthetic gaming/QUNS=3 entered ProactiveMixin, preserved native veto, and completed the live shadow provider"
+  },
+  "provider_shadow": {
+    "entry_id": "interruptibility_v1",
+    "contract": "interruptibility.v1",
+    "mode": "shadow_only",
+    "provider": "xiaoyu_interaction_policy 0.6.4",
+    "current_decision_policy": "ActivityWatch evidence only; always abstain",
+    "privacy": "payload/result excludes user text, window titles, URLs, screenshots and application names",
+    "promotion_rule": "no provider may control final delivery until separate product validation; Windows hard veto remains authoritative",
+    "timeout_seconds": 5.0,
+    "timeout_rationale": "background-only and deduped for 30s; 2.0s cancelled a healthy ActivityWatch-backed run, while 5.0s covers the provider's 4.0s local HTTP timeout without adding any final-delivery latency"
+  }
+}

@@ -1,0 +1,966 @@
+diff --git a/app/main_server/__init__.py b/app/main_server/__init__.py
+index ba1284ec..f3027286 100644
+--- a/app/main_server/__init__.py
++++ b/app/main_server/__init__.py
+@@ -1052,19 +1052,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+             await _init_and_mount_workshop()
+             _schedule_workshop_sync(steamworks)
+ 
+-            try:
+-                from utils.token_tracker import TokenTracker, install_hooks
+-
+-                install_hooks()
+-                TokenTracker.get_instance().start_periodic_save()
+-                # Distinguish processes in session_start/session_end dimensions for cross-process diagnostics.
+-                TokenTracker.get_instance().record_app_start(process="main_server")
+-                logger.info("Token usage tracker initialized")
+-            except Exception as e:
+-                logger.warning(
+-                    f"Token tracker initialization failed (non-critical): {e}"
+-                )
+-
+             logger.info(
+                 "Startup 初始化完成，后台正在预加载音频模块... (reason=%s)", reason
+             )
+diff --git a/app/main_server/preload.py b/app/main_server/preload.py
+index e5046618..6eac2098 100644
+--- a/app/main_server/preload.py
++++ b/app/main_server/preload.py
+@@ -37,6 +37,19 @@ async def _background_preload():
+         loop = asyncio.get_running_loop()
+         with concurrent.futures.ThreadPoolExecutor() as pool:
+             await loop.run_in_executor(pool, _sync_preload_modules)
++
++        # start_periodic_save() intentionally runs back on the owning asyncio
++        # loop; only the expensive SDK import/hook installation belongs in the
++        # preload worker.
++        try:
++            from utils.token_tracker import TokenTracker
++
++            tracker = TokenTracker.get_instance()
++            tracker.start_periodic_save()
++            tracker.record_app_start(process="main_server")
++            logger.info("Token usage tracker initialized in background preload")
++        except Exception as e:
++            logger.debug(f"Token tracker async-loop startup failed (non-critical): {e}")
+     except Exception as e:
+         logger.warning(f"⚠️ 翻译与网络模块预加载失败（不影响使用）: {e}")
+ 
+@@ -60,6 +73,17 @@ def _sync_preload_modules():
+ 
+     start = time.time()
+ 
++    # 0. Token tracker hooks. Importing the OpenAI SDK is relatively heavy; do
++    # it in this existing preload worker rather than blocking FastAPI startup.
++    # install_hooks() is process-idempotent and thread-safe.
++    try:
++        from utils.token_tracker import install_hooks
++
++        install_hooks()
++        logger.debug("✅ Token tracker hooks preloaded")
++    except Exception as e:
++        logger.debug(f"⚠️ Token tracker hook preload failed (non-critical): {e}")
++
+     # 1. Translation-service modules (avoid first-conversation latency)
+     try:
+         # Preload translation libraries (googletrans, translatepy, etc.)
+@@ -94,7 +118,16 @@ def _sync_preload_modules():
+     except Exception as e:
+         logger.debug(f"  ✗ dashscope: {e}")
+ 
+-    # 4. Warm the httpx SSL context (the first AsyncClient creation initializes SSL)
++    # 4. Warm page static-asset cache versions off the main event loop.
++    try:
++        from main_routers.pages_router import warm_asset_version_caches
++
++        warm_asset_version_caches()
++        logger.debug("  ✓ page asset-version caches warmed")
++    except Exception as e:
++        logger.debug(f"  ✗ page asset-version cache warmup: {e}")
++
++    # 5. Warm the httpx SSL context (the first AsyncClient creation initializes SSL)
+     try:
+         import httpx
+         import asyncio
+diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
+index af1af236..13126faf 100644
+--- a/main_logic/core/tts_runtime.py
++++ b/main_logic/core/tts_runtime.py
+@@ -885,6 +885,10 @@ class TtsRuntimeMixin:
+         )
+         return worker, api_key, route_voice_id, provider_key, False, dict(tts_config or {})
+ 
++    async def _aresolve_tts_worker_spec(self):
++        """Resolve disk-backed TTS routing outside the shared event loop."""
++        return await asyncio.to_thread(self._resolve_tts_worker_spec)
++
+     @staticmethod
+     def _normalize_game_speech_preload_text(clean_text: str, *, normalize_spaces: bool) -> str:
+         # Gated on contains_chinese exactly like normalize_text() below, which
+@@ -1529,7 +1533,12 @@ class TtsRuntimeMixin:
+                 check = None
+             if check:
+                 check()
+-            worker = self._resolve_tts_worker_spec()[0] if hasattr(self, "_config_manager") else None
++            resolved_spec = (
++                await self._aresolve_tts_worker_spec()
++                if hasattr(self, "_config_manager")
++                else None
++            )
++            worker = resolved_spec[0] if resolved_spec is not None else None
+             try:
+                 await self._wait_tts_capacity(
+                     asyncio.get_running_loop().time() if recovering else deadline,
+@@ -1554,7 +1563,8 @@ class TtsRuntimeMixin:
+                 self._start_tts_thread(
+                     preserve_provider_exclusions=bool(
+                         getattr(self, "_tts_excluded_provider_keys", frozenset())
+-                    )
++                    ),
++                    resolved_spec=resolved_spec,
+                 )
+             except TtsCapacityError:
+                 if not recovering:
+@@ -1618,7 +1628,12 @@ class TtsRuntimeMixin:
+         local_base_url = str((tts_config or {}).get("base_url") or "").strip().lower()
+         return local_base_url.startswith(("ws://", "wss://"))
+ 
+-    def _start_tts_thread(self, *, preserve_provider_exclusions: bool = False):
++    def _start_tts_thread(
++        self,
++        *,
++        preserve_provider_exclusions: bool = False,
++        resolved_spec=None,
++    ):
+         """Create and start the TTS worker thread.
+ 
+         Selects the worker by voice_id / core_api_type, resolves the api_key,
+@@ -1648,7 +1663,7 @@ class TtsRuntimeMixin:
+ 
+         # Check whether TTS is disabled.
+         tts_worker, api_key, route_voice_id, provider_key, disabled, tts_config = (
+-            self._resolve_tts_worker_spec()
++            resolved_spec if resolved_spec is not None else self._resolve_tts_worker_spec()
+         )
+         if self._live_tts_runtime_count() >= self._tts_capacity_limit(tts_worker):
+             self._tts_capacity_exhausted = True
+diff --git a/main_routers/characters_router/live2d_models.py b/main_routers/characters_router/live2d_models.py
+index c3715125..6edfe37d 100644
+--- a/main_routers/characters_router/live2d_models.py
++++ b/main_routers/characters_router/live2d_models.py
+@@ -22,6 +22,7 @@ Split out of the former monolithic ``main_routers/characters_router.py``.
+ from ._shared import logger, router
+ from .voice_providers import _config_value_is_enabled
+ 
++import asyncio
+ import re
+ import os
+ import math
+@@ -46,6 +47,11 @@ from config import (
+ )
+ 
+ 
++async def _find_models_async():
++    """Run filesystem-heavy Live2D catalog discovery off the event loop."""
++    return await asyncio.to_thread(find_models)
++
++
+ def _derive_live2d_model_name(model_ref: str) -> str:
+     raw_ref = str(model_ref or "").strip()
+     if not raw_ref:
+@@ -339,13 +345,23 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+         saved_model_path = ""
+         saved_asset_source = ""
+         saved_item_id = ""
++        _request_model_catalog = None
++
++        async def _get_request_model_catalog():
++            # find_models() walks several filesystem roots. One page-config
++            # request used to repeat that scan along multiple resolution
++            # branches; resolve it once per request and keep the I/O off-loop.
++            nonlocal _request_model_catalog
++            if _request_model_catalog is None:
++                _request_model_catalog = await _find_models_async()
++            return _request_model_catalog
+ 
+         # First try to find the model by item_id.
+         if item_id:
+             try:
+                 logger.debug(f"尝试通过item_id {item_id} 查找模型")
+                 # Get all models.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+                 # Find the model matching item_id.
+                 matching_model = next((m for m in all_models if m.get('item_id') == item_id), None)
+ 
+@@ -390,7 +406,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+                     logger.debug(f"发现角色 {catgirl_name} 保存的item_id: {saved_item_id}")
+                     try:
+                         # Try to find the model using the saved item_id.
+-                        all_models = find_models()
++                        all_models = await _get_request_model_catalog()
+                         matching_model = _find_live2d_model_catalog_entry(
+                             all_models,
+                             model_name=live2d_model_name,
+@@ -409,7 +425,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+         if live2d_model_name:
+             try:
+                 # Search the full model list first to get complete information, including item_id.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+ 
+                 # Also get the Workshop model list to make sure Workshop models can be found.
+                 try:
+@@ -524,7 +540,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+             live2d_model_name = DEFAULT_LIVE2D_MODEL_NAME
+             try:
+                 # Search the full list for a built-in/static default model first to avoid accidentally matching a user or Workshop model with the same name.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+                 matching_model = next(
+                     (
+                         m for m in all_models
+diff --git a/main_routers/pages_router.py b/main_routers/pages_router.py
+index c71da609..48a9ee85 100644
+--- a/main_routers/pages_router.py
++++ b/main_routers/pages_router.py
+@@ -28,6 +28,7 @@ enforced by ``scripts/check_api_trailing_slash.py``.
+ """  # noqa: DOCSTRING_CJK
+ 
+ import re
++import threading
+ import time
+ import urllib.parse
+ from pathlib import Path
+@@ -207,6 +208,58 @@ _AIR_BASKETBALL_ASSET_VERSION_PATHS = tuple(sorted(
+ ))
+ _AIR_BASKETBALL_ASSET_CACHE_TTL = 30.0
+ _air_basketball_asset_version_cache: tuple[float, str] = (0.0, "0")
++_asset_version_refresh_lock = threading.Lock()
++_asset_version_refreshing: set[str] = set()
++
++
++def _set_asset_version_cache(cache_name: str, version: str) -> None:
++    globals()[cache_name] = (time.monotonic(), version)
++
++
++def _schedule_asset_version_refresh(
++    key: str,
++    cache_name: str,
++    paths,
++    version_builder,
++) -> None:
++    """Refresh one expired asset-version cache without blocking a page request."""
++    with _asset_version_refresh_lock:
++        if key in _asset_version_refreshing:
++            return
++        _asset_version_refreshing.add(key)
++
++    def _worker() -> None:
++        try:
++            latest = _latest_asset_mtime(paths)
++            _set_asset_version_cache(cache_name, version_builder(latest))
++        finally:
++            with _asset_version_refresh_lock:
++                _asset_version_refreshing.discard(key)
++
++    threading.Thread(
++        target=_worker,
++        name=f"AssetVersionRefresh-{key}",
++        daemon=True,
++    ).start()
++
++
++def warm_asset_version_caches() -> None:
++    """Populate page asset-version caches; intended for the existing preload worker."""
++    from config import APP_VERSION
++
++    _set_asset_version_cache(
++        "_static_asset_version_cache",
++        f"{APP_VERSION}-{_latest_asset_mtime(_YUI_GUIDE_ASSET_VERSION_PATHS) or 0}",
++    )
++    _set_asset_version_cache(
++        "_react_chat_asset_version_cache",
++        str(_latest_asset_mtime(_REACT_CHAT_ASSET_VERSION_PATHS) or 0),
++    )
++    _set_asset_version_cache(
++        "_air_basketball_asset_version_cache",
++        str(_latest_asset_mtime(_AIR_BASKETBALL_ASSET_VERSION_PATHS) or 0),
++    )
++
+ 
+ 
+ def _vrm_defaults_ctx() -> dict:
+@@ -225,6 +278,16 @@ def _static_assets_ctx() -> dict:
+     if now - cached_at < _STATIC_ASSET_CACHE_TTL:
+         return {"static_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "static",
++            "_static_asset_version_cache",
++            _YUI_GUIDE_ASSET_VERSION_PATHS,
++            lambda latest: f"{APP_VERSION}-{latest or 0}",
++        )
++        return {"static_asset_version": cached_version}
++
++    # Fail-safe for unusual direct imports that bypass the normal preload.
+     latest_mtime = _latest_asset_mtime(_YUI_GUIDE_ASSET_VERSION_PATHS)
+     version = f"{APP_VERSION}-{latest_mtime or 0}"
+     _static_asset_version_cache = (now, version)
+@@ -249,6 +312,15 @@ def _react_chat_assets_ctx() -> dict:
+     if now - cached_at < _REACT_CHAT_ASSET_CACHE_TTL:
+         return {"react_chat_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "react-chat",
++            "_react_chat_asset_version_cache",
++            _REACT_CHAT_ASSET_VERSION_PATHS,
++            lambda latest: str(latest or 0),
++        )
++        return {"react_chat_asset_version": cached_version}
++
+     version = str(_latest_asset_mtime(_REACT_CHAT_ASSET_VERSION_PATHS) or 0)
+     _react_chat_asset_version_cache = (now, version)
+     return {"react_chat_asset_version": version}
+@@ -262,6 +334,15 @@ def _air_basketball_assets_ctx() -> dict:
+     if now - cached_at < _AIR_BASKETBALL_ASSET_CACHE_TTL:
+         return {"air_basketball_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "air-basketball",
++            "_air_basketball_asset_version_cache",
++            _AIR_BASKETBALL_ASSET_VERSION_PATHS,
++            lambda latest: str(latest or 0),
++        )
++        return {"air_basketball_asset_version": cached_version}
++
+     version = str(_latest_asset_mtime(_AIR_BASKETBALL_ASSET_VERSION_PATHS) or 0)
+     _air_basketball_asset_version_cache = (now, version)
+     return {"air_basketball_asset_version": version}
+diff --git a/main_routers/proactive_feedback_router.py b/main_routers/proactive_feedback_router.py
+index 4d3c8a37..7cb8c693 100644
+--- a/main_routers/proactive_feedback_router.py
++++ b/main_routers/proactive_feedback_router.py
+@@ -5,6 +5,7 @@ import asyncio
+ import json
+ import os
+ import sqlite3
++import ssl
+ from pathlib import Path
+ 
+ import httpx
+@@ -31,6 +32,10 @@ class ResumeBlockedBatch(BaseModel):
+     batch_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+ 
+ 
++def _build_feedback_ssl_context() -> ssl.SSLContext:
++    return ssl.create_default_context()
++
++
+ def _create_store():
+     from utils.config_manager import get_config_manager
+     manager = get_config_manager()
+@@ -42,15 +47,23 @@ def _create_store():
+ async def create_runtime():
+     # Composition owns the concrete store; services receive a neutral instance.
+     # A cancelled worker-thread read may complete late, but owns no HTTP pool.
+-    store = await asyncio.to_thread(_create_store)
++    # Building Python's default SSLContext can synchronously scan Windows trust
++    # stores for >1s on a cold start, so build that immutable context beside the
++    # existing store I/O instead of blocking the main event loop.
++    store, ssl_context = await asyncio.gather(
++        asyncio.to_thread(_create_store),
++        asyncio.to_thread(_build_feedback_ssl_context),
++    )
+     paused = os.environ.get("NEKO_PROACTIVE_FEEDBACK_UPLOAD_PAUSED", "").strip().lower() in {"1", "true", "yes", "on"}
+     runtime_type = ProactiveFeedbackRuntimeV2 if store.protocol_version == 2 else ProactiveFeedbackRuntime
+     options = {}
+     if store.protocol_version == 2:
+         from utils.preferences import reserve_current_settings_snapshot
+         options["current_settings_provider"] = lambda owner: reserve_current_settings_snapshot(owner, capture.get_control_snapshot)
+-    return runtime_type(store, settings_drain=drain_settings, settings_pending_provider=pending_settings,
+-                        upload_paused=paused, **options)
++    return runtime_type(
++        store, settings_drain=drain_settings, settings_pending_provider=pending_settings,
++        upload_paused=paused, client_verify=ssl_context, **options
++    )
+ 
+ 
+ @router.on_event("startup")
+diff --git a/main_routers/storage_location_router.py b/main_routers/storage_location_router.py
+index f6a7fc3d..d169bda3 100644
+--- a/main_routers/storage_location_router.py
++++ b/main_routers/storage_location_router.py
+@@ -1852,7 +1852,10 @@ async def get_storage_location_bootstrap(response: Response):
+     _set_no_cache_headers(response)
+ 
+     config_manager = _get_storage_config_manager()
+-    return build_storage_location_bootstrap_payload(config_manager)
++    return await asyncio.to_thread(
++        build_storage_location_bootstrap_payload,
++        config_manager,
++    )
+ 
+ 
+ @router.get("/status")
+@@ -1860,7 +1863,7 @@ async def get_storage_location_status(response: Response):
+     _set_no_cache_headers(response)
+ 
+     config_manager = _get_storage_config_manager()
+-    return _build_status_payload(config_manager)
++    return await asyncio.to_thread(_build_status_payload, config_manager)
+ 
+ 
+ @router.post("/exit")
+diff --git a/main_routers/system_router/status.py b/main_routers/system_router/status.py
+index 03700feb..f64d8bff 100644
+--- a/main_routers/system_router/status.py
++++ b/main_routers/system_router/status.py
+@@ -18,6 +18,7 @@
+ Split out of the former monolithic ``main_routers/system_router.py``.
+ """
+ 
++import asyncio
+ from typing import Any
+ 
+ from fastapi import Request
+@@ -59,7 +60,9 @@ async def get_system_status(response: Response):
+ 
+     try:
+         config_manager = _get_system_config_manager()
+-        storage_bootstrap = build_storage_location_bootstrap_payload(config_manager)
++        storage_bootstrap = await asyncio.to_thread(
++            build_storage_location_bootstrap_payload, config_manager
++        )
+         lifecycle_state = _derive_system_lifecycle_state(storage_bootstrap)
+         return {
+             "ok": True,
+diff --git a/services/proactive_feedback/runtime.py b/services/proactive_feedback/runtime.py
+index 5f6a4779..2d48f920 100644
+--- a/services/proactive_feedback/runtime.py
++++ b/services/proactive_feedback/runtime.py
+@@ -4,6 +4,7 @@ from __future__ import annotations
+ import asyncio
+ import json
+ import sqlite3
++import ssl
+ import threading
+ import time
+ 
+@@ -31,10 +32,13 @@ class ProactiveFeedbackRuntime:
+                  client: httpx.AsyncClient | None = None, settings_drain=None, clock=time.monotonic,
+                  attribution_context=host.attribution_context, trusted_origin=COMMUNITY_ORIGIN,
+                  settings_pending_provider=None, upload_paused=False,
+-                 fenced_snapshot_provider=host.credentials.saved_session_snapshot):
++                 fenced_snapshot_provider=host.credentials.saved_session_snapshot,
++                 client_verify: ssl.SSLContext | bool = True):
+         self.store = store
+         self.snapshot_provider, self.session_provider = snapshot_provider, session_provider
+-        self.http = client or httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False)
++        self.http = client or httpx.AsyncClient(
++            timeout=10, follow_redirects=False, trust_env=False, verify=client_verify
++        )
+         self._owns_client = client is None
+         self.settings_drain = settings_drain
+         self.settings_pending_provider = settings_pending_provider
+diff --git a/tests/unit/test_cloudsave_lifecycle_flow.py b/tests/unit/test_cloudsave_lifecycle_flow.py
+index db6e8c27..9a5c03c6 100644
+--- a/tests/unit/test_cloudsave_lifecycle_flow.py
++++ b/tests/unit/test_cloudsave_lifecycle_flow.py
+@@ -377,7 +377,9 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
+         mock_set_steamworks = stack.enter_context(
+             patch("main_routers.shared_state.set_steamworks", Mock())
+         )
+-        stack.enter_context(patch("utils.token_tracker.install_hooks", Mock()))
++        mock_install_hooks = stack.enter_context(
++            patch("utils.token_tracker.install_hooks", Mock())
++        )
+         stack.enter_context(
+             patch("utils.token_tracker.TokenTracker.get_instance", return_value=fake_tracker)
+         )
+@@ -406,8 +408,11 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
+         mock_set_main_bridge.assert_called_once()
+         mock_mount_workshop.assert_awaited_once_with()
+         mock_start_workers.assert_called_once_with()
+-        fake_tracker.start_periodic_save.assert_called_once_with()
+-        fake_tracker.record_app_start.assert_called_once_with(process="main_server")
++        # Token tracker hook installation is owned by the background preload;
++        # the startup coroutine itself must remain free of the heavy OpenAI SDK import.
++        mock_install_hooks.assert_not_called()
++        fake_tracker.start_periodic_save.assert_not_called()
++        fake_tracker.record_app_start.assert_not_called()
+         assert main_server._preload_task is not None
+ 
+ 
+diff --git a/tests/unit/test_proactive_feedback_router.py b/tests/unit/test_proactive_feedback_router.py
+index 82799ae6..77046a8f 100644
+--- a/tests/unit/test_proactive_feedback_router.py
++++ b/tests/unit/test_proactive_feedback_router.py
+@@ -410,6 +410,31 @@ async def test_default_factory_owns_http_client_with_no_environment_proxy(tmp_pa
+     assert runtime.http.is_closed
+ 
+ 
++@pytest.mark.asyncio
++async def test_default_factory_builds_ssl_context_off_event_loop(tmp_path, monkeypatch):
++    main_thread = threading.get_ident()
++    ssl_threads = []
++
++    monkeypatch.setattr(
++        routes,
++        "_create_store",
++        lambda: RecommendationStore(tmp_path / "offloop.sqlite3"),
++    )
++
++    def build_ssl_context():
++        ssl_threads.append(threading.get_ident())
++        return False
++
++    monkeypatch.setattr(routes, "_build_feedback_ssl_context", build_ssl_context)
++    runtime = await routes.create_runtime()
++    try:
++        assert ssl_threads
++        assert ssl_threads[0] != main_thread
++        assert runtime.http.trust_env is False
++    finally:
++        await runtime.close()
++
++
+ @pytest.mark.parametrize("value", ["1", "true", "yes", "on", " TRUE "])
+ @pytest.mark.asyncio
+ async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
+diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
+new file mode 100644
+index 00000000..a7b352b0
+--- /dev/null
++++ b/tests/unit/test_xiaoyu_startup_performance.py
+@@ -0,0 +1,290 @@
++from __future__ import annotations
++
++import asyncio
++import inspect
++import threading
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++
++import pytest
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_background_preload_owns_token_tracker_loop_startup(monkeypatch):
++    from app.main_server import preload
++
++    tracker = SimpleNamespace(
++        start_periodic_save=Mock(),
++        record_app_start=Mock(),
++    )
++    monkeypatch.setattr(preload, "_sync_preload_modules", lambda: None)
++
++    with patch("utils.token_tracker.TokenTracker.get_instance", return_value=tracker):
++        await preload._background_preload()
++
++    tracker.start_periodic_save.assert_called_once_with()
++    tracker.record_app_start.assert_called_once_with(process="main_server")
++
++
++@pytest.mark.unit
++def test_openai_hook_import_is_not_in_fastapi_startup_path():
++    from app import main_server
++    from app.main_server import preload
++
++    startup_source = inspect.getsource(main_server._ensure_main_server_runtime_initialized)
++    preload_source = inspect.getsource(preload._sync_preload_modules)
++
++    assert "install_hooks()" not in startup_source
++    assert "install_hooks()" in preload_source
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_live2d_catalog_discovery_runs_off_event_loop(monkeypatch):
++    from main_routers.characters_router import live2d_models
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++
++    def slow_find_models():
++        worker_threads.append(threading.get_ident())
++        return [{"name": "demo", "path": "/static/demo/demo.model3.json"}]
++
++    monkeypatch.setattr(live2d_models, "find_models", slow_find_models)
++    result = await live2d_models._find_models_async()
++
++    assert result[0]["name"] == "demo"
++    assert worker_threads
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++def test_current_live2d_resolution_deduplicates_catalog_scan_per_request():
++    from main_routers.characters_router import live2d_models
++
++    source = inspect.getsource(live2d_models.get_current_live2d_model)
++    assert "async def _get_request_model_catalog()" in source
++    assert source.count("await _get_request_model_catalog()") >= 4
++    assert "all_models = find_models()" not in source
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_storage_status_payload_runs_off_event_loop(monkeypatch):
++    from fastapi import Response
++    from main_routers import storage_location_router
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    manager = object()
++    monkeypatch.setattr(
++        storage_location_router,
++        "_get_storage_config_manager",
++        lambda: manager,
++    )
++
++    def build(current_manager):
++        assert current_manager is manager
++        worker_threads.append(threading.get_ident())
++        return {"ok": True, "status": "ready"}
++
++    monkeypatch.setattr(storage_location_router, "_build_status_payload", build)
++    result = await storage_location_router.get_storage_location_status(Response())
++
++    assert result["ok"] is True
++    assert worker_threads
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_storage_bootstrap_payload_runs_off_event_loop(monkeypatch):
++    from fastapi import Response
++    from main_routers import storage_location_router
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    manager = object()
++    monkeypatch.setattr(
++        storage_location_router,
++        "_get_storage_config_manager",
++        lambda: manager,
++    )
++
++    def build(current_manager):
++        assert current_manager is manager
++        worker_threads.append(threading.get_ident())
++        return {"ready": True}
++
++    monkeypatch.setattr(
++        storage_location_router,
++        "build_storage_location_bootstrap_payload",
++        build,
++    )
++    result = await storage_location_router.get_storage_location_bootstrap(Response())
++
++    assert result["ready"] is True
++    assert worker_threads
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_system_status_storage_payload_runs_off_event_loop(monkeypatch):
++    from fastapi import Response
++    from main_routers.system_router import status as system_status
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    manager = object()
++    monkeypatch.setattr(system_status, "_get_system_config_manager", lambda: manager)
++
++    def build(current_manager):
++        assert current_manager is manager
++        worker_threads.append(threading.get_ident())
++        return {"selection_required": False, "migration_pending": False, "recovery_required": False}
++
++    monkeypatch.setattr(system_status, "build_storage_location_bootstrap_payload", build)
++    result = await system_status.get_system_status(Response())
++
++    assert result["ready"] is True
++    assert worker_threads
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_holiday_ssl_context_is_built_once_off_event_loop(monkeypatch):
++    from utils import holiday_cache
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    sentinel = object()
++    monkeypatch.setattr(holiday_cache, "_holiday_ssl_context", None)
++
++    def build():
++        worker_threads.append(threading.get_ident())
++        return sentinel
++
++    monkeypatch.setattr(holiday_cache.ssl, "create_default_context", build)
++
++    first = await holiday_cache._get_holiday_ssl_context()
++    second = await holiday_cache._get_holiday_ssl_context()
++
++    assert first is sentinel
++    assert second is sentinel
++    assert worker_threads == [worker_threads[0]]
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++def test_holiday_async_clients_reuse_prebuilt_ssl_context():
++    from utils import holiday_cache
++
++    nager_source = inspect.getsource(holiday_cache._fetch_nager)
++    cn_source = inspect.getsource(holiday_cache._fetch_cn)
++    for source in (nager_source, cn_source):
++        assert "await _get_holiday_ssl_context()" in source
++        assert "verify=verify_context" in source
++
++@pytest.mark.unit
++def test_expired_static_asset_cache_returns_stale_and_refreshes_in_background(monkeypatch):
++    from main_routers import pages_router
++
++    from tests.fake_clock import patch_module_clock
++
++    monkeypatch.setattr(pages_router, "_static_asset_version_cache", (0.0, "old-version"))
++    patch_module_clock(monkeypatch, pages_router, monotonic=lambda: 100.0)
++    scheduled = []
++
++    def schedule(*args):
++        scheduled.append(args)
++
++    monkeypatch.setattr(pages_router, "_schedule_asset_version_refresh", schedule)
++    monkeypatch.setattr(
++        pages_router,
++        "_latest_asset_mtime",
++        lambda _paths: (_ for _ in ()).throw(AssertionError("request path performed stat")),
++    )
++
++    result = pages_router._static_assets_ctx()
++
++    assert result == {"static_asset_version": "old-version"}
++    assert scheduled and scheduled[0][0] == "static"
++
++
++@pytest.mark.unit
++def test_page_asset_cache_warmup_is_owned_by_existing_preload_worker():
++    from app.main_server import preload
++
++    source = inspect.getsource(preload._sync_preload_modules)
++    assert "warm_asset_version_caches()" in source
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_tts_worker_spec_resolution_runs_off_event_loop():
++    from main_logic.core.tts_runtime import TtsRuntimeMixin
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    sentinel = (object(), "key", "voice", "provider", False, {})
++
++    def resolve():
++        worker_threads.append(threading.get_ident())
++        return sentinel
++
++    dummy = SimpleNamespace(_resolve_tts_worker_spec=resolve)
++    result = await TtsRuntimeMixin._aresolve_tts_worker_spec(dummy)
++
++    assert result is sentinel
++    assert worker_threads
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++def test_tts_lazy_start_reuses_offloop_resolved_spec():
++    from main_logic.core.tts_runtime import TtsRuntimeMixin
++
++    ensure_source = inspect.getsource(TtsRuntimeMixin.ensure_tts_pipeline_alive)
++    start_source = inspect.getsource(TtsRuntimeMixin._start_tts_thread)
++    assert "await self._aresolve_tts_worker_spec()" in ensure_source
++    assert "resolved_spec=resolved_spec" in ensure_source
++    assert "resolved_spec if resolved_spec is not None" in start_source
++
++
++@pytest.mark.unit
++@pytest.mark.asyncio
++async def test_search_gateway_ssl_context_is_built_once_off_event_loop(monkeypatch):
++    from utils.web_scraper import search_gateway
++
++    main_thread = threading.get_ident()
++    worker_threads = []
++    sentinel = object()
++    monkeypatch.setattr(search_gateway, "_search_ssl_context", None)
++
++    def build():
++        worker_threads.append(threading.get_ident())
++        return sentinel
++
++    monkeypatch.setattr(search_gateway.ssl, "create_default_context", build)
++
++    first = await search_gateway._get_search_ssl_context()
++    second = await search_gateway._get_search_ssl_context()
++
++    assert first is sentinel
++    assert second is sentinel
++    assert len(worker_threads) == 1
++    assert worker_threads[0] != main_thread
++
++
++@pytest.mark.unit
++def test_search_gateway_clients_reuse_prebuilt_ssl_context():
++    from utils.web_scraper import search_gateway
++
++    for func in (search_gateway._invoke_plugin, search_gateway._cancel_run):
++        source = inspect.getsource(func)
++        assert "await _get_search_ssl_context()" in source
++        assert "verify=verify_context" in source
++
+diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
+index 2e8134e6..64740dbc 100644
+--- a/utils/holiday_cache.py
++++ b/utils/holiday_cache.py
+@@ -40,6 +40,7 @@ from __future__ import annotations
+ import asyncio
+ import json
+ import logging
++import ssl
+ import threading
+ from datetime import date, datetime, timedelta
+ from pathlib import Path
+@@ -241,12 +242,41 @@ def _build_periods(entries: list[HolidayEntry]) -> list[HolidayPeriod]:
+ #  API fetching & caching  (lazy: first access warms all countries)
+ # =====================================================================
+ 
++_holiday_ssl_context: ssl.SSLContext | None = None
++_holiday_ssl_context_lock = threading.Lock()
++
++
++def _build_holiday_ssl_context() -> ssl.SSLContext:
++    """Build the shared default SSL context exactly once, off the event loop."""
++    global _holiday_ssl_context
++    if _holiday_ssl_context is not None:
++        return _holiday_ssl_context
++    with _holiday_ssl_context_lock:
++        if _holiday_ssl_context is None:
++            _holiday_ssl_context = ssl.create_default_context()
++        return _holiday_ssl_context
++
++
++async def _get_holiday_ssl_context() -> ssl.SSLContext:
++    if _holiday_ssl_context is not None:
++        return _holiday_ssl_context
++    return await asyncio.to_thread(_build_holiday_ssl_context)
++
++
+ async def _fetch_nager(country: str, year: int) -> list[HolidayEntry]:
+     """Fetch from Nager.Date API (JP / KR / RU / US etc.)."""
+     url = f"{_NAGER_API}/PublicHolidays/{year}/{country}"
+     # Per-call AsyncClient: fetch once per country/year (lazy warmup), deliberately trust_env=False
+     # to bypass local proxies, unlike external_http_client's trust_env=True configuration.
+-    async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT, proxy=None, trust_env=False) as client:
++    # Default SSLContext construction loads the Windows trust store and can take
++    # seconds on a cold start; build/reuse it off-loop.
++    verify_context = await _get_holiday_ssl_context()
++    async with httpx.AsyncClient(
++        timeout=_FETCH_TIMEOUT,
++        proxy=None,
++        trust_env=False,
++        verify=verify_context,
++    ) as client:
+         resp = await client.get(url)
+         resp.raise_for_status()
+         return resp.json()  # type: ignore[return-value]
+@@ -256,7 +286,13 @@ async def _fetch_cn(year: int) -> list[HolidayEntry]:
+     """Fetch from timor.tech API for China — complete with adjusted rest days."""
+     url = f"{_TIMOR_API}/{year}"
+     # Per-call AsyncClient: likewise once per year, trust_env=False to bypass proxies.
+-    async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT, proxy=None, trust_env=False) as client:
++    verify_context = await _get_holiday_ssl_context()
++    async with httpx.AsyncClient(
++        timeout=_FETCH_TIMEOUT,
++        proxy=None,
++        trust_env=False,
++        verify=verify_context,
++    ) as client:
+         resp = await client.get(url)
+         resp.raise_for_status()
+         data = resp.json()
+diff --git a/utils/web_scraper/search_gateway.py b/utils/web_scraper/search_gateway.py
+index 4215c70f..d585d9d4 100644
+--- a/utils/web_scraper/search_gateway.py
++++ b/utils/web_scraper/search_gateway.py
+@@ -11,6 +11,8 @@ import asyncio
+ from collections import OrderedDict
+ from contextlib import suppress
+ import os
++import ssl
++import threading
+ import time
+ from typing import Any, Dict, Optional
+ import uuid
+@@ -49,6 +51,25 @@ _waiters: Dict[tuple[str, str, int], int] = {}
+ _backend_locks: Dict[str, asyncio.Lock] = {}
+ _cleanup_tasks: set[asyncio.Task[None]] = set()
+ _runtime_loop: Optional[asyncio.AbstractEventLoop] = None
++_search_ssl_context: ssl.SSLContext | None = None
++_search_ssl_context_lock = threading.Lock()
++
++
++def _build_search_ssl_context() -> ssl.SSLContext:
++    global _search_ssl_context
++    if _search_ssl_context is not None:
++        return _search_ssl_context
++    with _search_ssl_context_lock:
++        if _search_ssl_context is None:
++            _search_ssl_context = ssl.create_default_context()
++        return _search_ssl_context
++
++
++async def _get_search_ssl_context() -> ssl.SSLContext:
++    if _search_ssl_context is not None:
++        return _search_ssl_context
++    return await asyncio.to_thread(_build_search_ssl_context)
++
+ 
+ 
+ class _PluginThrottleError(RuntimeError):
+@@ -175,10 +196,12 @@ def _plugin_server_base() -> str:
+ async def _cancel_run(base: str, run_id: str) -> None:
+     try:
+         timeout = httpx.Timeout(0.5, connect=0.2)
++        verify_context = await _get_search_ssl_context()
+         async with httpx.AsyncClient(
+             timeout=timeout,
+             proxy=None,
+             trust_env=False,
++            verify=verify_context,
+         ) as client:
+             await client.post(
+                 f"{base}/runs/{run_id}/cancel",
+@@ -230,7 +253,13 @@ async def _invoke_plugin(
+         "args": args,
+     }
+     timeout = httpx.Timeout(5.0, connect=1.0)
+-    async with httpx.AsyncClient(timeout=timeout, proxy=None, trust_env=False) as client:
++    verify_context = await _get_search_ssl_context()
++    async with httpx.AsyncClient(
++        timeout=timeout,
++        proxy=None,
++        trust_env=False,
++        verify=verify_context,
++    ) as client:
+         request_timeout = remaining_timeout()
+         async with asyncio.timeout(request_timeout):
+             response = await client.post(

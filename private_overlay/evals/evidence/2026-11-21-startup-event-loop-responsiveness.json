@@ -1,0 +1,112 @@
+{
+  "evidence_id": "2026-11-21-startup-event-loop-responsiveness",
+  "date": "2026-11-21",
+  "verdict": "PASS_LIVE_FULL_DESKTOP_ZERO_BLOCKED_LOOP_STALL_EVENTS",
+  "live_before": {
+    "startup_loop_stalls": [
+      {
+        "time": "22:43:25",
+        "blocked_ms": 1393,
+        "stack_root": "FastAPI startup -> token_tracker.install_hooks -> first openai SDK import"
+      },
+      {
+        "time": "22:43:32",
+        "blocked_ms": 1628,
+        "stack_root": "GET page_config -> get_current_live2d_model -> find_models -> os.walk"
+      }
+    ],
+    "page_config_xiaoyu_ms": [
+      123.3,
+      44.8,
+      46.0,
+      43.9,
+      47.6
+    ]
+  },
+  "reuse_check": {
+    "latest_upstream_checked": true,
+    "newer_commit_count": 41,
+    "token_hook_equivalent_fix_found": false,
+    "live2d_scan_equivalent_fix_found": false
+  },
+  "implementation": {
+    "token_tracker": "install_hooks runs inside existing background preload worker; start_periodic_save and record_app_start run afterward on the owning asyncio loop",
+    "live2d": "find_models runs with asyncio.to_thread and is resolved once per get_current_live2d_model request",
+    "cross_request_cache": false,
+    "storage": "storage bootstrap/status payload construction runs with asyncio.to_thread",
+    "holiday": "default SSLContext is built exactly once off-loop and supplied to the existing async httpx clients"
+  },
+  "regression": {
+    "targeted_neko_tests": "62/62 PASS",
+    "suites": [
+      "test_xiaoyu_startup_performance.py",
+      "test_token_tracker_install_hooks_idempotent.py",
+      "test_cloudsave_lifecycle_flow.py",
+      "test_live2d_model_config_write_locking.py"
+    ],
+    "managed_patch_replay": "0001..0010 combined replay to be reverified after consolidation",
+    "storage_holiday_extended_suite": "266/266 PASS"
+  },
+  "live_after": {
+    "validation_start_time": "2026-11-21 23:03",
+    "health": "48911/48912/48915/48916 all HTTP 200",
+    "startup_loop_stall_block_events": 0,
+    "watchdog_start_line_excluded_from_block_count": true,
+    "token_tracker_signal": "Token usage tracker initialized in background preload",
+    "page_config_xiaoyu_ms": [
+      101.2,
+      40.2,
+      46.5,
+      40.9,
+      36.4
+    ],
+    "page_config_cold_improvement_percent": 17.9,
+    "page_config_warm_mean_before_ms": 45.6,
+    "page_config_warm_mean_after_ms": 41.0,
+    "page_config_warm_improvement_percent": 10.0,
+    "primary_gain": "main event loop remains responsive during heavy SDK import and Live2D filesystem discovery",
+    "canonical_desktop_followup": {
+      "time": "2026-11-21 23:06",
+      "targeted_openai_hook_stall_recurred": false,
+      "targeted_live2d_os_walk_stall_recurred": false,
+      "new_unrelated_stalls": [
+        {
+          "blocked_ms": 1033,
+          "root": "storage_location/status -> Path.resolve -> ntpath.realpath"
+        },
+        {
+          "blocked_ms": 2112,
+          "root": "holiday_cache -> httpx.AsyncClient construction -> ssl.create_default_context"
+        }
+      ],
+      "followup": "tracked separately by patch 0011"
+    },
+    "final_full_desktop_validation": {
+      "backend_start": "2026-11-21 23:15:04",
+      "desktop_start": "2026-11-21 23:15:20",
+      "health": "48911/48912/48915/48916 all HTTP 200",
+      "desktop": "all observed N.E.K.O processes Responding=True",
+      "blocked_or_recovered_loop_stall_events": 0,
+      "watchdog_info_only": true,
+      "all_four_target_stacks_recurred": false
+    }
+  },
+  "discovered_stalls": [
+    {
+      "blocked_ms": 1393,
+      "root": "FastAPI startup -> token_tracker.install_hooks -> first OpenAI SDK import"
+    },
+    {
+      "blocked_ms": 1628,
+      "root": "page_config -> Live2D find_models -> os.walk"
+    },
+    {
+      "blocked_ms": 1033,
+      "root": "storage_location/status -> Path.resolve -> ntpath.realpath"
+    },
+    {
+      "blocked_ms": 2112,
+      "root": "holiday_cache -> httpx AsyncClient -> ssl.create_default_context"
+    }
+  ]
+}

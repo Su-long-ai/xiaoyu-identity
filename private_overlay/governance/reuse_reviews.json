@@ -130,25 +130,31 @@
     {
       "id": "plugin:xiaoyu_interaction_policy",
       "status": "approved",
-      "reviewed_at": "2026-11-20",
-      "problem": "Owner natural-language interaction controls need deterministic native state changes; retrospective activity needs a queryable source.",
+      "reviewed_at": "2026-11-21",
+      "problem": "Owner interaction controls need deterministic native state changes without a permanent high-frequency polling loop; retrospective activity still needs a queryable local authority.",
       "decision": "thin_adapter",
       "candidates": [
+        {
+          "name": "N.E.K.O conversations_v2 watcher",
+          "type": "native",
+          "outcome": "selected for text user-turn observation; role=user,input_source=text, view_limit=20",
+          "evidence": "evals/evidence/2026-11-21-interaction-policy-event-driven-performance.json"
+        },
         {
           "name": "N.E.K.O proactive_controller and conversation settings",
           "type": "native",
           "outcome": "selected as hard execution authority",
-          "evidence": "evals/evidence/2026-11-20-natural-language-hard-controls-live.json"
+          "evidence": "evals/evidence/2026-11-21-private-reply-output-gate.json"
         },
         {
           "name": "ActivityWatch 0.14.3",
           "type": "external",
-          "outcome": "selected as recent-activity authority; private duplicate timeline is being removed",
-          "evidence": "https://docs.activitywatch.net/en/latest/examples/working-with-data.html"
+          "outcome": "selected as recent-activity authority; no private duplicate timeline",
+          "evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
         }
       ],
-      "why_reuse_insufficient": "The plugin remains only semantic intent mediation and a read-only bridge to native/external authorities; it must not own a second memory, proactive engine, vision runtime, or activity datastore.",
-      "acceptance_evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
+      "why_reuse_insufficient": "The plugin remains only semantic intent mediation and a read-only bridge to native/external authorities. Text observation now uses N.E.K.O conversations_v2 rather than polling memory; a 30-second timer remains only for bounded-quiet expiry, watcher recovery, and a conversations_v2 incremental fallback. It does not own a second memory, proactive engine, vision runtime, or activity datastore.",
+      "acceptance_evidence": "evals/evidence/2026-11-21-interaction-policy-event-driven-performance.json"
     },
     {
       "id": "patch:0008-qwen-clone-provider-routing.patch",
@@ -204,33 +210,86 @@
       "acceptance_evidence": "evals/evidence/2026-11-21-qwen-speech-rate-parity.json"
     },
     {
-      "id": "patch:0009-mini-game-leisure-only-gate.patch",
+      "id": "patch:0009-proactive-interruptibility-gate.patch",
       "status": "approved",
-      "reviewed_at": "2026-11-21",
-      "problem": "Mini-game invitations can interrupt the owner while they are still doing work; the work-break path additionally defaults to a 50% chance of turning a rest reminder into a game invitation.",
+      "reviewed_at": "2026-11-22",
+      "problem": "The owner can be interrupted by entertainment/ambient proactive output while actively gaming or otherwise busy because an early activity snapshot may be misclassified or become stale before final delivery.",
       "decision": "thin_adapter",
       "candidates": [
         {
+          "name": "Windows SHQueryUserNotificationState",
+          "type": "native_os_api",
+          "outcome": "selected as the external hard receptivity veto for BUSY, D3D fullscreen, presentation, not-present, and quiet-time states",
+          "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+        },
+        {
+          "name": "N.E.K.O SystemSignalCollector + ActivitySnapshot",
+          "type": "native",
+          "outcome": "selected as the only activity/receptivity state authority; final delivery reuses get_snapshot_sync rather than adding another detector",
+          "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+        },
+        {
           "name": "N.E.K.O ActivityPreferences.work_break_game_invite_probability",
           "type": "native_config",
-          "outcome": "selected for the work-break combo; XiaoYu sets the supported native preference to 0.0 and keeps the ordinary mini-game feature enabled",
+          "outcome": "selected to keep focused-work break reminders from pivoting into game invitations; value remains 0.0",
           "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
         },
         {
-          "name": "N.E.K.O ActivitySnapshot state / propensity",
-          "type": "native",
-          "outcome": "selected as the only ordinary-invite availability authority; casual_browsing and idle are the explicit leisure allowlist",
-          "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+          "name": "ActivityWatch 0.14.3",
+          "type": "external",
+          "outcome": "retained as retrospective/local activity evidence; not promoted to final interruption authority because it observes apps/AFK rather than notification propriety",
+          "evidence": "evals/evidence/2026-11-20-activitywatch-reuse-cutover.json"
         },
         {
-          "name": "N.E.K.O proactive Phase-2 user-directive gate",
+          "name": "Playnite OnGameStarted/OnGameStopped",
+          "type": "external_optional",
+          "outcome": "not integrated because Playnite is not installed on this machine; keep as a future optional high-confidence game-session signal rather than introducing a new dependency",
+          "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+        },
+        {
+          "name": "N.E.K.O PluginCatalog + PluginRunner",
           "type": "native",
-          "outcome": "insufficient for canned mini-game invitations because that delivery path bypasses Phase 2; upstream documentation already records this as #3013",
-          "evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+          "outcome": "selected for optional capability-provider discovery and shadow execution; hidden plugin entries reuse the existing plugin process/lifecycle/IPC path instead of a private registry or second broker",
+          "evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
         }
       ],
-      "why_reuse_insufficient": "Native config fully solves the work-break combo and is used there. For ordinary canned invitations, no existing plugin/config hook narrows eligibility to explicit leisure states before delivery. The patch adds only that state admission check and reuses all existing invitation, probability, cooldown, delivery and game logic.",
-      "acceptance_evidence": "evals/evidence/2026-11-21-mini-game-busy-interruption-gate.json"
+      "why_reuse_insufficient": "Detection, plugin lifecycle, provider discovery and plugin execution are reused. The narrow patch only connects the existing Windows/native signals to N.E.K.O's final proactive-delivery admission boundary and schedules optional hidden providers in non-authoritative shadow mode. The native verdict remains fail-closed and synchronous; the private prototype registry was removed after the native PluginCatalog/PluginRunner path was confirmed sufficient.",
+      "acceptance_evidence": "evals/evidence/2026-11-22-proactive-interruptibility-final-delivery.json"
+    },
+    {
+      "id": "patch:0010-startup-event-loop-responsiveness.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-21",
+      "problem": "Measured desktop/startup event-loop stalls came from heavy SDK import, recursive Live2D discovery, storage path resolution, and first holiday SSLContext construction.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O existing app.main_server.preload background worker",
+          "type": "native",
+          "outcome": "selected for token hook installation",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "Python asyncio.to_thread",
+          "type": "stdlib",
+          "outcome": "selected for Live2D discovery, storage payload/path resolution, and one-time SSLContext construction",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "existing N.E.K.O holiday cache / async httpx flow",
+          "type": "native",
+          "outcome": "reused; only SSLContext preparation moves off-loop, async requests and holiday caches remain native",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        },
+        {
+          "name": "N.E.K.O latest origin/main after pinned commit",
+          "type": "upstream",
+          "outcome": "checked; newer commits do not provide equivalent scheduling fixes for these four paths",
+          "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+        }
+      ],
+      "why_reuse_insufficient": "All underlying authorities and worker/network primitives are reused. The narrow patch changes only where blocking preparation executes and deduplicates Live2D catalog discovery inside a single request.",
+      "acceptance_evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
     }
   ]
 }

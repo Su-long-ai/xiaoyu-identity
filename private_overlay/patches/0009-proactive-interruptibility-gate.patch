@@ -1,0 +1,1128 @@
+diff --git a/main_logic/activity/snapshot.py b/main_logic/activity/snapshot.py
+index 2ed58270..07af5257 100644
+--- a/main_logic/activity/snapshot.py
++++ b/main_logic/activity/snapshot.py
+@@ -286,6 +286,8 @@ class ActivitySnapshot:
+     skips/marks them and the proactive AI knows not to over-trust
+     OS-derived states.
+     """
++    user_notification_state: int | None = None
++    """Raw Windows notification-propriety state when locally available."""
+ 
+     # --- Per-session signals ---
+     seconds_since_user_msg: float | None = None
+diff --git a/main_logic/activity/state_machine.py b/main_logic/activity/state_machine.py
+index 21830827..2ddd7b0c 100644
+--- a/main_logic/activity/state_machine.py
++++ b/main_logic/activity/state_machine.py
+@@ -63,7 +63,10 @@ from main_logic.activity.snapshot import (
+     ActivitySnapshot, ActivityState, GameGenre, GameIntensity, UnfinishedThread,
+     WindowObservation, derive_propensity, derive_skip_probability, derive_tone,
+ )
+-from main_logic.activity.system_signals import SystemSnapshot
++from main_logic.activity.system_signals import (
++    SystemSnapshot,
++    notification_state_blocks_proactive,
++)
+ from utils.activity_config import ActivityPreferences, get_activity_preferences
+ 
+ 
+@@ -744,6 +747,13 @@ class ActivityStateMachine:
+             game_intensity=_pre_intensity,
+             game_genre=_pre_genre,
+         )
++        sys_snap = self._latest_system
++        if (
++            sys_snap is not None
++            and sys_snap.os_signals_available
++            and notification_state_blocks_proactive(sys_snap.user_notification_state)
++        ):
++            propensity = 'closed'
+         reasons = self._build_propensity_reasons(effective_state, ts)
+ 
+         # Window observation summary. For ``private`` state we redact
+@@ -760,7 +770,6 @@ class ActivityStateMachine:
+             if ts - entry.timestamp <= self._window_history_lookback_seconds
+         )
+ 
+-        sys_snap = self._latest_system
+         idle_seconds = sys_snap.idle_seconds if sys_snap else 0.0
+         cpu_avg = sys_snap.cpu_avg_30s if sys_snap else 0.0
+         cpu_now = sys_snap.cpu_instant if sys_snap else 0.0
+@@ -840,6 +849,7 @@ class ActivityStateMachine:
+             active_window=active_window,
+             window_switch_rate_5min=switch_rate,
+             os_signals_available=(sys_snap.os_signals_available if sys_snap is not None else False),
++            user_notification_state=(sys_snap.user_notification_state if sys_snap is not None else None),
+             seconds_since_user_msg=secs_since_user,
+             seconds_since_ai_msg=secs_since_ai,
+             voice_recent_rms_active=voice_recent,
+diff --git a/main_logic/activity/system_signals.py b/main_logic/activity/system_signals.py
+index 25d43b55..1768b120 100644
+--- a/main_logic/activity/system_signals.py
++++ b/main_logic/activity/system_signals.py
+@@ -57,6 +57,18 @@ logger = logging.getLogger(__name__)
+ 
+ _IS_WINDOWS = platform.system() == 'Windows'
+ 
++QUNS_NOT_PRESENT = 1
++QUNS_BUSY = 2
++QUNS_RUNNING_D3D_FULL_SCREEN = 3
++QUNS_PRESENTATION_MODE = 4
++QUNS_ACCEPTS_NOTIFICATIONS = 5
++QUNS_QUIET_TIME = 6
++QUNS_APP = 7
++WINDOWS_NOTIFICATION_BLOCKING_STATES = frozenset({1, 2, 3, 4, 6})
++
++def notification_state_blocks_proactive(state: int | None) -> bool:
++    return state in WINDOWS_NOTIFICATION_BLOCKING_STATES
++
+ 
+ def is_remote_backend_deployment() -> bool:
+     """Honour ``NEKO_ACTIVITY_TRACKER_REMOTE`` / ``ACTIVITY_TRACKER_REMOTE``.
+@@ -136,6 +148,11 @@ class SystemSnapshot:
+     Conversation-derived signals (voice mode, msg timestamps, LLM
+     enrichment) keep working in degraded mode.
+     """
++    user_notification_state: int | None = None
++    """Windows notification-propriety state when locally available.
++
++    This is a receptivity signal, not an activity label.
++    """
+ 
+ 
+ # ── Implementation ──────────────────────────────────────────────────
+@@ -188,6 +205,7 @@ class SystemSignalCollector:
+         # Cached imports — None when unavailable. Always gate use behind
+         # the platform check so non-Windows just no-ops.
+         self._ctypes_user32 = None
++        self._ctypes_shell32 = None
+         self._gw = None
+         self._psutil = None
+ 
+@@ -195,6 +213,7 @@ class SystemSignalCollector:
+             try:
+                 import ctypes  # noqa: F401
+                 self._ctypes_user32 = ctypes.windll.user32
++                self._ctypes_shell32 = ctypes.windll.shell32
+             except Exception as e:  # pragma: no cover — wildly broken Windows
+                 logger.warning('SystemSignalCollector: ctypes.user32 unavailable: %s', e)
+ 
+@@ -314,6 +333,12 @@ class SystemSignalCollector:
+         """
+         return self._latest
+ 
++    def user_notification_state_now(self) -> int | None:
++        """Read Windows notification propriety once for final delivery admission."""
++        if not self._os_signals_available:
++            return None
++        return self._read_user_notification_state()
++
+     # ── polling loop ─────────────────────────────────────────────
+ 
+     async def _run(self) -> None:
+@@ -354,7 +379,7 @@ class SystemSignalCollector:
+             )
+             return
+ 
+-        idle, cpu_now, title, proc = await loop.run_in_executor(
++        idle, cpu_now, title, proc, notification_state = await loop.run_in_executor(
+             None, self._sync_read_all,
+         )
+ 
+@@ -388,23 +413,31 @@ class SystemSignalCollector:
+             process_name=proc,
+             gpu_utilization=self._gpu_last_value,
+             os_signals_available=self._os_signals_available,
++            user_notification_state=notification_state,
+         )
+ 
+     # ── sync reads (run in executor) ─────────────────────────────
+ 
+-    def _sync_read_all(self) -> tuple[float | None, float | None, str | None, str | None]:
+-        """Run all three syscalls on the executor thread.
+-
+-        Bundling them avoids paying three executor-roundtrip costs per
+-        tick. None-safety lets each individual signal degrade without
+-        knocking out the others.
+-        """
++    def _sync_read_all(self) -> tuple[float | None, float | None, str | None, str | None, int | None]:
++        """Run local OS probes in one executor hop."""
+         return (
+             self._read_idle_seconds(),
+             self._read_cpu_percent(),
+             *self._read_active_window(),
++            self._read_user_notification_state(),
+         )
+ 
++    def _read_user_notification_state(self) -> int | None:
++        if self._ctypes_shell32 is None or not _IS_WINDOWS:
++            return None
++        from ctypes import byref, wintypes
++        state = wintypes.DWORD()
++        try:
++            hr = int(self._ctypes_shell32.SHQueryUserNotificationState(byref(state)))
++        except Exception:
++            return None
++        return int(state.value) if hr == 0 else None
++
+     def _read_idle_seconds(self) -> float | None:
+         """Seconds since the last keyboard/mouse input, system-wide."""
+         if self._ctypes_user32 is None or not _IS_WINDOWS:
+diff --git a/main_logic/activity/tracker.py b/main_logic/activity/tracker.py
+index 43fbb9d9..48a3771a 100644
+--- a/main_logic/activity/tracker.py
++++ b/main_logic/activity/tracker.py
+@@ -509,6 +509,10 @@ class UserActivityTracker:
+ 
+     # ── snapshot ────────────────────────────────────────────────
+ 
++    def get_user_notification_state_now(self) -> int | None:
++        """Return the collector's current Windows interruption-propriety signal."""
++        return self._collector.user_notification_state_now()
++
+     async def get_snapshot(self, *, now: float | None = None) -> ActivitySnapshot:
+         """Pull system signals and emit a fresh snapshot.
+ 
+diff --git a/main_logic/capability_shadow.py b/main_logic/capability_shadow.py
+new file mode 100644
+index 00000000..9280bfa8
+--- /dev/null
++++ b/main_logic/capability_shadow.py
+@@ -0,0 +1,209 @@
++# Copyright 2025-2026 Project N.E.K.O. Team
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++"""Shadow-only calls to hidden plugin capability entries.
++
++This reuses N.E.K.O's existing PluginCatalog and PluginRunner. It is not a
++second plugin registry or lifecycle manager. The main runtime may ask every
++running plugin that exposes a conventional hidden entry to evaluate the same
++payload in the background. Results are observational only.
++
++The first consumer is interruptibility_v1. Its authoritative native
++Windows/activity veto remains synchronous in ProactiveMixin; a slow, missing,
++or broken plugin can therefore never delay or weaken final delivery.
++"""
++
++from __future__ import annotations
++
++import asyncio
++import logging
++import time
++import uuid
++from dataclasses import dataclass
++from typing import Any
++
++logger = logging.getLogger(__name__)
++
++_DEFAULT_TIMEOUT_SECONDS = 5.0
++_DEFAULT_COOLDOWN_SECONDS = 30.0
++_tasks: set[asyncio.Task[Any]] = set()
++_last_scheduled: dict[tuple[str, str], float] = {}
++_runtime_by_loop: dict[int, tuple[Any, Any]] = {}
++
++
++@dataclass(frozen=True, slots=True)
++class PluginShadowResult:
++    provider_id: str
++    success: bool
++    data: Any = None
++    reason: str = ""
++
++
++def _providers_for_entry(
++    plugins: list[dict[str, Any]], entry_id: str
++) -> tuple[str, ...]:
++    """Return running plugin ids exposing entry_id, including hidden entries."""
++    providers: list[str] = []
++    for plugin in plugins:
++        if not isinstance(plugin, dict) or plugin.get("status") != "running":
++            continue
++        plugin_id = str(plugin.get("id") or "").strip()
++        if not plugin_id:
++            continue
++        entries = plugin.get("entries")
++        if not isinstance(entries, list):
++            continue
++        if any(
++            isinstance(entry, dict) and str(entry.get("id") or "") == entry_id
++            for entry in entries
++        ):
++            providers.append(plugin_id)
++    return tuple(sorted(set(providers)))
++
++
++async def _runtime_for_current_loop() -> tuple[Any, Any]:
++    """Build NekoClaw's existing plugin catalog/runner lazily on this loop."""
++    loop = asyncio.get_running_loop()
++    key = id(loop)
++    existing = _runtime_by_loop.get(key)
++    if existing is not None:
++        return existing
++
++    def load_types():
++        from nekoclaw.host.plugin_runs import PluginCatalog, PluginRunner
++
++        return PluginCatalog, PluginRunner
++
++    PluginCatalog, PluginRunner = await asyncio.to_thread(load_types)
++    catalog = PluginCatalog()
++    runner = PluginRunner(catalog)
++    runtime = (catalog, runner)
++    _runtime_by_loop[key] = runtime
++    return runtime
++
++
++async def run_plugin_entry_shadows(
++    entry_id: str,
++    payload: dict[str, Any],
++    *,
++    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
++    catalog: Any = None,
++    runner: Any = None,
++) -> tuple[PluginShadowResult, ...]:
++    """Call every running provider of a hidden capability entry.
++
++    housekeeping=True deliberately uses PluginRunner's existing path for
++    host-owned calls so agent_hidden entries remain callable without being
++    offered to NekoClaw's automatic task routing.
++    """
++    if catalog is None or runner is None:
++        catalog, runner = await _runtime_for_current_loop()
++
++    try:
++        plugins = await catalog.plugins()
++    except asyncio.CancelledError:
++        raise
++    except Exception as exc:
++        return (
++            PluginShadowResult(
++                provider_id="",
++                success=False,
++                reason=f"catalog:{type(exc).__name__}",
++            ),
++        )
++
++    providers = _providers_for_entry(plugins, entry_id)
++    if not providers:
++        return ()
++
++    async def call(provider_id: str) -> PluginShadowResult:
++        try:
++            outcome = await asyncio.wait_for(
++                runner.run_entry(
++                    commission_id=f"capability-shadow-{uuid.uuid4()}",
++                    plugin_id=provider_id,
++                    entry_id=entry_id,
++                    args=dict(payload),
++                    latest_user_request="",
++                    housekeeping=True,
++                ),
++                timeout=max(0.05, float(timeout_seconds)),
++            )
++        except asyncio.TimeoutError:
++            return PluginShadowResult(provider_id, False, reason="timeout")
++        except asyncio.CancelledError:
++            raise
++        except Exception as exc:
++            return PluginShadowResult(
++                provider_id,
++                False,
++                reason=f"{type(exc).__name__}",
++            )
++
++        return PluginShadowResult(
++            provider_id=provider_id,
++            success=bool(getattr(outcome, "success", False)),
++            data=getattr(outcome, "data", None),
++            reason=str(getattr(outcome, "reason", "") or ""),
++        )
++
++    return tuple(await asyncio.gather(*(call(provider) for provider in providers)))
++
++
++def schedule_plugin_entry_shadow(
++    entry_id: str,
++    payload: dict[str, Any],
++    *,
++    dedupe_key: str = "",
++    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
++    cooldown_seconds: float = _DEFAULT_COOLDOWN_SECONDS,
++    log_context: str = "",
++) -> bool:
++    """Schedule a non-authoritative capability observation without awaiting it."""
++    try:
++        loop = asyncio.get_running_loop()
++    except RuntimeError:
++        return False
++
++    key = (str(entry_id), str(dedupe_key))
++    now = time.monotonic()
++    last = _last_scheduled.get(key)
++    if last is not None and now - last < max(0.0, float(cooldown_seconds)):
++        return False
++    _last_scheduled[key] = now
++
++    async def observe() -> None:
++        results = await run_plugin_entry_shadows(
++            entry_id,
++            dict(payload),
++            timeout_seconds=timeout_seconds,
++        )
++        for result in results:
++            data = result.data if isinstance(result.data, dict) else {}
++            decision = str(data.get("decision") or "unknown")
++            reason = str(data.get("reason") or result.reason or "")
++            logger.info(
++                "capability shadow entry=%s provider=%s context=%s success=%s decision=%s reason=%s",
++                entry_id,
++                result.provider_id or "none",
++                log_context,
++                result.success,
++                decision,
++                reason[:120],
++            )
++
++    task = loop.create_task(observe())
++    _tasks.add(task)
++
++    def done(completed: asyncio.Task[Any]) -> None:
++        _tasks.discard(completed)
++        try:
++            completed.result()
++        except asyncio.CancelledError:
++            pass
++        except Exception:
++            logger.debug("capability shadow task failed", exc_info=True)
++
++    task.add_done_callback(done)
++    return True
+diff --git a/main_logic/core/proactive.py b/main_logic/core/proactive.py
+index 0aef5335..f11fbb48 100644
+--- a/main_logic/core/proactive.py
++++ b/main_logic/core/proactive.py
+@@ -49,6 +49,7 @@ from main_logic.proactive_delivery import (
+     split_callbacks_by_image_budget,
+ )
+ from config import ANTI_REPEAT_EXEMPT_SOURCE_TAGS
++from main_logic.activity.system_signals import notification_state_blocks_proactive
+ from utils.language_utils import normalize_language_code, get_global_language_full
+ from utils.desktop_capture import capture_desktop_screenshot
+ import main_logic.core as _core_facade
+@@ -258,6 +259,14 @@ class ProactiveMixin:
+             if self.is_goodbye_silent():
+                 logger.info("[%s] voice proactive nudge skipped: goodbye silent", self.lanlan_name)
+                 return False
++            interruptibility_reason = self._proactive_interruptibility_block_reason()
++            if interruptibility_reason is not None:
++                logger.info(
++                    "[%s] voice proactive nudge skipped: interruptibility veto (%s)",
++                    self.lanlan_name,
++                    interruptibility_reason,
++                )
++                return False
+             if self._takeover_active:
+                 logger.info("[%s] voice proactive nudge skipped: session takeover active", self.lanlan_name)
+                 return False
+@@ -471,10 +480,113 @@ class ProactiveMixin:
+                 declined=declined,
+             ))
+ 
++    def _proactive_interruptibility_block_reason(
++        self, *, allow_focused_work: bool = False,
++    ) -> str | None:
++        """Return why the latest native activity state vetoes an interruption.
++
++        This is deliberately a final-delivery guard, not another activity
++        detector. It reuses the manager's existing UserActivityTracker so a
++        proactive round cannot rely on a stale snapshot captured several
++        seconds before model generation. Windows' native
++        SHQueryUserNotificationState signal is authoritative whenever local OS
++        signals are available.
++
++        Optional plugin providers are observed only in the background through
++        N.E.K.O's existing PluginCatalog/PluginRunner path. They cannot weaken
++        or delay this native verdict. allow_focused_work exists only for the
++        dedicated work-break reminder; ordinary ambient chatter and
++        entertainment remain blocked while the owner is actively working.
++        """
++        tracker = getattr(self, "_activity_tracker", None)
++        if tracker is None:
++            return None
++        try:
++            snap = tracker.get_snapshot_sync()
++        except Exception as exc:
++            logger.debug(
++                "[%s] proactive interruptibility snapshot unavailable: %s",
++                self.lanlan_name,
++                exc,
++            )
++            return None
++
++        notification_state = getattr(snap, "user_notification_state", None)
++        notification_reader = getattr(tracker, "get_user_notification_state_now", None)
++        if callable(notification_reader):
++            try:
++                live_notification_state = notification_reader()
++            except Exception as exc:
++                logger.debug(
++                    "[%s] live Windows notification-state read failed: %s",
++                    self.lanlan_name,
++                    exc,
++                )
++            else:
++                if isinstance(live_notification_state, int):
++                    notification_state = live_notification_state
++
++        state = getattr(snap, "state", None)
++        reason: str | None = None
++        if (
++            getattr(snap, "os_signals_available", False)
++            and notification_state_blocks_proactive(notification_state)
++        ):
++            reason = f"windows_notification_state:{notification_state}"
++        elif isinstance(state, str):
++            if state in {"idle", "casual_browsing"}:
++                reason = None
++            elif state == "focused_work" and allow_focused_work:
++                reason = None
++            else:
++                reason = f"activity_state:{state}"
++
++        # Shadow providers get only bounded machine-state facts, never user
++        # text, window titles, URLs, screenshots, or memory. Scheduling is a
++        # best-effort observation and cannot alter the synchronous verdict.
++        try:
++            from main_logic.capability_shadow import schedule_plugin_entry_shadow
++
++            schedule_plugin_entry_shadow(
++                "interruptibility_v1",
++                {
++                    "activity_state": state if isinstance(state, str) else "",
++                    "notification_state": (
++                        notification_state if isinstance(notification_state, int) else -1
++                    ),
++                    "os_signals_available": bool(
++                        getattr(snap, "os_signals_available", False)
++                    ),
++                    "allow_focused_work": bool(allow_focused_work),
++                    "native_block_reason": reason or "",
++                },
++                dedupe_key=(
++                    f"{state}:{notification_state}:"
++                    f"{int(bool(allow_focused_work))}:{reason}"
++                ),
++                log_context=str(getattr(self, "lanlan_name", "") or ""),
++            )
++        except Exception as exc:
++            logger.debug(
++                "[%s] interruptibility shadow scheduling skipped: %s",
++                self.lanlan_name,
++                type(exc).__name__,
++            )
++
++        return reason
++
+     async def prepare_proactive_delivery(
+-        self, min_idle_secs: float = 10.0, *, round_id: str | None = None,
++        self,
++        min_idle_secs: float = 10.0,
++        *,
++        round_id: str | None = None,
++        allow_focused_work: bool = False,
+     ) -> bool:
+-        """Pre-checks before Phase 2 streaming + speech_id generation. Returns True if it's OK to proceed."""
++        """Pre-checks before Phase 2 streaming + speech_id generation.
++
++        The final interruptibility check intentionally lives here so every
++        proactive delivery path shares the same latest-state veto.
++        """
+         def _user_active_recently() -> bool:
+             now = time.time()
+             activity_times = (
+@@ -503,6 +615,16 @@ class ProactiveMixin:
+         if self.is_goodbye_silent():
+             logger.info("[%s] prepare_proactive_delivery: goodbye silent", self.lanlan_name)
+             return False
++        interruptibility_reason = self._proactive_interruptibility_block_reason(
++            allow_focused_work=allow_focused_work,
++        )
++        if interruptibility_reason is not None:
++            logger.info(
++                "[%s] prepare_proactive_delivery: interruptibility veto (%s)",
++                self.lanlan_name,
++                interruptibility_reason,
++            )
++            return False
+         # Early preemption check before any await/sid mutation prevents a user taking over just after entry
+         # from having user_sid overwritten by current_speech_id later. Default reset() ignores active
+         # phases to protect incidental auto-start resets, while end_session forces clearing via force=True.
+@@ -572,6 +694,16 @@ class ProactiveMixin:
+                     self.lanlan_name,
+                 )
+                 return False
++            interruptibility_reason = self._proactive_interruptibility_block_reason(
++                allow_focused_work=allow_focused_work,
++            )
++            if interruptibility_reason is not None:
++                logger.info(
++                    "[%s] prepare_proactive_delivery: interruptibility veto before claim (%s)",
++                    self.lanlan_name,
++                    interruptibility_reason,
++                )
++                return False
+             self.current_speech_id = str(uuid4())
+             self._tts_done_queued_for_turn = False
+             self._tts_done_pending_until_ready = False
+diff --git a/main_logic/proactive_chat/break_reminders.py b/main_logic/proactive_chat/break_reminders.py
+index be5de653..c47b38fb 100644
+--- a/main_logic/proactive_chat/break_reminders.py
++++ b/main_logic/proactive_chat/break_reminders.py
+@@ -324,7 +324,11 @@ async def _deliver_break_reminder_via_llm(
+     # not claim or advance a replacement round.
+     round_payload = {"round_id": round_id} if round_id is not None else {}
+     delivery_round = {"expected_round_id": round_id} if round_id is not None else {}
+-    if not await mgr.prepare_proactive_delivery(min_idle_secs=10.0, **round_payload):
++    if not await mgr.prepare_proactive_delivery(
++        min_idle_secs=10.0,
++        allow_focused_work=(channel == "work_break"),
++        **round_payload,
++    ):
+         return BreakReminderDeliveryResult()
+     # Snapshot the claimed SID before any await: after a session restart a
+     # replacement round may claim a new SID while this task is still running.
+diff --git a/main_logic/proactive_chat/mini_game_invite.py b/main_logic/proactive_chat/mini_game_invite.py
+index 13cc16f9..7b710e68 100644
+--- a/main_logic/proactive_chat/mini_game_invite.py
++++ b/main_logic/proactive_chat/mini_game_invite.py
+@@ -106,6 +106,13 @@ class MiniGameInviteShortCircuit:
+ # than persistence dependencies. Like _proactive_chat_history, it stays in memory.
+ _mini_game_invite_state: dict[str, dict[str, Any]] = {}
+ 
++# Proactive game invitations are leisure-only.  A 10-second input gap is not
++# evidence that the user is free: chatting, voice engagement, window
++# transitions, or just returning can all happen in the middle of real work.
++# Keep the invitation channel for states that already mean "not driving a
++# focused task" in the native activity state machine.
++_MINI_GAME_INVITE_LEISURE_STATES = frozenset({"casual_browsing", "idle"})
++
+ 
+ # ---------- Mini-game invitation shortcut state management ----------
+ # proactive_chat calls _maybe_deliver_mini_game_invite after propensity / skip_probability /
+@@ -476,7 +483,9 @@ async def _attempt_mini_game_invite_delivery(
+       - both source toggles are off (mini-games and theater have independent switches)
+       - activity_snapshot is None (privacy mode / tracker unavailable — be conservative, do not send)
+       - propensity == 'restricted_screen_only' (focused_work / non-casual gaming)
+-      - state == 'away' (user absent; nobody to receive the invite)
++      - state is not an explicit leisure state (only casual_browsing / idle
++        are eligible; chatting, voice engagement, transitioning, returning,
++        gaming, focused work/video, away and private all stay interruption-free)
+       - activity_snapshot.unfinished_thread is not None (the AI just asked a
+         question the user has not answered; following the thread takes priority
+         over changing topics — aligned with the precedence convention of
+@@ -547,7 +556,7 @@ async def _attempt_mini_game_invite_delivery(
+         state_label = getattr(activity_snapshot, 'state', None)
+         if propensity == 'restricted_screen_only':
+             return None
+-        if state_label == 'away':
++        if state_label not in _MINI_GAME_INVITE_LEISURE_STATES:
+             return None
+         # AI asked a question last turn (?/吗/呢/么, etc.) without user response: prioritize thread follow-up.
+         # skip_probability uses the same priority in system_router.py's propensity section;
+diff --git a/tests/unit/test_mini_game_invite.py b/tests/unit/test_mini_game_invite.py
+index 5f016524..44645108 100644
+--- a/tests/unit/test_mini_game_invite.py
++++ b/tests/unit/test_mini_game_invite.py
+@@ -458,6 +458,49 @@ async def test_maybe_deliver_returns_none_when_restricted_screen_only(monkeypatc
+     assert out is None
+ 
+ 
++@pytest.mark.asyncio
++@pytest.mark.parametrize(
++    "state",
++    [
++        "focused_work",
++        "focused_video",
++        "gaming",
++        "transitioning",
++        "chatting",
++        "voice_engaged",
++        "stale_returning",
++        "away",
++        "private",
++    ],
++)
++async def test_maybe_deliver_is_leisure_only(monkeypatch, state):
++    """A short input gap must not turn active/ambiguous states into free time."""
++    monkeypatch.setattr(sr, 'MINI_GAME_INVITE_TRIGGER_PROBABILITY', 1.0)
++    out = await sr._maybe_deliver_mini_game_invite(
++        lanlan_name=LANLAN,
++        mgr=_make_mgr(),
++        activity_snapshot=_make_snapshot(state=state, propensity='open'),
++        invite_lang='zh',
++        master_name=MASTER,
++    )
++    assert out is None
++
++
++@pytest.mark.asyncio
++@pytest.mark.parametrize("state", ["casual_browsing", "idle"])
++async def test_maybe_deliver_allows_explicit_leisure_states(monkeypatch, state):
++    monkeypatch.setattr(sr, 'MINI_GAME_INVITE_TRIGGER_PROBABILITY', 1.0)
++    out = await sr._maybe_deliver_mini_game_invite(
++        lanlan_name=LANLAN,
++        mgr=_make_mgr(sid=f"sid-{state}"),
++        activity_snapshot=_make_snapshot(state=state, propensity='open'),
++        invite_lang='zh',
++        master_name=MASTER,
++    )
++    assert out is not None
++    assert out["action"] == "chat"
++
++
+ @pytest.mark.asyncio
+ async def test_maybe_deliver_returns_none_when_away(monkeypatch):
+     """User away: nobody can answer invitations."""
+diff --git a/tests/unit/test_proactive_service_boundary.py b/tests/unit/test_proactive_service_boundary.py
+index adb47dfc..6d2cf27b 100644
+--- a/tests/unit/test_proactive_service_boundary.py
++++ b/tests/unit/test_proactive_service_boundary.py
+@@ -188,7 +188,9 @@ async def test_break_reminder_respects_round_ownership(monkeypatch, retired) ->
+ 
+     assert result == break_reminders.BreakReminderDeliveryResult()
+     mgr.prepare_proactive_delivery.assert_awaited_once_with(
+-        min_idle_secs=10.0, round_id=round_id,
++        min_idle_secs=10.0,
++        allow_focused_work=True,
++        round_id=round_id,
+     )
+     assert state_machine.phase is (
+         ProactivePhase.PHASE1 if retired else ProactivePhase.PHASE2
+diff --git a/tests/unit/test_proactive_sid_guard.py b/tests/unit/test_proactive_sid_guard.py
+index f425dba1..75e1cb63 100644
+--- a/tests/unit/test_proactive_sid_guard.py
++++ b/tests/unit/test_proactive_sid_guard.py
+@@ -191,6 +191,124 @@ def test_cannot_preserve_tts_ready_when_runtime_identity_changed():
+     assert LLMSessionManager._can_preserve_tts_ready_for_session_start(mgr) is False
+ 
+ 
++def _set_interruptibility_snapshot(
++    mgr,
++    *,
++    state="idle",
++    notification_state=5,
++    os_signals_available=True,
++):
++    mgr._activity_tracker.get_snapshot_sync.return_value = SimpleNamespace(
++        state=state,
++        user_notification_state=notification_state,
++        os_signals_available=os_signals_available,
++    )
++    mgr._activity_tracker.get_user_notification_state_now.return_value = notification_state
++
++
++async def test_prepare_proactive_delivery_uses_immediate_windows_state_over_stale_snapshot(
++    monkeypatch,
++):
++    mgr = _make_mgr()
++    mgr.is_active = False
++    mgr.is_goodbye_silent = MagicMock(return_value=False)
++    mgr.websocket = object()
++    mgr.session = SimpleNamespace(_conversation_history=[])
++    mgr.last_user_activity_time = 10.0
++    _set_interruptibility_snapshot(mgr, state="idle", notification_state=5)
++    mgr._activity_tracker.get_user_notification_state_now.return_value = 2
++    patch_module_clock(monkeypatch, proactive_core, time=lambda: 100.0)
++
++    prepared = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++    )
++
++    assert prepared is False
++    assert mgr.current_speech_id is None
++
++
++async def test_prepare_proactive_delivery_blocks_windows_busy(monkeypatch):
++    mgr = _make_mgr()
++    mgr.is_goodbye_silent = MagicMock(return_value=False)
++    mgr.websocket = object()
++    mgr.session = SimpleNamespace(_conversation_history=[])
++    mgr.last_user_activity_time = 10.0
++    _set_interruptibility_snapshot(mgr, state="idle", notification_state=2)
++    patch_module_clock(monkeypatch, proactive_core, time=lambda: 100.0)
++
++    prepared = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++    )
++
++    assert prepared is False
++    assert mgr.current_speech_id is None
++
++
++async def test_prepare_proactive_delivery_blocks_latest_gaming_state(monkeypatch):
++    mgr = _make_mgr()
++    mgr.is_goodbye_silent = MagicMock(return_value=False)
++    mgr.websocket = object()
++    mgr.session = SimpleNamespace(_conversation_history=[])
++    mgr.last_user_activity_time = 10.0
++    _set_interruptibility_snapshot(mgr, state="gaming", notification_state=5)
++    patch_module_clock(monkeypatch, proactive_core, time=lambda: 100.0)
++
++    prepared = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++    )
++
++    assert prepared is False
++    assert mgr.current_speech_id is None
++
++
++async def test_prepare_proactive_delivery_allows_idle_when_windows_accepts(monkeypatch):
++    mgr = _make_mgr()
++    mgr.is_active = False
++    mgr.is_goodbye_silent = MagicMock(return_value=False)
++    mgr.websocket = object()
++    mgr.session = SimpleNamespace(_conversation_history=[])
++    mgr.last_user_activity_time = 10.0
++    _set_interruptibility_snapshot(mgr, state="idle", notification_state=5)
++    patch_module_clock(monkeypatch, proactive_core, time=lambda: 100.0)
++
++    prepared = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++    )
++
++    assert prepared is True
++    assert mgr.current_speech_id is not None
++
++
++async def test_focused_work_only_allows_dedicated_work_break(monkeypatch):
++    mgr = _make_mgr()
++    mgr.is_active = False
++    mgr.is_goodbye_silent = MagicMock(return_value=False)
++    mgr.websocket = object()
++    mgr.session = SimpleNamespace(_conversation_history=[])
++    mgr.last_user_activity_time = 10.0
++    _set_interruptibility_snapshot(mgr, state="focused_work", notification_state=5)
++    patch_module_clock(monkeypatch, proactive_core, time=lambda: 100.0)
++
++    ambient = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++    )
++    assert ambient is False
++
++    # A genuine work-break reminder may interrupt focused_work, but only when
++    # Windows itself says notifications are acceptable.
++    work_break = await LLMSessionManager.prepare_proactive_delivery(
++        mgr,
++        min_idle_secs=10.0,
++        allow_focused_work=True,
++    )
++    assert work_break is True
++
++
+ async def test_prepare_proactive_delivery_counts_recent_ui_engagement(
+     monkeypatch,
+ ):
+diff --git a/tests/unit/test_proactive_vision_revocation.py b/tests/unit/test_proactive_vision_revocation.py
+index e186dfda..c1322ecf 100644
+--- a/tests/unit/test_proactive_vision_revocation.py
++++ b/tests/unit/test_proactive_vision_revocation.py
+@@ -213,6 +213,22 @@ async def test_voice_nudge_forwards_screen_gate(allow_vision, consent, expected)
+     assert vision_allowed() is expected
+ 
+ 
++@pytest.mark.unit
++async def test_voice_nudge_respects_interruptibility_gate():
++    session = _voice_session()
++    mgr = _voice_manager(session)
++    mgr._activity_tracker = MagicMock()
++    mgr._activity_tracker.get_snapshot_sync.return_value = SimpleNamespace(
++        state="gaming",
++        user_notification_state=5,
++        os_signals_available=True,
++    )
++    mgr._activity_tracker.get_user_notification_state_now.return_value = 5
++
++    assert await LLMSessionManager.trigger_voice_proactive_nudge(mgr) is False
++    session.prompt_ephemeral.assert_not_awaited()
++
++
+ @pytest.mark.unit
+ async def test_voice_nudge_gate_reads_consent_live():
+     """prompt_ephemeral re-reads the gate after its awaits; it must see a revocation."""
+diff --git a/tests/unit/test_windows_interruptibility_signal.py b/tests/unit/test_windows_interruptibility_signal.py
+new file mode 100644
+index 00000000..0590e63b
+--- /dev/null
++++ b/tests/unit/test_windows_interruptibility_signal.py
+@@ -0,0 +1,93 @@
++from __future__ import annotations
++
++import time
++
++import pytest
++
++from main_logic.activity.state_machine import ActivityStateMachine
++from main_logic.activity.system_signals import (
++    QUNS_ACCEPTS_NOTIFICATIONS,
++    QUNS_APP,
++    QUNS_BUSY,
++    QUNS_NOT_PRESENT,
++    QUNS_PRESENTATION_MODE,
++    QUNS_QUIET_TIME,
++    QUNS_RUNNING_D3D_FULL_SCREEN,
++    SystemSignalCollector,
++    SystemSnapshot,
++    notification_state_blocks_proactive,
++)
++from utils.activity_config import ActivityPreferences
++
++
++def _snapshot(notification_state: int | None, *, os_signals_available: bool = True):
++    sm = ActivityStateMachine(prefs=ActivityPreferences())
++    sm.update_system(
++        SystemSnapshot(
++            timestamp=time.time(),
++            idle_seconds=0.0,
++            cpu_avg_30s=0.0,
++            cpu_instant=0.0,
++            window_title=None,
++            process_name=None,
++            gpu_utilization=None,
++            os_signals_available=os_signals_available,
++            user_notification_state=notification_state,
++        )
++    )
++    return sm.get_snapshot()
++
++
++@pytest.mark.parametrize(
++    "notification_state",
++    [
++        QUNS_NOT_PRESENT,
++        QUNS_BUSY,
++        QUNS_RUNNING_D3D_FULL_SCREEN,
++        QUNS_PRESENTATION_MODE,
++        QUNS_QUIET_TIME,
++    ],
++)
++def test_windows_notification_block_preserves_activity_but_closes_propensity(
++    notification_state: int,
++):
++    snap = _snapshot(notification_state)
++    assert snap.state == "idle"
++    assert snap.propensity == "closed"
++    assert snap.user_notification_state == notification_state
++    assert notification_state_blocks_proactive(notification_state)
++
++
++@pytest.mark.parametrize(
++    "notification_state",
++    [None, QUNS_ACCEPTS_NOTIFICATIONS, QUNS_APP],
++)
++def test_nonblocking_windows_notification_state_keeps_native_propensity(
++    notification_state: int | None,
++):
++    snap = _snapshot(notification_state)
++    assert snap.state == "idle"
++    assert snap.propensity == "open"
++    assert snap.user_notification_state == notification_state
++    assert not notification_state_blocks_proactive(notification_state)
++
++
++def test_remote_or_degraded_os_signal_cannot_veto_local_user():
++    snap = _snapshot(QUNS_BUSY, os_signals_available=False)
++    assert snap.state == "idle"
++    assert snap.propensity == "open"
++
++def test_one_shot_notification_state_reads_windows_authority_when_available():
++    collector = SystemSignalCollector.__new__(SystemSignalCollector)
++    collector._os_signals_available = True
++    collector._read_user_notification_state = lambda: QUNS_BUSY
++    assert collector.user_notification_state_now() == QUNS_BUSY
++
++
++def test_one_shot_notification_state_does_not_read_remote_or_degraded_host():
++    collector = SystemSignalCollector.__new__(SystemSignalCollector)
++    collector._os_signals_available = False
++    called = []
++    collector._read_user_notification_state = lambda: called.append(True)
++    assert collector.user_notification_state_now() is None
++    assert called == []
+diff --git a/tests/unit/test_xiaoyu_capability_shadow.py b/tests/unit/test_xiaoyu_capability_shadow.py
+new file mode 100644
+index 00000000..829a5968
+--- /dev/null
++++ b/tests/unit/test_xiaoyu_capability_shadow.py
+@@ -0,0 +1,165 @@
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++from main_logic.capability_shadow import (
++    _providers_for_entry,
++    run_plugin_entry_shadows,
++)
++from main_logic.core.proactive import ProactiveMixin
++
++
++class _Catalog:
++    def __init__(self, plugins):
++        self._plugins = plugins
++
++    async def plugins(self):
++        return list(self._plugins)
++
++
++class _Runner:
++    def __init__(self, outcomes):
++        self.outcomes = outcomes
++        self.calls = []
++
++    async def run_entry(self, **kwargs):
++        self.calls.append(kwargs)
++        outcome = self.outcomes[kwargs["plugin_id"]]
++        if isinstance(outcome, Exception):
++            raise outcome
++        if callable(outcome):
++            return await outcome()
++        return outcome
++
++
++def _plugin(plugin_id: str, entry_id: str, *, status: str = "running"):
++    return {
++        "id": plugin_id,
++        "status": status,
++        "entries": [
++            {
++                "id": entry_id,
++                "metadata": {"agent_hidden": True},
++            }
++        ],
++    }
++
++
++def test_hidden_entries_are_discovered_without_agent_visibility():
++    plugins = [
++        _plugin("b_provider", "interruptibility_v1"),
++        _plugin("a_provider", "interruptibility_v1"),
++        _plugin("stopped", "interruptibility_v1", status="stopped"),
++        _plugin("other", "other_entry"),
++    ]
++
++    assert _providers_for_entry(plugins, "interruptibility_v1") == (
++        "a_provider",
++        "b_provider",
++    )
++
++
++@pytest.mark.asyncio
++async def test_shadow_calls_reuse_housekeeping_plugin_runner_path():
++    runner = _Runner(
++        {
++            "candidate": SimpleNamespace(
++                success=True,
++                data={"decision": "abstain", "reason": "evidence_only"},
++                reason="",
++            )
++        }
++    )
++    results = await run_plugin_entry_shadows(
++        "interruptibility_v1",
++        {"activity_state": "gaming"},
++        catalog=_Catalog([_plugin("candidate", "interruptibility_v1")]),
++        runner=runner,
++    )
++
++    assert len(results) == 1
++    assert results[0].provider_id == "candidate"
++    assert results[0].success is True
++    assert results[0].data["decision"] == "abstain"
++    assert runner.calls[0]["housekeeping"] is True
++    assert runner.calls[0]["latest_user_request"] == ""
++    assert runner.calls[0]["args"] == {"activity_state": "gaming"}
++
++
++@pytest.mark.asyncio
++async def test_shadow_timeout_is_observational_not_raised():
++    async def slow():
++        await asyncio.sleep(1.0)
++
++    runner = _Runner({"slow": slow})
++    results = await run_plugin_entry_shadows(
++        "interruptibility_v1",
++        {},
++        timeout_seconds=0.05,
++        catalog=_Catalog([_plugin("slow", "interruptibility_v1")]),
++        runner=runner,
++    )
++
++    assert [(item.provider_id, item.success, item.reason) for item in results] == [
++        ("slow", False, "timeout")
++    ]
++
++
++def test_native_windows_veto_is_unchanged_when_shadow_scheduler_fails(monkeypatch):
++    class Tracker:
++        def get_snapshot_sync(self):
++            return SimpleNamespace(
++                state="idle",
++                os_signals_available=True,
++                user_notification_state=2,
++            )
++
++        def get_user_notification_state_now(self):
++            return 2
++
++    def fail_schedule(*args, **kwargs):
++        raise RuntimeError("plugin server unavailable")
++
++    monkeypatch.setattr(
++        "main_logic.capability_shadow.schedule_plugin_entry_shadow",
++        fail_schedule,
++    )
++    owner = SimpleNamespace(_activity_tracker=Tracker(), lanlan_name="XiaoYu")
++
++    reason = ProactiveMixin._proactive_interruptibility_block_reason(owner)
++
++    assert reason == "windows_notification_state:2"
++
++
++def test_native_activity_veto_is_unchanged_when_shadow_is_only_observing(monkeypatch):
++    observed = []
++
++    class Tracker:
++        def get_snapshot_sync(self):
++            return SimpleNamespace(
++                state="gaming",
++                os_signals_available=True,
++                user_notification_state=5,
++            )
++
++        def get_user_notification_state_now(self):
++            return 5
++
++    monkeypatch.setattr(
++        "main_logic.capability_shadow.schedule_plugin_entry_shadow",
++        lambda entry_id, payload, **kwargs: observed.append(
++            (entry_id, payload, kwargs)
++        )
++        or True,
++    )
++    owner = SimpleNamespace(_activity_tracker=Tracker(), lanlan_name="XiaoYu")
++
++    reason = ProactiveMixin._proactive_interruptibility_block_reason(owner)
++
++    assert reason == "activity_state:gaming"
++    assert observed[0][0] == "interruptibility_v1"
++    assert observed[0][1]["native_block_reason"] == "activity_state:gaming"
++    assert "user_text" not in observed[0][1]

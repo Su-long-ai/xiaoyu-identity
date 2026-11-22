@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 import time
 import httpx
 from datetime import datetime, timedelta, timezone
@@ -26,13 +27,38 @@ from plugin.sdk.plugin import (
 
 _ROLE = "XiaoYu"
 _CONTROLLER = "proactive_controller"
-_STATE_VERSION = 4
+_STATE_VERSION = 5
 _SEEN_LIMIT = 128
 _CLASSIFIER_TIMEOUT_SECONDS = 8.0
 _MAX_TEXT_CHARS = 500
 _ACTIVITYWATCH_BASE_URL = "http://127.0.0.1:5600/api/0"
 _ACTIVITYWATCH_TIMEOUT_SECONDS = 4.0
 _ACTIVITYWATCH_COVERAGE_GRACE_SECONDS = 15.0
+
+
+class _CrossLoopAsyncLock:
+    """Process-local async mutex that is not bound to one asyncio loop.
+
+    N.E.K.O plugin lifecycle/timer/custom-event/conversation-watcher callbacks
+    may execute through different asyncio.run loops. asyncio.Lock can bind to
+    one loop after contention, so use one process-wide thread lock and acquire
+    it non-blockingly while yielding to the current loop.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+
+    def locked(self) -> bool:
+        return self._lock.locked()
+
+    async def __aenter__(self):
+        while not self._lock.acquire(blocking=False):
+            await asyncio.sleep(0.01)
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        self._lock.release()
+        return False
 
 _CANDIDATE_RE = re.compile(
     r"(安静|静一静|别.{0,8}(说|讲|聊|烦|扰|找|联系|主动|消息|出声)|"
@@ -88,6 +114,8 @@ def _default_state() -> dict[str, Any]:
     return {
         "version": _STATE_VERSION,
         "initialized": False,
+        "conversation_cursor_initialized": False,
+        "last_conversation_observed_at": None,
         "seen_event_ids": [],
         "quiet": False,
         "speech_muted": False,
@@ -108,6 +136,16 @@ def _normalize_state(raw: Any) -> dict[str, Any]:
                 state[key] = raw[key]
     state["version"] = _STATE_VERSION
     state["initialized"] = bool(state.get("initialized"))
+    state["conversation_cursor_initialized"] = bool(
+        state.get("conversation_cursor_initialized")
+    )
+    observed = state.get("last_conversation_observed_at")
+    state["last_conversation_observed_at"] = (
+        float(observed)
+        if isinstance(observed, (int, float))
+        and not isinstance(observed, bool)
+        else None
+    )
     seen = state.get("seen_event_ids")
     state["seen_event_ids"] = [
         str(item) for item in (seen if isinstance(seen, list) else [])
@@ -567,8 +605,9 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
     def __init__(self, ctx):
         super().__init__(ctx)
         self.logger = self.enable_file_logging(log_level="INFO")
-        self._lock = asyncio.Lock()
+        self._lock = _CrossLoopAsyncLock()
         self._state_path: Path | None = None
+        self._conversation_watcher = None
 
     @lifecycle(id="startup")
     async def startup(self, **_):
@@ -583,23 +622,35 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
         if isinstance(controller, Err):
             return Err(SdkError("N.E.K.O proactive_controller is required"))
 
-        records = await self.bus.memory.get(bucket_id=_ROLE, limit=20, timeout=3.0)
-        recent_ids = []
-        for record in records:
-            event = _extract_event(record)
-            event_id = str(event.get("event_id") or "")
-            if event_id:
-                recent_ids.append(event_id)
         if not state["initialized"]:
             state["initialized"] = True
-            state["seen_event_ids"] = recent_ids[-_SEEN_LIMIT:]
             self._save_state(state)
 
+        await self._baseline_conversation_cursor()
+        await self._start_conversation_watcher()
+        # Cover the narrow gap between baseline read and subscription setup.
+        # Dedupe keeps this safe if the same record also arrives live.
+        await self._conversation_reconcile_fallback()
         await self._reconcile_state()
-        return Ok({"status": "ready", "role": _ROLE, "recent_activity_authority": "ActivityWatch"})
+        return Ok({
+            "status": "ready",
+            "role": _ROLE,
+            "text_control_authority": "N.E.K.O conversations_v2",
+            "recent_activity_authority": "ActivityWatch",
+        })
 
     @lifecycle(id="shutdown")
     async def shutdown(self, **_):
+        watcher = self._conversation_watcher
+        self._conversation_watcher = None
+        if watcher is not None:
+            try:
+                await watcher.stop()
+            except Exception as exc:
+                self.logger.warning(
+                    "conversation watcher shutdown failed err_type={}",
+                    type(exc).__name__,
+                )
         return Ok({"status": "shutdown"})
 
     @plugin_entry(
@@ -610,6 +661,59 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
     )
     async def get_state(self, **_):
         return Ok(self._public_state(self._load_state()))
+
+    @plugin_entry(
+        id="interruptibility_v1",
+        name="Interruptibility capability v1",
+        description=(
+            "Internal shadow provider for proactive interruptibility. "
+            "Returns privacy-bounded ActivityWatch evidence and currently abstains from control."
+        ),
+        metadata={"agent_hidden": True},
+    )
+    async def interruptibility_v1(
+        self,
+        activity_state: str = "",
+        notification_state: int = -1,
+        os_signals_available: bool = False,
+        allow_focused_work: bool = False,
+        native_block_reason: str = "",
+        **_,
+    ):
+        report = await query_activitywatch_recent(2)
+        coverage = report.get("coverage") if isinstance(report, dict) else {}
+        summary = report.get("summary") if isinstance(report, dict) else {}
+        if not isinstance(coverage, dict):
+            coverage = {}
+        if not isinstance(summary, dict):
+            summary = {}
+        try:
+            active_seconds = max(0.0, float(summary.get("active_seconds") or 0.0))
+        except (TypeError, ValueError):
+            active_seconds = 0.0
+
+        # v1 is intentionally evidence-only. It proves the replaceable
+        # provider path without duplicating or weakening N.E.K.O's native
+        # Windows/activity authority. A future provider may return allow/block
+        # after its own product validation; this one always abstains.
+        return Ok({
+            "contract": "interruptibility.v1",
+            "decision": "abstain",
+            "reason": "activitywatch_shadow_evidence_only",
+            "native": {
+                "activity_state": str(activity_state or "")[:64],
+                "notification_state": int(notification_state),
+                "os_signals_available": bool(os_signals_available),
+                "allow_focused_work": bool(allow_focused_work),
+                "blocked": bool(native_block_reason),
+            },
+            "evidence": {
+                "source": "ActivityWatch",
+                "available": not bool(report.get("unavailable")) if isinstance(report, dict) else False,
+                "coverage_complete": bool(coverage.get("complete")),
+                "active_seconds": round(active_seconds, 3),
+            },
+        })
 
     @plugin_entry(
         id="recent_activity",
@@ -748,43 +852,219 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
                 **self._public_state(state),
             })
 
-    @timer_interval(id="scan_user_control_intent", seconds=1, auto_start=True)
-    async def scan_user_control_intent(self, **_):
-        if self._lock.locked():
-            return Ok({"busy": True})
+    async def _baseline_conversation_cursor(self) -> None:
+        records = await self.bus.conversations_v2.get(
+            character=_ROLE,
+            role="user",
+            input_source="text",
+            max_count=20,
+            order="desc",
+            since_ts=None,
+            timeout=3.0,
+        )
+        items = tuple(records)
         async with self._lock:
             state = await self._expire_if_needed(self._load_state())
+            if state["conversation_cursor_initialized"]:
+                return
+            ordered = sorted(
+                items,
+                key=lambda message: (
+                    float(getattr(message, "observed_at", 0.0) or 0.0),
+                    str(getattr(message, "id", "") or ""),
+                ),
+            )
+            for message in ordered:
+                event_id = str(getattr(message, "id", "") or "")
+                if event_id:
+                    state["seen_event_ids"].append(event_id)
+            state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
+            if ordered:
+                state["last_conversation_observed_at"] = max(
+                    float(getattr(message, "observed_at", 0.0) or 0.0)
+                    for message in ordered
+                )
+            state["conversation_cursor_initialized"] = True
+            self._save_state(state)
+            self.logger.info(
+                "conversation control cursor baselined records={}",
+                len(ordered),
+            )
 
-            records = await self.bus.memory.get(bucket_id=_ROLE, limit=20, timeout=3.0)
-            seen = set(state["seen_event_ids"])
-            pending: list[dict[str, Any]] = []
-            for record in records:
-                event = _extract_event(record)
-                event_id = str(event.get("event_id") or "")
-                if not event_id or event_id in seen:
-                    continue
-                if str(event.get("type") or "") != "user_message":
-                    continue
-                if str(event.get("lanlan") or "") not in {"", _ROLE}:
-                    continue
-                pending.append(event)
+    async def _start_conversation_watcher(self) -> bool:
+        watcher = self._conversation_watcher
+        if watcher is not None and bool(getattr(watcher, "_active", False)):
+            return True
+        try:
+            watcher = self.bus.conversations_v2.watch(
+                character=_ROLE,
+                role="user",
+                input_source="text",
+            )
+            watcher.subscribe(on="record")(self._conversation_control_record)
+            await watcher.start()
+            self._conversation_watcher = watcher
+            self.logger.info(
+                "conversation control watcher started source=conversations_v2 "
+                "event=record role=user input_source=text"
+            )
+            return True
+        except Exception as exc:
+            self._conversation_watcher = None
+            self.logger.warning(
+                "conversation control watcher unavailable err_type={}",
+                type(exc).__name__,
+            )
+            return False
 
-            pending.sort(key=lambda item: float(item.get("_ts") or 0.0))
-            decisions = 0
-            for event in pending:
-                event_id = str(event.get("event_id") or "")
-                content = event.get("content")
-                text = content.strip() if isinstance(content, str) else ""
-
-                state["seen_event_ids"].append(event_id)
-                state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
+    async def _conversation_control_record(self, message) -> None:
+        async with self._lock:
+            state = await self._expire_if_needed(self._load_state())
+            if not state["conversation_cursor_initialized"]:
+                # Startup normally baselines before subscribing. Keep this
+                # defensive branch fail-safe if a future host changes ordering.
+                event_id = str(getattr(message, "id", "") or "")
+                observed_at = float(getattr(message, "observed_at", 0.0) or 0.0)
+                if event_id:
+                    state["seen_event_ids"].append(event_id)
+                    state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
+                state["last_conversation_observed_at"] = observed_at or None
+                state["conversation_cursor_initialized"] = True
                 self._save_state(state)
+                return
 
-                state, added = await self._apply_control_text(state, text, reason="user")
-                decisions += added
-
+            decisions = await self._apply_conversation_messages(
+                state,
+                (message,),
+                reason="text",
+            )
             await self._enforce_quiet_if_needed(state)
-            return Ok({"processed": len(pending), "decisions": decisions, **self._public_state(state)})
+            if decisions:
+                self.logger.info(
+                    "conversation control applied decisions={}",
+                    decisions,
+                )
+
+    async def _apply_conversation_messages(
+        self,
+        state: dict[str, Any],
+        messages,
+        *,
+        reason: str,
+    ) -> int:
+        seen = set(state["seen_event_ids"])
+        watermark = float(state.get("last_conversation_observed_at") or 0.0)
+        decisions = 0
+        changed = False
+
+        ordered = sorted(
+            tuple(messages or ()),
+            key=lambda message: (
+                float(getattr(message, "observed_at", 0.0) or 0.0),
+                str(getattr(message, "id", "") or ""),
+            ),
+        )
+        for message in ordered:
+            event_id = str(getattr(message, "id", "") or "")
+            observed_at = float(getattr(message, "observed_at", 0.0) or 0.0)
+            text = str(getattr(message, "text", "") or "").strip()
+            if not event_id or event_id in seen:
+                watermark = max(watermark, observed_at)
+                continue
+
+            state["seen_event_ids"].append(event_id)
+            state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
+            seen.add(event_id)
+            watermark = max(watermark, observed_at)
+            changed = True
+
+            if not text:
+                continue
+            state, added = await self._apply_control_text(
+                state,
+                text,
+                reason=reason,
+            )
+            decisions += added
+
+        if changed:
+            state["last_conversation_observed_at"] = watermark
+            self._save_state(state)
+        return decisions
+
+    async def _conversation_reconcile_fallback(self) -> int:
+        snapshot = self._load_state()
+        since_ts = snapshot.get("last_conversation_observed_at")
+        records = await self.bus.conversations_v2.get(
+            character=_ROLE,
+            role="user",
+            input_source="text",
+            max_count=20,
+            order="asc",
+            since_ts=float(since_ts) if isinstance(since_ts, (int, float)) else None,
+            timeout=3.0,
+        )
+        items = tuple(records)
+
+        async with self._lock:
+            state = await self._expire_if_needed(self._load_state())
+            if not state["conversation_cursor_initialized"]:
+                ordered = sorted(
+                    items,
+                    key=lambda message: (
+                        float(getattr(message, "observed_at", 0.0) or 0.0),
+                        str(getattr(message, "id", "") or ""),
+                    ),
+                )
+                for message in ordered:
+                    event_id = str(getattr(message, "id", "") or "")
+                    if event_id:
+                        state["seen_event_ids"].append(event_id)
+                state["seen_event_ids"] = state["seen_event_ids"][-_SEEN_LIMIT:]
+                if ordered:
+                    state["last_conversation_observed_at"] = max(
+                        float(getattr(message, "observed_at", 0.0) or 0.0)
+                        for message in ordered
+                    )
+                state["conversation_cursor_initialized"] = True
+                self._save_state(state)
+                await self._enforce_quiet_if_needed(state)
+                return 0
+
+            decisions = await self._apply_conversation_messages(
+                state,
+                items,
+                reason="text-reconcile",
+            )
+            await self._enforce_quiet_if_needed(state)
+            return decisions
+
+    @timer_interval(id="reconcile_interaction_state", seconds=30, auto_start=True)
+    async def reconcile_interaction_state(self, **_):
+        if self._lock.locked():
+            return Ok({"busy": True})
+
+        watcher = self._conversation_watcher
+        active = watcher is not None and bool(getattr(watcher, "_active", False))
+        if not active:
+            # Retry the native subscription first. Only fall back to one
+            # bounded incremental read if the watcher cannot be restored.
+            if await self._start_conversation_watcher():
+                await self._conversation_reconcile_fallback()
+                await self._reconcile_state()
+                return Ok({
+                    "watcher": "restarted",
+                    **self._public_state(self._load_state()),
+                })
+            decisions = await self._conversation_reconcile_fallback()
+            return Ok({
+                "watcher": "fallback",
+                "decisions": decisions,
+                **self._public_state(self._load_state()),
+            })
+
+        await self._reconcile_state()
+        return Ok({"watcher": "active", **self._public_state(self._load_state())})
 
     async def _classify(self, text: str) -> dict[str, Any]:
         from utils.config_manager import get_config_manager
@@ -1019,5 +1299,11 @@ class XiaoYuInteractionPolicyPlugin(NekoPluginBase):
             "vision_blocked": bool(state.get("vision_blocked")),
             "quiet_until": state.get("quiet_until"),
             "last_action": state.get("last_action"),
+            "conversation_cursor_initialized": bool(
+                state.get("conversation_cursor_initialized")
+            ),
+            "last_conversation_observed_at": state.get(
+                "last_conversation_observed_at"
+            ),
             "seen_event_count": len(state.get("seen_event_ids") or []),
         }
