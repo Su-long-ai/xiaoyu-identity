@@ -100,21 +100,24 @@
   "retirement_condition": "Retire the adapter when N.E.K.O upstream exposes stable NekoClaw task-result delivery identity plus native durable effect receipt/reconciliation with equivalent callback-ack and restart semantics.",
   "machine_validation": {
     "branch": "private/neko-overlay-v1",
-    "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "commit": "136ef494b12171e13960407670261082eb09f997",
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45051619743,
-    "job_id": 137297783624,
+    "run_id": 45053447658,
+    "job_id": 137303416505,
     "conclusion": "success",
-    "sequencing": "effect-state candidate applied and verified first; native delivery receipt candidate then applied and verified on the same fresh pinned N.E.K.O checkout",
+    "sequencing": "patched companion product-state replay first on disposable worktree; clean pinned N.E.K.O then effect-state, native receipt, real-ZMQ E2E; pinned QQ surface and inbound candidate afterward",
     "verified": [
       "stable delivery id and attempt id",
-      "exact claim before visible-effect boundary",
-      "native callback ack True commits",
-      "native callback ack False releases proven no-effect only",
+      "exact claim before visible effect boundary",
+      "callback ack True commits exact claim",
+      "callback ack False releases only proven no-effect",
       "ambiguous/cancelled settlement does not synthesize retry",
+      "main-only restart epoch freezes claimed effect as uncertain",
+      "startup epoch survives native ZMQ connect/bind handshake via acknowledged bounded retry",
+      "real main↔agent ZMQ claim/commit and restart reconciliation",
       "candidate remains outside live managed patch series"
     ],
-    "note": "Base receipt candidate is green on product main. The main-only restart epoch extension is imported from agent commit 8d2bff1a, whose full reuse-architecture-gate passed; product-main replay is required by this integration commit."
+    "note": "Candidate chain is green on product main and remains candidate-only; no 11th live N.E.K.O patch was promoted."
   },
   "restart_reconciliation_reuse": {
     "reviewed_before_replay_on_green_base": true,
@@ -141,7 +144,12 @@
       "actions_job": "137298756099",
       "result": "success_on_agent_green_candidate_chain"
     },
-    "product_main_replay": "pending_on_integration_commit"
+    "product_main_replay": {
+      "commit": "136ef494b12171e13960407670261082eb09f997",
+      "run_id": 45053447658,
+      "job_id": 137303416505,
+      "conclusion": "success"
+    }
   },
   "native_transport_e2e_reuse": {
     "reviewed_before_implementation": true,
@@ -181,6 +189,14 @@
       "reproduced_gap": "The one-shot zmq.NOBLOCK epoch send may run before the native ANALYZE PUSH/PULL connection has completed its handshake. A main-only restart can therefore leave an already-claimed visible effect stranded as claimed with no reconciliation signal.",
       "correction_decision": "Reuse the existing acknowledged analyze channel and waiter/retry machinery. Add an epoch ACK after agent-side observation and let startup schedule a bounded reliable announcement through the same native bridge. No new transport, router, journal, daemon, state store, or publication authority.",
       "gate_policy": "Fix implementation/evidence only; do not weaken or bypass the real-ZMQ gate."
+    },
+    "green_product_validation": {
+      "commit": "136ef494b12171e13960407670261082eb09f997",
+      "run_id": 45053447658,
+      "job_id": 137303416505,
+      "conclusion": "success",
+      "real_zmq": true,
+      "bounded_reliable_epoch_announcement": true
     }
   }
 }

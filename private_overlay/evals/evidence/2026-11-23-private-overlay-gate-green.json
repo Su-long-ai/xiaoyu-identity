@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "evidence_id": "XIAOYU_PRIVATE_OVERLAY_GATE_GREEN_20261123",
-  "recorded_at_utc": "2026-11-22T17:50:25Z",
+  "recorded_at_utc": "2026-11-22T18:11:01Z",
   "branch": "private/neko-overlay-v1",
-  "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+  "commit": "136ef494b12171e13960407670261082eb09f997",
   "workflow": "XiaoYu private overlay gate",
-  "run_id": 45051619743,
-  "job_id": 137297783624,
+  "run_id": 45053447658,
+  "job_id": 137303416505,
   "conclusion": "success",
   "pinned_neko": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
   "upstream_main_at_validation": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
@@ -17,10 +17,13 @@
     "Overlay contract tests",
     "Compile overlay control plane",
     "Checkout pinned N.E.K.O runtime",
+    "Exercise patched companion switch/audio ownership regression",
     "Verify pinned native Execution Plane seams",
     "Exercise effect-state candidate on fresh native pin",
     "Exercise native delivery receipt candidate",
+    "Exercise native delivery receipt real-ZMQ E2E",
     "Checkout pinned QQ plugin candidate base",
+    "Exercise pinned QQ delivery/floor surface regression",
     "Exercise QQ inbound idempotency candidate",
     "Release evidence gate"
   ],
@@ -30,6 +33,11 @@
     "candidate_native_delivery_receipt_live": false,
     "candidate_qq_inbound_live": false,
     "candidate_promotion": false,
-    "note": "This evidence proves the candidate/governance chain is green on product main; it does not promote any candidate into the live N.E.K.O patch series."
+    "note": "This evidence proves the full product-main governance/candidate/surface regression chain is green. It does not promote any execution or QQ candidate into the live N.E.K.O patch series."
+  },
+  "previous_green_validation": {
+    "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "run_id": 45051619743,
+    "job_id": 137297783624
   }
 }

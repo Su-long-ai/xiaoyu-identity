@@ -2,7 +2,7 @@
   "schema_version": 1,
   "evidence_id": "XIAOYU_COMPANION_SWITCH_PRODUCT_REGRESSION_REUSE_20261123",
   "recorded_at_local": "2026-11-23T02:02:00+08:00",
-  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_PENDING_REPLAY",
+  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_GREEN",
   "reuse_order": {
     "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
@@ -108,6 +108,13 @@
       "job_id": 137302351383,
       "conclusion": "success"
     },
-    "product_main_replay": "pending_on_implementation_commit"
+    "product_main_replay": {
+      "branch": "private/neko-overlay-v1",
+      "commit": "136ef494b12171e13960407670261082eb09f997",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45053447658,
+      "job_id": 137303416505,
+      "conclusion": "success"
+    }
   }
 }
