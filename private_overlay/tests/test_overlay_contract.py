@@ -411,6 +411,7 @@ class OverlayContractTests(unittest.TestCase):
             '"private/neko-overlay-v1"',
             "check_reuse_first.py",
             "check_architecture_freeze.py",
+            "check_plugin_admission_repo.py",
             "test_plugin_admission",
             "test_probe_neko_runtime_health",
             "check_release_readiness.py",
