@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_DELIVERY_RECEIPT_REAL_ZMQ_GREEN_20261123",
+  "recorded_at": "2026-11-23",
+  "tested_head": "4af7d07332d824cb18350f82af7e2cae1fe5540b",
+  "github_actions": {
+    "run_id": 45052819630,
+    "job_id": 137301503697,
+    "job_name": "reuse-architecture-gate",
+    "conclusion": "success"
+  },
+  "machine_results": [
+    "reuse-first hard gate: success",
+    "frozen architecture hard gate: success",
+    "repository-only plugin admission gate: success",
+    "overlay contract tests: success",
+    "fresh pinned N.E.K.O checkout: success",
+    "native Execution Plane seam verification: success",
+    "effect-state candidate: success",
+    "native delivery receipt candidate: success",
+    "real-ZMQ receipt/restart E2E: success",
+    "QQ inbound idempotency candidate: success",
+    "release evidence gate: success"
+  ],
+  "real_zmq_acceptance": [
+    "main epoch survives native PUSH/PULL handshake via acknowledged retry",
+    "claim crosses real main→agent ZMQ and ACK returns agent→main",
+    "commit crosses real ZMQ and settles exact durable claim",
+    "main-only bridge restart while agent/ledger survive emits a new acknowledged epoch",
+    "new epoch converts in-flight claimed effect to uncertain before replay",
+    "late exact positive receipt reconciles uncertain effect to sent",
+    "duplicate same-epoch observation is idempotent",
+    "proven no-effect release remains retryable without treating uncertain as failed"
+  ],
+  "correctness_rule": "unknown_or_uncertain_effect_is_never_blindly_retried",
+  "authorities_reused": [
+    "N.E.K.O MainServerAgentBridge",
+    "N.E.K.O AgentServerEventBridge",
+    "existing acknowledged analyze waiter/retry channel",
+    "NekoClaw durable ledger/outbox",
+    "N.E.K.O native delivery"
+  ],
+  "new_authorities_created": [],
+  "status": "candidate_acceptance_green",
+  "promotion": "not_automatic",
+  "retirement_condition": "Retire overlay receipt/restart candidate when pinned/upstream N.E.K.O provides equivalent durable task-result effect receipt and main-only restart reconciliation with native integration coverage."
+}

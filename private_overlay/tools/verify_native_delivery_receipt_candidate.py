@@ -223,16 +223,25 @@ def _verify_wiring(root: Path) -> None:
     main = _text(root, "app/main_server/character_runtime.py")
 
     assert "def notify_nekoclaw_delivery_barrier_ack" in bus
+    assert "def notify_nekoclaw_main_epoch_ack" in bus
     assert "async def publish_nekoclaw_delivery_barrier" in bus
     assert 'action not in {"claim", "commit", "release"}' in bus
     assert "self.instance_id = uuid.uuid4().hex" in bus
+    assert "self._epoch_announce_task: Optional[asyncio.Task] = None" in bus
     _ordered(
         bus,
         "self._recv_thread.start()",
-        "announced = await self.publish_analyze_request(",
-        '"event_type": "nekoclaw_main_epoch"',
-        '"main_epoch": self.instance_id',
+        "self._epoch_announce_task = asyncio.create_task(",
+        "_announce_nekoclaw_main_epoch(self)",
     )
+    assert "epoch_task.cancel()" in bus
+    assert "await asyncio.gather(epoch_task, return_exceptions=True)" in bus
+    assert "bridge_override: Optional[MainServerAgentBridge] = None" in bus
+    assert "bridge = bridge_override or _main_bridge_ref" in bus
+    assert "await asyncio.sleep(min(0.05 * (attempt + 1), 0.2))" in bus
+    assert "async def _announce_nekoclaw_main_epoch" in bus
+    assert 'label="nekoclaw_main_epoch"' in bus
+    assert "bridge_override=bridge" in bus
     assert '"main_epoch": str(getattr(_main_bridge_ref, "instance_id", "") or "")' in bus
 
     for method in (
@@ -243,9 +252,12 @@ def _verify_wiring(root: Path) -> None:
         assert method in api
     assert '"nekoclaw_delivery_barrier"' in api
     assert '"nekoclaw_delivery_barrier_ack"' in api
+    assert '"nekoclaw_main_epoch_ack"' in api
     assert "async def _observe_nekoclaw_main_epoch" in api
+    assert "async def _handle_nekoclaw_main_epoch" in api
     assert "outbox_mark_main_restart_uncertain" in api
     assert 'if event_type == "nekoclaw_main_epoch":' in api
+    assert "_create_tracked_task(_handle_nekoclaw_main_epoch(event))" in api
     restore_start = api.index('if event_type == "agent_intent_restore_signal":')
     restore_end = api.index("return", restore_start)
     assert "_observe_nekoclaw_main_epoch" not in api[restore_start:restore_end]
@@ -263,6 +275,8 @@ def _verify_wiring(root: Path) -> None:
     assert "class _NekoClawDeliveryClaim" in main
     assert "DELIVERY_ACK_FUTURE_KEY" in main
     assert "notify_nekoclaw_delivery_barrier_ack" in main
+    assert "notify_nekoclaw_main_epoch_ack" in main
+    assert 'if event_type == "nekoclaw_main_epoch_ack":' in main
     _ordered(
         main,
         'delivery_claim = await _claim_nekoclaw_delivery(event)',
