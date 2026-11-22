@@ -284,10 +284,15 @@ class OverlayContractTests(unittest.TestCase):
         desktop_launch = script.index("Start-Process -FilePath $DesktopExe")
         recovery_probe = script.index(
             "& $Python $RuntimeHealthProbe",
-            script.index("XiaoYu is visible, but native runtime recovery"),
+            desktop_launch + 1,
+        )
+        recovery_notice = script.index(
+            "XiaoYu is visible, but native runtime recovery",
+            recovery_probe,
         )
         self.assertLess(safety_probe, desktop_launch)
         self.assertLess(desktop_launch, recovery_probe)
+        self.assertLess(recovery_probe, recovery_notice)
         self.assertIn("runtime recovery incomplete", script)
         self.assertNotIn("runtime health daemon", script.lower())
 
