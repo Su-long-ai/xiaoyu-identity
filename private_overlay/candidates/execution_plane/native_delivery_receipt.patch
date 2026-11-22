@@ -356,7 +356,7 @@ diff --git a/main_logic/agent_event_bus.py b/main_logic/agent_event_bus.py
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -539,9 +539,94 @@
+@@ -539,9 +539,100 @@
          )
      except Exception as e:
          logger.warning("[TurnCheck] failed (exc_type=%s)", type(e).__name__)
@@ -368,9 +368,15 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
 +
 +_nekoclaw_main_epoch: str | None = None
 +_nekoclaw_retired_main_epochs: set[str] = set()
++_nekoclaw_main_epoch_lock = asyncio.Lock()
 +
 +
 +async def _observe_nekoclaw_main_epoch(raw_epoch: Any) -> str:
++    async with _nekoclaw_main_epoch_lock:
++        return await _observe_nekoclaw_main_epoch_locked(raw_epoch)
++
++
++async def _observe_nekoclaw_main_epoch_locked(raw_epoch: Any) -> str:
 +    """Freeze old main claims when the native MainServerAgentBridge instance changes."""
 +    global _nekoclaw_main_epoch
 +    epoch = str(raw_epoch or "").strip()
@@ -454,7 +460,7 @@ diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
      event_type = (event or {}).get("event_type")
      if event_type == "agent_intent_restore_signal":
          # First-real-client-session signal from main_server (sent on
-@@ -570,8 +648,14 @@
+@@ -570,8 +654,14 @@
      if event_type == "conversation_fact_observed":
          _forward_conversation_fact(event)
          return
