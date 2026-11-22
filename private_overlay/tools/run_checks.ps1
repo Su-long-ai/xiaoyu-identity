@@ -72,6 +72,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_character_switch_queue.py"),
         (Join-Path $NekoRoot "tests\unit\test_character_runtime_voice_identity.py"),
         (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
+        (Join-Path $NekoRoot "tests\unit\test_qwen_voice_bundle.py"),
         (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
         (Join-Path $NekoRoot "tests\unit\test_private_speech_output_gate.py"),
         (Join-Path $NekoRoot "tests\unit\test_windows_interruptibility_signal.py"),
@@ -104,6 +105,23 @@ if (-not $StartupPreflight) {
         ("{0}::test_a_superseded_flow_cannot_release_the_newer_starts_slot" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")),
         ("{0}::test_the_automatic_restart_stands_down_at_every_resumption_point" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py"))
     )
+    $CompanionVoiceFiles = @(
+        (Join-Path $NekoRoot "tests\unit\test_voice_session.py"),
+        (Join-Path $NekoRoot "tests\unit\test_glm_tts.py"),
+        (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py"),
+        (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")
+    )
+    $CompanionVoiceTargets = @(
+        ("{0}::test_connect_qwen_server_vad_type_follows_model" -f (Join-Path $NekoRoot "tests\unit\test_voice_session.py")),
+        ("{0}::test_glm_tts_frontend_and_backend_are_wired" -f (Join-Path $NekoRoot "tests\unit\test_glm_tts.py")),
+        ("{0}::test_cross_mode_restart_stands_down_and_unwinds_only_for_a_text_takeover" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py")),
+        ("{0}::test_the_automatic_restart_survives_anything_that_happens_in_its_delay" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py")),
+        ("{0}::test_a_cancellation_after_a_takeover_outranks_it" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py")),
+        ("{0}::test_the_onclose_cleanup_does_not_disarm_the_restart_it_schedules" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_teardown_paths.py")),
+        ("{0}::test_retired_created_overlap_with_server_vad_fails_closed" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
+        ("{0}::test_late_created_is_one_shot_and_idless_successor_completes" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py")),
+        ("{0}::test_transport_ignores_retired_created_before_exposing_successor" -f (Join-Path $NekoRoot "tests\unit\test_realtime_response_ownership.py"))
+    )
     $CompanionPolicyFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_mini_game_invite.py"),
         (Join-Path $NekoRoot "tests\unit\test_proactive_service_boundary.py"),
@@ -122,7 +140,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
     )
-    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionVoiceFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
         if (-not (Test-Path -LiteralPath $CompanionTest)) {
             throw "Native companion regression test missing: $CompanionTest"
         }
@@ -136,6 +154,10 @@ if (-not $StartupPreflight) {
         & $NekoPython -m pytest -q $CompanionOwnershipTargets
         $CompanionOwnershipExit = $LASTEXITCODE
         if ($CompanionOwnershipExit -ne 0) { exit $CompanionOwnershipExit }
+
+        & $NekoPython -m pytest -q $CompanionVoiceTargets
+        $CompanionVoiceExit = $LASTEXITCODE
+        if ($CompanionVoiceExit -ne 0) { exit $CompanionVoiceExit }
 
         & $NekoPython -m pytest -q $CompanionPolicyTargets
         $CompanionPolicyExit = $LASTEXITCODE
