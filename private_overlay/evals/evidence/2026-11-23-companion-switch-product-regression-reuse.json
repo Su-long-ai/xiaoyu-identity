@@ -2,7 +2,7 @@
   "schema_version": 1,
   "evidence_id": "XIAOYU_COMPANION_SWITCH_PRODUCT_REGRESSION_REUSE_20261123",
   "recorded_at_local": "2026-11-23T02:02:00+08:00",
-  "implementation_status": "REVIEWED_BEFORE_PRODUCT_MAIN_IMPLEMENTATION",
+  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_PENDING_REPLAY",
   "reuse_order": {
     "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
@@ -93,5 +93,21 @@
     "job_id": 137301612050,
     "conclusion": "success"
   },
-  "product_main_implementation": "pending_after_review_commit"
+  "product_main_implementation": {
+    "selected_boundary": "existing private-overlay-gate.yml",
+    "product_state": "ephemeral worktree at exact pinned N.E.K.O + all 10 managed patches in series order",
+    "authoritative_python_test_count": 9,
+    "authoritative_node_test_count": 5,
+    "clean_pin_contamination": false,
+    "startup_runtime_cost": 0,
+    "agent_green_validation": {
+      "branch": "agent/companion-runtime-v1",
+      "commit": "1afa58d2aa9692dcebbdd95fea0118fd603015e9",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45053106295,
+      "job_id": 137302351383,
+      "conclusion": "success"
+    },
+    "product_main_replay": "pending_on_implementation_commit"
+  }
 }

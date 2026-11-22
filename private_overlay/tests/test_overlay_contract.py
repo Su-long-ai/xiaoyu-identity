@@ -581,6 +581,47 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(invariant, verifier)
 
+    def test_github_gate_replays_patched_companion_switch_audio_regression(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        required = (
+            "Exercise patched companion switch/audio ownership regression",
+            "worktree add --detach",
+            "private_overlay/patches/series.json",
+            "apply --check --",
+            "apply --reverse --check --",
+            'uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev',
+            'PYTHONPATH="$PRODUCT_WORKTREE"',
+            "test_character_switch_queue.py",
+            "test_character_runtime_voice_identity.py",
+            "test_model_switch_keeps_live_budget.py",
+            "test_cosyvoice_audio_done_generation.py",
+            "test_proactive_sid_guard.py",
+            "test_assistant_speech_finalize_static.py",
+            "test_openai_compatible_tts.py",
+            "test_qwen_intl_tts_routing.py",
+            "test_voice_management_tts.py",
+            "chat_avatar_integration.test.cjs",
+            "live2d_audio_ownership.test.cjs",
+            "assistant-audio-lifecycle.test.cjs",
+            "voice_recovery_races.cjs",
+            "voice_preview_races.cjs",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+        product_gate = workflow.index(
+            "Exercise patched companion switch/audio ownership regression"
+        )
+        clean_candidate_gate = workflow.index("Verify pinned native Execution Plane seams")
+        self.assertLess(product_gate, clean_candidate_gate)
+        self.assertIn("PRODUCT_WORKTREE=", workflow[product_gate:clean_candidate_gate])
+        self.assertNotIn(
+            'git -C _neko_upstream apply -- "$PATCH_PATH"',
+            workflow[product_gate:clean_candidate_gate],
+            "managed product patches must stay in the disposable worktree",
+        )
+
     def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
         candidate = (
             ROOT

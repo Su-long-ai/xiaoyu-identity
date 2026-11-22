@@ -70,6 +70,45 @@ jobs:
           path: _neko_upstream
           fetch-depth: 1
 
+      - name: Exercise patched companion switch/audio ownership regression
+        run: |
+          python -m pip install -q uv
+          PRODUCT_WORKTREE="$RUNNER_TEMP/xiaoyu-neko-product-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup_product_worktree() {
+            git -C _neko_upstream worktree remove --force "$PRODUCT_WORKTREE" >/dev/null 2>&1 || true
+          }
+          trap cleanup_product_worktree EXIT
+          git -C _neko_upstream worktree add --detach "$PRODUCT_WORKTREE" HEAD
+          mapfile -t XIAOYU_PATCHES < <(python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); [print(item["file"]) for item in data["patches"]]' "$GITHUB_WORKSPACE/private_overlay/patches/series.json")
+          if [ "${#XIAOYU_PATCHES[@]}" -eq 0 ]; then
+            echo "managed patch series is empty" >&2
+            exit 1
+          fi
+          for patch in "${XIAOYU_PATCHES[@]}"; do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/patches/$patch"
+            test -f "$PATCH_PATH"
+            git -C "$PRODUCT_WORKTREE" apply --check -- "$PATCH_PATH"
+            git -C "$PRODUCT_WORKTREE" apply -- "$PATCH_PATH"
+            git -C "$PRODUCT_WORKTREE" apply --reverse --check -- "$PATCH_PATH"
+          done
+          cd "$PRODUCT_WORKTREE"
+          PYTHONPATH="$PRODUCT_WORKTREE" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+            tests/unit/test_character_switch_queue.py \
+            tests/unit/test_character_runtime_voice_identity.py \
+            tests/unit/test_model_switch_keeps_live_budget.py \
+            tests/unit/test_cosyvoice_audio_done_generation.py \
+            tests/unit/test_proactive_sid_guard.py \
+            tests/unit/test_assistant_speech_finalize_static.py \
+            tests/unit/test_openai_compatible_tts.py \
+            tests/unit/test_qwen_intl_tts_routing.py \
+            tests/unit/test_voice_management_tts.py
+          node --test \
+            tests/frontend/chat_avatar_integration.test.cjs \
+            tests/frontend/live2d_audio_ownership.test.cjs \
+            tests/frontend/assistant-audio-lifecycle.test.cjs \
+            tests/frontend/voice_recovery_races.cjs \
+            tests/frontend/voice_preview_races.cjs
+
       - name: Verify pinned native Execution Plane seams
         run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
 
