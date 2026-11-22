@@ -222,6 +222,43 @@ jobs:
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
 
+      - name: Exercise native Execution Plane product E2E
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end \
+            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_write_creates_then_updates_and_keeps_the_existing_format \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_command_output_is_utf8_and_a_failure_carries_its_exit_code \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_commission_goes_to_a_task_agent_and_its_report_ends_it \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_blocked_and_failed_reports \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_stopping_closes_the_session_and_nothing_overwrites_cancelled \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_web_search_runs_the_search_plugin \
+            tests/unit/nekoclaw/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            tests/unit/nekoclaw/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen \
+            tests/unit/nekoclaw/test_host_gateway.py::test_declined_mcp_server_is_not_called \
+            tests/unit/nekoclaw/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway \
+            tests/unit/nekoclaw/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running \
+            tests/unit/nekoclaw/test_host_gateway.py::test_stopping_a_commission_stops_a_builtin_call_under_way \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_connection_that_is_gone_is_a_failed_outcome
+
+          uv run --locked --group dev python - <<'PY'
+          from nekoclaw.builtin.browser import launcher
+          found = launcher.find_browsers()
+          print("real browser candidates:", found)
+          if not found:
+              raise SystemExit("BLOCK_REAL_BROWSER_ACCEPTANCE: no supported browser found on runner")
+          PY
+
+          NEKO_TEST_REAL_BROWSER=1 uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read \
+            tests/unit/nekoclaw/test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document
+
       - name: Capture clean native Execution Plane regression baseline
         run: |
           python -m pip install -q uv
