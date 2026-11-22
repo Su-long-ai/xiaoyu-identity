@@ -30,12 +30,21 @@
       "tests/frontend/assistant-audio-lifecycle.test.cjs",
       "tests/frontend/voice_recovery_races.cjs",
       "tests/frontend/voice_preview_races.cjs"
-    ]
+    ],
+    "github_agent_push_runs_suite": true
   },
   "verification": {
     "source_audit": "PASS",
     "upstream_pin_check": "PASS_IDENTICAL",
     "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
-    "note": "The executable gate is committed but this expanded slice has not yet been run locally because the Local Operator tunnel remains offline."
+    "note": "The expanded patched-product switch/voice suite now runs on every agent/** push and is green in cloud CI. Windows GUI/avatar/device live acceptance remains separately pending while Local Operator is offline.",
+    "cloud_patched_product_execution": {
+      "status": "PASS",
+      "latest_run_id": 45062318664,
+      "latest_head_sha": "956416ee6b0e9b9ae8496ebc6e65e3049cd90101",
+      "authoritative_python_and_node_suite": "PASS",
+      "repeated_micro_soak_run_id": 45061386378,
+      "repeated_micro_soak_result": "3/3 PASS on selected switch/voice/final-delivery race slice"
+    }
   }
 }

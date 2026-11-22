@@ -22,7 +22,7 @@
   "observed_gap": {
     "local_release_gate": "private_overlay/tools/run_checks.ps1",
     "local_live_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
-    "github_push_gate": "does not currently execute switch/voice ownership regression against managed-patch product state",
+    "github_push_gate": "CLOSED: ordinary agent/** cloud pushes apply the full managed patch series to a disposable pinned N.E.K.O worktree and execute the authoritative switch/voice regression suites.",
     "risk": [
       "A→B→A latest intent loss",
       "avatar missing after failed switch recovery",
@@ -82,7 +82,7 @@
     "run the 5 existing Node tests with node --test",
     "always remove disposable worktree",
     "add static overlay contract coverage so ordinary agent/** push cannot silently drop the product-state regression step",
-    "keep local Windows/avatar/NapCat live acceptance explicitly pending until Local Operator returns"
+    "keep local Windows/avatar/NapCat live acceptance explicitly pending until Local Operator returns; cloud patched-product execution is already closed"
   ],
   "retirement_condition": "Retire this overlay replay only when XiaoYu no longer carries managed N.E.K.O patches that can affect switch/avatar/voice/delivery ownership, or when an equivalent upstream/product CI contract tests the same patched product state without duplicate authority.",
   "preimplementation_machine_validation": {
@@ -115,6 +115,20 @@
       "run_id": 45053447658,
       "job_id": 137303416505,
       "conclusion": "success"
+    },
+    "latest_agent_validation": {
+      "branch": "agent/companion-runtime-v1",
+      "commit": "956416ee6b0e9b9ae8496ebc6e65e3049cd90101",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45062318664,
+      "conclusion": "success"
+    },
+    "micro_soak": {
+      "run_id": 45061386378,
+      "head_sha": "d2db37920ea2b6fdc731d75b570432fa43a03d82",
+      "rounds": 3,
+      "result": "PASS",
+      "note": "Repeated selected switch/voice/final-delivery race slice on the same patched product worktree."
     }
   }
 }
