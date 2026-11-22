@@ -91,6 +91,43 @@ async def _verify(neko_root: Path) -> None:
         await leased.close()
 
     with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "main-restart-ledger.db"
+        ledger = Ledger(path)
+        safe = await ledger.outbox_add(None, "task_result", {"summary": "handoff"})
+        first_claim = await ledger.outbox_add(None, "task_result", {"summary": "claim-a"})
+        second_claim = await ledger.outbox_add(None, "task_result", {"summary": "claim-b"})
+        assert await ledger.outbox_mark_handoff(safe, "handoff-only")
+        assert await ledger.outbox_mark_handoff(first_claim, "attempt-a")
+        assert await ledger.outbox_mark_handoff(second_claim, "attempt-b")
+        assert await ledger.outbox_claim_delivery(first_claim, "attempt-a", "claim-a") == "claimed"
+        assert await ledger.outbox_claim_delivery(second_claim, "attempt-b", "claim-b") == "claimed"
+
+        # A new main-process epoch freezes only claims that could already have
+        # crossed the visible-effect boundary. Pre-claim handoff stays leased
+        # and retryable after its existing lease expires.
+        assert await ledger.outbox_mark_main_restart_uncertain() == 2
+        assert await ledger.outbox_delivery_state(safe) == "handoff"
+        assert await ledger.outbox_delivery_state(first_claim) == "uncertain"
+        assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        assert await ledger.outbox_mark_main_restart_uncertain() == 0
+        assert all(
+            item.id not in {first_claim, second_claim}
+            for item in await ledger.outbox_pending(due_by=2**62)
+        )
+
+        # A late positive native receipt can still settle the exact uncertain
+        # claim; absence of a receipt never makes it retryable.
+        assert (
+            await ledger.outbox_commit_delivery(
+                first_claim, "attempt-a", "claim-a"
+            )
+            == "committed"
+        )
+        assert await ledger.outbox_delivery_state(first_claim) == "sent"
+        assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        await ledger.close()
+
+    with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "effect-ledger.db"
         first = Ledger(path)
         safe = await first.outbox_add(None, "task_result", {"summary": "safe"})
