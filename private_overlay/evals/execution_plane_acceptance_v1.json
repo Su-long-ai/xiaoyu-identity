@@ -163,6 +163,13 @@
       "reason": "PluginRunner does not yet pass the plugin server's native idempotency_key when creating /runs, so a response lost after run creation can be reported as failure while the plugin effect may already exist; candidate plugin_run_idempotency.patch reuses the native RunStore dedupe primitive but is not a live managed patch."
     },
     {
+      "id": "effect.plugin_run_poll_unknown_effect",
+      "domain": "effect",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "A known plugin run that becomes unreadable during status polling is currently collapsed to confirmed failure even though its external effect may already exist. Candidate plugin_run_unknown_effect.patch preserves the native unknown state, blocks direct auto-continuation, and returns a non-error no-repeat result through the task-agent gateway, but is not yet a live managed patch."
+    },
+    {
       "id": "delivery.main_process_effect_receipt",
       "domain": "delivery",
       "status": "acceptance_gap",
