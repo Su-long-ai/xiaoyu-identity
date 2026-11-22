@@ -53,7 +53,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +                "AND last_error NOT LIKE 'delivery_uncertain:%'"
 +            ).fetchone()
              return None if row is None or row["due"] is None else float(row["due"])
-@@ -3780,10 +3810,116 @@
+@@ -3780,10 +3810,119 @@
  
 -    async def outbox_mark_sent(self, item_id: int) -> None:
 -        await self.run(
@@ -90,10 +90,10 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +
 +        return await self.run(work)
 +
-+    async def outbox_claim_delivery(self, item_id: int, attempt_id: str) -> str:
-+        """Atomically grant one durable handoff permission to cross the effect boundary."""
++    async def outbox_claim_delivery(self, item_id: int, attempt_id: str, claim_id: str) -> str:
++        """Grant one main-process claim token permission to cross the effect boundary."""
 +        handoff = _OUTBOX_DELIVERY_HANDOFF + str(attempt_id)
-+        claimed = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id)
++        claimed = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id) + ":" + str(claim_id)
 +
 +        def work(conn: sqlite3.Connection) -> str:
 +            row = conn.execute(
@@ -114,16 +114,19 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 +                return "claimed"
 +            if state == claimed:
 +                return "claimed"
++            if state.startswith(_OUTBOX_DELIVERY_CLAIMED + str(attempt_id) + ":"):
++                return "already_claimed"
 +            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
 +                return "uncertain"
 +            return "not_ready"
 +
 +        return await self.run(work)
 +
-+    async def outbox_commit_delivery(self, item_id: int, attempt_id: str) -> str:
-+        """Persist a positive effect receipt, including a late receipt after restart."""
-+        claimed = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id)
-+        uncertain = _OUTBOX_DELIVERY_UNCERTAIN + str(attempt_id)
++    async def outbox_commit_delivery(self, item_id: int, attempt_id: str, claim_id: str) -> str:
++        """Persist a positive effect receipt for the exact durable main-process claim."""
++        suffix = str(attempt_id) + ":" + str(claim_id)
++        claimed = _OUTBOX_DELIVERY_CLAIMED + suffix
++        uncertain = _OUTBOX_DELIVERY_UNCERTAIN + suffix
 +
 +        def work(conn: sqlite3.Connection) -> str:
 +            row = conn.execute(
@@ -262,7 +265,7 @@ diff --git a/tests/unit/nekoclaw/test_host_robustness.py b/tests/unit/nekoclaw/t
 -from nekoclaw.host.outbox import OutboxSender, retry_delay
 +from nekoclaw.host.outbox import DeliveryHandoff, OutboxSender, retry_delay
  from nekoclaw.host.paths import HostPaths
-@@ -252,5 +252,62 @@
+@@ -252,5 +252,64 @@
  
 -def test_retry_delay_does_not_overflow_after_many_failures():
 -    assert retry_delay(1025) == 300.0
@@ -311,7 +314,9 @@ diff --git a/tests/unit/nekoclaw/test_host_robustness.py b/tests/unit/nekoclaw/t
 +    risky = await first.outbox_add(None, "task_result", {"summary": "risky"})
 +    assert await first.outbox_mark_handoff(safe, "safe-attempt")
 +    assert await first.outbox_mark_handoff(risky, "risky-attempt")
-+    assert await first.outbox_claim_delivery(risky, "risky-attempt") == "claimed"
++    assert await first.outbox_claim_delivery(risky, "risky-attempt", "main-claim-a") == "claimed"
++    assert await first.outbox_claim_delivery(risky, "risky-attempt", "main-claim-a") == "claimed"
++    assert await first.outbox_claim_delivery(risky, "risky-attempt", "main-claim-b") == "already_claimed"
 +    await first.close()
 +
 +    second = Ledger(path)
@@ -320,11 +325,11 @@ diff --git a/tests/unit/nekoclaw/test_host_robustness.py b/tests/unit/nekoclaw/t
 +        assert await second.outbox_delivery_state(safe) == "pending"
 +        assert await second.outbox_delivery_state(risky) == "uncertain"
 +        assert [item.id for item in await second.outbox_pending()] == [safe]
-+        assert await second.outbox_commit_delivery(risky, "wrong-attempt") == "not_ready"
++        assert await second.outbox_commit_delivery(risky, "risky-attempt", "wrong-main-claim") == "not_ready"
 +        assert await second.outbox_delivery_state(risky) == "uncertain"
-+        assert await second.outbox_commit_delivery(risky, "risky-attempt") == "committed"
++        assert await second.outbox_commit_delivery(risky, "risky-attempt", "main-claim-a") == "committed"
 +        assert await second.outbox_delivery_state(risky) == "sent"
-+        assert await second.outbox_commit_delivery(risky, "risky-attempt") == "sent"
++        assert await second.outbox_commit_delivery(risky, "risky-attempt", "main-claim-a") == "sent"
 +    finally:
 +        await second.close()
  
