@@ -2479,6 +2479,72 @@
         }
       },
       "retirement_condition": "Retire this overlay wiring when pinned QQ upstream CI executes an equivalent confirmed-vs-unconfirmed send observability contract and XiaoYu can consume that result, or when a host-owned durable QQ receipt/idempotency contract supersedes the current send-result semantics."
+    },
+    {
+      "id": "governance:managed-delivery-extension-contract-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XIAOYU_DELIVERY_FLOOR_V1 machine checks bind only the six base output classes. Active managed extension classes desktop_notification and plugin_triggered_output can lose evidence, adapter, promotion proof or final-admission requirements without check_architecture_freeze.py or test_overlay_contract.py failing.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Existing check_architecture_freeze.py delivery checks",
+          "type": "existing_machine_gate",
+          "outcome": "selected and extended; no second validator",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        {
+          "name": "Existing test_overlay_contract.py delivery-floor test",
+          "type": "existing_machine_gate",
+          "outcome": "selected as regression of the architecture checker contract",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        {
+          "name": "New delivery policy runtime/schema service",
+          "type": "private_duplicate",
+          "outcome": "rejected; this is contract enforcement, not runtime behavior",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The runtime and managed-extension implementation are already active and evidenced. The residual gap is only that current machine gates ignore managed_extension_output_classes and blocked_uncovered_output_classes.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "delivery_floor_v1.json stays the XiaoYu private delivery policy contract; N.E.K.O stays publication authority.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current N.E.K.O plugin publication runtime is reused unchanged.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals c3 and has no native extension-output final-admission manifest that replaces this private contract.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "This gap is desktop/plugin-visible contract validation, not behavior owned by a pinned external component."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external validator/policy engine is needed for a static JSON contract already owned by existing machine gates.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: extend existing architecture checker and overlay contract only.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "New runtime/router/publisher/store/daemon/schema service rejected.",
+          "evidence": "evals/evidence/2026-11-23-managed-delivery-extension-contract-reuse.json"
+        }
+      },
+      "retirement_condition": "Retire this overlay-specific invariant only when N.E.K.O exposes one native authoritative delivery-surface manifest that includes extension publications and the XiaoYu architecture gate can consume it directly without losing private final-admission semantics."
     }
   ],
   "hierarchy_policy": {

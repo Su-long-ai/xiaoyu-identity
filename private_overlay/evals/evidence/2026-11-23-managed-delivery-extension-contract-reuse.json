@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_MANAGED_DELIVERY_EXTENSION_CONTRACT_REUSE_20261123",
+  "recorded_at_local": "2026-11-23",
+  "problem": "XIAOYU_DELIVERY_FLOOR_V1 machine checks bind only the six base output classes. Active managed extension classes desktop_notification and plugin_triggered_output can lose evidence, adapter, promotion proof or final-admission requirements without check_architecture_freeze.py or test_overlay_contract.py failing.",
+  "reuse_order": [
+    {
+      "layer": "N.E.K.O current pin",
+      "checked": true,
+      "result": "N.E.K.O remains publication authority; existing plugin-visible final-admission implementation is reused unchanged."
+    },
+    {
+      "layer": "N.E.K.O latest upstream",
+      "checked": true,
+      "result": "Latest upstream remains the current c3 pin and has no native replacement for the active plugin-visible managed extension."
+    },
+    {
+      "layer": "N.E.K.O Plugin SDK / native delivery",
+      "checked": true,
+      "result": "Runtime publication sinks remain native. This unit adds no delivery runtime and only validates the existing contract projection."
+    },
+    {
+      "layer": "current pinned external",
+      "checked": true,
+      "result": "Not applicable to desktop plugin-visible managed extensions; pinned QQ remains a separate base output class."
+    },
+    {
+      "layer": "mature external solution",
+      "checked": true,
+      "result": "No external policy engine or schema validator is needed; the existing architecture checker and overlay tests already own this machine-contract layer."
+    },
+    {
+      "layer": "thin adapter",
+      "checked": true,
+      "selected": true,
+      "result": "Extend existing check_architecture_freeze.py and test_overlay_contract.py to validate managed_extension_output_classes, blocked_uncovered_output_classes and plugin-visible final-admission requirement."
+    },
+    {
+      "layer": "private implementation",
+      "checked": true,
+      "selected": false,
+      "result": "Reject new delivery router, policy runtime, state store, publisher, daemon or schema framework."
+    }
+  ],
+  "selected_contract": {
+    "required_managed_extension_classes": [
+      "desktop_notification",
+      "plugin_triggered_output"
+    ],
+    "required_coverage_status": "MANAGED_EXTENSION_ACTIVE",
+    "require_evidence_file": true,
+    "require_enforcement_adapter": true,
+    "require_existing_patch_when_patch_adapter": true,
+    "require_green_promotion_evidence": true,
+    "require_retirement_condition": true,
+    "require_plugin_visible_final_surface_admission_global_flag": true,
+    "blocked_uncovered_output_classes_must_be_empty_for_green_product_gate": true,
+    "rationale": "A newly discovered user-visible output may be recorded as blocked/uncovered, but product acceptance stays red until it is either covered with reviewed evidence or removed. New managed classes also require an explicit machine-contract update rather than silently appearing."
+  },
+  "existing_runtime_evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json",
+  "implementation_constraints": {
+    "runtime_code_change": false,
+    "managed_patch_change": false,
+    "new_tool": false,
+    "new_daemon": false,
+    "new_state_store": false,
+    "new_router": false,
+    "new_dependency": false
+  },
+  "retirement_condition": "Retire this overlay-specific invariant only when N.E.K.O exposes one native authoritative delivery-surface manifest that includes extension publications and the XiaoYu architecture gate can consume it directly without losing private final-admission semantics."
+}
