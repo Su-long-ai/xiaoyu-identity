@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PINNED_QQ_SURFACE_RELEASE_GATE_20261123",
+  "recorded_at_local": "2026-11-23T00:39:00+08:00",
+  "qq_plugin": {
+    "repository": "https://github.com/zhaijiunknow/n.e.k.o_plugin_qq_auto_reply.git",
+    "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
+    "upstream_main_at_audit": "54acf36bf978edad4757e5fffc743c5618360700",
+    "upstream_drift": false
+  },
+  "reuse_findings": {
+    "outbound_group_dedup": "QQOutboundGuardService admits then records, so ambiguous send failure fails toward less repeated output",
+    "group_mute_and_burst": "GroupSendSafety performs final mute/rate admission and keeps failed/uncertain attempt reservations",
+    "proactive_private": "shared ProactiveBudget consumes ambiguous sending attempts; QQProactiveInitiativeService enforces quiet hours, daily budget, gap and recent-admin-activity grace",
+    "reconnect": "pinned OneBot forward connector already auto-redials after disconnect with bounded backoff; plugin startup intentionally does not wait for OneBot because transport self-heals",
+    "desktop_quns_reused_for_qq": false,
+    "new_xiaoyu_qq_runtime_required": false
+  },
+  "machine_gate": {
+    "location": "private_overlay/tools/run_checks.ps1",
+    "startup_preflight_runs_suite": false,
+    "release_runs_suite": true,
+    "tests": [
+      "test_qq_outbound_guard.py",
+      "test_group_send_safety.py",
+      "test_proactive_budget_integration.py",
+      "test_qq_proactive_initiative.py",
+      "test_qq_auto_reply_forward_client.py",
+      "test_qq_connection_status_refresh.py",
+      "test_qq_buffer_no_append_after_delivery.py",
+      "test_qq_buffer_send_time_floor.py",
+      "test_qq_runtime_transition_lock.py",
+      "test_qq_reply_buffer_switch.py"
+    ],
+    "rationale": "Promote external surface semantics into executable XiaoYu release acceptance without vendoring or duplicating the QQ runtime."
+  },
+  "verification": {
+    "source_audit": "PASS",
+    "upstream_pin_check": "PASS_IDENTICAL",
+    "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "note": "The gate was added after the local operator tunnel disconnected. No claim is made that this new expanded regression slice has already executed locally."
+  }
+}
