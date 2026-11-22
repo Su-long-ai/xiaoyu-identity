@@ -299,11 +299,12 @@ async def _run(root: Path) -> None:
 
             stale = await _wait_until(stale_ack)
             assert stale.get("result") == "stale_epoch"
-            assert await ledger.outbox_delivery_state(fourth) == "pending"
+            # The retired process must not mutate the current durable handoff.
+            assert await ledger.outbox_delivery_state(fourth) == "handoff"
             assert handlers["_nekoclaw_main_epoch"] == restarted_main.instance_id
             assert old_epoch in handlers["_nekoclaw_retired_main_epochs"]
 
-            # The live epoch can still claim the same pending row, proving that
+            # The live epoch can still claim the same handoff row, proving that
             # rejecting the retired process does not wedge valid delivery.
             assert (
                 await bus.publish_nekoclaw_delivery_barrier(
