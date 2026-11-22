@@ -476,8 +476,8 @@ class OverlayContractTests(unittest.TestCase):
         idempotency = workflow.index("Exercise plugin-run idempotency candidate")
         uncertain = workflow.index("Exercise plugin-run unknown-effect candidate")
         regression = workflow.index("Regress patched native Execution Plane")
-        self.assertLess(idempotency, uncertain)
-        self.assertLess(uncertain, regression)
+        self.assertLess(uncertain, idempotency)
+        self.assertLess(idempotency, regression)
         self.assertNotIn("continue-on-error", workflow[uncertain:regression])
 
     def test_github_gate_exercises_plugin_run_idempotency_candidate(self):
@@ -496,11 +496,13 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIn(item, workflow)
 
         baseline = workflow.index("Capture clean native Execution Plane regression baseline")
+        uncertain = workflow.index("Exercise plugin-run unknown-effect candidate")
         candidate = workflow.index("Exercise plugin-run idempotency candidate")
         regression = workflow.index("Regress patched native Execution Plane")
-        self.assertLess(baseline, candidate)
+        self.assertLess(baseline, uncertain)
+        self.assertLess(uncertain, candidate)
         self.assertLess(candidate, regression)
-        self.assertNotIn("continue-on-error", workflow[candidate:regression])
+        self.assertNotIn("continue-on-error", workflow[uncertain:regression])
 
     def test_github_gate_executes_native_dsh_optional_runtime_acceptance(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
