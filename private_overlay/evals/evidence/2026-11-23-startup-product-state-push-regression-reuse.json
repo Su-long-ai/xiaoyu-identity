@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_STARTUP_PRODUCT_STATE_PUSH_REGRESSION_REUSE_20261123",
+  "recorded_at_local": "2026-11-23T02:17:00+08:00",
+  "implementation_status": "AGENT_BRANCH_GREEN_AWAITING_MAIN_INTEGRATION",
+  "reuse_order": {
+    "neko_current_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "neko_latest_upstream": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "current_pin_equals_latest_upstream": true,
+    "implementation_authority": "patch:0010-startup-event-loop-responsiveness.patch",
+    "execution_authority": "existing patched-product worktree in private-overlay-gate.yml",
+    "dependency_authority": "N.E.K.O uv.lock --locked --group dev"
+  },
+  "observed_gap": {
+    "current_cloud_product_state_regression": "switch/audio ownership only",
+    "startup_patch_is_applied_but_startup_behavior_not_directly_asserted": true,
+    "local_startup_evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json",
+    "live_restart_soak": "evals/evidence/2026-11-22-live-c3-restart-soak.json",
+    "local_live_refresh": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY"
+  },
+  "selected_tests": [
+    "tests/unit/test_xiaoyu_startup_performance.py",
+    "tests/unit/test_token_tracker_install_hooks_idempotent.py",
+    "tests/unit/test_cloudsave_lifecycle_flow.py",
+    "tests/unit/test_live2d_model_config_write_locking.py"
+  ],
+  "source_of_tests": {
+    "tests/unit/test_xiaoyu_startup_performance.py": "provided by managed patch 0010",
+    "tests/unit/test_token_tracker_install_hooks_idempotent.py": "N.E.K.O native current pin",
+    "tests/unit/test_cloudsave_lifecycle_flow.py": "N.E.K.O native current pin with 0010 modifications",
+    "tests/unit/test_live2d_model_config_write_locking.py": "N.E.K.O native current pin"
+  },
+  "historical_regression_signal": {
+    "targeted_suite": "62/62 PASS in prior live startup evidence",
+    "observed_stalls_before_fix_ms": [
+      1393,
+      1628,
+      1033,
+      2112,
+      1077,
+      3846,
+      2628
+    ],
+    "final_live_blocked_or_recovered_loop_stalls": 0
+  },
+  "implementation_constraints": {
+    "new_runtime": false,
+    "new_daemon": false,
+    "new_state_store": false,
+    "new_router": false,
+    "new_dependency_environment": false,
+    "second_worktree": false,
+    "new_test_framework": false,
+    "startup_runtime_cost": 0,
+    "ordinary_agent_push_must_execute": true,
+    "keep_execution_and_qq_candidates_green": true
+  },
+  "acceptance_plan": [
+    "reuse the existing ephemeral patched-product worktree; do not create another product checkout",
+    "append the four startup regression files to the existing N.E.K.O uv pytest invocation",
+    "add overlay contract assertions so the files cannot be silently removed from agent/** push coverage",
+    "require the complete product gate to remain green, including real-ZMQ, QQ surface and release readiness",
+    "keep physical Windows startup timing and desktop cold-start acceptance pending until Local Operator returns"
+  ],
+  "retirement_condition": "Retire this overlay-specific startup regression wiring when patch 0010 is retired because upstream N.E.K.O provides equivalent behavior and the native upstream CI contract covers the same startup responsibilities on the product pin.",
+  "machine_validation": {
+    "preimplementation_review_runs": [
+      {
+        "commit": "d9d7349d62d7143eaa9d14b0915ea70b768006b6",
+        "run_id": 45054126269,
+        "conclusion": "success",
+        "note": "initial review-only admission before mainline resync"
+      },
+      {
+        "commit": "5d8ca2b4ceaa0c66335e70b98301908393122be0",
+        "run_id": 45054336879,
+        "conclusion": "success",
+        "note": "review/evidence replayed on latest green product-main base 769fe47d before implementation"
+      }
+    ],
+    "implementation": {
+      "commit": "a3d2f7691ea8c24241e1680df974a3d681bdc299",
+      "branch": "agent/companion-runtime-v1",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45054573609,
+      "job_id": 137306841219,
+      "conclusion": "success",
+      "product_state_python": "341 passed, 19 warnings in 16.21s",
+      "previous_product_state_python": "259 passed, 9 warnings",
+      "added_collected_python_tests": 82,
+      "product_state_node": "100 passed, 0 failed",
+      "powerShell_entrypoint_parse": "success",
+      "clean_pin_execution_seams": "success",
+      "effect_state_candidate": "success",
+      "native_delivery_receipt_candidate": "success",
+      "native_delivery_receipt_real_zmq_e2e": "success",
+      "qq_surface": "173 passed, 3 warnings in 3.38s",
+      "qq_inbound_candidate": "46 passed in 0.18s",
+      "release_evidence_gate": "success"
+    }
+  },
+  "implementation": {
+    "change": "append four existing startup regression files to the already-existing patched-product pytest invocation; add one overlay contract that keeps them inside the product worktree segment",
+    "second_worktree": false,
+    "new_runtime": false,
+    "new_daemon": false,
+    "new_dependency_environment": false,
+    "new_test_framework": false,
+    "startup_runtime_cost": 0
+  },
+  "live_acceptance": {
+    "windows_cold_start_timing": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "desktop_ui_readiness": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "live_event_loop_watchdog_refresh": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
+    "claim_scope": "Cloud product-state regression is green; physical Windows cold/warm startup timing and desktop readiness are not claimed by this evidence."
+  },
+  "product_main_integration": {
+    "status": "AWAITING_MAIN_AGENT_INTEGRATION",
+    "latest_main_checked": "769fe47d377af08aef38787eff559b9bae27f57b"
+  },
+  "recorded_green_at_local": "2026-11-23T02:23:00+08:00"
+}
