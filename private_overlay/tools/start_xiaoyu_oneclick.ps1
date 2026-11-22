@@ -153,29 +153,20 @@ $NapCatRuntimeStatus = Ensure-XiaoYuNapCatForwardRuntime
 Write-Output ("XiaoYu NapCat forward runtime: {0}" -f $NapCatRuntimeStatus)
 
 if (-not (Test-XiaoYuBackendReady)) {
-    $ownedBackendLaunch = Invoke-XiaoYuSingleFlight -Name "Local\XiaoYuBackendLaunchV1" -Action {
-        if (-not (Test-XiaoYuBackendReady)) {
-            Start-Process -FilePath "powershell.exe" -ArgumentList @(
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-File", ('"{0}"' -f $StartScript)
-            ) -WindowStyle Hidden | Out-Null
-        }
+    # N.E.K.O launcher.py already owns backend single-instance semantics via
+    # its native OS file lock and authoritative launcher record. Reuse that
+    # authority instead of layering a second XiaoYu backend mutex.
+    Start-Process -FilePath "powershell.exe" -ArgumentList @(
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", ('"{0}"' -f $StartScript)
+    ) -WindowStyle Hidden | Out-Null
 
-        $ownerDeadline = (Get-Date).AddSeconds(180)
-        while ((Get-Date) -lt $ownerDeadline) {
-            if (Test-XiaoYuBackendReady) { break }
-            Start-Sleep -Seconds 1
-        }
-    }
-
-    if (-not $ownedBackendLaunch -and -not (Test-XiaoYuBackendReady)) {
-        $followerDeadline = (Get-Date).AddSeconds(180)
-        while ((Get-Date) -lt $followerDeadline) {
-            if (Test-XiaoYuBackendReady) { break }
-            Start-Sleep -Seconds 1
-        }
+    $deadline = (Get-Date).AddSeconds(180)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 1
+        if (Test-XiaoYuBackendReady) { break }
     }
 }
 
