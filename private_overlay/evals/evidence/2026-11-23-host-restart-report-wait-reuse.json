@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_HOST_RESTART_REPORT_WAIT_CONTINUITY_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "Host restart while a task-agent commission is waiting on a report-style user question after its run/session has become idle or closed.",
+  "parent_gap": "candidate:execution-plane/host-restart-continuity-gap",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "native_gap": {
+    "overbroad_reconcile": "Ledger._reconcile currently includes every waiting_user row from a prior host in the fail-on-open set.",
+    "safe_native_resume_path": "TaskAgentManager._answer_closed explicitly supports a waiting_user commission whose pending question kind is report, appends an answered/resumed event, and calls the existing _take_up_again transcript-tail path.",
+    "durable_question": "pending_question is stored on the commission and unsent question delivery is stored in the native outbox. outbox_question_state considers an unsent question current exactly while the commission remains waiting_user.",
+    "ownership_transfer": "The first accepted transition from waiting_user to working writes the new Ledger.instance to host_instance, so no separate ownership field/store is needed.",
+    "native_session": "session_id/session_dir/runtime and transcript are already durable and reopened by the normal TaskAgentManager path."
+  },
+  "important_exclusion": {
+    "tool_or_permission_questions": "TaskAgentManager._answer_closed deliberately refuses questions whose kind is not report because the coroutine/Future that issued a tool/permission ask died with the old process. Those remain a separate blocker and MUST still fail/reconcile rather than being silently preserved.",
+    "working_commissions": "No working commission is admitted here; an interrupted external effect can be uncertain.",
+    "queued_commissions": "No queued auto-restart is admitted here; this unit only preserves an already-user-blocked report checkpoint."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin Ledger + TaskAgentManager._answer_closed + native outbox",
+      "outcome": "selected",
+      "reason": "All persistence, question identity, transcript resume and ownership transfer primitives already exist."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin",
+      "reason": "No newer upstream host-restart report-wait preservation exists at review time."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O NekoClaw ledger/session/outbox/native delivery",
+      "outcome": "selected",
+      "reason": "Use existing commission pending_question, session transcript and question outbox; no plugin/MCP/private state is required."
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external components",
+      "outcome": "not_applicable",
+      "reason": "No pinned provider owns this host-internal report checkpoint."
+    },
+    {
+      "order": 5,
+      "candidate": "External workflow/checkpoint engines",
+      "outcome": "rejected",
+      "reason": "Would duplicate N.E.K.O ledger/session/outbox for a checkpoint already fully represented natively."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin Ledger reconcile filter",
+      "outcome": "candidate_selected",
+      "reason": "Exclude only prior-host waiting_user rows whose durable pending_question kind is report from fail-on-open; leave every other restart policy unchanged."
+    },
+    {
+      "order": 7,
+      "candidate": "Private question/recovery store or daemon",
+      "outcome": "rejected",
+      "reason": "Would duplicate native pending_question/outbox/session authority."
+    }
+  ],
+  "candidate_contract": {
+    "preserve_only": "status=waiting_user AND pending_question parses as object with kind=report",
+    "still_fail": [
+      "waiting_user permission questions",
+      "waiting_user generic tool questions",
+      "malformed/empty pending_question",
+      "queued prior-host commissions",
+      "working prior-host commissions"
+    ],
+    "outbox": "Do not delete an unsent native question row for the preserved report wait. Existing outbox sender decides whether it still needs delivery.",
+    "resume": "The user's answer must go through existing Host.answer -> TaskBrain.answer -> TaskAgentManager._answer_closed -> _take_up_again. No startup model call and no automatic effect occurs.",
+    "ownership": "The normal waiting_user -> working transition adopts the current host_instance.",
+    "no_new_authority": true
+  },
+  "machine_acceptance": [
+    "Ledger reopen preserves a prior-host report waiting_user row and its unsent question outbox.",
+    "Ledger reopen still fails permission/tool waiting_user rows and removes their stale unsent question.",
+    "Native queued/working restart-failure behavior remains unchanged.",
+    "A new host can answer the preserved report wait and resume at the existing transcript tail with started.resumed=true.",
+    "No model/runtime work starts merely because the new Ledger/Host is opened."
+  ],
+  "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+  "retirement_condition": "Delete this candidate when upstream N.E.K.O natively preserves report-style waiting_user commissions across host restart with equivalent durable-question, transcript-tail resume, no-startup-effect and exclusion coverage for permission/tool questions.",
+  "conclusion": "THIN_NATIVE_RECONCILE_CANDIDATE. Preserve only a checkpoint N.E.K.O can already resume safely; do not generalize to permission or in-flight effect recovery."
+}
