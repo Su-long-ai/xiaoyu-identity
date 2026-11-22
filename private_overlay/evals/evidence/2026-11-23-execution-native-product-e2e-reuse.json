@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_NATIVE_PRODUCT_E2E_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "product_main_base": "c4b165e13649d84db1abc5b6cb81f0e9b3ae2409",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "problem": "The Execution Plane push gate proves durable effect/delivery correctness but does not yet explicitly exercise the breadth of native product task types required for productization: filesystem, shell/process cancellation/restart, multi-step task-agent continuation, plugin/MCP gateway permission behavior, and browser capability lifecycle. A private replacement harness would duplicate N.E.K.O's own runtime tests.",
+  "decision": {
+    "kind": "reuse_native",
+    "implementation_boundary": "Select and run existing pinned N.E.K.O tests in the ordinary agent/** product gate. Do not create a XiaoYu task runner, fake capability gateway, second permission harness, browser driver, or alternate runtime.",
+    "runtime_changes": false,
+    "state_changes": false,
+    "new_test_framework": false,
+    "browser_rule": "Prefer N.E.K.O's existing real-browser suite. The gate may claim real-browser coverage only if launcher.find_browsers() finds an installed supported browser and the selected tests actually run; skip is not acceptance."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin",
+      "outcome": "selected",
+      "reason": "The pin already contains executable tests using the real Ledger/Host/Gateway/runtime tools and temp filesystem/process/browser fixtures."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream",
+      "outcome": "same_as_pin",
+      "reason": "Upstream main resolves to the same c3fc33ff commit; no newer product-E2E seam supersedes the pinned tests."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O Plugin SDK / NekoClaw / MCP / native browser",
+      "outcome": "selected_as_tested_runtime",
+      "reason": "The existing tests exercise those exact native capability, permission and lifecycle paths rather than a XiaoYu substitute."
+    },
+    {
+      "order": 4,
+      "candidate": "Current pinned external components",
+      "outcome": "not_required",
+      "reason": "This unit validates N.E.K.O execution behavior; external surface components do not own filesystem/shell/task-agent/MCP/browser execution."
+    },
+    {
+      "order": 5,
+      "candidate": "Mature external E2E/workflow frameworks",
+      "outcome": "rejected",
+      "reason": "pytest/pytest-asyncio and the native fixtures already exist; another runner would add indirection without improving authority fidelity."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin XiaoYu E2E adapter/harness",
+      "outcome": "rejected",
+      "reason": "A workflow selection of native tests is sufficient. No helper daemon/router/store/runtime is needed."
+    },
+    {
+      "order": 7,
+      "candidate": "Managed/private runtime implementation",
+      "outcome": "not_applicable",
+      "reason": "No native runtime acceptance gap has been reproduced by this review."
+    }
+  ],
+  "selected_native_coverage": {
+    "filesystem": [
+      "tests/unit/nekoclaw/test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end",
+      "tests/unit/nekoclaw/test_runtime_tools_fs.py::test_write_creates_then_updates_and_keeps_the_existing_format"
+    ],
+    "shell_process_restart_cancel": [
+      "tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_command_output_is_utf8_and_a_failure_carries_its_exit_code",
+      "tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind",
+      "tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command"
+    ],
+    "task_agent_multistep_continuity": [
+      "tests/unit/nekoclaw/test_host_task_agents.py::test_commission_goes_to_a_task_agent_and_its_report_ends_it",
+      "tests/unit/nekoclaw/test_host_task_agents.py::test_blocked_and_failed_reports",
+      "tests/unit/nekoclaw/test_host_task_agents.py::test_stopping_closes_the_session_and_nothing_overwrites_cancelled",
+      "tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped",
+      "tests/unit/nekoclaw/test_host_task_agents.py::test_web_search_runs_the_search_plugin"
+    ],
+    "plugin_mcp_permission_gateway": [
+      "tests/unit/nekoclaw/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx",
+      "tests/unit/nekoclaw/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen",
+      "tests/unit/nekoclaw/test_host_gateway.py::test_declined_mcp_server_is_not_called",
+      "tests/unit/nekoclaw/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway",
+      "tests/unit/nekoclaw/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running",
+      "tests/unit/nekoclaw/test_host_gateway.py::test_stopping_a_commission_stops_a_builtin_call_under_way"
+    ],
+    "browser_fake_native": [
+      "tests/unit/nekoclaw/test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next",
+      "tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded",
+      "tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_connection_that_is_gone_is_a_failed_outcome"
+    ],
+    "browser_real_candidate": [
+      "tests/unit/nekoclaw/test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read",
+      "tests/unit/nekoclaw/test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document"
+    ]
+  },
+  "acceptance_rules": [
+    "ordinary agent/** push runs the selected native tests after pinned N.E.K.O checkout",
+    "no test is copied into XiaoYu; test node ids point directly at pinned N.E.K.O",
+    "failure of a selected native test fails the product gate",
+    "real-browser acceptance requires an installed supported browser and non-skipped selected real-browser tests",
+    "no credentials or user accounts are required",
+    "no Agent master, dsh installation, permission mutation or external side effect is enabled by this acceptance unit"
+  ],
+  "retirement_condition": "Retire the overlay test-selection step when the pinned N.E.K.O upstream CI itself exposes an equivalent required product-level execution E2E suite and XiaoYu can invoke that upstream suite directly without losing coverage."
+}
