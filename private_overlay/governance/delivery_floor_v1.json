@@ -79,11 +79,14 @@
         "surface_specific_interruptibility_not_desktop_quns",
         "pinned_connector_delivery_only"
       ]
-    },
+    }
+  },
+  "blocked_uncovered_output_classes": {
     "desktop_notification": {
       "kind": "companion_authored_desktop_notification",
       "coverage_status": "BLOCKED_NATIVE_GAP_PROBE",
-      "current_enforcement_adapter": "BLOCKED:neko_native_plugin_hud_sink_has_no_single_final_admission",
+      "promotion_policy": "candidate_probe_only_no_product_publication_until_native_final_admission_proven",
+      "publication_block_reason": "NATIVE_GAP:neko_native_plugin_hud_sink_has_no_single_final_admission",
       "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
       "scope_note": "companion-authored HUD/desktop notification only; operational status/configuration toasts are not automatically suppressed",
       "required_semantics": [
@@ -96,7 +99,8 @@
     "plugin_triggered_output": {
       "kind": "plugin_originated_user_visible",
       "coverage_status": "BLOCKED_NATIVE_GAP_PROBE",
-      "current_enforcement_adapter": "BLOCKED:neko_native_plugin_chat_hud_sinks_bypass_one_final_admission",
+      "promotion_policy": "candidate_probe_only_no_product_publication_until_native_final_admission_proven",
+      "publication_block_reason": "NATIVE_GAP:neko_native_plugin_chat_hud_sinks_bypass_one_final_admission",
       "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
       "required_semantics": [
         "plugin_sdk_or_native_host_ingress_only",
