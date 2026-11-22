@@ -1148,5 +1148,31 @@ class OverlayContractTests(unittest.TestCase):
             workflow,
         )
 
+    def test_physical_release_snapshot_reuses_existing_product_authorities(self):
+        script = (
+            ROOT / "tools" / "capture_physical_release_snapshot.ps1"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "start_xiaoyu_oneclick.ps1",
+            "probe_neko_runtime_health.py",
+            "check_release_readiness.py",
+            "[switch]$NoLaunch",
+            "[switch]$RequireQQ",
+            "-SuppressNapCatNotice",
+            "PASS_AUTOMATED_MANUAL_OBSERVATION_REMAINS",
+            "manual_observations_remaining",
+            "physical microphone/realtime speech quality",
+            "rapid character/model visual switch observation",
+            "real QQ inbound/outbound content observation",
+            "release-acceptance\\physical-latest.json",
+        ):
+            self.assertIn(required, script)
+        self.assertNotIn("Start-Job", script)
+        self.assertNotIn("Register-ScheduledTask", script)
+        self.assertNotIn("New-Service", script)
+        self.assertNotIn("Invoke-RestMethod", script)
+
+
+
 if __name__ == "__main__":
     unittest.main()
