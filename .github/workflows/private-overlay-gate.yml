@@ -155,6 +155,16 @@ jobs:
             tests/unit/test_character_switch_queue.py \
             tests/unit/test_character_runtime_voice_identity.py \
             tests/unit/test_model_switch_keeps_live_budget.py \
+            tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
+            tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
+            tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+            tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor \
+            tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn \
+            tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
+            tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
+            tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send \
+            tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot \
+            tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point \
             tests/unit/test_cosyvoice_audio_done_generation.py \
             tests/unit/test_proactive_sid_guard.py \
             tests/unit/test_assistant_speech_finalize_static.py \
@@ -188,6 +198,10 @@ jobs:
               tests/unit/test_character_switch_queue.py \
               tests/unit/test_character_runtime_voice_identity.py \
               tests/unit/test_model_switch_keeps_live_budget.py \
+              tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
+              tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+              tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
+              tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
               tests/unit/test_cosyvoice_audio_done_generation.py \
               tests/unit/test_proactive_sid_guard.py \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \

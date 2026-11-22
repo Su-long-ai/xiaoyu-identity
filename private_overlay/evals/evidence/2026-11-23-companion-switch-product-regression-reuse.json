@@ -29,7 +29,12 @@
       "stale speech/TTS ownership after switch",
       "model switch budget/session ownership regression",
       "proactive SID ownership regression",
-      "voice provider/recovery/preview race regression"
+      "voice provider/recovery/preview race regression",
+      "retired realtime teardown kills replacement connection",
+      "late retired receive-loop failure recovers over successor",
+      "old turn rotates successor speech id and silences later TTS",
+      "retired TTS frame/status crosses runtime handoff",
+      "superseded voice start releases the newer ownership slot"
     ]
   },
   "product_state_requirement": {
@@ -54,7 +59,17 @@
     "tests/unit/test_assistant_speech_finalize_static.py",
     "tests/unit/test_openai_compatible_tts.py",
     "tests/unit/test_qwen_intl_tts_routing.py",
-    "tests/unit/test_voice_management_tts.py"
+    "tests/unit/test_voice_management_tts.py",
+    "tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+    "tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+    "tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+    "tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+    "tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+    "tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+    "tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
+    "tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+    "tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+    "tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point"
   ],
   "authoritative_node_tests": [
     "tests/frontend/chat_avatar_integration.test.cjs",
@@ -78,7 +93,7 @@
   "acceptance_plan": [
     "create disposable worktree at exact pinned N.E.K.O commit",
     "git apply --check and apply every managed patch in series.json order",
-    "run the 9 existing Python tests with the pinned N.E.K.O uv --locked dev environment",
+    "run the original 9 Python regression files plus 10 targeted native realtime/TTS/voice ownership tests with the pinned N.E.K.O uv --locked dev environment",
     "run the 5 existing Node tests with node --test",
     "always remove disposable worktree",
     "add static overlay contract coverage so ordinary agent/** push cannot silently drop the product-state regression step",
@@ -96,7 +111,7 @@
   "product_main_implementation": {
     "selected_boundary": "existing private-overlay-gate.yml",
     "product_state": "ephemeral worktree at exact pinned N.E.K.O + all 10 managed patches in series order",
-    "authoritative_python_test_count": 9,
+    "authoritative_python_test_count": 19,
     "authoritative_node_test_count": 5,
     "clean_pin_contamination": false,
     "startup_runtime_cost": 0,
@@ -118,10 +133,9 @@
     },
     "latest_agent_validation": {
       "branch": "agent/companion-runtime-v1",
-      "commit": "956416ee6b0e9b9ae8496ebc6e65e3049cd90101",
+      "commit": "PENDING_THIS_COMMIT",
       "workflow": "XiaoYu private overlay gate",
-      "run_id": 45062318664,
-      "conclusion": "success"
+      "conclusion": "PENDING"
     },
     "micro_soak": {
       "run_id": 45061386378,
@@ -129,6 +143,31 @@
       "rounds": 3,
       "result": "PASS",
       "note": "Repeated selected switch/voice/final-delivery race slice on the same patched product worktree."
-    }
+    },
+    "targeted_ownership_extension_count": 10,
+    "micro_soak_added_ownership_targets": 4
+  },
+  "ownership_extension": {
+    "reuse_review": "governance:companion-switch-product-regression-v1",
+    "new_runtime_code": false,
+    "selected_native_pytest_targets": [
+      "tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+      "tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+      "tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+      "tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+      "tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+      "tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+      "tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
+      "tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+      "tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+      "tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point"
+    ],
+    "repeated_micro_soak_targets": [
+      "tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+      "tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+      "tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+      "tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent"
+    ],
+    "rationale": "Reuse pinned N.E.K.O ownership/race tests on the managed-patch product worktree; no second voice/realtime runtime or harness."
   }
 }
