@@ -843,6 +843,7 @@ class OverlayContractTests(unittest.TestCase):
             "54acf36bf978edad4757e5fffc743c5618360700",
             "test_qq_catchup.py",
             "private_overlay/candidates/qq/test_live_inbound_idempotency_faults.py",
+            "private_overlay/candidates/delivery_floor/probe_plugin_visible_output_gap.py",
             "git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check",
         ):
             self.assertIn(required, workflow)
@@ -921,6 +922,8 @@ class OverlayContractTests(unittest.TestCase):
                 "game_invite",
                 "agent_result",
                 "qq_outbound",
+                "desktop_notification",
+                "plugin_triggered_output",
             },
         )
         self.assertEqual(
@@ -939,6 +942,17 @@ class OverlayContractTests(unittest.TestCase):
         self.assertEqual(
             delivery["output_classes"]["qq_outbound"]["current_enforcement_adapter"],
             "external:pinned_qq_auto_reply_surface_floor",
+        )
+        for name in ("desktop_notification", "plugin_triggered_output"):
+            self.assertEqual(
+                delivery["output_classes"][name]["coverage_status"],
+                "BLOCKED_NATIVE_GAP_PROBE",
+            )
+            self.assertTrue(
+                delivery["output_classes"][name]["current_enforcement_adapter"].startswith("BLOCKED:")
+            )
+        self.assertTrue(
+            delivery["global_requirements"]["plugin_visible_sinks_require_final_surface_admission"]
         )
         for item in delivery["output_classes"].values():
             self.assertTrue((ROOT / item["evidence"]).is_file())
