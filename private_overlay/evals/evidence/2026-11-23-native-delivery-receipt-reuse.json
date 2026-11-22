@@ -4,10 +4,11 @@
   "reviewed_at": "2026-11-23",
   "problem": "NekoClaw durable outbox currently needs an end-to-end visible-effect receipt/reconciliation link so agent→main transport acceptance cannot be mistaken for effect completion.",
   "reviewed_against": {
-    "product_green_base": "06e8fe9a1dc4f9c21e5a52249c315a183c36f41a",
     "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
-    "upstream_delta": "none_at_review_time"
+    "upstream_delta": "none_at_review_time",
+    "product_review_base": "06e8fe9a1dc4f9c21e5a52249c315a183c36f41a",
+    "product_gate_status": "reuse inspection only; effect-state candidate gate still under repair at review time"
   },
   "acceptance_gaps": [
     "delivery.main_process_effect_receipt",
