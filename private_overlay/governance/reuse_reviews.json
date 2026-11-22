@@ -1611,6 +1611,76 @@
           "evidence": "evals/evidence/2026-11-23-agent-product-main-freshness-gate.json"
         }
       }
+    },
+    {
+      "id": "candidate:delivery-floor/plugin-visible-output-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XIAOYU_DELIVERY_FLOOR_V1 does not yet cover desktop_notification or future plugin-triggered visible output. On the current N.E.K.O pin, Plugin SDK push_message routes its AI callback through native proactive delivery, but visibility=['chat'] and visibility=['hud'] have direct user-visible host sinks that can publish even when ai_behavior='blind' skips the LLM delivery channel.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff plugin push_message + proactive delivery",
+          "type": "native_current_pin",
+          "outcome": "selected as the only publication authority to probe; no XiaoYu publisher is introduced, but current direct chat/HUD sinks leave a final-admission gap",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to the current pin; no newer upstream final-admission seam exists to absorb",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK push_message / proactive_bridge / native delivery manager",
+          "type": "native_extension_planes",
+          "outcome": "reused for the probe because they are the actual host paths; the probe must distinguish callback delivery from direct chat/HUD publication",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        {
+          "name": "AIRI main 042eb5e3 notification/event delivery patterns",
+          "type": "broader_external",
+          "outcome": "checked for reusable delivery/receipt ideas; not selected because it cannot gate N.E.K.O's existing publication sinks without replacing the companion kernel",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        }
+      ],
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains Companion Kernel and publication authority; XiaoYu delivery_floor_v1 remains policy/acceptance only.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin source proves separate direct chat/HUD sinks plus native proactive callback delivery.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals the pin and exposes the same Plugin SDK/proactive paths; there is no newer seam to reuse.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "The gap is inside N.E.K.O host publication after Plugin SDK ingress; the pinned QQ connector does not own desktop plugin chat/HUD publication."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "AIRI notification/event delivery patterns were checked; replacing the N.E.K.O host would violate the frozen kernel boundary and still would not transparently gate existing N.E.K.O sinks.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "No runtime integration is admitted in this unit; only a candidate probe may be added. A future thin seam requires a separate reuse decision after the probe.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A second publisher/router/notification daemon is rejected before implementation because it would duplicate N.E.K.O publication authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-visible-delivery-floor-gap.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
