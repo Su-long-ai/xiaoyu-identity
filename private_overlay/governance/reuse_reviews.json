@@ -1683,6 +1683,246 @@
           "evidence": "evals/evidence/2026-11-23-release-manifest-consistency-reuse.json"
         }
       }
+    },
+    {
+      "id": "readiness:agent-master-native-preflight-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Agent master enablement needs product-level preflight for configuration, permissions, runtime, capability, restart and user-visible failure readiness without silently enabling features or creating a XiaoYu execution authority.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin console switches/runtime/permissions + runtime intent",
+          "type": "native_current_pin",
+          "outcome": "selected; these native read-only/control surfaces already own the readiness truth and restart semantics",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; upstream main equals the current c3fc33ff pin, so no newer readiness seam needs adoption",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / NekoClaw / MCP / native PermissionStore",
+          "type": "native_extension_planes",
+          "outcome": "reused as the existing capability and permission authorities observed by preflight; no XiaoYu gateway is added",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "Pinned external connectors",
+          "type": "external_pinned",
+          "outcome": "not selected; none owns Agent master, NekoClaw runtime, or native capability readiness",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "Mature external agent/workflow runtimes",
+          "type": "external_ecosystem",
+          "outcome": "rejected for this gap because another readiness/orchestration authority would duplicate N.E.K.O rather than validate it",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        {
+          "name": "XiaoYu runtime adapter/state store/router/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected; existing native read surfaces are sufficient for a non-mutating product preflight",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        }
+      ],
+      "acceptance_evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json",
+      "retirement_condition": "Retire overlay readiness acceptance wiring when pinned N.E.K.O ships and gates an equivalent product-level Agent readiness acceptance suite.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole Agent/runtime/permission/configuration authority; preflight may observe native state but may not own or mutate a parallel state model.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin exposes /console/switches, /console/runtime, /console/permissions, existing power routing, persisted intent restore and user-visible failure reasons.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main resolves to the same c3fc33ff pin; no newer native readiness contract supersedes the selected surfaces.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surface connectors do not own Agent master or NekoClaw runtime readiness and must stay downstream of native authority."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External agent/workflow runtimes were considered and rejected because they would introduce a second orchestration/readiness authority for state N.E.K.O already owns.",
+          "evidence": "evals/evidence/2026-11-23-agent-master-readiness-native-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "not_applicable",
+          "rationale": "No runtime adapter is required; acceptance can directly exercise N.E.K.O native console, intent, permission and runtime surfaces."
+        },
+        "L6_private_implementation": {
+          "status": "not_applicable",
+          "rationale": "No reproduced native acceptance gap justifies a managed patch, private runtime, state store, router, daemon or second model probe."
+        }
+      }
+    },
+    {
+      "id": "governance:execution-paired-native-regression-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The native Execution Plane regression currently runs only after candidate patches are applied, so unrelated failures already present in the pinned N.E.K.O baseline can be misattributed to the candidate.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private-overlay GitHub Actions Execution regression step",
+          "type": "native_ci",
+          "outcome": "selected as the single evaluation plane; retain the same explicit native test selection",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "pytest built-in JUnit XML",
+          "type": "native_test_runtime",
+          "outcome": "selected to record baseline and patched testcase outcomes without adding a plugin",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "Python xml.etree.ElementTree",
+          "type": "stdlib",
+          "outcome": "selected to compare failure identities deterministically",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "pytest-json-report or another test result service",
+          "type": "external_test_tooling",
+          "outcome": "rejected; unnecessary second dependency/evaluation plane",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        {
+          "name": "Ignore native regression failures",
+          "type": "private_shortcut",
+          "outcome": "rejected because genuine patched-only failures must remain blocking",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing workflow and pytest suite are the correct reusable regression plane. The missing primitive is only a clean-baseline outcome captured with the exact same test selection and compared against the patched outcome. Implement this inside the existing workflow using pytest JUnit XML and Python stdlib parsing.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O native tests remain the behavior authority; XiaoYu CI only attributes incremental candidate regressions.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "The clean c3 pin is the required baseline and uses the same native tests.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Current upstream equals c3; no native paired-candidate regression helper exists, so the existing test runtime is reused directly.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns N.E.K.O native pytest regression attribution for Execution Plane candidates."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External JSON-report/test services were considered; built-in pytest JUnit plus stdlib XML is sufficient and thinner.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Add baseline capture and patched-only failure comparison to the existing workflow without changing native tests.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A new test service, database or custom runner is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-execution-paired-native-regression-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:execution-native-product-e2e-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The Execution Plane push gate proves durable effect/delivery correctness but does not yet explicitly exercise the breadth of native product task types required for productization: filesystem, shell/process cancellation/restart, multi-step task-agent continuation, plugin/MCP gateway permission behavior, and browser capability lifecycle. A private replacement harness would duplicate N.E.K.O's own runtime tests.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin native Execution Plane tests",
+          "type": "native_current_pin",
+          "outcome": "selected; run the existing pinned tests directly",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked second; upstream main equals the pinned c3fc33ff commit",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / NekoClaw / MCP / native browser fixtures",
+          "type": "native_extension_planes",
+          "outcome": "selected as the exact runtime/capability paths under test; no parallel gateway or harness",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to native execution E2E ownership",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        {
+          "name": "Mature external E2E/workflow frameworks",
+          "type": "external_ecosystem",
+          "outcome": "rejected because native pytest fixtures already cover the product runtime directly",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        {
+          "name": "XiaoYu private E2E runtime/harness",
+          "type": "private_implementation",
+          "outcome": "rejected; workflow selection of native tests is sufficient",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        }
+      ],
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json",
+      "retirement_condition": "Retire the overlay test-selection step when the pinned N.E.K.O upstream CI itself exposes an equivalent required product-level execution E2E suite and XiaoYu can invoke that upstream suite directly without losing coverage.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole execution/capability/permission authority; tests observe native behavior only.",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Selected existing native filesystem, shell, task-agent, plugin/MCP gateway and browser tests.",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals current pin; no newer upstream E2E contract supersedes selection.",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "External surface components do not own the native execution paths being validated."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external test/runtime framework is needed; reuse pytest and native fixtures.",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only CI workflow selection of native test node ids is allowed; no runtime adapter/harness state.",
+          "evidence": "evals/evidence/2026-11-23-execution-native-product-e2e-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "not_applicable",
+          "rationale": "No reproduced native runtime gap justifies private implementation in this unit."
+        }
+      }
     }
   ],
   "hierarchy_policy": {

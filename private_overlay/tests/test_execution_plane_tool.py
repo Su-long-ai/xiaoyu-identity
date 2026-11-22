@@ -71,6 +71,57 @@ outbox_mark_failed(
 """,
             )
             self._write(root, "nekoclaw/host/runtimes.py", "builtin\ndsh\n")
+            self._write(
+                root,
+                "app/agent_server/api_runtime.py",
+                """
+def _check_agent_api_gate()
+async def _console_switches()
+"gate": _agent_server_facade._check_agent_api_gate()
+"capabilities": dict(Modules.capability_cache or {})
+""",
+            )
+            self._write(
+                root,
+                "app/agent_server/api_console.py",
+                """
+@router.get("/switches")
+@router.get("/runtime")
+@router.get("/permissions")
+@router.post("/runtime/dsh/install")
+""",
+            )
+            self._write(
+                root,
+                "app/agent_runtime_intent.py",
+                """
+INTENT_KEYS:
+def set_intent(
+def load_intent(
+set_agent_enabled
+set_agent_flags
+""",
+            )
+            self._write(
+                root,
+                "plugin/server/routes/console_proxy.py",
+                """
+@router.post("/switch"
+"command": "set_agent_enabled"
+f"{_main_base()}/api/agent/command"
+"switch_failed"
+""",
+            )
+            self._write(
+                root,
+                "frontend/plugin-manager/src/components/power/home/PowerBar.vue",
+                """
+await setPower(enabled)
+flipError.value = describeConsoleError(failure, t, te)
+now.gate?.ready !== false
+now.gate.reasons
+""",
+            )
 
             results = _source_contract_results(root)
             self.assertTrue(results)

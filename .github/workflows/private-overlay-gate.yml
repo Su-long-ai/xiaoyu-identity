@@ -169,6 +169,51 @@ jobs:
       - name: Verify pinned native Execution Plane seams
         run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
 
+      - name: Exercise native Agent readiness product path
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/test_agent_runtime_intent.py::test_set_agent_enabled_writes_intent \
+            tests/unit/test_agent_runtime_intent.py::test_capability_rejected_does_not_persist_true_intent \
+            tests/unit/test_agent_runtime_intent.py::test_restore_skipped_when_master_intent_off \
+            tests/unit/test_agent_runtime_intent.py::test_restore_proceeds_when_master_intent_on \
+            tests/unit/test_agent_model_probe.py::test_availability_with_the_agent_model_not_configured_says_only_that \
+            tests/unit/test_agent_model_probe.py::test_switching_the_keyboard_on_with_everything_in_place \
+            tests/unit/test_agent_browser_lifecycle.py::test_enabling_with_the_agent_model_not_configured_is_refused \
+            tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_marks_both_pending_and_queues_a_probe \
+            tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_without_a_configured_model_probes_nothing \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_permission_table_shows_each_category_and_what_auto_comes_to \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_switches_and_the_browser_settings_are_those_the_agent_process_gives \
+            plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
+            plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
+
+      - name: Capture clean native Execution Plane regression baseline
+        run: |
+          python -m pip install -q uv
+          cat > "$RUNNER_TEMP/execution-native-tests.txt" <<'EOF'
+          tests/unit/nekoclaw/test_host_ledger.py
+          tests/unit/nekoclaw/test_host_delivery.py
+          tests/unit/nekoclaw/test_host_robustness.py
+          tests/unit/nekoclaw/test_agent_wiring.py
+          tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
+          tests/test_agent_rewrite_regression.py
+          EOF
+          cd _neko_upstream
+          mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"
+          set +e
+          uv run --locked --group dev python -m pytest -q \
+            "${EXECUTION_NATIVE_TESTS[@]}" \
+            --junitxml="$RUNNER_TEMP/execution-native-baseline.xml"
+          BASELINE_STATUS=$?
+          set -e
+          if [ "$BASELINE_STATUS" -gt 1 ]; then
+            echo "Baseline pytest infrastructure failed with exit $BASELINE_STATUS" >&2
+            exit "$BASELINE_STATUS"
+          fi
+          test -s "$RUNNER_TEMP/execution-native-baseline.xml"
+
       - name: Exercise effect-state candidate on fresh native pin
         run: |
           git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/outbox_effect_state.patch"
@@ -191,6 +236,66 @@ jobs:
         run: |
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
           python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
+
+      - name: Regress patched native Execution Plane
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"
+          set +e
+          uv run --locked --group dev python -m pytest -q \
+            "${EXECUTION_NATIVE_TESTS[@]}" \
+            --junitxml="$RUNNER_TEMP/execution-native-patched.xml"
+          PATCHED_STATUS=$?
+          set -e
+          if [ "$PATCHED_STATUS" -gt 1 ]; then
+            echo "Patched pytest infrastructure failed with exit $PATCHED_STATUS" >&2
+            exit "$PATCHED_STATUS"
+          fi
+          test -s "$RUNNER_TEMP/execution-native-patched.xml"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import xml.etree.ElementTree as ET
+
+          tmp = Path(os.environ["RUNNER_TEMP"])
+          baseline_path = tmp / "execution-native-baseline.xml"
+          patched_path = tmp / "execution-native-patched.xml"
+
+          def cases_and_failures(path):
+              root = ET.parse(path).getroot()
+              cases = set()
+              failures = set()
+              for case in root.iter("testcase"):
+                  ident = f"{case.get('classname', '')}::{case.get('name', '')}"
+                  cases.add(ident)
+                  if case.find("failure") is not None or case.find("error") is not None:
+                      failures.add(ident)
+              return cases, failures
+
+          baseline_cases, baseline_failures = cases_and_failures(baseline_path)
+          patched_cases, patched_failures = cases_and_failures(patched_path)
+          if baseline_cases != patched_cases:
+              missing = sorted(baseline_cases - patched_cases)
+              added = sorted(patched_cases - baseline_cases)
+              raise SystemExit(
+                  "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT: "
+                  f"missing={missing} added={added}"
+              )
+          introduced = sorted(patched_failures - baseline_failures)
+          fixed = sorted(baseline_failures - patched_failures)
+          print(
+              "Execution paired native regression: "
+              f"baseline_failures={len(baseline_failures)} "
+              f"patched_failures={len(patched_failures)} "
+              f"fixed={len(fixed)} introduced={len(introduced)}"
+          )
+          if fixed:
+              print("Baseline failures fixed by candidate:", *fixed, sep="\n  ")
+          if introduced:
+              print("BLOCK_EXECUTION_PATCHED_REGRESSION:", *introduced, sep="\n  ")
+              raise SystemExit(1)
+          PY
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4

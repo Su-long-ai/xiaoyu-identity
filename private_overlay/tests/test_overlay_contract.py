@@ -746,6 +746,32 @@ class OverlayContractTests(unittest.TestCase):
         )
         self.assertIn('PYTHONPATH="$PRODUCT_WORKTREE"', product_segment)
 
+    def test_execution_candidate_regression_is_paired_with_clean_native_baseline(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            "Capture clean native Execution Plane regression baseline",
+            "execution-native-tests.txt",
+            "execution-native-baseline.xml",
+            "execution-native-patched.xml",
+            "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT",
+            "BLOCK_EXECUTION_PATCHED_REGRESSION",
+            "patched_failures - baseline_failures",
+        ):
+            self.assertIn(required, workflow)
+        baseline = workflow.index(
+            "Capture clean native Execution Plane regression baseline"
+        )
+        candidate = workflow.index("Exercise effect-state candidate on fresh native pin")
+        patched = workflow.index("Regress patched native Execution Plane")
+        self.assertLess(baseline, candidate)
+        self.assertLess(candidate, patched)
+        self.assertEqual(
+            workflow.count('mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"'),
+            2,
+        )
+
     def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
         candidate = (
             ROOT

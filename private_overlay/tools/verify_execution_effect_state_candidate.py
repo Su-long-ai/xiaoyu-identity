@@ -12,12 +12,12 @@ def _load(neko_root: Path):
     if root not in sys.path:
         sys.path.insert(0, root)
     from nekoclaw.host.ledger import Ledger
-    from nekoclaw.host.outbox import DeliveryHandoff, OutboxSender
-    return Ledger, DeliveryHandoff, OutboxSender
+    from nekoclaw.host.outbox import OutboxSender
+    return Ledger, OutboxSender
 
 
 async def _verify(neko_root: Path) -> None:
-    Ledger, DeliveryHandoff, OutboxSender = _load(neko_root)
+    Ledger, OutboxSender = _load(neko_root)
 
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "effect-ledger.db"
@@ -25,17 +25,21 @@ async def _verify(neko_root: Path) -> None:
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "done"})
 
         send_calls: list[int] = []
+        attempt_ids: list[str] = []
 
         async def send(item):
             send_calls.append(item.id)
-            assert await ledger.outbox_mark_handoff(item.id, "attempt-a")
+            assert item.payload["__nekoclaw_delivery_id"] == item.id
+            attempt_ids.append(item.payload["__nekoclaw_delivery_attempt_id"])
             inside = await ledger.outbox_delivery_state(item.id)
             assert inside == "handoff", ("inside-send", inside)
-            return DeliveryHandoff("attempt-a")
+            return True
 
+        send._nekoclaw_effect_receipt_required = lambda _item: True
         sender = OutboxSender(ledger, send)
         assert await sender.flush() == 0
         assert send_calls == [item_id], send_calls
+        assert len(attempt_ids) == 1 and attempt_ids[0]
         state = await ledger.outbox_delivery_state(item_id)
         debug_rows = await ledger.outbox_pending(due_by=2**62)
         debug = [(row.id, row.attempts, row.last_error, row.next_attempt_at) for row in debug_rows]
@@ -125,6 +129,20 @@ async def _verify(neko_root: Path) -> None:
         )
         assert await ledger.outbox_delivery_state(first_claim) == "sent"
         assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        # A stale/no-effect receipt after restart must never reopen an
+        # uncertain claim for automatic retry. Only an exact positive receipt
+        # may reconcile it.
+        assert (
+            await ledger.outbox_release_delivery(
+                second_claim, "attempt-b", "claim-b"
+            )
+            == "uncertain"
+        )
+        assert await ledger.outbox_delivery_state(second_claim) == "uncertain"
+        assert all(
+            item.id != second_claim
+            for item in await ledger.outbox_pending(due_by=2**62)
+        )
         await ledger.close()
 
     with tempfile.TemporaryDirectory() as td:
@@ -169,14 +187,62 @@ async def _verify(neko_root: Path) -> None:
             await second.close()
 
     with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "confirmed-replay.db"
+        ledger = Ledger(path)
+        item_id = await ledger.outbox_add(
+            None, "task_result", {"summary": "confirmed-once"}
+        )
+        assert await ledger.outbox_mark_handoff(item_id, "attempt-confirmed")
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "claimed"
+        )
+        assert (
+            await ledger.outbox_commit_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "committed"
+        )
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "sent"
+        )
+        assert (
+            await ledger.outbox_claim_delivery(
+                item_id, "attempt-replay", "claim-replay"
+            )
+            == "sent"
+        )
+        assert (
+            await ledger.outbox_release_delivery(
+                item_id, "attempt-confirmed", "claim-confirmed"
+            )
+            == "sent"
+        )
+        await ledger.outbox_mark_failed(item_id, "late transport failure", 0.0)
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
+        assert all(
+            item.id != item_id
+            for item in await ledger.outbox_pending(due_by=2**62)
+        )
+        await ledger.close()
+
+    with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "ambiguous-transport.db"
         ledger = Ledger(path)
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "ambiguous"})
 
         async def ambiguous_send(item):
-            assert await ledger.outbox_mark_handoff(item.id, "attempt-ambiguous")
+            assert item.payload["__nekoclaw_delivery_id"] == item.id
+            assert item.payload["__nekoclaw_delivery_attempt_id"]
             raise RuntimeError("transport ambiguous after durable handoff")
 
+        ambiguous_send._nekoclaw_effect_receipt_required = lambda _item: True
         sender = OutboxSender(ledger, ambiguous_send)
         assert await sender.flush() == 0
         assert await ledger.outbox_delivery_state(item_id) == "handoff"
@@ -185,24 +251,42 @@ async def _verify(neko_root: Path) -> None:
         rows = await ledger.outbox_pending(due_by=2**62)
         assert [row.id for row in rows] == [item_id]
         assert rows[0].attempts == 0
-        assert rows[0].last_error == "delivery_handoff:attempt-ambiguous"
+        assert rows[0].last_error.startswith("delivery_handoff:")
         await ledger.close()
 
     with tempfile.TemporaryDirectory() as td:
-        path = Path(td) / "effect-ledger.db"
+        path = Path(td) / "transport-reject.db"
         ledger = Ledger(path)
-        item_id = await ledger.outbox_add(None, "task_result", {"summary": "guard"})
+        item_id = await ledger.outbox_add(None, "task_result", {"summary": "retry"})
 
-        async def invalid_send(_item):
-            return DeliveryHandoff("not-recorded")
+        async def rejected_send(item):
+            assert item.payload["__nekoclaw_delivery_id"] == item.id
+            assert item.payload["__nekoclaw_delivery_attempt_id"]
+            return False
 
-        sender = OutboxSender(ledger, invalid_send)
+        rejected_send._nekoclaw_effect_receipt_required = lambda _item: True
+        sender = OutboxSender(ledger, rejected_send)
         assert await sender.flush() == 0
         assert await ledger.outbox_delivery_state(item_id) == "pending"
-        pending = await ledger.outbox_pending()
+        pending = await ledger.outbox_pending(due_by=2**62)
         assert [item.id for item in pending] == [item_id]
         assert pending[0].attempts == 1
-        assert "not persisted before transport" in pending[0].last_error
+        assert pending[0].last_error == "not accepted"
+        await ledger.close()
+
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "legacy-bool.db"
+        ledger = Ledger(path)
+        item_id = await ledger.outbox_add(None, "task_result", {"summary": "legacy"})
+
+        async def legacy_send(item):
+            assert "__nekoclaw_delivery_id" not in item.payload
+            assert "__nekoclaw_delivery_attempt_id" not in item.payload
+            return True
+
+        sender = OutboxSender(ledger, legacy_send)
+        assert await sender.flush() == 1
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
         await ledger.close()
 
 
