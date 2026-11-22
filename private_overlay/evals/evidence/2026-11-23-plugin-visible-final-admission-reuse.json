@@ -8,7 +8,8 @@
     "result": "REPRODUCED",
     "affected_sinks": [
       "plugin chat visibility sink",
-      "plugin HUD/desktop notification sink"
+      "plugin HUD/desktop notification sink",
+      "plugin html_card chat/AgentHUD create-update sink"
     ],
     "invariant": "Every companion-authored user-visible desktop publication must pass a surface-specific final admission immediately before publication."
   },
@@ -58,7 +59,8 @@
       "trusted user-bound origins use the solicited floor after explicit-quiet admission and are not reclassified as ambient proactive output merely because the owner is coding or gaming",
       "run/system/plugin_self/unknown use the existing final proactive interruptibility recheck before direct chat/HUD publication",
       "missing or expired attribution fails conservative as plugin_self/nonessential",
-      "the plugin-supplied metadata object is never trusted for origin classification"
+      "the plugin-supplied metadata object is never trusted for origin classification",
+      "html_card close is cleanup/withdrawal rather than new companion-authored publication and must remain deliverable even when create/update is blocked"
     ]
   },
   "broader_external": {
@@ -78,7 +80,7 @@
     "managed_patch_count_after_change": 10,
     "new_runtime_authority": false,
     "host_origin_field": "bounded host-only top-level field overwritten at authenticated MESSAGE_PUSH routing",
-    "final_gate": "reuse 0006 explicit quiet + 0009 latest interruptibility helpers at character_runtime direct chat/HUD sinks",
+    "final_gate": "reuse 0006 explicit quiet + 0009 latest interruptibility helpers at character_runtime direct chat/HUD sinks and plugin_cards create/update; card close bypasses admission as cleanup",
     "callback_behavior": "native respond/passive/silent callback routing remains unchanged; only direct user-visible plugin parts gain final admission"
   },
   "retirement_condition": "Remove the 0009 extension when pinned N.E.K.O natively carries trustworthy invocation origin to plugin-visible publication and routes direct plugin chat/HUD/desktop-notification sinks through equivalent surface-specific final admission; the same regressions must pass with the private extension removed.",
@@ -88,8 +90,12 @@
     "user-bound chat_tool/chat_hook/ui_action output is not ambient-blocked after explicit-quiet passes",
     "plugin_self/system/run/unknown output is blocked by latest gaming/QUNS/focused-work/user-engaged states according to existing proactive floor",
     "explicit quiet blocks both solicited and unsolicited plugin chat/HUD",
+    "plugin html_card create/update uses the same final floor while AgentHUD close remains deliverable as cleanup",
     "blocked direct chat also prevents its paired HUD publication without altering native callback/outbox behavior",
     "agent/** push applies the full 10-patch chain and runs focused regressions"
   ],
-  "verdict": "APPROVE_THIN_EXTENSION_OF_0009_AFTER_THIS_DECISION; no 0011, no second state/router/publisher."
+  "verdict": "APPROVE_THIN_EXTENSION_OF_0009_AFTER_THIS_DECISION; no 0011, no second state/router/publisher.",
+  "scope_exclusions": {
+    "plugin_ui_action_effects": "media_play_url, allowlist changes and jukebox_control are execution/effect paths, not companion-authored publication; they remain under plugin capability/effect correctness rather than speech/delivery-floor policy"
+  }
 }
