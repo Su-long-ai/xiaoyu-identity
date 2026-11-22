@@ -276,7 +276,7 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
  
  # Far beyond any sensible maximum wait, and still a finite float.
  _MAX_EXPONENT = 60
-@@ -92,43 +102,40 @@
+@@ -92,43 +102,47 @@
          if self._task is None or self._task.done():
              self._task = asyncio.ensure_future(self._run())
  
@@ -340,9 +340,16 @@ diff --git a/nekoclaw/host/outbox.py b/nekoclaw/host/outbox.py
 +                error = f"{type(exc).__name__}: {exc}"
 +            else:
 +                if isinstance(result, DeliveryHandoff):
-+                    continue
-+                accepted = bool(result)
-+                error = "" if accepted else "not accepted"
++                    state = await self._ledger.outbox_delivery_state(item.id)
++                    if state in {"handoff", "claimed", "sent"}:
++                        if state == "sent":
++                            delivered += 1
++                        continue
++                    accepted = False
++                    error = "delivery handoff was not persisted before transport"
++                else:
++                    accepted = bool(result)
++                    error = "" if accepted else "not accepted"
 +            if accepted:
 +                await self._ledger.outbox_mark_sent(item.id)
 +                delivered += 1
