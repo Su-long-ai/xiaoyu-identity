@@ -69,14 +69,16 @@
     "tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
     "tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send",
     "tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot",
-    "tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point"
+    "tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point",
+    "tests/unit/test_avatar_model_load_race_static_contracts.py"
   ],
   "authoritative_node_tests": [
     "tests/frontend/chat_avatar_integration.test.cjs",
     "tests/frontend/live2d_audio_ownership.test.cjs",
     "tests/frontend/assistant-audio-lifecycle.test.cjs",
     "tests/frontend/voice_recovery_races.cjs",
-    "tests/frontend/voice_preview_races.cjs"
+    "tests/frontend/voice_preview_races.cjs",
+    "tests/frontend/live2d_mode_selection_restore.test.cjs"
   ],
   "implementation_constraints": {
     "new_runtime": false,
@@ -169,5 +171,20 @@
       "tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent"
     ],
     "rationale": "Reuse pinned N.E.K.O ownership/race tests on the managed-patch product worktree; no second voice/realtime runtime or harness."
+  },
+  "avatar_restore_extension": {
+    "new_runtime_code": false,
+    "reused_native_tests": [
+      "tests/unit/test_avatar_model_load_race_static_contracts.py",
+      "tests/frontend/live2d_mode_selection_restore.test.cjs"
+    ],
+    "already_reused_related_test": "tests/frontend/live2d_audio_ownership.test.cjs",
+    "protected_failures": [
+      "superseded/slow VRM load overwrites replacement model",
+      "dispose/load race revives stale model",
+      "Live2D -> PNGTuber -> Live2D loses remembered model selection",
+      "ambiguous same-name Live2D model selects wrong source"
+    ],
+    "rationale": "Use pinned native latest-intent/model-selection contracts on the actual patched product worktree; no XiaoYu avatar/session runtime."
   }
 }

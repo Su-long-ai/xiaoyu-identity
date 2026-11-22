@@ -73,6 +73,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_character_switch_queue.py"),
         (Join-Path $NekoRoot "tests\unit\test_character_runtime_voice_identity.py"),
         (Join-Path $NekoRoot "tests\unit\test_model_switch_keeps_live_budget.py"),
+        (Join-Path $NekoRoot "tests\unit\test_avatar_model_load_race_static_contracts.py"),
         (Join-Path $NekoRoot "tests\unit\test_qwen_voice_bundle.py"),
         (Join-Path $NekoRoot "tests\unit\test_cosyvoice_audio_done_generation.py"),
         (Join-Path $NekoRoot "tests\unit\test_private_speech_output_gate.py"),
@@ -149,6 +150,7 @@ if (-not $StartupPreflight) {
     )
     $CompanionNodeTests = @(
         (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),
+        (Join-Path $NekoRoot "tests\frontend\live2d_mode_selection_restore.test.cjs"),
         (Join-Path $NekoRoot "tests\frontend\live2d_audio_ownership.test.cjs"),
         (Join-Path $NekoRoot "tests\frontend\assistant-audio-lifecycle.test.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),

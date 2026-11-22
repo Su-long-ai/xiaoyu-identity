@@ -155,6 +155,7 @@ jobs:
             tests/unit/test_character_switch_queue.py \
             tests/unit/test_character_runtime_voice_identity.py \
             tests/unit/test_model_switch_keeps_live_budget.py \
+            tests/unit/test_avatar_model_load_race_static_contracts.py \
             tests/unit/test_voice_session.py::test_connect_qwen_server_vad_type_follows_model \
             tests/unit/test_qwen_voice_bundle.py \
             tests/unit/test_glm_tts.py::test_glm_tts_frontend_and_backend_are_wired \
@@ -201,6 +202,7 @@ jobs:
             tests/unit/test_live2d_model_config_write_locking.py
           node --test \
             tests/frontend/chat_avatar_integration.test.cjs \
+            tests/frontend/live2d_mode_selection_restore.test.cjs \
             tests/frontend/live2d_audio_ownership.test.cjs \
             tests/frontend/assistant-audio-lifecycle.test.cjs \
             tests/frontend/voice_recovery_races.cjs \
