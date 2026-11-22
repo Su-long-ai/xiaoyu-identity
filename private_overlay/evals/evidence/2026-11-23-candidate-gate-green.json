@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_CANDIDATE_GATE_GREEN_20261123",
+  "commit": "5eb382b52f41deba7474dd5ff32650795c83a48f",
+  "workflow_run_id": 45048930424,
+  "job_id": 137289537916,
+  "conclusion": "success",
+  "verified": [
+    "reuse-first hard gate",
+    "frozen architecture hard gate",
+    "repository-only plugin admission gate",
+    "overlay contract tests",
+    "pinned N.E.K.O Execution Plane seam verification",
+    "effect-state candidate on fresh pinned N.E.K.O",
+    "QQ inbound idempotency candidate on fresh pinned QQ plugin",
+    "release readiness evidence gate"
+  ],
+  "product_effect": {
+    "active_managed_neko_patch_count": 10,
+    "execution_effect_state_live": false,
+    "qq_inbound_patch_live": false,
+    "candidates_are_ci_verified_not_promoted": true
+  }
+}
