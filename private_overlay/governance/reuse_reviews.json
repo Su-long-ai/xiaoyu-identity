@@ -2605,6 +2605,78 @@
           "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:execution-plugin-candidate-composition-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The two candidate-only plugin execution patches are individually valid against the pinned N.E.K.O base, but the existing CI applies idempotency first and unknown-effect second even though their plugin_runs.py hunks overlap. That order creates a patch-context failure before combined candidate regression can run.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private-overlay GitHub Actions candidate sequence",
+          "type": "existing_governance",
+          "outcome": "selected as the only execution plane; change only the relative order of the two existing candidate steps",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "Existing plugin_run_unknown_effect.patch then plugin_run_idempotency.patch",
+          "type": "existing_candidates",
+          "outcome": "selected; exact replay against the pinned plugin_runs.py proves both apply clean in this order",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "Regenerate or merge the two patches",
+          "type": "private_implementation",
+          "outcome": "rejected; current patches already compose without modification in the compatible order",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "External patch orchestration framework",
+          "type": "external",
+          "outcome": "rejected; Git apply plus the existing workflow is sufficient for a two-candidate deterministic sequence",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Runtime reuse is already complete; the residual gap is only candidate composition in the existing CI job. Reordering the two existing steps and freezing that order is sufficient.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json",
+      "retirement_condition": "Retire when either candidate disappears or upstream N.E.K.O natively covers both plugin idempotency and unknown-effect semantics.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin execution/run authority; CI only verifies candidate composition.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O plugin_runs.py is the exact composition base used for replay.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream remains the same pin and has no native replacement for these two candidate gaps.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external surface owns internal NekoClaw plugin-run patch composition."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "An external patch orchestration framework adds no benefit over deterministic git apply ordering in the existing job.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: reorder the two existing candidate steps and add an order contract only.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected patch regeneration, mega-patch, second workflow, and any new runtime/state authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
