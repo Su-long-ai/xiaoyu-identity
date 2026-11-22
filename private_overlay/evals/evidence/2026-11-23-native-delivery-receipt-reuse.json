@@ -7,8 +7,8 @@
     "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "upstream_delta": "none_at_review_time",
-    "product_review_base": "06e8fe9a1dc4f9c21e5a52249c315a183c36f41a",
-    "product_gate_status": "product-main candidate chain green after effect-state repair; receipt remains candidate-only"
+    "product_review_base": "c4b165e13649d84db1abc5b6cb81f0e9b3ae2409",
+    "product_gate_status": "latest agent candidate chain fully green on current product main; receipt remains candidate-only because managed patch budget is 10/10"
   },
   "acceptance_gaps": [
     "delivery.main_process_effect_receipt",
@@ -88,40 +88,66 @@
     "promotion_allowed": false
   },
   "required_machine_acceptance": [
-    "candidate applies after the effect-state candidate on a fresh pinned N.E.K.O checkout",
-    "handoff carries a stable outbox delivery id and attempt id",
+    "candidate applies after the effect-state candidate on a fresh pinned N.E.K.O checkout with zero-offset patch replay",
+    "handoff carries a stable outbox delivery id and attempt id while preserving native send_report(item)->bool",
     "main claims the exact attempt before crossing the visible-effect boundary",
-    "native callback ack True commits the exact claim",
+    "native callback ack True commits the exact claim; direct-reply early return settles first",
     "native callback ack False releases only a proven-no-effect claim",
     "missing/ambiguous ack never becomes automatic failure/retry",
-    "main restart after claim cannot cause blind duplicate visible effect",
-    "duplicate claim/commit/release is idempotent"
+    "main restart after claim converts the exact effect to uncertain without blind duplicate visible effect",
+    "retired main epoch cannot claim or release; exact positive retired commit may reconcile uncertain",
+    "epoch observation and claim/commit/release are serialized under the same lock to close restart TOCTOU",
+    "duplicate claim/commit/release is idempotent",
+    "commit persisted but first ACK lost retries the same event id/exact claim and returns terminal sent",
+    "paired native regression test set is identical and introduces zero failures"
   ],
   "retirement_condition": "Retire the adapter when N.E.K.O upstream exposes stable NekoClaw task-result delivery identity plus native durable effect receipt/reconciliation with equivalent callback-ack and restart semantics.",
   "machine_validation": {
-    "branch": "private/neko-overlay-v1",
-    "commit": "136ef494b12171e13960407670261082eb09f997",
+    "branch": "agent/execution-plane-v1",
+    "commit": "89f49a39d8992568aab4bc9985c7ec90885564fc",
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45053447658,
-    "job_id": 137303416505,
+    "run_id": 45062165409,
+    "job_id": 137330368175,
     "conclusion": "success",
-    "sequencing": "patched companion product-state replay first on disposable worktree; clean pinned N.E.K.O then effect-state, native receipt, real-ZMQ E2E; pinned QQ surface and inbound candidate afterward",
+    "product_main_base": "c4b165e13649d84db1abc5b6cb81f0e9b3ae2409",
+    "sequencing": "fresh current product branch; clean pinned N.E.K.O baseline; effect-state candidate; native receipt candidate; real-ZMQ E2E; paired native regression; pinned QQ delivery/floor and inbound candidate; release evidence",
+    "patch_apply_evidence": {
+      "effect_state": [
+        "nekoclaw/host/ledger.py: strict zero-offset replay",
+        "nekoclaw/host/outbox.py: strict zero-offset replay regenerated from c3fc33ff source"
+      ],
+      "native_receipt": [
+        "app/agent_server/nekoclaw_mount.py: strict zero-offset replay regenerated from c3fc33ff source",
+        "app/main_server/character_runtime.py: strict zero-offset replay",
+        "main_logic/agent_event_bus.py: strict zero-offset replay",
+        "app/agent_server/api_runtime.py: strict zero-offset replay"
+      ]
+    },
     "verified": [
-      "stable delivery id and attempt id",
+      "stable delivery id and attempt id while public send_report remains bool-compatible",
       "exact claim before visible effect boundary",
+      "direct task-result reply settles exact positive receipt before its native early return",
       "callback ack True commits exact claim",
       "callback ack False releases only proven no-effect",
-      "ambiguous/cancelled settlement does not synthesize retry",
+      "ambiguous/cancelled/failed receipt settlement does not synthesize retry",
       "main-only restart epoch freezes claimed effect as uncertain",
       "startup epoch survives native ZMQ connect/bind handshake via acknowledged bounded retry",
-      "real main↔agent ZMQ claim/commit and restart reconciliation",
+      "retired epoch claim/release returns stale_epoch without mutating the current durable handoff",
+      "live epoch can still exact-claim after stale epoch rejection",
+      "concurrent epoch changes serialize and retire predecessors exactly once",
+      "epoch check and exact ledger barrier share the same lock, closing restart/claim TOCTOU",
+      "retired exact positive commit safely reconciles uncertain to sent",
+      "real main↔agent ZMQ claim/commit/restart reconciliation",
+      "commit ACK loss after durable commit retries the same event_id/exact claim and returns committed then sent",
+      "confirmed sent effect stays terminal under replay",
+      "paired native regression ran identical 508-case set: baseline_failures=14, patched_failures=14, fixed=0, introduced=0",
       "candidate remains outside live managed patch series"
     ],
-    "note": "Candidate chain is green on product main and remains candidate-only; no 11th live N.E.K.O patch was promoted."
+    "note": "Full ordinary agent push is green. The 14 native baseline failures are unrelated pre-existing Yui/tutorial/character-card rewrite assertions and are identical before/after candidate; paired gate fails closed on any introduced candidate failure."
   },
   "restart_reconciliation_reuse": {
     "reviewed_before_replay_on_green_base": true,
-    "product_green_base": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "product_green_base": "c4b165e13649d84db1abc5b6cb81f0e9b3ae2409",
     "native_findings": [
       "MainServerAgentBridge.start() is the native main-process lifetime boundary: each main process constructs and starts a fresh bridge.",
       "MainServerAgentBridge.publish_analyze_request() / AgentServerEventBridge analyze receive path already provide the ordered main→agent PUSH/PULL lane used by turn-check and receipt barrier traffic.",
@@ -145,10 +171,13 @@
       "result": "success_on_agent_green_candidate_chain"
     },
     "product_main_replay": {
-      "commit": "136ef494b12171e13960407670261082eb09f997",
-      "run_id": 45053447658,
-      "job_id": 137303416505,
-      "conclusion": "success"
+      "superseded": true,
+      "latest_agent_validation": {
+        "commit": "89f49a39d8992568aab4bc9985c7ec90885564fc",
+        "run_id": 45062165409,
+        "job_id": 137330368175,
+        "conclusion": "success"
+      }
     }
   },
   "native_transport_e2e_reuse": {
@@ -191,12 +220,32 @@
       "gate_policy": "Fix implementation/evidence only; do not weaken or bypass the real-ZMQ gate."
     },
     "green_product_validation": {
-      "commit": "136ef494b12171e13960407670261082eb09f997",
-      "run_id": 45053447658,
-      "job_id": 137303416505,
+      "commit": "89f49a39d8992568aab4bc9985c7ec90885564fc",
+      "run_id": 45062165409,
+      "job_id": 137330368175,
       "conclusion": "success",
       "real_zmq": true,
-      "bounded_reliable_epoch_announcement": true
+      "bounded_reliable_epoch_announcement": true,
+      "retired_epoch_fence": true,
+      "serialized_epoch_and_barrier": true,
+      "direct_reply_receipt": true,
+      "commit_ack_loss_same_event_retry": true,
+      "paired_native_regression": {
+        "cases": 508,
+        "baseline_failures": 14,
+        "patched_failures": 14,
+        "fixed": 0,
+        "introduced": 0
+      }
     }
+  },
+  "promotion_blocker": {
+    "code": "MANAGED_PATCH_BUDGET_10_OF_10",
+    "architecture_budget": 10,
+    "current_managed_patches": 10,
+    "retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v4.json",
+    "honest_full_retirements": 0,
+    "promotion_allowed": false,
+    "rationale": "Correctness evidence is green, but architecture freeze forbids silently introducing an 11th managed patch. Candidate stays non-live pending upstream absorption or explicit main-integrator budget decision."
   }
 }
