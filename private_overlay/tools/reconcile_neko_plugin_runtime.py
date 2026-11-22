@@ -109,9 +109,26 @@ def reconcile_native_autostart(
     )
     initial = _json_request(f"{plugin_url}/plugins?summary=true", timeout=request_timeout)
     candidates = _autostart_candidates(initial)
-    attempts: dict[str, list[str]] = {plugin_id: [] for plugin_id in candidates}
+    initial_plugins = initial.get("plugins") if isinstance(initial, dict) else None
+    initial_by_id = {
+        str(item.get("id")): item
+        for item in (initial_plugins or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    already_running = [
+        plugin_id
+        for plugin_id in candidates
+        if initial_by_id.get(plugin_id, {}).get("status") == "running"
+    ]
+    attempts: dict[str, list[str]] = {
+        plugin_id: (["already_running"] if plugin_id in already_running else [])
+        for plugin_id in candidates
+    }
 
-    pending = list(candidates)
+    # Reconcile is a bounded recovery point, not a restart sweep. Healthy
+    # host-owned plugin processes stay untouched; only non-running autostart
+    # candidates are asked to start through N.E.K.O's native lifecycle API.
+    pending = [plugin_id for plugin_id in candidates if plugin_id not in already_running]
     for _ in range(max(1, max_passes)):
         if not pending:
             break
