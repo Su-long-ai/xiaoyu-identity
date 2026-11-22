@@ -32,14 +32,35 @@
       "main restart reconciliation",
       "duplicate replay proof under ambiguous visible effect",
       "full reuse/architecture/release gates"
-    ]
+    ],
+    "product_main_machine_validation": {
+      "branch": "private/neko-overlay-v1",
+      "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+      "workflow": "XiaoYu private overlay gate",
+      "run_id": 45051619743,
+      "job_id": 137297783624,
+      "conclusion": "success",
+      "fresh_neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "verified": [
+        "fresh outbox rows enter sender",
+        "durable handoff lease and exact claim/release",
+        "main-process epoch freezes claimed effects as uncertain",
+        "restart retries pre-claim handoff but freezes claimed effects",
+        "late exact positive receipt can settle uncertain claim",
+        "ambiguous transport after durable handoff is not blindly retried",
+        "generic failure cannot overwrite handoff/claimed/uncertain state",
+        "unrecorded DeliveryHandoff is rejected"
+      ]
+    },
+    "promotion_allowed": false,
+    "promotion_note": "CI proof is candidate-only; live N.E.K.O managed patch series remains unchanged at 10 and promotion still requires explicit end-to-end release decision."
   },
   "current_targeted_tests": [
     "tests/unit/nekoclaw/test_host_robustness.py::test_effect_handoff_is_not_mistaken_for_delivery",
     "tests/unit/nekoclaw/test_host_robustness.py::test_sender_refuses_an_unrecorded_effect_handoff",
     "tests/unit/nekoclaw/test_host_robustness.py::test_restart_retries_preclaim_handoff_but_freezes_claimed_effect"
   ],
-  "conclusion": "KEEP_AS_CANDIDATE. The native ledger/outbox remain authority. The candidate may prove missing effect-state semantics in CI, but must not become an 11th live managed patch until the end-to-end main-server receipt/reconciliation chain is closed.",
+  "conclusion": "KEEP_AS_CANDIDATE_GREEN_ON_PRODUCT_MAIN. Native NekoClaw ledger/outbox remain authority. The candidate chain passed the product branch machine gate on a fresh pinned N.E.K.O checkout, but remains non-live and must not become an 11th managed patch without explicit end-to-end promotion evidence.",
   "ci_verifier": {
     "tool": "tools/verify_execution_effect_state_candidate.py",
     "dependency_mode": "stdlib_plus_pinned_neko_ledger_outbox_only",

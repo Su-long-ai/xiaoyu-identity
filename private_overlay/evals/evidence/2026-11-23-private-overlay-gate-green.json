@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PRIVATE_OVERLAY_GATE_GREEN_20261123",
+  "recorded_at_utc": "2026-11-22T17:50:25Z",
+  "branch": "private/neko-overlay-v1",
+  "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+  "workflow": "XiaoYu private overlay gate",
+  "run_id": 45051619743,
+  "job_id": 137297783624,
+  "conclusion": "success",
+  "pinned_neko": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "upstream_main_at_validation": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "verified_steps": [
+    "Reuse-first hard gate",
+    "Frozen architecture hard gate",
+    "Repository-only plugin admission gate",
+    "Overlay contract tests",
+    "Compile overlay control plane",
+    "Checkout pinned N.E.K.O runtime",
+    "Verify pinned native Execution Plane seams",
+    "Exercise effect-state candidate on fresh native pin",
+    "Exercise native delivery receipt candidate",
+    "Checkout pinned QQ plugin candidate base",
+    "Exercise QQ inbound idempotency candidate",
+    "Release evidence gate"
+  ],
+  "product_boundary": {
+    "live_managed_neko_patch_count": 10,
+    "candidate_effect_state_live": false,
+    "candidate_native_delivery_receipt_live": false,
+    "candidate_qq_inbound_live": false,
+    "candidate_promotion": false,
+    "note": "This evidence proves the candidate/governance chain is green on product main; it does not promote any candidate into the live N.E.K.O patch series."
+  }
+}

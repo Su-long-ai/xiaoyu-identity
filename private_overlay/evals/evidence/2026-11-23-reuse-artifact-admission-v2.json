@@ -38,10 +38,28 @@
     "existing repository remains green without weakening architecture/plugin/release gates"
   ],
   "retirement_condition": "Retire only if N.E.K.O or the repository provides an equivalent native artifact-to-reuse-decision admission gate that covers these classes without a second governance authority.",
-  "implementation_status": "IMPLEMENTED_ON_AGENT_GREEN_PENDING_MAIN_REPLAY",
+  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_GREEN",
   "implementation_evidence": {
     "agent_branch": "agent/companion-runtime-v1",
     "agent_commit": "05364402936c7192c68ba5d7d8691667c0267937",
     "agent_gate": "reuse-architecture-gate: SUCCESS"
+  },
+  "product_main_replay": {
+    "branch": "private/neko-overlay-v1",
+    "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "workflow": "XiaoYu private overlay gate",
+    "run_id": 45051619743,
+    "job_id": 137297783624,
+    "conclusion": "success",
+    "verified": [
+      "reuse-first hard gate",
+      "architecture freeze",
+      "repository-only plugin admission",
+      "artifact-level reuse regression tests",
+      "compile",
+      "fresh pinned N.E.K.O candidate chain",
+      "QQ candidate",
+      "release evidence gate"
+    ]
   }
 }

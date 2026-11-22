@@ -8,7 +8,7 @@
     "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
     "upstream_delta": "none_at_review_time",
     "product_review_base": "06e8fe9a1dc4f9c21e5a52249c315a183c36f41a",
-    "product_gate_status": "reuse inspection only; effect-state candidate gate still under repair at review time"
+    "product_gate_status": "product-main candidate chain green after effect-state repair; receipt remains candidate-only"
   },
   "acceptance_gaps": [
     "delivery.main_process_effect_receipt",
@@ -97,5 +97,22 @@
     "main restart after claim cannot cause blind duplicate visible effect",
     "duplicate claim/commit/release is idempotent"
   ],
-  "retirement_condition": "Retire the adapter when N.E.K.O upstream exposes stable NekoClaw task-result delivery identity plus native durable effect receipt/reconciliation with equivalent callback-ack and restart semantics."
+  "retirement_condition": "Retire the adapter when N.E.K.O upstream exposes stable NekoClaw task-result delivery identity plus native durable effect receipt/reconciliation with equivalent callback-ack and restart semantics.",
+  "machine_validation": {
+    "branch": "private/neko-overlay-v1",
+    "commit": "3261f367eb1872a1e0d764f0df748e942aac307b",
+    "workflow": "XiaoYu private overlay gate",
+    "run_id": 45051619743,
+    "job_id": 137297783624,
+    "conclusion": "success",
+    "sequencing": "effect-state candidate applied and verified first; native delivery receipt candidate then applied and verified on the same fresh pinned N.E.K.O checkout",
+    "verified": [
+      "stable delivery id and attempt id",
+      "exact claim before visible-effect boundary",
+      "native callback ack True commits",
+      "native callback ack False releases proven no-effect only",
+      "ambiguous/cancelled settlement does not synthesize retry",
+      "candidate remains outside live managed patch series"
+    ]
+  }
 }
