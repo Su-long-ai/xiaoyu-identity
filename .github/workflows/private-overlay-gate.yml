@@ -216,6 +216,13 @@ jobs:
             tests/unit/test_qwen_intl_tts_routing.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
+            tests/unit/test_agent_runtime_intent.py::test_master_on_restarts_preserved_user_plugin_lifecycle \
+            tests/unit/test_agent_runtime_intent.py::test_stale_master_off_cannot_stop_reenabled_master_lifecycle \
+            tests/unit/test_agent_runtime_intent.py::test_pending_user_plugin_enable_cannot_restart_after_master_off \
+            tests/unit/test_agent_runtime_intent.py::test_lifecycle_start_waits_for_in_progress_shutdown \
+            tests/unit/test_agent_runtime_intent.py::test_lifecycle_stop_waits_for_in_progress_startup \
+            tests/unit/test_agent_runtime_intent.py::test_restore_once_flag_blocks_duplicate_runs \
+            tests/unit/test_agent_runtime_intent.py::test_a_restore_at_start_leaves_plugins_the_user_switched_off_as_they_are \
             tests/unit/test_tool_calling.py::test_private_provider_native_route_requires_registered_matching_tool \
             tests/unit/test_tool_calling.py::test_private_provider_native_route_forces_only_first_round \
             tests/unit/test_client_registration.py::test_registration_client_reuses_native_internal_and_external_pools \
@@ -271,6 +278,8 @@ jobs:
               tests/unit/test_proactive_user_directives.py::test_banned_draft_is_dropped_without_any_llm_call \
               tests/unit/test_windows_interruptibility_signal.py::test_one_shot_notification_state_reads_windows_authority_when_available \
               tests/unit/test_proactive_sid_guard.py \
+              tests/unit/test_agent_runtime_intent.py::test_stale_master_off_cannot_stop_reenabled_master_lifecycle \
+              tests/unit/test_agent_runtime_intent.py::test_pending_user_plugin_enable_cannot_restart_after_master_off \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
               plugin/tests/unit/server/test_xiaoyu_push_origin.py
             node --test \

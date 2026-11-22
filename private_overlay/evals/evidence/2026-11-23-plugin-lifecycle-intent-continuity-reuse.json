@@ -78,5 +78,27 @@
   },
   "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
   "promotion_prohibited_until_agent_gate_green": true,
-  "retirement_condition": "Retire this overlay selection when the pinned N.E.K.O product CI executes equivalent plugin lifecycle-intent continuity tests for every XiaoYu pin and XiaoYu can consume the result directly."
+  "retirement_condition": "Retire this overlay selection when the pinned N.E.K.O product CI executes equivalent plugin lifecycle-intent continuity tests for every XiaoYu pin and XiaoYu can consume the result directly.",
+  "implementation_status": "CANDIDATE_REF_PRESERVED_PENDING_AGENT_MACHINE_GATE",
+  "implementation": {
+    "cloud": ".github/workflows/private-overlay-gate.yml / patched Companion product regression",
+    "local": "private_overlay/tools/run_checks.ps1 / CompanionLifecycleTargets",
+    "selected_targets": [
+      "tests/unit/test_agent_runtime_intent.py::test_master_on_restarts_preserved_user_plugin_lifecycle",
+      "tests/unit/test_agent_runtime_intent.py::test_stale_master_off_cannot_stop_reenabled_master_lifecycle",
+      "tests/unit/test_agent_runtime_intent.py::test_pending_user_plugin_enable_cannot_restart_after_master_off",
+      "tests/unit/test_agent_runtime_intent.py::test_lifecycle_start_waits_for_in_progress_shutdown",
+      "tests/unit/test_agent_runtime_intent.py::test_lifecycle_stop_waits_for_in_progress_startup",
+      "tests/unit/test_agent_runtime_intent.py::test_restore_once_flag_blocks_duplicate_runs",
+      "tests/unit/test_agent_runtime_intent.py::test_a_restore_at_start_leaves_plugins_the_user_switched_off_as_they_are"
+    ],
+    "repeated_micro_soak": [
+      "tests/unit/test_agent_runtime_intent.py::test_stale_master_off_cannot_stop_reenabled_master_lifecycle",
+      "tests/unit/test_agent_runtime_intent.py::test_pending_user_plugin_enable_cannot_restart_after_master_off"
+    ],
+    "runtime_code_changed": false,
+    "crash_auto_restart_still_blocked": true,
+    "candidate_ref": "candidate/companion-runtime-runner-blocked-do-not-promote",
+    "promotion_prohibited_until_agent_gate_green": true
+  }
 }

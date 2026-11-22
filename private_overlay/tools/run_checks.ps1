@@ -176,6 +176,18 @@ if (-not $StartupPreflight) {
         ("{0}::test_a_newer_voice_turn_takes_the_hold_over" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py")),
         ("{0}::test_a_voice_onset_cutting_a_voice_reply_owes_its_wrap_up" -f (Join-Path $NekoRoot "tests\unit\test_voice_turn_wrap_up_hold.py"))
     )
+    $CompanionLifecycleFiles = @(
+        (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")
+    )
+    $CompanionLifecycleTargets = @(
+        ("{0}::test_master_on_restarts_preserved_user_plugin_lifecycle" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_stale_master_off_cannot_stop_reenabled_master_lifecycle" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_pending_user_plugin_enable_cannot_restart_after_master_off" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_lifecycle_start_waits_for_in_progress_shutdown" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_lifecycle_stop_waits_for_in_progress_startup" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_restore_once_flag_blocks_duplicate_runs" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py")),
+        ("{0}::test_a_restore_at_start_leaves_plugins_the_user_switched_off_as_they_are" -f (Join-Path $NekoRoot "tests\unit\test_agent_runtime_intent.py"))
+    )
     $CompanionInteractionFiles = @(
         (Join-Path $NekoRoot "tests\unit\test_tool_calling.py"),
         (Join-Path $NekoRoot "tests\unit\test_client_registration.py"),
@@ -223,7 +235,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
     )
-    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionVoiceFiles + $CompanionInteractionFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionVoiceFiles + $CompanionLifecycleFiles + $CompanionInteractionFiles + $CompanionPolicyFiles + $CompanionNodeTests)) {
         if (-not (Test-Path -LiteralPath $CompanionTest)) {
             throw "Native companion regression test missing: $CompanionTest"
         }
@@ -241,6 +253,10 @@ if (-not $StartupPreflight) {
         & $NekoPython -m pytest -q $CompanionVoiceTargets
         $CompanionVoiceExit = $LASTEXITCODE
         if ($CompanionVoiceExit -ne 0) { exit $CompanionVoiceExit }
+
+        & $NekoPython -m pytest -q $CompanionLifecycleTargets
+        $CompanionLifecycleExit = $LASTEXITCODE
+        if ($CompanionLifecycleExit -ne 0) { exit $CompanionLifecycleExit }
 
         & $NekoPython -m pytest -q $CompanionInteractionTargets
         $CompanionInteractionExit = $LASTEXITCODE
