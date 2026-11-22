@@ -581,6 +581,26 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(invariant, verifier)
 
+    def test_github_gate_requires_latest_product_main_on_agent_pushes(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        required = (
+            "Require latest product main on agent pushes",
+            "github.event_name == 'push'",
+            "refs/heads/agent/",
+            "refs/heads/private/neko-overlay-v1:refs/remotes/origin/private/neko-overlay-v1",
+            "git merge-base --is-ancestor",
+            "BLOCK_AGENT_STALE_BASE",
+            "Sync origin/private/neko-overlay-v1 before continuing long-lived implementation.",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+        freshness = workflow.index("Require latest product main on agent pushes")
+        reuse = workflow.index("Reuse-first hard gate")
+        self.assertLess(freshness, reuse)
+
+
     def test_github_gate_parses_all_product_powershell_entrypoints(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
