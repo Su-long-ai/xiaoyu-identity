@@ -1686,7 +1686,7 @@
       "id": "governance:plugin-visible-final-admission-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "N.E.K.O Plugin SDK push_message can publish direct plugin chat blocks and HUD notifications outside the proactive callback's final delivery admission. XiaoYu must close that native acceptance gap without treating user-solicited plugin results as ambient proactive chatter and without adding an eleventh managed patch or a second delivery authority.",
+      "problem": "N.E.K.O Plugin SDK push_message can publish direct plugin chat blocks, HUD notifications, and html_card chat/AgentHUD create-update publications outside the proactive callback's final delivery admission. XiaoYu must close that native acceptance gap without treating user-solicited plugin results as ambient proactive chatter and without adding an eleventh managed patch or a second delivery authority.",
       "decision": "thin_adapter",
       "candidates": [
         {
@@ -1720,7 +1720,7 @@
           "evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "The needed authorities already exist but are not connected at the direct plugin chat/HUD publication sinks. The residual implementation is limited to propagating one host-derived bounded origin kind through the existing N.E.K.O message path and consulting the existing 0006/0009 final-admission helpers immediately before those sinks. No new state store, router, daemon, plugin runtime, publisher, polling loop, model call or eleventh managed patch is introduced.",
+      "why_reuse_insufficient": "The needed authorities already exist but are not connected at the direct plugin chat/HUD/card publication sinks. The residual implementation is limited to propagating one host-derived bounded origin kind through the existing N.E.K.O message path and consulting the existing 0006/0009 final-admission helpers immediately before those sinks. No new state store, router, daemon, plugin runtime, publisher, polling loop, model call or eleventh managed patch is introduced.",
       "acceptance_evidence": "evals/evidence/2026-11-23-plugin-visible-final-admission-reuse.json",
       "search_layers": {
         "L0_authority": {
