@@ -273,11 +273,22 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("disableHardwareAcceleration", script)
         self.assertNotIn("disable-gpu", script)
 
-    def test_oneclick_runs_bounded_runtime_health_before_desktop(self):
-        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(encoding="utf-8-sig")
+    def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
         self.assertIn("probe_neko_runtime_health.py", script)
+        self.assertIn("runtime-health\\safety.json", script)
         self.assertIn("runtime-health\\latest.json", script)
-        self.assertLess(script.index("& $Python $RuntimeHealthProbe"), script.index("Start-Process -FilePath $DesktopExe"))
+        safety_probe = script.index("--safety-only")
+        desktop_launch = script.index("Start-Process -FilePath $DesktopExe")
+        recovery_probe = script.index(
+            "& $Python $RuntimeHealthProbe",
+            script.index("XiaoYu is visible, but native runtime recovery"),
+        )
+        self.assertLess(safety_probe, desktop_launch)
+        self.assertLess(desktop_launch, recovery_probe)
+        self.assertIn("runtime recovery incomplete", script)
         self.assertNotIn("runtime health daemon", script.lower())
 
 
