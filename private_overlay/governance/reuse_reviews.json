@@ -2435,6 +2435,91 @@
           "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/plugin_run_idempotency.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "NekoClaw PluginRunner does not consume the plugin server's existing idempotency_key contract, so an ambiguous POST /runs transport outcome can be recorded as failure even though the plugin run may already exist and may already have produced an external effect.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PluginRunner + /runs protocol",
+          "type": "native",
+          "outcome": "selected as the only plugin execution path and run durability authority",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer PluginRunner idempotency wiring exists",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O RunCreateRequest.idempotency_key + RunStore.create_or_get_idempotent",
+          "type": "native_sdk",
+          "outcome": "selected as the existing no-duplicate-effect primitive; candidate only wires host call identity into it",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal NekoClaw-to-plugin-server run creation boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "External idempotency middleware / workflow engines / durable queues",
+          "type": "external",
+          "outcome": "rejected because they would duplicate the existing N.E.K.O run store and call audit",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "XiaoYu private idempotency store or run ledger",
+          "type": "private_duplicate",
+          "outcome": "rejected by the frozen single-authority execution architecture",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native reuse is almost sufficient: the plugin server already implements idempotent run creation and the host already reserves a stable call identity before execution. The missing seam is only their connection plus bounded retry of ambiguous create outcomes. No new state authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+      "retirement_condition": "Delete the candidate when upstream N.E.K.O PluginRunner natively sends a stable per-host-call idempotency key and safely retries ambiguous POST /runs creation outcomes with equivalent lost-response, no-duplicate-effect and regression coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O host call audit and plugin RunStore remain the sole execution identity and run dedupe authorities.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin contains both the PluginRunner gap and the native server-side idempotency primitive selected for reuse.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and does not yet wire PluginRunner into idempotent run creation.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider or surface owns the internal NekoClaw-to-plugin-server POST /runs boundary where the ambiguous effect occurs."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External idempotency middleware, workflow engines and durable queues were considered but would duplicate a native protocol/store that already solves the dedupe half of the gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate is limited to passing the already-reserved host call identity as the existing run idempotency key and retrying only ambiguous create outcomes with that same key.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A XiaoYu idempotency store, task ledger, queue, router or daemon is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
