@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "observed_at_local": "2026-11-23T00:18:00+08:00",
+  "scope": "patch 0010 reuse of N.E.K.O shared internal HTTP client in main_routers.agent_router",
+  "problem": "agent_router owned another process-local httpx.AsyncClient plus shutdown hook for loopback-only tool/plugin calls, duplicating N.E.K.O's existing loop-local internal HTTP pool and its client lifecycle.",
+  "implementation": {
+    "changed_file": "main_routers/agent_router.py",
+    "before": "module-owned _HTTP_CLIENT AsyncClient with custom pool limits and shutdown hook",
+    "after": "agent_router._get_http_client delegates to utils.internal_http_client.get_internal_http_client",
+    "authority": "N.E.K.O native internal HTTP client remains the only pool/lifecycle authority",
+    "new_runtime_or_pool_added": false
+  },
+  "validation": {
+    "targeted_suite": "tests/unit/test_xiaoyu_startup_performance.py",
+    "result": "20 passed",
+    "elapsed_seconds": 89.22,
+    "new_assertion": "test_agent_router_reuses_native_internal_http_client",
+    "managed_patch_replay_required": true
+  },
+  "expected_product_effect": [
+    "remove one duplicate AsyncClient construction path",
+    "remove one duplicate router shutdown handler",
+    "reuse loop-local pooling and verify=False behavior already selected for 127.0.0.1 services",
+    "avoid another unnecessary SSLContext/client lifecycle during startup"
+  ],
+  "verdict": "KEEP_IN_PATCH_0010_AS_NATIVE_REUSE"
+}

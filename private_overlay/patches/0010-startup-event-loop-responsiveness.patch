@@ -350,6 +350,34 @@ index b0ae5d73362c4b9e72ffd1facd3446d61ce1ffa3..e010e7d9d3332b1a1a0cd2b5adbb5e0b
          except Exception as e:
              logger.warning(f"[Memory] Token tracker init failed: {e}")
  
+diff --git a/launcher_core/runtime.py b/launcher_core/runtime.py
+index 369bc0265b3c917a2f24398943aee4bd98b78219..ffa3be5a5a976bffe12134bf94089a2a523df3b0 100644
+--- a/launcher_core/runtime.py
++++ b/launcher_core/runtime.py
+@@ -153,6 +153,14 @@ SHUTDOWN_MODULE_ORDER = (
+     "agent_server",
+ )
+ MERGED_SERVER_READY_TIMEOUT = 30.0
++# Multi-process startup can legitimately take longer on a cold Windows start
++# because Memory/Main/Agent imports are intentionally staggered. Keep the
++# upstream default unchanged, but expose a product-level budget instead of
++# forcing wrappers to patch launcher timing logic.
++MULTI_SERVER_READY_TIMEOUT = max(
++    1.0,
++    float(os.environ.get("NEKO_SERVER_READY_TIMEOUT_SECONDS", "60")),
++)
+ MERGED_SERVER_READY_POLL_INTERVAL = 0.25
+ MERGED_SERVER_SHUTDOWN_ORDER = ("Main", "Memory", "Agent")
+ # Desktop-owned HTTP work can outlive its connection while the desktop waits
+@@ -3354,7 +3362,7 @@ def main():
+             return 1
+ 
+         # 2. Await the final server's readiness.
+-        wait_result = wait_for_servers()
++        wait_result = wait_for_servers(timeout=MULTI_SERVER_READY_TIMEOUT)
+         if wait_result is not True:
+             if wait_result == STARTUP_WAIT_RESULT_STORAGE_RESTART:
+                 print("\n检测到启动期间触发的存储重启，正在清理当前实例...", flush=True)
 diff --git a/main_logic/client_registration.py b/main_logic/client_registration.py
 index c24382c8ed820a5ee4fa91d4a3dbe99028b678bc..c77be5f560f1049ae371390d4ffe5ac4341f20c8 100644
 --- a/main_logic/client_registration.py
@@ -463,6 +491,61 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
          )
          if self._live_tts_runtime_count() >= self._tts_capacity_limit(tts_worker):
              self._tts_capacity_exhausted = True
+diff --git a/main_routers/agent_router.py b/main_routers/agent_router.py
+index 0b92bee4c61ccbbd35b341574506d4e008a23006..022f0c1994be8d8ff6cbbed2da7d79603c400c6b 100644
+--- a/main_routers/agent_router.py
++++ b/main_routers/agent_router.py
+@@ -42,11 +42,11 @@ from .shared_state import get_session_manager, get_config_manager
+ from config import TOOL_SERVER_PORT, USER_PLUGIN_BASE
+ from main_logic.activity.system_signals import is_remote_backend_deployment
+ from utils.desktop_capture import native_wayland_capture_available
++from utils.internal_http_client import get_internal_http_client
+ 
+ router = APIRouter(prefix="/api/agent", tags=["agent"])
+ logger = get_module_logger(__name__, "Main")
+ TOOL_SERVER_BASE = f"http://127.0.0.1:{TOOL_SERVER_PORT}"
+-_HTTP_CLIENT: httpx.AsyncClient | None = None
+ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ _USER_PLUGIN_DEFAULT_BASE = "http://127.0.0.1:48916"
+ _USER_PLUGIN_BASE_CACHE: tuple[str, float] = ("", 0.0)
+@@ -248,31 +248,13 @@ async def _resolve_user_plugin_base() -> str:
+ 
+ 
+ def _get_http_client() -> httpx.AsyncClient:
+-    global _HTTP_CLIENT
+-    if _HTTP_CLIENT is None:
+-        _HTTP_CLIENT = httpx.AsyncClient(
+-            timeout=httpx.Timeout(2.5, connect=0.5),
+-            limits=httpx.Limits(max_connections=64, max_keepalive_connections=16),
+-            proxy=None,
+-            trust_env=False,
+-        )
+-    return _HTTP_CLIENT
+-
++    """Reuse N.E.K.O's loop-local client for internal loopback services.
+ 
+-@router.on_event("shutdown")
+-async def _close_http_client():
+-    global _HTTP_CLIENT
+-    if _HTTP_CLIENT is not None:
+-        # Connection-close failures must not abort shutdown: this handler participates in the merged lifespan chain,
+-        # so propagating an exception would skip every later router's cleanup. A common cause is a client created on another
+-        # already-closed event loop (aclose calls call_soon on that loop). Regardless of outcome,
+-        # clear the reference so the next startup recreates it on the current loop.
+-        try:
+-            await _HTTP_CLIENT.aclose()
+-        except Exception as exc:
+-            logger.warning(f"关闭 agent_router HTTP client 失败，继续收尾: {exc}")
+-        finally:
+-            _HTTP_CLIENT = None
++    All routes in this module target tool_server or user_plugin_server on
++    127.0.0.1. The shared internal client already owns loop-local pooling and
++    avoids constructing an unnecessary SSLContext for plain HTTP.
++    """
++    return get_internal_http_client()
+ 
+ 
+ @router.post('/flags')
 diff --git a/main_routers/characters_router/live2d_models.py b/main_routers/characters_router/live2d_models.py
 index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa309215a8 100644
 --- a/main_routers/characters_router/live2d_models.py
@@ -948,15 +1031,16 @@ index 82799ae61a32808cab24da5d90a0d32a943b0f52..77046a8fe25b20c34647fab135f4f6ed
  async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
 diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..8dad12b5c552ec1c47488cd861613b9873dff5f7
+index 0000000000000000000000000000000000000000..0d1f40f78aa4d8b227eb03d0b1fb0978825d52d6
 --- /dev/null
 +++ b/tests/unit/test_xiaoyu_startup_performance.py
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,353 @@
 +from __future__ import annotations
 +
 +import asyncio
 +import inspect
 +import threading
++from pathlib import Path
 +from types import SimpleNamespace
 +from unittest.mock import Mock, patch
 +
@@ -1282,6 +1366,28 @@ index 0000000000000000000000000000000000000000..8dad12b5c552ec1c47488cd861613b98
 +    assert "httpx.AsyncClient(" in warm_source
 +    assert "await client.aclose()" in warm_source
 +    assert "client.get(" not in warm_source
++
++
++@pytest.mark.unit
++def test_agent_router_reuses_native_internal_http_client():
++    from main_routers import agent_router
++
++    source = inspect.getsource(agent_router)
++    helper_source = inspect.getsource(agent_router._get_http_client)
++
++    assert "get_internal_http_client" in helper_source
++    assert "httpx.AsyncClient(" not in helper_source
++    assert "_HTTP_CLIENT" not in source
++    assert "async def _close_http_client" not in source
++
++
++@pytest.mark.unit
++def test_multi_server_ready_timeout_has_native_env_seam():
++    launcher_source = (
++        Path(__file__).resolve().parents[2] / "launcher_core" / "runtime.py"
++    ).read_text(encoding="utf-8")
++    assert 'os.environ.get("NEKO_SERVER_READY_TIMEOUT_SECONDS", "60")' in launcher_source
++    assert "wait_for_servers(timeout=MULTI_SERVER_READY_TIMEOUT)" in launcher_source
 diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
 index 2e8134e612a34e2f5ee373dc3dddb7da739967a2..64740dbce7f82d1dc320d9e2b9f876a9158511bd 100644
 --- a/utils/holiday_cache.py

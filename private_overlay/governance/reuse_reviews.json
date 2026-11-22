@@ -328,10 +328,16 @@
           "type": "private_existing_patch_reuse",
           "outcome": "selected after c3 live restart exposed a 1.25 s lazy httpcore import on the main event loop; no new patch/runtime/pool was added, and the next canonical restart had zero new loop-stall blocked/recovered events",
           "evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
+        },
+        {
+          "name": "N.E.K.O utils.internal_http_client in main_routers.agent_router",
+          "type": "native",
+          "outcome": "selected; removes the duplicate agent_router AsyncClient and shutdown hook, delegating loop-local pooling/lifecycle to the existing native internal client",
+          "evidence": "evals/evidence/2026-11-23-agent-router-internal-http-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "N.E.K.O native TokenTracker, embedded plugin thread, shared internal/external HTTP clients and c3 upstream startup fixes are reused directly. The residual patch remains limited to uncovered first-import/filesystem/config/client-construction boundaries. A c3 live restart showed the existing httpx warmup was scheduled too late for first character/session construction, so the same one-time warmup is now executed off-loop before character initialization; no private HTTP pool, SSL cache, runtime, or additional core patch is introduced.",
-      "acceptance_evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
+      "why_reuse_insufficient": "N.E.K.O native TokenTracker, embedded plugin thread, shared internal/external HTTP clients and c3 upstream startup fixes are reused directly. The residual patch remains limited to uncovered first-import/filesystem/config/client-construction boundaries. A c3 live restart showed the existing httpx warmup was scheduled too late for first character/session construction, so the same one-time warmup is now executed off-loop before character initialization; no private HTTP pool, SSL cache, runtime, or additional core patch is introduced. agent_router is now also folded into the same native internal HTTP pool instead of retaining its own client lifecycle.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-agent-router-internal-http-reuse.json"
     },
     {
       "id": "upstream:neko-6fccfb72",
