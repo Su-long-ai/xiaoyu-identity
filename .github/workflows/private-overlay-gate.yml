@@ -99,6 +99,22 @@ jobs:
           path: _neko_upstream/plugin/plugins/qq_auto_reply
           fetch-depth: 1
 
+      - name: Exercise pinned QQ delivery/floor surface regression
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            plugin/plugins/qq_auto_reply/tests/test_qq_outbound_guard.py \
+            plugin/plugins/qq_auto_reply/tests/test_group_send_safety.py \
+            plugin/plugins/qq_auto_reply/tests/test_proactive_budget_integration.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_proactive_initiative.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_auto_reply_forward_client.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_buffer_no_append_after_delivery.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
+
       - name: Exercise QQ inbound idempotency candidate
         run: |
           git -C _neko_upstream/plugin/plugins/qq_auto_reply apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/qq/live_inbound_idempotency.patch"

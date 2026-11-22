@@ -2,7 +2,7 @@
   "schema_version": 1,
   "evidence_id": "XIAOYU_QQ_SURFACE_PUSH_REGRESSION_REUSE_20261123",
   "recorded_at_local": "2026-11-23T01:49:00+08:00",
-  "implementation_status": "REVIEWED_BEFORE_PRODUCT_MAIN_IMPLEMENTATION",
+  "implementation_status": "IMPLEMENTED_ON_PRODUCT_MAIN_PENDING_REPLAY",
   "observed_gap": {
     "local_release_suite": "private_overlay/tools/run_checks.ps1",
     "local_execution": "PENDING_LOCAL_OPERATOR_TUNNEL_RECOVERY",
@@ -72,5 +72,21 @@
     "overall_run_conclusion": "failure",
     "overall_run_failure_scope": "subsequent isolated inbound-idempotency test invoked global python without pytest; unrelated to the 173-test surface result"
   },
-  "product_main_implementation": "pending_after_review_gate"
+  "product_main_implementation": {
+    "selected_boundary": "existing private-overlay-gate.yml",
+    "runtime_authority": "pinned N.E.K.O + pinned qq_auto_reply",
+    "test_environment": "N.E.K.O uv --locked --group dev",
+    "authoritative_test_count": 10,
+    "agent_probe": "173 passed, 3 warnings",
+    "agent_probe_run_id": 45052059880,
+    "replay": "pending_on_product_main_implementation_commit"
+  },
+  "product_main_review_gate": {
+    "branch": "private/neko-overlay-v1",
+    "commit": "79dea7bb8d4f470043758bd14a924dee4a0b7817",
+    "workflow": "XiaoYu private overlay gate",
+    "run_id": 45052233965,
+    "job_id": 137299686243,
+    "conclusion": "success"
+  }
 }

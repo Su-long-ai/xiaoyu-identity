@@ -628,6 +628,27 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_replays_pinned_qq_surface_regression(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        required = (
+            "Exercise pinned QQ delivery/floor surface regression",
+            "uv run --locked --group dev python -m pytest -q",
+            "test_qq_outbound_guard.py",
+            "test_group_send_safety.py",
+            "test_proactive_budget_integration.py",
+            "test_qq_proactive_initiative.py",
+            "test_qq_auto_reply_forward_client.py",
+            "test_qq_connection_status_refresh.py",
+            "test_qq_buffer_no_append_after_delivery.py",
+            "test_qq_buffer_send_time_floor.py",
+            "test_qq_runtime_transition_lock.py",
+            "test_qq_reply_buffer_switch.py",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
     def test_qq_inbound_idempotency_candidate_is_reviewed_but_not_live(self):
         candidate = ROOT / "candidates" / "qq" / "live_inbound_idempotency.patch"
         self.assertTrue(candidate.is_file())
