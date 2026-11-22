@@ -457,6 +457,28 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_exercises_report_wait_host_restart_candidate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise report-wait host-restart candidate",
+            "candidates/execution_plane/host_restart_report_wait.patch",
+            "candidates/execution_plane/test_host_restart_report_wait_candidate.py",
+            "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
+            "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
+            "test_an_answer_after_the_idle_session_was_closed_takes_it_up_again",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        uncertain = workflow.index("Exercise plugin-run unknown-effect candidate")
+        report_wait = workflow.index("Exercise report-wait host-restart candidate")
+        regression = workflow.index("Regress patched native Execution Plane")
+        self.assertLess(uncertain, report_wait)
+        self.assertLess(report_wait, regression)
+        self.assertNotIn("continue-on-error", workflow[report_wait:regression])
+
     def test_github_gate_exercises_plugin_run_unknown_effect_candidate(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
