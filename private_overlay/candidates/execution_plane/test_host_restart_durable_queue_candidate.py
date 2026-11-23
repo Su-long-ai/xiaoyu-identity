@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import subprocess
 import sys
@@ -774,4 +775,102 @@ async def test_secondary_wake_note_keeps_queue_position_and_native_text(tmp_path
         assert str(notes[1]) == "after wake finding"
     finally:
         await host.abort(commission_id)
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_copy_handback_notes_commit_before_primary_requeue(tmp_path: Path) -> None:
+    root = tmp_path / "copy-handback-root"
+    host = _recovery_host(root)
+    try:
+        commission, created = await host.ledger.create(
+            lanlan_name="Lan",
+            title="copy handback",
+            dispatch_text="copy work",
+            user_text="copy work",
+            source="dispatch",
+        )
+        assert created
+        commission = await host.ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, _session = await host.ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="copy handback"
+        )
+        assert (await host.ledger.transition(commission.id, "working", reason="copy active")).applied
+
+        assert await host.task_agents._wake_working(
+            commission.id,
+            _Found("copy finding"),
+            reason="handed back by a copy of its session",
+            before=["user line one in copy", "user line two in copy"],
+        )
+
+        events = await host.ledger.events(commission.id)
+        relevant = [
+            event
+            for event in events
+            if event.type in {"restart_queue_note", "restart_queue_resume", "status"}
+            and (
+                event.type != "status"
+                or event.payload.get("to") == "queued"
+            )
+        ]
+        assert [event.type for event in relevant[-4:]] == [
+            "restart_queue_note",
+            "restart_queue_note",
+            "restart_queue_resume",
+            "status",
+        ]
+        assert relevant[-4].payload["note"]["text"] == "user line one in copy"
+        assert relevant[-3].payload["note"]["text"] == "user line two in copy"
+        assert relevant[-2].payload["resume"]["provenance"] == "found"
+
+        current = await host.ledger.get(commission.id)
+        assert current is not None and current.status == "queued"
+        assert isinstance(host.task_agents._resume.get(commission.id), _Found)
+        assert host.task_agents._notes.get(commission.id, []) == []
+    finally:
+        await host.abort(commission.id)
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancel_wins_while_restart_queue_recovery_is_resolving_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "cancel-race-root"
+    commission_id = await _prepared_queue(root)
+    host = _recovery_host(root)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    original = host.task_agents._know_session
+
+    async def delayed_know_session(cid: str) -> bool:
+        entered.set()
+        await release.wait()
+        return await original(cid)
+
+    monkeypatch.setattr(host.task_agents, "_know_session", delayed_know_session)
+    try:
+        host.start()
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        cancelled = await host.ledger.transition(
+            commission_id,
+            "cancelled",
+            reason="explicit user stop won during restart recovery",
+        )
+        assert cancelled.applied
+        release.set()
+        await host.task_agents.settle()
+
+        current = await host.ledger.get(commission_id)
+        assert current is not None
+        assert current.status == "cancelled"
+        assert current.status_reason == "explicit user stop won during restart recovery"
+        assert commission_id not in host.task_agents.queued
+        assert commission_id not in host.task_agents.running
+        assert commission_id not in host.task_agents._resume
+        assert commission_id not in host.task_agents._restart_waiting_wakes
+    finally:
+        release.set()
         await host.shutdown()
