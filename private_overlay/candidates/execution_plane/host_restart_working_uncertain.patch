@@ -1,7 +1,7 @@
 diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 --- a/nekoclaw/host/ledger.py
 +++ b/nekoclaw/host/ledger.py
-@@ -171,5 +171,10 @@
+@@ -171,4 +171,9 @@
  # Why a commission left unfinished by an earlier host process failed.
  HOST_ENDED_REASON = "the host process ended before this finished"
 +# Why active task-agent work from a dead host is held instead of retried.
@@ -43,7 +43,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
                  moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
                  if moved.applied:
                      failed_rows += 1
-@@ -1218,5 +1242,10 @@
+@@ -1218,4 +1242,9 @@
          if failed_rows:
              logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", failed_rows)
 +        if blocked_rows:
