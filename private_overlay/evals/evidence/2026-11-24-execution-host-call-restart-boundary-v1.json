@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "acceptance_id": "EXECUTION_HOST_CALL_RESTART_BOUNDARY_V1",
+  "recorded_at_local": "2026-11-24T01:03:00+08:00",
+  "branch": "agent/execution-continuity-v2",
+  "reuse_basis": [
+    "candidate:execution-plane/host-restart-continuity-gap",
+    "N.E.K.O call_audit.start_call/finish_call/read_trace",
+    "N.E.K.O Ledger._reconcile running->interrupted"
+  ],
+  "implementation": "fault_injection_tests_only",
+  "kill_points": [
+    "device call reserved/running before response",
+    "plugin call reserved/running before response",
+    "device call completed while commission still working",
+    "plugin call completed while commission still working"
+  ],
+  "expected_semantics": {
+    "old_running_call": "interrupted",
+    "completed_call": "completed_identity_preserved",
+    "old_working_commission": "failed_closed_no_auto_replay",
+    "second_restart": "call_identity_and_terminal_status_stable"
+  },
+  "rationale": "Native transcript repair synthesizes a generic interrupted tool result for missing results. That is not proof that a real effect did not happen. Old working commissions therefore remain fail-closed unless exact native audit/idempotency/receipt reconciliation authorizes continuation.",
+  "no_new_runtime": true,
+  "no_new_ledger": true,
+  "no_new_effect_classifier": true
+}

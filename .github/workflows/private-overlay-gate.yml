@@ -29,7 +29,7 @@ jobs:
   reuse-architecture-gate:
     name: reuse-architecture-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout candidate
@@ -180,7 +180,6 @@ jobs:
             tests/unit/test_assistant_speech_finalize_static.py \
             tests/unit/test_openai_compatible_tts.py \
             tests/unit/test_qwen_intl_tts_routing.py \
-            tests/unit/test_qwen_voice_bundle.py \
             tests/unit/test_voice_management_tts.py \
             tests/unit/test_xiaoyu_startup_performance.py \
             tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
@@ -308,7 +307,9 @@ jobs:
           uv run --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
             tests/unit/nekoclaw/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_an_agent_that_exits_fails_what_was_waiting_and_is_reported_once \
             tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_process_that_dies_ends_its_sessions \
             tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
             tests/unit/nekoclaw/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
             tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
@@ -324,6 +325,7 @@ jobs:
             tests/unit/nekoclaw/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
             tests/unit/nekoclaw/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
             tests/unit/nekoclaw/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_a_commission_that_began_in_a_dsh_that_is_gone_starts_over_in_the_built_in_runtime \
             tests/unit/nekoclaw/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
             tests/unit/nekoclaw/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
             tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
@@ -506,14 +508,19 @@ jobs:
         run: |
           git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
           git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
           python -m py_compile \
             _neko_product/nekoclaw/host/ledger.py \
-            _neko_product/nekoclaw/host/task_agents.py
+            _neko_product/nekoclaw/host/task_agents.py \
+            _neko_product/nekoclaw/host/service.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
             tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py"
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py"
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4

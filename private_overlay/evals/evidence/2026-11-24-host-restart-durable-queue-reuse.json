@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "decision_id": "HOST_RESTART_DURABLE_QUEUE_REUSE_V1",
+  "reviewed_at_local": "2026-11-24T01:16:00+08:00",
+  "problem": "N.E.K.O can queue both a newly dispatched commission and a commission being taken up again. New dispatch content is durable in the commission row, but TaskAgentManager._requeue stores the take-up continuation only in the in-memory _resume map after transitioning to queued. A host death therefore cannot safely distinguish/reconstruct every old queued commission.",
+  "authority_boundary": {
+    "commission": "N.E.K.O Ledger commissions",
+    "continuation": "N.E.K.O Ledger events",
+    "session": "N.E.K.O sessions + TaskAgentManager._know_session/_start_next",
+    "effect": "N.E.K.O host_calls + existing managed idempotency/receipt semantics",
+    "rejected_duplicates": [
+      "private queue database",
+      "private scheduler",
+      "recovery daemon",
+      "second task/session authority"
+    ]
+  },
+  "reuse_search": {
+    "L0_authority": "Keep commission/session/queue authority in N.E.K.O; persist only the otherwise-volatile take-up text in the existing event log.",
+    "L1_neko_current_pin": {
+      "commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "reusable": [
+        "Commission dispatch/user/session fields are durable",
+        "Ledger.events/append_event are durable SQLite authority",
+        "TaskAgentManager._know_session reconstructs session identity",
+        "TaskAgentManager._start_next starts queued work using _resume when present",
+        "cancelled/done/failed remain terminal"
+      ],
+      "gap": "_requeue transitions to queued before writing continuation only to in-memory _resume; Ledger._reconcile then fails every old queued commission."
+    },
+    "L2_neko_upstream_extensions": {
+      "commit": "843a3624f11679466d0d07e692e0cc589e83eace",
+      "result": "No equivalent durable requeue-continuation/startup queue reconstruction seam observed; restart policy remains fail-old-active."
+    },
+    "L3_native_adjacent": "Use existing task-agent queue/start/session lookup only; do not add a scheduler.",
+    "L4_external": "External workflow engines/reliable queues are rejected because they would duplicate the frozen commission/session authority.",
+    "L5_thin_integration": "Selected candidate: append a durable queue-resume event before the queued transition, preserve prior-host task-agent queued rows, rebuild only those rows through _know_session + the existing _queue/_start_next path.",
+    "L6_private_implementation": "Rejected."
+  },
+  "safety_rules": [
+    "Durable continuation event must commit before transition to queued; an orphan event is harmless when transition later fails.",
+    "Recovery considers only current task_agent queued commissions; terminal/cancelled rows are never revived.",
+    "Initial queued commissions with no take-up continuation use their native commission opening message exactly as normal initial queueing.",
+    "Requeued commissions restore only the latest durable continuation for the current queued state.",
+    "No prior-host working commission is recovered by this unit.",
+    "No host_call status grants permission or authorizes replay; effects remain governed by current permission/idempotency/receipt semantics.",
+    "Session identity is read from native Ledger; no new session identifier is minted."
+  ],
+  "decision": "THIN_NATIVE_LEDGER_EVENT_QUEUE_RECOVERY_CANDIDATE",
+  "promotion": "CANDIDATE_ONLY",
+  "retirement_condition": "Delete when upstream N.E.K.O durably reconstructs both initial and take-up queued task-agent work after host restart without losing continuation text or replaying active effects."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "acceptance_id": "DSH_PROCESS_CRASH_CONTINUITY_SELECTION_V1",
+  "recorded_at_local": "2026-11-24T01:09:00+08:00",
+  "branch": "agent/execution-continuity-v2",
+  "reuse_evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json",
+  "implementation": "workflow_test_selection_only",
+  "selected_native_tests": [
+    "tests/unit/nekoclaw/test_dsh_acp.py::test_an_agent_that_exits_fails_what_was_waiting_and_is_reported_once",
+    "tests/unit/nekoclaw/test_dsh_driver.py::test_a_process_that_dies_ends_its_sessions",
+    "tests/unit/nekoclaw/test_host_runtimes.py::test_a_commission_that_began_in_a_dsh_that_is_gone_starts_over_in_the_built_in_runtime"
+  ],
+  "guarantees": [
+    "unexpected ACP process exit fails pending request exactly once and reports closure",
+    "unexpected dsh process death ends every session owned by that process and leaves no live process/session identity",
+    "a commission whose dsh session authority is gone follows N.E.K.O native policy and starts over in built-in runtime"
+  ],
+  "product_boundary": "dsh remains optional runtime; N.E.K.O remains runtime/session/permission authority; no private supervisor, watchdog or restart daemon",
+  "new_runtime_code": false
+}

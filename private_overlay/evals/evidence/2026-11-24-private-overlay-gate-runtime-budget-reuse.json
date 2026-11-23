@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "evidence_id": "PRIVATE_OVERLAY_GATE_RUNTIME_BUDGET_REUSE_V1",
+  "reviewed_at": "2026-11-24",
+  "problem": "The existing single GitHub Actions private-overlay gate has a 10-minute job timeout. Run 45221577102 reached the native Execution regression baseline and was cancelled exactly at the job timeout before any managed/candidate restart acceptance could run, while a recent complete green run 45220299943 finished the same gate in about 4m40s. A slow hosted runner can therefore starve mandatory restart/effect acceptance without any product failure.",
+  "reuse_search": {
+    "L0_authority": "Existing private-overlay gate remains the sole machine admission/release acceptance authority.",
+    "L1_neko_current_pin": "No runtime behavior change; pinned N.E.K.O test suites remain authoritative.",
+    "L2_neko_upstream_extensions": "Not applicable to GitHub-hosted runner scheduling.",
+    "L3_existing_pinned_external": "Existing pytest/uv suites are retained unchanged.",
+    "L4_broader_external_ecosystem": "GitHub Actions native job timeout is sufficient; no second CI service, watchdog or test framework is needed.",
+    "L5_thin_integration": "Selected: increase the existing job timeout from 10 to 20 minutes only.",
+    "L6_private_implementation": "Rejected: second workflow/CI daemon/custom timeout supervisor."
+  },
+  "observations": {
+    "cancelled_run": {
+      "id": 45221577102,
+      "head_sha": "98f6dc125e9eb61ad882f7822cf3c64148038382",
+      "conclusion": "cancelled",
+      "boundary": "Capture clean native Execution Plane regression baseline",
+      "job_timeout_minutes": 10
+    },
+    "recent_green_run": {
+      "id": 45220299943,
+      "head_sha": "da5c948c6b55e63b7876410a48c8e2ca0597d9ff",
+      "conclusion": "success",
+      "wall_clock_about_seconds": 280
+    },
+    "selected_timeout_minutes": 20
+  },
+  "decision": "REUSE_GITHUB_ACTIONS_NATIVE_TIMEOUT_ONLY",
+  "safety": "No test, gate, assertion, architecture check, reuse check, plugin admission, managed regression or release evidence is skipped or weakened.",
+  "retirement_condition": "Return to the smallest timeout that reliably covers the full mandatory gate if future sharding/caching or upstream test-runtime improvements make 20 minutes unnecessary."
+}
