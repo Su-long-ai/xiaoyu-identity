@@ -155,6 +155,17 @@ jobs:
             tests/unit/test_character_switch_queue.py \
             tests/unit/test_character_runtime_voice_identity.py \
             tests/unit/test_model_switch_keeps_live_budget.py \
+            tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
+            tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
+            tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
+            tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+            tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor \
+            tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn \
+            tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
+            tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
+            tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send \
+            tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot \
+            tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point \
             tests/unit/test_cosyvoice_audio_done_generation.py \
             tests/unit/test_proactive_sid_guard.py \
             tests/unit/test_assistant_speech_finalize_static.py \
@@ -188,6 +199,11 @@ jobs:
               tests/unit/test_character_switch_queue.py \
               tests/unit/test_character_runtime_voice_identity.py \
               tests/unit/test_model_switch_keeps_live_budget.py \
+              tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
+              tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
+              tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+              tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
+              tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
               tests/unit/test_cosyvoice_audio_done_generation.py \
               tests/unit/test_proactive_sid_guard.py \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
@@ -222,6 +238,84 @@ jobs:
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
 
+      - name: Probe native host-restart commission continuity gap
+        run: |
+          python private_overlay/candidates/execution_plane/probe_host_restart_continuity_gap.py --neko-root _neko_upstream
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed
+
+      - name: Exercise native dsh optional-runtime product acceptance
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_model_requests_go_to_each_sessions_own_model_and_report_its_usage \
+            tests/unit/nekoclaw/test_dsh_grant_wire.py::test_pinned_dsh_native_denial_precedes_host_ask \
+            tests/unit/nekoclaw/test_dsh_host_tools.py::test_each_dsh_process_has_a_token_of_its_own_that_ends_with_it \
+            tests/unit/nekoclaw/test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_nothing_is_uploaded \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_the_model_is_reached_only_through_the_drivers_endpoint \
+            tests/unit/nekoclaw/test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh \
+            tests/unit/nekoclaw/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
+            tests/unit/nekoclaw/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
+            tests/unit/nekoclaw/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
+            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went \
+            tests/unit/nekoclaw/test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept
+
+      - name: Exercise native Execution Plane product E2E
+        run: |
+          python -m pip install -q uv
+          cd _neko_upstream
+          uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end \
+            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_write_creates_then_updates_and_keeps_the_existing_format \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_command_output_is_utf8_and_a_failure_carries_its_exit_code \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind \
+            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_commission_goes_to_a_task_agent_and_its_report_ends_it \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_blocked_and_failed_reports \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_stopping_closes_the_session_and_nothing_overwrites_cancelled \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_web_search_runs_the_search_plugin \
+            tests/unit/nekoclaw/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            tests/unit/nekoclaw/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen \
+            tests/unit/nekoclaw/test_host_gateway.py::test_declined_mcp_server_is_not_called \
+            tests/unit/nekoclaw/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway \
+            tests/unit/nekoclaw/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running \
+            tests/unit/nekoclaw/test_host_gateway.py::test_stopping_a_commission_stops_a_builtin_call_under_way \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded \
+            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_connection_that_is_gone_is_a_failed_outcome
+
+          uv run --locked --group dev python - <<'PY'
+          from nekoclaw.builtin.browser import launcher
+          found = launcher.find_browsers()
+          print("real browser candidates:", found)
+          if not found:
+              raise SystemExit("BLOCK_REAL_BROWSER_ACCEPTANCE: no supported browser found on runner")
+          PY
+
+          NEKO_TEST_REAL_BROWSER=1 uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read \
+            tests/unit/nekoclaw/test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document
+
       - name: Capture clean native Execution Plane regression baseline
         run: |
           python -m pip install -q uv
@@ -230,6 +324,10 @@ jobs:
           tests/unit/nekoclaw/test_host_delivery.py
           tests/unit/nekoclaw/test_host_robustness.py
           tests/unit/nekoclaw/test_agent_wiring.py
+          tests/unit/nekoclaw/test_host_plugin_runs.py
+          tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report
+          tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result
+          plugin/tests/unit/server/test_run_manager_idempotency.py
           tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
           tests/test_agent_rewrite_regression.py
           EOF
@@ -247,17 +345,17 @@ jobs:
           fi
           test -s "$RUNNER_TEMP/execution-native-baseline.xml"
 
-      - name: Exercise effect-state candidate on fresh native pin
+      - name: Exercise managed effect-state patch on fresh native pin
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/outbox_effect_state.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/outbox_effect_state.patch"
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0011-execution-outbox-effect-state.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0011-execution-outbox-effect-state.patch"
           python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py
           python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_upstream
 
-      - name: Exercise native delivery receipt candidate
+      - name: Exercise managed native delivery receipt patch
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/native_delivery_receipt.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/native_delivery_receipt.patch"
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0012-native-delivery-receipt.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0012-native-delivery-receipt.patch"
           python -m py_compile \
             _neko_upstream/main_logic/agent_event_bus.py \
             _neko_upstream/app/agent_server/api_runtime.py \
@@ -270,7 +368,26 @@ jobs:
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
           python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
 
-      - name: Regress patched native Execution Plane
+      - name: Exercise managed plugin-run unknown-effect patch
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0013-plugin-run-unknown-effect.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0013-plugin-run-unknown-effect.patch"
+          python -m py_compile             _neko_upstream/nekoclaw/host/plugin_runs.py             _neko_upstream/nekoclaw/host/task_brain.py             _neko_upstream/nekoclaw/host/gateway.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q             tests/unit/nekoclaw/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait             tests/unit/nekoclaw/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted             tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report             tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py"
+
+      - name: Exercise managed plugin-run idempotency patch
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0014-plugin-run-idempotency.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0014-plugin-run-idempotency.patch"
+          python -m py_compile _neko_upstream/nekoclaw/host/plugin_runs.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once \
+            tests/unit/nekoclaw/test_host_plugin_runs.py \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
+
+      - name: Regress managed native Execution Plane
         run: |
           python -m pip install -q uv
           cd _neko_upstream
@@ -278,14 +395,14 @@ jobs:
           set +e
           uv run --locked --group dev python -m pytest -q \
             "${EXECUTION_NATIVE_TESTS[@]}" \
-            --junitxml="$RUNNER_TEMP/execution-native-patched.xml"
-          PATCHED_STATUS=$?
+            --junitxml="$RUNNER_TEMP/execution-native-managed.xml"
+          MANAGED_STATUS=$?
           set -e
-          if [ "$PATCHED_STATUS" -gt 1 ]; then
-            echo "Patched pytest infrastructure failed with exit $PATCHED_STATUS" >&2
-            exit "$PATCHED_STATUS"
+          if [ "$MANAGED_STATUS" -gt 1 ]; then
+            echo "Patched pytest infrastructure failed with exit $MANAGED_STATUS" >&2
+            exit "$MANAGED_STATUS"
           fi
-          test -s "$RUNNER_TEMP/execution-native-patched.xml"
+          test -s "$RUNNER_TEMP/execution-native-managed.xml"
           python - <<'PY'
           from pathlib import Path
           import os
@@ -293,7 +410,7 @@ jobs:
 
           tmp = Path(os.environ["RUNNER_TEMP"])
           baseline_path = tmp / "execution-native-baseline.xml"
-          patched_path = tmp / "execution-native-patched.xml"
+          managed_path = tmp / "execution-native-managed.xml"
 
           def cases_and_failures(path):
               root = ET.parse(path).getroot()
@@ -307,28 +424,53 @@ jobs:
               return cases, failures
 
           baseline_cases, baseline_failures = cases_and_failures(baseline_path)
-          patched_cases, patched_failures = cases_and_failures(patched_path)
-          if baseline_cases != patched_cases:
-              missing = sorted(baseline_cases - patched_cases)
-              added = sorted(patched_cases - baseline_cases)
+          managed_cases, managed_failures = cases_and_failures(managed_path)
+          if baseline_cases != managed_cases:
+              missing = sorted(baseline_cases - managed_cases)
+              added = sorted(managed_cases - baseline_cases)
               raise SystemExit(
                   "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT: "
                   f"missing={missing} added={added}"
               )
-          introduced = sorted(patched_failures - baseline_failures)
-          fixed = sorted(baseline_failures - patched_failures)
+          introduced = sorted(managed_failures - baseline_failures)
+          fixed = sorted(baseline_failures - managed_failures)
           print(
               "Execution paired native regression: "
               f"baseline_failures={len(baseline_failures)} "
-              f"patched_failures={len(patched_failures)} "
+              f"managed_failures={len(managed_failures)} "
               f"fixed={len(fixed)} introduced={len(introduced)}"
           )
           if fixed:
-              print("Baseline failures fixed by candidate:", *fixed, sep="\n  ")
+              print("Baseline failures fixed by managed patches:", *fixed, sep="\n  ")
           if introduced:
-              print("BLOCK_EXECUTION_PATCHED_REGRESSION:", *introduced, sep="\n  ")
+              print("BLOCK_EXECUTION_MANAGED_REGRESSION:", *introduced, sep="\n  ")
               raise SystemExit(1)
           PY
+
+      - name: Exercise report-wait host-restart candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          python -m py_compile _neko_upstream/nekoclaw/host/ledger.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py"
+
+      - name: Exercise permission-wait host-restart candidate
+        run: |
+          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          python -m py_compile \
+            _neko_upstream/nekoclaw/host/ledger.py \
+            _neko_upstream/nekoclaw/host/task_agents.py
+          cd _neko_upstream
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py"
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
