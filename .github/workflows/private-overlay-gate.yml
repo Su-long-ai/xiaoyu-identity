@@ -209,6 +209,13 @@ jobs:
               tests/unit/test_character_switch_queue.py \
               tests/unit/test_character_runtime_voice_identity.py \
               tests/unit/test_model_switch_keeps_live_budget.py \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_renders_and_opens_cards_when_model_scan_never_resolves \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_saved_new_field_survives_immediate_reopen_with_stale_reload \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_cancels_stale_live2d_when_switching_to_3d_preview \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_panel_close_recreates_live2d_preview_context \
+              tests/unit/test_chat_sync_model_runtime.py::test_model_binding_waits_for_renderer_and_rejects_a_newer_unbind_race \
+              tests/unit/test_chat_sync_model_runtime.py::test_cloud_choice_retries_the_same_revision_after_a_renderer_failure \
+              tests/unit/test_chat_sync_model_runtime.py::test_selection_changes_during_pending_requests_use_the_current_model_next \
               tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
               tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
               tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
@@ -251,6 +258,7 @@ jobs:
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
               plugin/tests/unit/server/test_xiaoyu_push_origin.py
             node --test \
+              tests/frontend/chat_avatar_integration.test.cjs \
               tests/frontend/live2d_audio_ownership.test.cjs \
               tests/frontend/assistant-audio-lifecycle.test.cjs \
               tests/frontend/voice_recovery_races.cjs \

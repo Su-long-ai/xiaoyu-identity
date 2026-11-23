@@ -4102,6 +4102,79 @@
           "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:character-model-latest-intent-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Character/model product-state regression already exists, but missing-VRM recovery, A-to-B-to-A latest-intent replay, socket reopen, stale card reload and renderer-failure latest-selection races are not all repeated inside the bounded Companion soak.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin chat/avatar, card-manager and model-runtime tests",
+          "type": "native_current_pin",
+          "outcome": "selected; reuse existing frontend and model runtime race witnesses",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected native test blobs are identical to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "already-admitted 0005 latest-character-switch-intent-replay patch",
+          "type": "existing_managed_patch",
+          "outcome": "selected; repeat its existing managed frontend product tests rather than creating another switch state machine",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "existing product worktree + pytest/node SOAK_ROUNDS",
+          "type": "existing_ci",
+          "outcome": "selected; provides the real managed product state and bounded repetition",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime implementation gap is identified. The residual product gap is repeated fault exposure of existing authoritative frontend/model tests against the already-managed product state.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships equivalent integrated character/model/frontend reconnect soak or the managed latest-intent patch is absorbed upstream with repeated acceptance.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains authoritative for character/model/frontend runtime; XiaoYu only strengthens product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies the selected chat/avatar, card-manager and model-runtime test surfaces.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked and selected native test blobs are unchanged from the current pin.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing managed 0005 patch is already reuse-admitted and supplies the latest-intent frontend behavior being repeated.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest/node runners already exercise the authoritative product code; another switch/fault framework would duplicate machinery.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration adds existing test selectors only to the current bounded product-worktree soak.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second switch state machine, model loader, frontend transport, cache or recovery daemon is introduced.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
