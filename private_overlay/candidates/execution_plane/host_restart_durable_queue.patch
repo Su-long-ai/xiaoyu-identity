@@ -1,0 +1,218 @@
+diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
+--- a/nekoclaw/host/ledger.py
++++ b/nekoclaw/host/ledger.py
+@@ -1127,8 +1127,10 @@
+         Nobody is working on those commissions any more. A report-style
+         question, and a task-agent permission question that is still before
+         its protected effect, are durable checkpoints: they stay waiting so a
+-        later host can resume the existing transcript without replaying work.
+-        Other active work is failed. A blocked one stays blocked, and a
++        later host can resume the existing transcript without replaying work. A
++        task-agent commission already queued also stays queued: it has not
++        started an effect, and TaskAgentManager reconstructs it from durable
++        queue provenance. Other active work is failed. A blocked one stays blocked, and a
+         deferred one stays as it is: until its deadline its
+         plugin's result may still arrive, and past it the task brain's sweep
+         fails it with the same report as when the host kept running.
+@@ -1185,6 +1187,11 @@
+             failed_rows = 0
+             blocked_rows = 0
+             for row in rows:
++                if row["status"] == "queued" and row["route"] == "task_agent":
++                    # No effect has started. Keep the durable row for
++                    # TaskAgentManager to reconstruct through the native queue;
++                    # unsupported/missing continuation provenance blocks there.
++                    continue
+                 if row["status"] == "waiting_user":
+                     try:
+                         question = json.loads(row["pending_question"] or "")
+diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
+--- a/nekoclaw/host/task_agents.py
++++ b/nekoclaw/host/task_agents.py
+@@ -689,6 +689,52 @@
+     """
+ 
+ 
++def _queue_text_payload(text: str) -> dict[str, Any]:
++    """Serialize only the provenance N.E.K.O already attaches to queued text."""
++    payload: dict[str, Any] = {"text": str(text), "provenance": "user"}
++    if isinstance(text, _Handed):
++        payload["provenance"] = "handed"
++        payload["wakes"] = list(text.wakes)
++    elif isinstance(text, _Unsaid):
++        payload["provenance"] = "unsaid"
++        payload["recipient"] = text.recipient
++        payload["retried"] = bool(text.retried)
++    elif isinstance(text, _Found):
++        payload["provenance"] = "found"
++    return payload
++
++
++def _queue_text_from_payload(payload: Any) -> str | None:
++    """Rebuild one queued text without flattening its trust provenance."""
++    if not isinstance(payload, dict) or not isinstance(payload.get("text"), str):
++        return None
++    text = payload["text"]
++    provenance = payload.get("provenance", "user")
++    if provenance == "user":
++        return text
++    if provenance == "found":
++        return _Found(text)
++    if provenance == "handed":
++        wakes = payload.get("wakes")
++        if (
++            not isinstance(wakes, list)
++            or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in wakes)
++        ):
++            return None
++        return _Handed(text, wakes)
++    if provenance == "unsaid":
++        recipient = payload.get("recipient")
++        if not isinstance(recipient, str) or not recipient:
++            return None
++        restored = _Unsaid(text, recipient)
++        restored.retried = bool(payload.get("retried", False))
++        return restored
++    return None
++
++
+ def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
+     """Whether a session event shows the session took everything sent to it.
+ 
+@@ -5967,12 +6013,22 @@
+     async def _requeue(
+         self, commission_id: str, text: str, *, still_wanted: Callable[[], bool] | None = None
+     ) -> bool:
+-        # Marked (by the caller) while the status is written: the old
+-        # session's end meanwhile then keeps the candidate plugins and notes
+-        # for the retry.
++        # Persist the continuation before the queued transition. If the host
++        # dies after the event but before the transition, the orphan event is
++        # ignored; if it dies after the transition, the next host can rebuild
++        # the exact trust-bearing text without a second queue authority.
+         self._requeueing.add(commission_id)
+         try:
++            try:
++                await self._ledger.append_event(
++                    commission_id,
++                    "restart_queue_resume",
++                    {"resume": _queue_text_payload(text)},
++                )
++            except Exception:
++                logger.warning(
++                    "persisting queued continuation for commission %s failed",
++                    commission_id,
++                    exc_info=True,
++                )
++                return False
+             moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
+         finally:
+             self._requeueing.discard(commission_id)
+@@ -6191,6 +6247,91 @@
+                 await self._take_up_again(commission.id, continuation, same_round=True)
+             finally:
+                 self._answering_closed.discard(commission.id)
+ 
++    async def _restart_queue_resume(self, commission_id: str) -> str | None:
++        """Return the latest durable resume text for a queued re-take."""
++        after = 0
++        found: str | None = None
++        invalid = False
++        while True:
++            page = await self._ledger.events(commission_id, after=after)
++            for event in page:
++                if event.type != "restart_queue_resume":
++                    continue
++                restored = _queue_text_from_payload(event.payload.get("resume"))
++                invalid = restored is None
++                found = restored
++            if len(page) < 500:
++                if invalid:
++                    raise ValueError("queued continuation provenance is not recoverable")
++                return found
++            after = page[-1].seq
++
++    def recover_restart_queue(self) -> None:
++        """Reconstruct durable task-agent queue entries from an earlier host."""
++        if not self._closed:
++            self._spawn(self._recover_restart_queue())
++
++    async def _recover_restart_queue(self) -> None:
++        recovered = 0
++        for commission in await self._ledger.select(statuses={"queued"}, oldest_first=True):
++            if self._closed:
++                return
++            if commission.route != "task_agent" or commission.id in self._queue or commission.id in self._sessions:
++                continue
++
++            # Re-read after the scan point. A concurrent cancel/stop is
++            # terminal and wins over restart recovery.
++            current = await self._ledger.get(commission.id)
++            if current is None or current.route != "task_agent" or current.status != "queued":
++                continue
++
++            try:
++                resume = await self._restart_queue_resume(commission.id)
++            except ValueError as exc:
++                await self._ledger.transition(
++                    commission.id,
++                    "blocked",
++                    reason=f"restart queue recovery blocked: {exc}",
++                )
++                continue
++
++            # A re-take queued by this seam must have its durable continuation.
++            # Initial queued work has no such reason and starts from the native
++            # opening message instead. An old/pre-candidate re-take fails closed.
++            if current.status_reason == "taken up again; waiting for a place" and resume is None:
++                await self._ledger.transition(
++                    commission.id,
++                    "blocked",
++                    reason="restart queue recovery blocked: durable continuation is missing",
++                )
++                continue
++
++            # The session id is native authority. Never mint a replacement
++            # during recovery: that could change transcript/capability scope.
++            if not current.session_id:
++                await self._ledger.transition(
++                    commission.id,
++                    "blocked",
++                    reason="restart queue recovery blocked: durable session identity is missing",
++                )
++                continue
++            if not await self._know_session(commission.id):
++                await self._ledger.transition(
++                    commission.id,
++                    "blocked",
++                    reason="restart queue recovery blocked: native session is unavailable",
++                )
++                continue
++
++            # One last terminality check after session lookup. Nothing is
++            # enqueued if cancellation won in the meantime.
++            current = await self._ledger.get(commission.id)
++            if current is None or current.status != "queued":
++                self._session_of.pop(commission.id, None)
++                continue
++            if resume is not None:
++                self._resume[commission.id] = resume
++            self._queue.append(commission.id)
++            recovered += 1
++
++        if recovered and not self._closed and len(self._sessions) < self.limit:
++            self._spawn(self._start_next())
++
+     async def _deliver_answer(self, session: _Session, text: str) -> bool:
+         """Give an idle session the answer to its ``waiting`` report as its next work."""
+         commission_id = session.commission_id
+diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
+--- a/nekoclaw/host/service.py
++++ b/nekoclaw/host/service.py
+@@ -388,6 +388,7 @@
+         self.outbox.kick()
+         self.wakes.kick()
+         self.task_agents.recover_restart_answers()
++        self.task_agents.recover_restart_queue()
+ 
+     # -- what the main dialogue uses --------------------------------------
