@@ -2,6 +2,7 @@ param(
     [string]$MainUrl = "http://127.0.0.1:48911/",
     [string]$MemoryHealthUrl = "http://127.0.0.1:48912/health",
     [string]$AgentHealthUrl = "http://127.0.0.1:48915/health",
+    [string]$PluginUrl = "http://127.0.0.1:48916",
     [string]$Python = "python",
     [string]$DesktopExe = "D:\xiaoyu_external_audit\neko-nightly-desktop\shell\N.E.K.O.exe",
     [string]$StorageRoot = "D:\xiaoyu_private_overlay_state\neko-sandbox",
@@ -11,20 +12,104 @@ param(
 
 $ErrorActionPreference = "Stop"
 $StartScript = Join-Path $PSScriptRoot "start_xiaoyu.ps1"
-
-function Test-Http200([string]$Url) {
-    try {
-        $r = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
-        return ($r.StatusCode -eq 200)
-    } catch {
-        return $false
-    }
+$RuntimeRecordPath = Join-Path $StorageRoot ".runtime\launcher.json"
+$script:XiaoYuRuntimeRecordStatus = "missing"
+$script:AgentUrl = $AgentHealthUrl.TrimEnd("/")
+if ($script:AgentUrl.EndsWith("/health")) {
+    $script:AgentUrl = $script:AgentUrl.Substring(0, $script:AgentUrl.Length - "/health".Length)
 }
+$script:PluginHealthUrl = $PluginUrl.TrimEnd("/") + "/health"
+
+function Sync-XiaoYuEndpointsFromNativeRuntimeRecord {
+    # N.E.K.O launcher.json is the endpoint/readiness authority. XiaoYu never
+    # acquires its lock or owns process lifecycle; it only consumes the record.
+    if (-not (Test-Path -LiteralPath $RuntimeRecordPath)) {
+        $script:XiaoYuRuntimeRecordStatus = "missing"
+        return "fallback"
+    }
+
+    try {
+        $record = Get-Content -LiteralPath $RuntimeRecordPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        $script:XiaoYuRuntimeRecordStatus = "invalid"
+        return "wait"
+    }
+
+    if ($record.app -and [string]$record.app -ne "N.E.K.O") {
+        $script:XiaoYuRuntimeRecordStatus = "invalid-app"
+        return "wait"
+    }
+
+    $state = [string]$record.state
+    if ($state -ne "ready") {
+        if (-not $state) { $state = "starting" }
+        $script:XiaoYuRuntimeRecordStatus = $state
+        return "wait"
+    }
+
+    try {
+        $mainPort = [int]$record.ports.MAIN_SERVER_PORT
+        $memoryPort = [int]$record.ports.MEMORY_SERVER_PORT
+        $agentPort = [int]$record.ports.TOOL_SERVER_PORT
+        $pluginPort = [int]$record.internal_ports.USER_PLUGIN_SERVER_PORT
+        foreach ($port in @($mainPort, $memoryPort, $agentPort, $pluginPort)) {
+            if ($port -lt 1 -or $port -gt 65535) {
+                throw "invalid native runtime port: $port"
+            }
+        }
+    } catch {
+        $script:XiaoYuRuntimeRecordStatus = "invalid-ports"
+        return "wait"
+    }
+
+    $script:MainUrl = "http://127.0.0.1:$mainPort/"
+    $script:MemoryHealthUrl = "http://127.0.0.1:$memoryPort/health"
+    $script:AgentUrl = "http://127.0.0.1:$agentPort"
+    $script:AgentHealthUrl = "$script:AgentUrl/health"
+    $script:PluginUrl = "http://127.0.0.1:$pluginPort"
+    $script:PluginHealthUrl = "$script:PluginUrl/health"
+    $script:XiaoYuRuntimeRecordStatus = "ready"
+    return "record"
+}
+# Readiness observation is intentionally short-lived and read-only. Reuse
+# .NET's native HTTP/task primitives so one polling iteration is bounded by
+# one request timeout instead of serially paying three independent timeouts.
+$script:XiaoYuReadyHttpClient = [System.Net.Http.HttpClient]::new()
+$script:XiaoYuReadyHttpClient.Timeout = [TimeSpan]::FromSeconds(2)
 
 function Test-XiaoYuBackendReady {
-    return (Test-Http200 $MainUrl) -and
-           (Test-Http200 $MemoryHealthUrl) -and
-           (Test-Http200 $AgentHealthUrl)
+    $endpointSource = Sync-XiaoYuEndpointsFromNativeRuntimeRecord
+    if ($endpointSource -eq "wait") {
+        return $false
+    }
+
+    $tasks = @(
+        $script:XiaoYuReadyHttpClient.GetAsync($MainUrl),
+        $script:XiaoYuReadyHttpClient.GetAsync($MemoryHealthUrl),
+        $script:XiaoYuReadyHttpClient.GetAsync($AgentHealthUrl)
+    )
+    $responses = @()
+    try {
+        $all = [System.Threading.Tasks.Task]::WhenAll(
+            [System.Threading.Tasks.Task[]]$tasks
+        )
+        $all.GetAwaiter().GetResult() | Out-Null
+
+        foreach ($task in $tasks) {
+            $response = $task.GetAwaiter().GetResult()
+            $responses += $response
+            if (-not $response.IsSuccessStatusCode) {
+                return $false
+            }
+        }
+        return $true
+    } catch {
+        return $false
+    } finally {
+        foreach ($response in $responses) {
+            try { $response.Dispose() } catch {}
+        }
+    }
 }
 
 function Invoke-XiaoYuSingleFlight {
@@ -160,7 +245,8 @@ if (-not (Test-XiaoYuBackendReady)) {
         "-NoLogo",
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-File", ('"{0}"' -f $StartScript)
+        "-File", ('"{0}"' -f $StartScript),
+        "-StorageRoot", ('"{0}"' -f $StorageRoot)
     ) -WindowStyle Hidden | Out-Null
 
     $deadline = (Get-Date).AddSeconds(180)
@@ -173,7 +259,7 @@ if (-not (Test-XiaoYuBackendReady)) {
 if (-not (Test-XiaoYuBackendReady)) {
     $wshell = New-Object -ComObject WScript.Shell
     $null = $wshell.Popup(
-        "XiaoYu backend did not become ready. Use the XiaoYu debug shortcut to inspect the web UI.",
+        ("XiaoYu backend did not become ready.`nNative record: {0}`nMain: {1}`nMemory: {2}`nAgent: {3}`nRecord: {4}" -f $script:XiaoYuRuntimeRecordStatus, $MainUrl, $MemoryHealthUrl, $AgentHealthUrl, $RuntimeRecordPath),
         0,
         "XiaoYu startup failed",
         0x10
@@ -193,6 +279,9 @@ $RuntimeHealthResult = Join-Path $StorageRoot "runtime-health\latest.json"
     --main-health-url ($MainUrl.TrimEnd('/') + "/health") `
     --memory-health-url $MemoryHealthUrl `
     --agent-health-url $AgentHealthUrl `
+    --plugin-health-url $script:PluginHealthUrl `
+    --plugin-url $script:PluginUrl `
+    --agent-url $script:AgentUrl `
     --safety-only `
     --result-path $RuntimeSafetyResult
 if ($LASTEXITCODE -ne 0) {
@@ -258,6 +347,9 @@ if (-not (Get-XiaoYuDesktopProcess)) {
     --main-health-url ($MainUrl.TrimEnd('/') + "/health") `
     --memory-health-url $MemoryHealthUrl `
     --agent-health-url $AgentHealthUrl `
+    --plugin-health-url $script:PluginHealthUrl `
+    --plugin-url $script:PluginUrl `
+    --agent-url $script:AgentUrl `
     --result-path $RuntimeHealthResult
 if ($LASTEXITCODE -ne 0) {
     $wshell = New-Object -ComObject WScript.Shell

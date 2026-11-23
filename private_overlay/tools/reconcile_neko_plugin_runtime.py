@@ -61,6 +61,101 @@ def _bounded_timeout(
     return min(preferred, remaining)
 
 
+def _valid_runtime_port(value: Any, *, key: str) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"runtime record missing valid {key}") from exc
+    if port < 1 or port > 65535:
+        raise ValueError(f"runtime record has out-of-range {key}: {port}")
+    return port
+
+
+def resolve_native_runtime_record(record_path: Path) -> dict[str, Any]:
+    """Resolve N.E.K.O's authoritative launcher record without owning lifecycle."""
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        return {
+            "present": False,
+            "ready": False,
+            "state": "missing",
+            "record_path": str(record_path),
+        }
+    except (OSError, ValueError) as exc:
+        return {
+            "present": True,
+            "ready": False,
+            "state": "invalid",
+            "record_path": str(record_path),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    if not isinstance(payload, dict):
+        return {
+            "present": True,
+            "ready": False,
+            "state": "invalid",
+            "record_path": str(record_path),
+            "error": "launcher record is not a JSON object",
+        }
+
+    app = str(payload.get("app") or "")
+    if app and app != "N.E.K.O":
+        return {
+            "present": True,
+            "ready": False,
+            "state": "invalid",
+            "record_path": str(record_path),
+            "error": f"unexpected launcher record app: {app}",
+        }
+
+    state = str(payload.get("state") or "starting")
+    base = {
+        "present": True,
+        "ready": state == "ready",
+        "state": state,
+        "record_path": str(record_path),
+        "instance_id": str(payload.get("instance_id") or ""),
+        "launch_id": str(payload.get("launch_id") or ""),
+        "launch_mode": str(payload.get("launch_mode") or ""),
+    }
+    if state != "ready":
+        return base
+
+    try:
+        ports = payload.get("ports")
+        internal_ports = payload.get("internal_ports")
+        if not isinstance(ports, dict):
+            raise ValueError("runtime record missing ports")
+        if not isinstance(internal_ports, dict):
+            raise ValueError("runtime record missing internal_ports")
+        agent_port = _valid_runtime_port(
+            ports.get("TOOL_SERVER_PORT"), key="TOOL_SERVER_PORT"
+        )
+        plugin_port = _valid_runtime_port(
+            internal_ports.get("USER_PLUGIN_SERVER_PORT"),
+            key="USER_PLUGIN_SERVER_PORT",
+        )
+    except ValueError as exc:
+        return {
+            **base,
+            "ready": False,
+            "state": "invalid",
+            "error": str(exc),
+        }
+
+    return {
+        **base,
+        "agent_url": f"http://127.0.0.1:{agent_port}",
+        "plugin_url": f"http://127.0.0.1:{plugin_port}",
+        "ports": {
+            "TOOL_SERVER_PORT": agent_port,
+            "USER_PLUGIN_SERVER_PORT": plugin_port,
+        },
+    }
+
+
 def ensure_user_plugin_relay(
     *, agent_url: str, lanlan_name: str, request_timeout: float = 5.0,
     deadline: float | None = None,
@@ -238,27 +333,66 @@ def reconcile_native_autostart(
 def reconcile(
     *, plugin_url: str, agent_url: str, lanlan_name: str,
     deadline: float, request_timeout: float = 5.0,
+    runtime_record_path: Path | None = None,
+    record_fallback_grace: float = 2.0,
 ) -> dict[str, Any]:
+    started = time.monotonic()
     last_error = ""
+    endpoint_authority = "explicit_urls"
+    runtime_record: dict[str, Any] | None = None
+
     while time.monotonic() < deadline:
+        active_plugin_url = plugin_url
+        active_agent_url = agent_url
+
+        if runtime_record_path is not None:
+            runtime_record = resolve_native_runtime_record(runtime_record_path)
+            if runtime_record["present"]:
+                if runtime_record["ready"] is not True:
+                    endpoint_authority = "neko_launcher_record_wait"
+                    last_error = (
+                        "native runtime record not ready: "
+                        + str(runtime_record.get("state") or "unknown")
+                    )
+                    remaining = deadline - time.monotonic()
+                    if remaining > 0:
+                        time.sleep(min(0.25, remaining))
+                    continue
+                active_plugin_url = str(runtime_record["plugin_url"])
+                active_agent_url = str(runtime_record["agent_url"])
+                endpoint_authority = "neko_launcher_record"
+            elif time.monotonic() - started < max(0.0, record_fallback_grace):
+                endpoint_authority = "neko_launcher_record_grace"
+                last_error = "native runtime record not published yet"
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    time.sleep(min(0.25, remaining))
+                continue
+            else:
+                endpoint_authority = "explicit_urls_fallback"
+
         try:
             relay = ensure_user_plugin_relay(
-                agent_url=agent_url,
+                agent_url=active_agent_url,
                 lanlan_name=lanlan_name,
                 request_timeout=request_timeout,
                 deadline=deadline,
             )
             autostart = reconcile_native_autostart(
-                plugin_url=plugin_url,
+                plugin_url=active_plugin_url,
                 request_timeout=max(request_timeout, 5.0),
                 deadline=deadline,
             )
             verdict = "PASS" if not autostart["not_running"] else "PARTIAL"
             return {
-                "schema_version": 2,
+                "schema_version": 3,
                 "verdict": verdict,
                 "plugin_lifecycle_authority": "neko_native_http_api",
                 "dependency_and_process_authority": "neko_native",
+                "endpoint_authority": endpoint_authority,
+                "runtime_record": runtime_record,
+                "agent_url": active_agent_url,
+                "plugin_url": active_plugin_url,
                 "agent_master_required": False,
                 "user_plugin_relay": relay,
                 "native_autostart": autostart,
@@ -269,10 +403,12 @@ def reconcile(
             if remaining > 0:
                 time.sleep(min(0.5, remaining))
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "verdict": "FAIL",
         "plugin_lifecycle_authority": "neko_native_http_api",
         "dependency_and_process_authority": "neko_native",
+        "endpoint_authority": endpoint_authority,
+        "runtime_record": runtime_record,
         "agent_master_required": False,
         "error": last_error or "deadline exceeded",
     }
@@ -284,6 +420,8 @@ def main() -> int:
     parser.add_argument("--agent-url", default="http://127.0.0.1:48915")
     parser.add_argument("--lanlan-name", default="XiaoYu")
     parser.add_argument("--wait-seconds", type=float, default=90.0)
+    parser.add_argument("--runtime-record", type=Path)
+    parser.add_argument("--record-fallback-grace", type=float, default=2.0)
     parser.add_argument("--result-path", type=Path)
     args = parser.parse_args()
     result = reconcile(
@@ -291,6 +429,8 @@ def main() -> int:
         agent_url=args.agent_url,
         lanlan_name=args.lanlan_name,
         deadline=time.monotonic() + max(1.0, args.wait_seconds),
+        runtime_record_path=args.runtime_record,
+        record_fallback_grace=max(0.0, args.record_fallback_grace),
     )
     text_output = json.dumps(result, ensure_ascii=False, indent=2)
     print(text_output)

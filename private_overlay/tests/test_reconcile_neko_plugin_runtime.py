@@ -3,6 +3,7 @@ import json
 import threading
 import time
 import unittest
+from tempfile import TemporaryDirectory
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -157,6 +158,87 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(result["plugin_lifecycle_authority"],"neko_native_http_api")
         self.assertEqual(result["dependency_and_process_authority"],"neko_native")
         self.assertEqual(result["native_autostart"]["running"],["alpha","beta"])
+
+
+    def test_runtime_record_routes_reconcile_to_negotiated_native_ports(self):
+        with TemporaryDirectory() as td:
+            record = Path(td) / "launcher.json"
+            port = self.server.server_port
+            record.write_text(
+                json.dumps(
+                    {
+                        "app": "N.E.K.O",
+                        "state": "ready",
+                        "instance_id": "native-generation",
+                        "launch_mode": "merged",
+                        "ports": {"TOOL_SERVER_PORT": port},
+                        "internal_ports": {"USER_PLUGIN_SERVER_PORT": port},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = mod.reconcile(
+                plugin_url="http://127.0.0.1:1",
+                agent_url="http://127.0.0.1:2",
+                lanlan_name="XiaoYu",
+                deadline=time.monotonic() + 3,
+                request_timeout=1,
+                runtime_record_path=record,
+            )
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["endpoint_authority"], "neko_launcher_record")
+        self.assertEqual(result["runtime_record"]["instance_id"], "native-generation")
+        self.assertEqual(result["agent_url"], self.base)
+        self.assertEqual(result["plugin_url"], self.base)
+
+    def test_starting_runtime_record_never_falls_back_to_guessed_default_ports(self):
+        with TemporaryDirectory() as td:
+            record = Path(td) / "launcher.json"
+            record.write_text(
+                json.dumps(
+                    {
+                        "app": "N.E.K.O",
+                        "state": "starting",
+                        "instance_id": "new-generation",
+                        "ports": {"TOOL_SERVER_PORT": self.server.server_port},
+                        "internal_ports": {
+                            "USER_PLUGIN_SERVER_PORT": self.server.server_port
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = mod.reconcile(
+                plugin_url=self.base,
+                agent_url=self.base,
+                lanlan_name="XiaoYu",
+                deadline=time.monotonic() + 0.12,
+                request_timeout=0.05,
+                runtime_record_path=record,
+                record_fallback_grace=0.0,
+            )
+
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertEqual(result["endpoint_authority"], "neko_launcher_record_wait")
+        self.assertEqual(_FakeHandler.state["refreshes"], 0)
+        self.assertEqual(_FakeHandler.state["agent_flag_posts"], [])
+
+    def test_missing_runtime_record_preserves_bounded_explicit_url_compatibility(self):
+        with TemporaryDirectory() as td:
+            result = mod.reconcile(
+                plugin_url=self.base,
+                agent_url=self.base,
+                lanlan_name="XiaoYu",
+                deadline=time.monotonic() + 3,
+                request_timeout=1,
+                runtime_record_path=Path(td) / "missing-launcher.json",
+                record_fallback_grace=0.0,
+            )
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["endpoint_authority"], "explicit_urls_fallback")
 
 
 if __name__ == "__main__": unittest.main()

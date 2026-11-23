@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_STARTUP_READY_PARALLEL_PREFLIGHT_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "The one-click launcher waits for main, memory and agent readiness by probing three endpoints serially. Each probe can consume its own timeout, so one readiness iteration can approach six seconds and can overshoot the nominal startup deadline. This is launcher observation latency, not a N.E.K.O lifecycle gap.",
+  "authority": {
+    "lifecycle": "N.E.K.O launcher.py native lock/launcher record and native services remain the sole backend lifecycle authority",
+    "observer": "XiaoYu one-click may only observe readiness before exposing the desktop",
+    "forbidden": [
+      "second process supervisor",
+      "background readiness daemon",
+      "new backend lock",
+      "new HTTP service"
+    ]
+  },
+  "selected": {
+    "mechanism": ".NET System.Net.Http.HttpClient + Task.WhenAll inside the existing short-lived PowerShell launcher",
+    "scope": "parallel GET readiness observation only",
+    "behavior": "one shared short-lived client probes the existing main/memory/agent health URLs concurrently under one bounded timeout; no process ownership or service state is changed"
+  },
+  "reuse_search": [
+    {
+      "layer": "L0 authority",
+      "outcome": "Keep N.E.K.O native launcher/process authority unchanged."
+    },
+    {
+      "layer": "L1 current N.E.K.O pin",
+      "outcome": "Reuse the existing native service health surfaces and launcher single-instance semantics; no combined readiness endpoint exists in the current product path."
+    },
+    {
+      "layer": "L2 latest upstream/native seam",
+      "outcome": "Current product pin is still the selected upstream basis; no newer combined readiness primitive replaces the three existing health surfaces."
+    },
+    {
+      "layer": "L3 pinned external",
+      "outcome": "No pinned external component owns N.E.K.O backend readiness."
+    },
+    {
+      "layer": "L4 mature ecosystem",
+      "outcome": "PowerShell/.NET already provides HttpClient and Task.WhenAll; third-party wait-on/supervisor tooling would add dependency and authority without benefit."
+    },
+    {
+      "layer": "L5 thin integration",
+      "outcome": "Selected: replace only the serial observer with concurrent native .NET requests in start_xiaoyu_oneclick.ps1."
+    },
+    {
+      "layer": "L6 private implementation",
+      "outcome": "Reject a resident monitor, new state service, process manager, or custom transport."
+    }
+  ],
+  "acceptance": [
+    "readiness probes for main, memory and agent begin in the same launcher iteration",
+    "one iteration is bounded by one timeout budget instead of the sum of three budgets",
+    "all three endpoints must still report 2xx before backend readiness is accepted",
+    "N.E.K.O launcher/process authority is unchanged",
+    "PowerShell parse gate remains green",
+    "existing one-click hidden-console contract remains intact"
+  ],
+  "retirement_condition": "Remove the parallel observer when N.E.K.O exposes one authoritative combined ready endpoint or the desktop host can consume native launcher readiness directly without XiaoYu polling."
+}

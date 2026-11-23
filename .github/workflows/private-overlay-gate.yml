@@ -29,7 +29,7 @@ jobs:
   reuse-architecture-gate:
     name: reuse-architecture-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout candidate
@@ -210,9 +210,15 @@ jobs:
               tests/unit/test_model_switch_keeps_live_budget.py \
               tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
               tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
+              tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
               tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+              tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor \
+              tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn \
               tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
               tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
+              tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send \
+              tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot \
+              tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point \
               tests/unit/test_cosyvoice_audio_done_generation.py \
               tests/unit/test_proactive_sid_guard.py \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
@@ -220,7 +226,8 @@ jobs:
             node --test \
               tests/frontend/live2d_audio_ownership.test.cjs \
               tests/frontend/assistant-audio-lifecycle.test.cjs \
-              tests/frontend/voice_recovery_races.cjs
+              tests/frontend/voice_recovery_races.cjs \
+              tests/frontend/voice_preview_races.cjs
             echo "::endgroup::"
           done
 
@@ -266,7 +273,9 @@ jobs:
           uv run --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
             tests/unit/nekoclaw/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
+            tests/unit/nekoclaw/test_dsh_acp.py::test_an_agent_that_exits_fails_what_was_waiting_and_is_reported_once \
             tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
+            tests/unit/nekoclaw/test_dsh_driver.py::test_a_process_that_dies_ends_its_sessions \
             tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
             tests/unit/nekoclaw/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
             tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
@@ -282,6 +291,7 @@ jobs:
             tests/unit/nekoclaw/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
             tests/unit/nekoclaw/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
             tests/unit/nekoclaw/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
+            tests/unit/nekoclaw/test_host_runtimes.py::test_a_commission_that_began_in_a_dsh_that_is_gone_starts_over_in_the_built_in_runtime \
             tests/unit/nekoclaw/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
             tests/unit/nekoclaw/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
             tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
@@ -535,9 +545,15 @@ jobs:
             (
               cd _neko_upstream
               uv run --locked --group dev python -m pytest -q \
+                plugin/plugins/qq_auto_reply/tests/test_qq_outbound_guard.py \
+                plugin/plugins/qq_auto_reply/tests/test_group_send_safety.py \
+                plugin/plugins/qq_auto_reply/tests/test_proactive_budget_integration.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_proactive_initiative.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_auto_reply_forward_client.py \
                 plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
-                plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_buffer_no_append_after_delivery.py \
                 plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
+                plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
                 plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
             )
             PYTHONPATH="$GITHUB_WORKSPACE/_qq_candidate_test" python -m pytest -q -c /dev/null \

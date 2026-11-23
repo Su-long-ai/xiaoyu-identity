@@ -318,6 +318,55 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("disableHardwareAcceleration", script)
         self.assertNotIn("disable-gpu", script)
 
+    def test_oneclick_parallelizes_backend_readiness_without_new_lifecycle_authority(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        for required in (
+            "System.Net.Http.HttpClient",
+            "System.Threading.Tasks.Task]::WhenAll",
+            "$script:XiaoYuReadyHttpClient.GetAsync($MainUrl)",
+            "$script:XiaoYuReadyHttpClient.GetAsync($MemoryHealthUrl)",
+            "$script:XiaoYuReadyHttpClient.GetAsync($AgentHealthUrl)",
+            "N.E.K.O launcher.py already owns backend single-instance semantics",
+        ):
+            self.assertIn(required, script)
+        self.assertNotIn("function Test-Http200", script)
+        self.assertNotIn("Invoke-WebRequest -UseBasicParsing -Uri $Url", script)
+
+    def test_oneclick_consumes_native_launcher_record_and_negotiated_ports(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        starter = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        reconcile = (
+            ROOT / "tools" / "reconcile_neko_plugin_runtime.py"
+        ).read_text(encoding="utf-8-sig")
+
+        for required in (
+            '.runtime\\launcher.json',
+            'record.state',
+            'MAIN_SERVER_PORT',
+            'MEMORY_SERVER_PORT',
+            'TOOL_SERVER_PORT',
+            'USER_PLUGIN_SERVER_PORT',
+            'XiaoYuRuntimeRecordStatus',
+            '--plugin-health-url',
+            '--plugin-url',
+            '--agent-url',
+            '"-StorageRoot"',
+        ):
+            self.assertIn(required, script)
+        self.assertIn('--runtime-record', starter)
+        self.assertIn('launcher.json', starter)
+        self.assertIn('resolve_native_runtime_record', reconcile)
+        self.assertIn('neko_launcher_record', reconcile)
+        self.assertIn('explicit_urls_fallback', reconcile)
+        self.assertNotIn('XiaoYuBackendLaunch', script)
+
+
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
         script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
             encoding="utf-8-sig"
@@ -1377,6 +1426,38 @@ class OverlayContractTests(unittest.TestCase):
             "test_live_inbound_idempotency_faults.py",
         ):
             self.assertIn(required, workflow)
+
+        companion_soak = workflow[
+            workflow.index("Companion Runtime soak round"):
+            workflow.index("Verify pinned native Execution Plane seams")
+        ]
+        for required in (
+            "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+            "test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+            "test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+            "test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+            "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+            "test_the_automatic_restart_stands_down_at_every_resumption_point",
+            "voice_preview_races.cjs",
+        ):
+            self.assertIn(required, companion_soak)
+
+        qq_soak = workflow[
+            workflow.index("QQ Runtime soak round"):
+            workflow.index("Probe plugin-visible delivery-floor native gap")
+        ]
+        for required in (
+            "test_qq_outbound_guard.py",
+            "test_group_send_safety.py",
+            "test_proactive_budget_integration.py",
+            "test_qq_proactive_initiative.py",
+            "test_qq_auto_reply_forward_client.py",
+            "test_qq_buffer_no_append_after_delivery.py",
+            "test_qq_buffer_send_time_floor.py",
+            "test_qq_reply_buffer_switch.py",
+            "test_live_inbound_idempotency_faults.py",
+        ):
+            self.assertIn(required, qq_soak)
 
         reviews = json.loads(
             (ROOT / "governance" / "reuse_reviews.json").read_text(

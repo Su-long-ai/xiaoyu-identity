@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from nekoclaw.host import call_audit
 from nekoclaw.host.ledger import HOST_ENDED_REASON, Ledger
 
 
@@ -289,3 +290,71 @@ async def test_unclaimed_handoff_after_hard_kill_is_safe_to_retry_with_new_ident
         assert await reopened.outbox_delivery_state(item_id) == "sent"
     finally:
         await reopened.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("state", "expected_call_status"),
+    [
+        ("call-running-device", "interrupted"),
+        ("call-running-plugin", "interrupted"),
+        ("call-completed-device", "completed"),
+        ("call-completed-plugin", "completed"),
+    ],
+)
+async def test_hard_kill_host_call_audit_preserves_effect_boundary(
+    tmp_path: Path,
+    state: str,
+    expected_call_status: str,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, state)
+    call_id = str(snapshot["call_id"])
+
+    reopened = Ledger(db)
+    try:
+        commission = await reopened.get(str(snapshot["commission_id"]))
+        assert commission is not None
+        assert commission.status == "failed"
+        assert commission.status_reason == HOST_ENDED_REASON
+
+        trace = await reopened.run(
+            lambda conn: call_audit.read_trace(
+                conn,
+                commission.id,
+                now=reopened._clock(),
+            )
+        )
+        exact = [row for row in trace if row["call_id"] == call_id]
+        assert len(exact) == 1
+        assert exact[0]["kind"] == snapshot["call_kind"]
+        assert exact[0]["status"] == expected_call_status
+        assert all(row["status"] != "running" for row in trace)
+    finally:
+        await reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_completed_effect_call_identity_survives_multiple_restart_epochs(
+    tmp_path: Path,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, "call-completed-plugin")
+    commission_id = str(snapshot["commission_id"])
+    call_id = str(snapshot["call_id"])
+
+    for _epoch in range(2):
+        reopened = Ledger(db)
+        try:
+            commission = await reopened.get(commission_id)
+            assert commission is not None and commission.status == "failed"
+            trace = await reopened.run(
+                lambda conn: call_audit.read_trace(
+                    conn,
+                    commission_id,
+                    now=reopened._clock(),
+                )
+            )
+            exact = [row for row in trace if row["call_id"] == call_id]
+            assert len(exact) == 1
+            assert exact[0]["status"] == "completed"
+        finally:
+            await reopened.close()

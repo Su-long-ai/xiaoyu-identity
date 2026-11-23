@@ -140,6 +140,7 @@ if ($PreflightOnly) {
 Write-Host "== Arm N.E.K.O native plugin runtime reconciliation =="
 $PluginRestore = Join-Path $ToolsRoot "reconcile_neko_plugin_runtime.py"
 $PluginRestoreResult = Join-Path $env:NEKO_RUNTIME_STATE_DIR "xiaoyu_plugin_runtime_reconcile.json"
+$RuntimeRecordPath = Join-Path $env:NEKO_RUNTIME_STATE_DIR "launcher.json"
 if (-not (Test-Path $PluginRestore)) {
     throw "XiaoYu native plugin runtime reconcile helper not found: $PluginRestore"
 }
@@ -147,6 +148,7 @@ $RestoreArgs = @(
     $PluginRestore,
     "--plugin-url", "http://127.0.0.1:48916",
     "--agent-url", "http://127.0.0.1:48915",
+    "--runtime-record", $RuntimeRecordPath,
     "--lanlan-name", "XiaoYu",
     "--wait-seconds", [string]$StartupReadyBudgetSeconds,
     "--result-path", $PluginRestoreResult

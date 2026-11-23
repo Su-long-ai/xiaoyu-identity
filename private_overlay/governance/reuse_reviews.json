@@ -3675,97 +3675,6 @@
       }
     },
     {
-      "id": "candidate:execution_plane/host_restart_answer_handoff.patch",
-      "status": "approved",
-      "reviewed_at": "2026-11-24",
-      "problem": "A report/permission answer accepted after host restart is currently written as a native answered event immediately before TaskAgentManager._take_up_again. If the host dies in that boundary, the durable waiting checkpoint survives but the accepted answer has no startup consumer. Re-asking loses accepted input; replaying arbitrary active work would be unsafe.",
-      "decision": "thin_adapter",
-      "candidates": [
-        {
-          "name": "N.E.K.O current pin Ledger event log + TaskAgentManager transcript-tail resume",
-          "type": "native_current_pin",
-          "outcome": "selected as the durable handoff and continuation authorities",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "N.E.K.O latest upstream main 843a3624",
-          "type": "native_upstream",
-          "outcome": "checked; no accepted-answer restart consumer or equivalent host-restart seam exists",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "N.E.K.O PermissionGate + pending_question + existing call audit/effect patches",
-          "type": "native_extension_planes",
-          "outcome": "selected for stale-id/authorization/effect boundaries; grants remain current-host only",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "Pinned external providers and surfaces",
-          "type": "external_pinned",
-          "outcome": "not applicable to host-internal accepted-answer continuation",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "Temporal/Restate/Durable Task/approval workflow engines",
-          "type": "broader_external",
-          "outcome": "rejected as duplicate orchestrator/ledger/permission authority for a seam already represented by native SQLite events",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "Thin durable answer envelope in existing Ledger events",
-          "type": "thin_adapter",
-          "outcome": "selected as candidate; consume only a still-current task-agent waiting question with the same question id",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        {
-          "name": "Private pending-answer database/recovery journal/daemon",
-          "type": "private_implementation",
-          "outcome": "rejected as duplicate state and runtime authority",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        }
-      ],
-      "why_reuse_insufficient": "Native Ledger events already provide the durable write and TaskAgentManager already provides transcript-tail continuation, but no native code reconnects an accepted answer event to the still-current waiting checkpoint after a host process loss. A thin event-to-native-resume bridge is required; no new persistence or executor is needed.",
-      "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json",
-      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively persists and consumes accepted report/permission answers across host restart with equivalent question-id matching, cancellation terminality, no permission-grant restoration and no blind replay of active/unknown effects.",
-      "promotion_policy": "candidate_only_until_parent_active_commission_restart_blocker_is_closed_and_architecture_admission_allows_it",
-      "search_layers": {
-        "L0_authority": {
-          "status": "checked",
-          "outcome": "N.E.K.O remains sole commission/session/permission/call-audit/outbox authority; the event log is reused rather than a new recovery store.",
-          "evidence": "governance/execution_contract_v1.json"
-        },
-        "L1_neko_current_pin": {
-          "status": "checked",
-          "outcome": "Current pin durably stores events and waiting questions and can resume a closed transcript, but has no restart consumer for an answer committed before _take_up_again.",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        "L2_neko_upstream_extensions": {
-          "status": "checked",
-          "outcome": "Latest upstream 843a3624 was checked and still has no equivalent accepted-answer host-restart seam.",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        "L3_existing_pinned_external": {
-          "status": "not_applicable",
-          "rationale": "Pinned QQ/provider/runtime components do not own the internal task-agent accepted-answer boundary."
-        },
-        "L4_broader_external_ecosystem": {
-          "status": "checked",
-          "outcome": "External durable workflow and approval systems can model the handoff but would duplicate the frozen N.E.K.O ledger/orchestrator/permission authorities.",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        "L5_thin_integration": {
-          "status": "checked",
-          "outcome": "Selected: one durable event envelope plus a current-question-matching native resume consumer; no new table, daemon or queue.",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        },
-        "L6_private_implementation": {
-          "status": "checked",
-          "outcome": "Private pending-answer stores, recovery journals, daemons and second runtimes are rejected.",
-          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
-        }
-      }
-    },
-    {
       "id": "governance:public-repository-secret-scan-v1",
       "status": "approved",
       "reviewed_at": "2026-11-24",
@@ -3902,6 +3811,398 @@
           "status": "checked",
           "outcome": "Rejected new mirror daemons, workflows, history rewriters, and duplicate branch state.",
           "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:startup-ready-parallel-preflight-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The one-click launcher waits for main, memory and agent readiness by probing three endpoints serially, so one iteration can consume roughly the sum of three request timeouts and overshoot the nominal startup deadline. The lifecycle itself is already owned by N.E.K.O; only XiaoYu's short-lived readiness observer is inefficient.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin launcher + native health surfaces",
+          "type": "native_current_pin",
+          "outcome": "selected as lifecycle/readiness authority; keep native single-instance launcher semantics and existing main/memory/agent health endpoints",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream/native seam",
+          "type": "native_upstream",
+          "outcome": "checked; no combined readiness endpoint or launcher-ready bridge replaces the existing three health surfaces in the selected product path",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": ".NET System.Net.Http.HttpClient + Task.WhenAll",
+          "type": "native_os",
+          "outcome": "selected; reuse one short-lived launcher client to probe all existing endpoints concurrently under one timeout budget",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": "wait-on / process supervisor / resident readiness monitor",
+          "type": "external_or_private_runtime",
+          "outcome": "rejected; adds dependency or lifecycle authority for a bounded observation-only problem",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "N.E.K.O already owns every backend process and exposes the required health surfaces. The residual product gap is only that XiaoYu observes those surfaces serially. A thin PowerShell/.NET concurrency change closes the latency/deadline issue without a new runtime, supervisor, lock, HTTP service or process authority.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json",
+      "retirement_condition": "Retire the launcher observer when N.E.K.O exposes one authoritative combined ready endpoint or the desktop host can consume native launcher readiness directly.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O launcher.py and native services remain the sole backend lifecycle authority; XiaoYu only observes readiness.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin provides launcher single-instance semantics and the existing main/memory/agent health surfaces reused by the launcher.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest selected upstream path exposes no combined readiness seam that would eliminate the three existing health checks.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned external components do not own N.E.K.O backend readiness or launcher process lifecycle."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Third-party wait/supervisor tools were considered and rejected because native .NET Task/HttpClient primitives already solve the observer latency without another dependency or authority.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: concurrent read-only probes inside the existing short-lived one-click PowerShell launcher.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No resident monitor, custom process manager, daemon, readiness service, or second backend lock is introduced.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:native-launcher-record-companion-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion startup observers and native plugin reconcile were coupled to default N.E.K.O ports even though the N.E.K.O launcher already publishes one authoritative ready record with final negotiated public/internal ports.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin single-instance launcher record",
+          "type": "native_current_pin",
+          "outcome": "selected; authoritative lifecycle/readiness/endpoint source",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream launcher record",
+          "type": "native_upstream",
+          "outcome": "checked; relevant launcher_core/runtime.py and utils/single_instance.py blobs are unchanged from the current pin",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "HTTP probes of fixed default ports",
+          "type": "existing_thin_adapter",
+          "outcome": "demoted to final health verification and absent-record compatibility fallback; no longer endpoint authority",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "new supervisor/readiness daemon/process discovery",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates N.E.K.O lifecycle authority and cannot improve negotiated-port correctness",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native seam is sufficient; XiaoYu only needs a narrow consumer adapter because its one-click PowerShell and detached plugin reconcile are outside the native launcher process.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json",
+      "retirement_condition": "Retire when the official N.E.K.O Companion host directly consumes native owner-ready/endpoint attachment and XiaoYu no longer needs an external launcher observer.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O single-instance lock and launcher record remain authoritative; XiaoYu owns no backend lifecycle.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin publishes state=ready only after services are ready and preserves negotiated ports/internal_ports in launcher.json.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked; the relevant native launcher-record files have identical blob SHAs to the product pin.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No external component is authoritative for N.E.K.O runtime ports."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "A supervisor/readiness package would duplicate an already authoritative native record and was rejected.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: read-only launcher-record consumer plus bounded HTTP verification.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private daemon, process manager, lock, transport or state authority is added.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_answer_handoff.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A report/permission answer accepted after host restart is currently written as a native answered event immediately before TaskAgentManager._take_up_again. If the host dies in that boundary, the durable waiting checkpoint survives but the accepted answer has no startup consumer. Re-asking loses accepted input; replaying arbitrary active work would be unsafe.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger event log + TaskAgentManager transcript-tail resume",
+          "type": "native_current_pin",
+          "outcome": "selected as the durable handoff and continuation authorities",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main 843a3624",
+          "type": "native_upstream",
+          "outcome": "checked; no accepted-answer restart consumer or equivalent host-restart seam exists",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionGate + pending_question + existing call audit/effect patches",
+          "type": "native_extension_planes",
+          "outcome": "selected for stale-id/authorization/effect boundaries; grants remain current-host only",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Pinned external providers and surfaces",
+          "type": "external_pinned",
+          "outcome": "not applicable to host-internal accepted-answer continuation",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Temporal/Restate/Durable Task/approval workflow engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate orchestrator/ledger/permission authority for a seam already represented by native SQLite events",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Thin durable answer envelope in existing Ledger events",
+          "type": "thin_adapter",
+          "outcome": "selected as candidate; consume only a still-current task-agent waiting question with the same question id",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Private pending-answer database/recovery journal/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate state and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native Ledger events already provide the durable write and TaskAgentManager already provides transcript-tail continuation, but no native code reconnects an accepted answer event to the still-current waiting checkpoint after a host process loss. A thin event-to-native-resume bridge is required; no new persistence or executor is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively persists and consumes accepted report/permission answers across host restart with equivalent question-id matching, cancellation terminality, no permission-grant restoration and no blind replay of active/unknown effects.",
+      "promotion_policy": "candidate_only_until_parent_active_commission_restart_blocker_is_closed_and_architecture_admission_allows_it",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/permission/call-audit/outbox authority; the event log is reused rather than a new recovery store.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin durably stores events and waiting questions and can resume a closed transcript, but has no restart consumer for an answer committed before _take_up_again.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream 843a3624 was checked and still has no equivalent accepted-answer host-restart seam.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned QQ/provider/runtime components do not own the internal task-agent accepted-answer boundary."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow and approval systems can model the handoff but would duplicate the frozen N.E.K.O ledger/orchestrator/permission authorities.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: one durable event envelope plus a current-question-matching native resume consumer; no new table, daemon or queue.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private pending-answer stores, recovery journals, daemons and second runtimes are rejected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:private-overlay-gate-runtime-budget-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A slow GitHub-hosted runner exhausted the existing 10-minute private-overlay job timeout during the clean native Execution baseline, preventing later managed/restart acceptance from running although no gate failed.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "Existing GitHub Actions gate + timeout-minutes",
+          "type": "existing_governance",
+          "outcome": "selected; keep one gate and increase only its native runtime budget",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        {
+          "name": "Existing pytest/uv suites",
+          "type": "native_current_pin",
+          "outcome": "selected unchanged; coverage is not reduced to fit the old cap",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        {
+          "name": "Second CI/watchdog/workflow",
+          "type": "broader_external",
+          "outcome": "rejected; native timeout already solves runner variance",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        {
+          "name": "Private timeout supervisor or test-skipping path",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "All test/admission machinery is already reused; only the observed hosted-runner wall-clock envelope exceeded the old job budget.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json",
+      "retirement_condition": "Reduce the timeout again when the same full gate has a demonstrated smaller reliable envelope.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Existing private-overlay workflow remains the sole admission/release gate.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O tests remain unchanged.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "Hosted-runner timeout is workflow infrastructure."
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "pytest/uv retained unchanged.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Second CI/watchdog rejected.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "One-line native timeout budget change.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private CI supervisor/daemon/test bypass.",
+          "evidence": "evals/evidence/2026-11-24-private-overlay-gate-runtime-budget-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_durable_queue.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Initial queued commissions are durable, but take-up continuations and some provenance-bearing queue notes live in TaskAgentManager memory. Restart recovery must reconstruct them from native authority without flattening _Handed/_Unsaid/_Found trust semantics.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O Ledger + TaskAgentManager queue/session seams",
+          "type": "native_current_pin",
+          "outcome": "selected as sole durability/session substrate",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream 843a3624",
+          "type": "native_upstream",
+          "outcome": "checked; no equivalent durable queued-continuation startup seam",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "N.E.K.O wake requests/told events/transcripts/copy hand-back state",
+          "type": "native_extension_planes",
+          "outcome": "selected for provenance-preserving reconstruction",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "External workflow/reliable queue",
+          "type": "broader_external",
+          "outcome": "rejected as second orchestrator",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "Thin reconstruction into existing native queue",
+          "type": "thin_adapter",
+          "outcome": "candidate only until every provenance-bearing input has durable proof or fail-closed behavior",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "Private queue DB/scheduler/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native queue/session machinery can restart work, but volatile queue memory can carry permission-relevant provenance. Recovery must be reconstructed from native durable sources, not serialized as plain text.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
+      "retirement_condition": "Delete when upstream natively reconstructs queued work with equivalent provenance, cancellation, identity and no-active-effect-replay semantics.",
+      "promotion_policy": "CANDIDATE_ONLY_UNTIL_PROVENANCE_COMPLETE_AND_PARENT_ACTIVE_COMMISSION_BLOCKER_CLOSED",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Native ledger/task-agent/wake/transcript seams selected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream lacks an equivalent restart queue seam.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surfaces/providers do not own task-agent queue state."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External queue/workflow engine rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only provenance-preserving reconstruction into native queue may be implemented.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private queue storage/scheduler/daemon rejected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         }
       }
     }

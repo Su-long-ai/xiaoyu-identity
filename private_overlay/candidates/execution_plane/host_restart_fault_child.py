@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from nekoclaw.host import call_audit
 from nekoclaw.host.ledger import Ledger
 
 
@@ -47,6 +48,10 @@ async def main() -> None:
             "outbox-handoff",
             "outbox-claimed",
             "outbox-sent",
+            "call-running-device",
+            "call-running-plugin",
+            "call-completed-device",
+            "call-completed-plugin",
         ),
         required=True,
     )
@@ -70,11 +75,26 @@ async def main() -> None:
     attempt_id: str | None = None
     claim_id: str | None = None
     outbox_state = args.state.startswith("outbox-")
+    call_state = args.state.startswith("call-")
+    call_id: str | None = None
+    call_kind: str | None = None
 
     if args.state != "queued":
         assert (await ledger.transition(commission.id, "working", reason="fault injector started")).applied
 
-    if outbox_state:
+    if call_state:
+        call_kind = "plugin" if args.state.endswith("-plugin") else "device"
+        record = await call_audit.start_call(
+            ledger,
+            commission.id,
+            call_kind,
+            "plugin:fixture:write" if call_kind == "plugin" else "builtin:fixture:write",
+        )
+        call_id = record.call_id
+        if args.state.startswith("call-completed-"):
+            await call_audit.finish_call(record, "completed")
+            assert record.closed
+    elif outbox_state:
         assert (await ledger.transition(commission.id, "done", reason="result committed before delivery")).applied
         outbox_id = await ledger.outbox_add(
             commission.id,
@@ -141,6 +161,8 @@ async def main() -> None:
         "outbox_id": outbox_id,
         "attempt_id": attempt_id,
         "claim_id": claim_id,
+        "call_id": call_id,
+        "call_kind": call_kind,
     }
     args.marker.parent.mkdir(parents=True, exist_ok=True)
     args.marker.write_text(json.dumps(marker), encoding="utf-8")
