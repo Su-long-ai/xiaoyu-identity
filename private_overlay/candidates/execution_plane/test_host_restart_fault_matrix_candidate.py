@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from nekoclaw.host.ledger import HOST_ENDED_REASON, Ledger
+
+
+def _kill_after_committed_checkpoint(tmp_path: Path, state: str) -> tuple[Path, dict[str, Any]]:
+    db = tmp_path / f"{state}.db"
+    marker = tmp_path / f"{state}.json"
+    child = Path(__file__).with_name("host_restart_fault_child.py")
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            str(child),
+            "--db",
+            str(db),
+            "--marker",
+            str(marker),
+            "--state",
+            state,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 15.0
+        while not marker.exists():
+            if proc.poll() is not None:
+                stdout, stderr = proc.communicate(timeout=2)
+                pytest.fail(
+                    f"fault child exited before checkpoint: state={state} "
+                    f"code={proc.returncode}\nstdout={stdout}\nstderr={stderr}"
+                )
+            if time.monotonic() >= deadline:
+                proc.kill()
+                stdout, stderr = proc.communicate(timeout=5)
+                pytest.fail(
+                    f"fault child did not commit checkpoint: state={state}\n"
+                    f"stdout={stdout}\nstderr={stderr}"
+                )
+            time.sleep(0.05)
+
+        snapshot = json.loads(marker.read_text(encoding="utf-8"))
+        # Hard kill: no Ledger.close(), no host shutdown hooks, no cooperative
+        # cancellation. The next Ledger instance is a genuinely new process epoch.
+        proc.kill()
+        proc.wait(timeout=5)
+        return db, snapshot
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("queued", "failed"),
+        ("working", "failed"),
+        ("blocked", "blocked"),
+        ("done", "done"),
+        ("waiting-report", "waiting_user"),
+        ("waiting-permission", "waiting_user"),
+        ("waiting-permission-plugin", "failed"),
+        ("waiting-tool", "failed"),
+        ("waiting-malformed", "failed"),
+        ("cancelled-from-wait", "cancelled"),
+    ],
+)
+async def test_hard_kill_restart_state_matrix(
+    tmp_path: Path,
+    state: str,
+    expected: str,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, state)
+
+    reopened = Ledger(db)
+    try:
+        commission = await reopened.get(str(snapshot["commission_id"]))
+        assert commission is not None
+        assert commission.id == snapshot["commission_id"]
+        assert commission.route == snapshot["route"]
+        assert commission.status == expected
+
+        if expected == "failed":
+            assert commission.status_reason == HOST_ENDED_REASON
+
+        question_id = snapshot.get("question_id")
+        if expected == "waiting_user":
+            assert commission.question() is not None
+            assert commission.question().get("id") == question_id
+
+        outbox_id = snapshot.get("outbox_id")
+        if outbox_id is not None:
+            if expected == "waiting_user":
+                assert await reopened.outbox_question_state(int(outbox_id)) == "current"
+            else:
+                assert await reopened.outbox_question_state(int(outbox_id)) == "gone"
+    finally:
+        await reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_hard_kill_after_cancel_commit_cannot_revive_old_permission_wait(tmp_path: Path) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, "cancelled-from-wait")
+
+    first_restart = Ledger(db)
+    try:
+        cancelled = await first_restart.get(str(snapshot["commission_id"]))
+        assert cancelled is not None
+        assert cancelled.status == "cancelled"
+        assert cancelled.status_reason == "user cancelled before host death"
+
+        # A late result/recovery transition is rejected by the native terminal
+        # state machine. Recovery may inspect this row, but cannot resurrect it.
+        late = await first_restart.transition(
+            cancelled.id,
+            "working",
+            reason="late recovery attempted to resume",
+        )
+        assert late.applied is False
+        still = await first_restart.get(cancelled.id)
+        assert still is not None and still.status == "cancelled"
+    finally:
+        await first_restart.close()
+
+    # Prove terminality is durable for another process epoch too.
+    second_restart = Ledger(db)
+    try:
+        still = await second_restart.get(str(snapshot["commission_id"]))
+        assert still is not None and still.status == "cancelled"
+    finally:
+        await second_restart.close()
+
+
+@pytest.mark.asyncio
+async def test_hard_kill_unknown_work_never_becomes_retryable_work(tmp_path: Path) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, "working")
+
+    reopened = Ledger(db)
+    try:
+        failed = await reopened.get(str(snapshot["commission_id"]))
+        assert failed is not None
+        assert failed.status == "failed"
+        assert failed.status_reason == HOST_ENDED_REASON
+
+        # Reconciliation itself must not silently put unknown old work back in
+        # queued/working. A deliberate later user action can use N.E.K.O's normal
+        # failed -> working seam, but restart never does it on its own.
+        after = await reopened.get(failed.id)
+        assert after is not None and after.status == "failed"
+    finally:
+        await reopened.close()
