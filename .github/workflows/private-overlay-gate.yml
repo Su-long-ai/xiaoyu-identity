@@ -455,15 +455,19 @@ jobs:
         run: |
           git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
           git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
           python -m py_compile \
             _neko_product/nekoclaw/host/ledger.py \
-            _neko_product/nekoclaw/host/task_agents.py
+            _neko_product/nekoclaw/host/task_agents.py \
+            _neko_product/nekoclaw/host/service.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
             tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py"
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py"
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
