@@ -1396,6 +1396,9 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         self.assertIn("check_architecture_freeze.py", script)
+        self.assertIn("run_companion_performance.ps1", script)
+        self.assertIn("$CompanionPerformance", script)
+        self.assertTrue((ROOT / "release" / "COMPANION_PERFORMANCE_BUDGETS.json").is_file())
 
 
     def test_github_gate_runs_bounded_companion_micro_soak(self):
@@ -1407,6 +1410,9 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("SOAK_ROUNDS=3", workflow)
         self.assertIn(
             "private_overlay.tests.test_companion_performance_budget", workflow
+        )
+        self.assertIn(
+            "private_overlay.tests.test_run_companion_performance_gate", workflow
         )
         self.assertGreaterEqual(
             workflow.count('for round in $(seq 1 "$SOAK_ROUNDS")'),

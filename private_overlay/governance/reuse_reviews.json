@@ -4573,6 +4573,79 @@
           "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:companion-performance-gate-orchestration-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion performance measurement/evaluation exists but release checks lack one generation-safe entrypoint for the current running runtime and N.E.K.O native cold-start benchmark.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O launcher ready record",
+          "type": "native_current_pin",
+          "outcome": "selected as current runtime generation and negotiated-port authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        {
+          "name": "existing companion_runtime_soak + reconcile + check_companion_performance",
+          "type": "existing_thin_adapters",
+          "outcome": "selected and composed unchanged as measurement/recovery/verdict authorities",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        {
+          "name": "N.E.K.O runtime_memory_baseline.py",
+          "type": "native_current_pin",
+          "outcome": "selected as cold-start measurement authority; XiaoYu never launches a duplicate benchmark runtime inside the orchestrator",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        {
+          "name": "new monitoring daemon/process sampler/HTTP client",
+          "type": "private_runtime",
+          "outcome": "rejected as duplicate runtime/measurement authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The selected native/existing sources are separate JSON/read-only seams and had no release command that binds live evidence to the current launcher generation before applying one product verdict. Residual work is composition and explicit product budgets only.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O exposes an equivalent generation-bound live/cold performance verdict directly consumable by XiaoYu release acceptance.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains lifecycle and negotiated-port authority; XiaoYu only composes acceptance.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Ready launcher record plus native runtime_memory_baseline are selected.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream d90f837 retains the same ready-record/native benchmark authorities and no Companion-wide product budget verdict.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing XiaoYu live-soak/reconcile/evaluator seams are reused; QQ/provider transports are unrelated.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No monitoring/benchmark package adds value without duplicating current sampling/lifecycle authority.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected generation-safe profile orchestration plus PowerShell release entrypoint.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second launcher, daemon, transport, sampler, supervisor or cache.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

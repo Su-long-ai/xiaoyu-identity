@@ -130,6 +130,12 @@ def resolve_native_runtime_record(record_path: Path) -> dict[str, Any]:
             raise ValueError("runtime record missing ports")
         if not isinstance(internal_ports, dict):
             raise ValueError("runtime record missing internal_ports")
+        main_port = _valid_runtime_port(
+            ports.get("MAIN_SERVER_PORT"), key="MAIN_SERVER_PORT"
+        )
+        memory_port = _valid_runtime_port(
+            ports.get("MEMORY_SERVER_PORT"), key="MEMORY_SERVER_PORT"
+        )
         agent_port = _valid_runtime_port(
             ports.get("TOOL_SERVER_PORT"), key="TOOL_SERVER_PORT"
         )
@@ -147,9 +153,13 @@ def resolve_native_runtime_record(record_path: Path) -> dict[str, Any]:
 
     return {
         **base,
+        "main_url": f"http://127.0.0.1:{main_port}",
+        "memory_url": f"http://127.0.0.1:{memory_port}",
         "agent_url": f"http://127.0.0.1:{agent_port}",
         "plugin_url": f"http://127.0.0.1:{plugin_port}",
         "ports": {
+            "MAIN_SERVER_PORT": main_port,
+            "MEMORY_SERVER_PORT": memory_port,
             "TOOL_SERVER_PORT": agent_port,
             "USER_PLUGIN_SERVER_PORT": plugin_port,
         },

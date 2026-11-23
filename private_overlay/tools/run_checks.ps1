@@ -1,7 +1,11 @@
 param(
     [string]$NekoRoot = "D:\xiaoyu_external_audit\N.E.K.O",
     [string]$StorageRoot = "D:\xiaoyu_private_overlay_state\neko-sandbox",
-    [switch]$StartupPreflight
+    [switch]$StartupPreflight,
+    [switch]$CompanionPerformance,
+    [ValidateSet("live", "cold_start")]
+    [string]$PerformanceProfile = "live",
+    [string]$NativeBenchmark = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -166,6 +170,16 @@ if (-not $StartupPreflight) {
     Write-Host "== XiaoYu release readiness =="
     python (Join-Path $OverlayRoot "tools\check_release_readiness.py")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    if ($CompanionPerformance) {
+        Write-Host "== XiaoYu Companion performance gate =="
+        & (Join-Path $OverlayRoot "tools\run_companion_performance.ps1") `
+            -Profile $PerformanceProfile `
+            -NekoRoot $NekoRoot `
+            -StorageRoot $StorageRoot `
+            -NativeBenchmark $NativeBenchmark
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
 }
 else {
     Write-Host "PASS: XiaoYu runtime startup safety preflight"

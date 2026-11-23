@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "live": {
+      "measurement_mode": "existing_running_runtime",
+      "rationale": "The one-second p95 ceiling matches the existing product definition of >1s application-loop stalls as user-visible regressions; process churn/count are correctness budgets. Plugin reconcile uses the existing 180s XiaoYu startup readiness ceiling and must belong to the current launcher generation.",
+      "budgets": {
+        "soak.endpoint.main.latency_p95_ms": {
+          "max": 1000
+        },
+        "soak.endpoint.memory.latency_p95_ms": {
+          "max": 1000
+        },
+        "soak.endpoint.agent.latency_p95_ms": {
+          "max": 1000
+        },
+        "soak.endpoint.plugin.latency_p95_ms": {
+          "max": 1000
+        },
+        "soak.desktop.pid_churn_events": {
+          "max": 0
+        },
+        "soak.backend.pid_churn_events": {
+          "max": 0
+        },
+        "soak.desktop.process_count_max": {
+          "min": 1,
+          "max": 1
+        },
+        "soak.backend.process_count_max": {
+          "min": 1,
+          "max": 1
+        },
+        "plugin.reconcile_ms": {
+          "max": 180000
+        }
+      }
+    },
+    "cold_start": {
+      "measurement_mode": "neko_native_runtime_memory_baseline",
+      "rationale": "N.E.K.O's native server-ready contract defaults to 60 seconds; XiaoYu treats crossing that native boundary as a cold-start performance regression even though its outer recovery window is longer.",
+      "budgets": {
+        "startup.backend_ready_ms": {
+          "max": 60000
+        },
+        "startup.main_ready_ms": {
+          "max": 60000
+        },
+        "startup.memory_ready_ms": {
+          "max": 60000
+        },
+        "startup.agent_ready_ms": {
+          "max": 60000
+        }
+      }
+    }
+  }
+}

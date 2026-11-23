@@ -193,7 +193,11 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
                         "state": "ready",
                         "instance_id": "native-generation",
                         "launch_mode": "merged",
-                        "ports": {"TOOL_SERVER_PORT": port},
+                        "ports": {
+                            "MAIN_SERVER_PORT": port,
+                            "MEMORY_SERVER_PORT": port,
+                            "TOOL_SERVER_PORT": port,
+                        },
                         "internal_ports": {"USER_PLUGIN_SERVER_PORT": port},
                     }
                 ),
@@ -212,6 +216,8 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["endpoint_authority"], "neko_launcher_record")
         self.assertEqual(result["runtime_record"]["instance_id"], "native-generation")
+        self.assertEqual(result["runtime_record"]["main_url"], self.base)
+        self.assertEqual(result["runtime_record"]["memory_url"], self.base)
         self.assertEqual(result["agent_url"], self.base)
         self.assertEqual(result["plugin_url"], self.base)
 
