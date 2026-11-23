@@ -79,17 +79,22 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
  def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
      """Whether a session event shows the session took everything sent to it.
  
-@@ -1088,6 +1131,9 @@
+@@ -1088,6 +1131,14 @@
          # What a commission taken up again is told: an addition to a blocked or
          # failed one, or the answer to one whose waiting session was closed.
          self._resume: dict[str, str] = {}
 +        # Restart-only wake ids that must be re-handed by the native wake ledger
 +        # before a recovered queued commission is allowed to start.
 +        self._restart_waiting_wakes: dict[str, set[int]] = {}
++        # Primary wake continuations are rebuilt from native wake authority.
++        # Keep them distinct from later notes until every original wake id is
++        # handed back by the restarted host.
++        self._restart_resume_wakes: dict[str, set[int]] = {}
++        self._restart_resume_parts: dict[str, list[_Handed]] = {}
          # Commissions whose task agent is being started again right now.
          self._taking_up: set[str] = set()
          # Commissions whose closed session an answer is taking up again right
-@@ -3819,14 +3865,21 @@
+@@ -3819,14 +3870,21 @@
      async def _start_next(self) -> None:
          """Give free places to queued commissions, in the order they were queued."""
          while not self._closed and len(self._sessions) < self.limit:
@@ -112,7 +117,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  return
              self._queue.remove(commission_id)
              if self._take_place(commission_id):
-@@ -5566,44 +5619,58 @@
+@@ -5566,44 +5624,60 @@
              break
          else:
              return False
@@ -168,10 +173,12 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          self._carried.pop(commission_id, None)
          self._resume.pop(commission_id, None)
 +        self._restart_waiting_wakes.pop(commission_id, None)
++        self._restart_resume_wakes.pop(commission_id, None)
++        self._restart_resume_parts.pop(commission_id, None)
          self._prepaid_starts.discard(commission_id)
          session = self._sessions.get(commission_id)
          if session is None:
-@@ -5967,11 +6034,25 @@
+@@ -5967,11 +6041,25 @@
      async def _requeue(
          self, commission_id: str, text: str, *, still_wanted: Callable[[], bool] | None = None
      ) -> bool:
@@ -200,7 +207,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,7 +6272,128 @@
+@@ -6191,7 +6279,132 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
@@ -249,6 +256,8 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +            reason=f"restart queue recovery failed closed: {reason}",
 +        )
 +        self._restart_waiting_wakes.pop(commission_id, None)
++        self._restart_resume_wakes.pop(commission_id, None)
++        self._restart_resume_parts.pop(commission_id, None)
 +        self._resume.pop(commission_id, None)
 +        if commission_id in self._queue:
 +            self._queue.remove(commission_id)
@@ -315,7 +324,9 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +                        commission.id, "wake provenance is no longer pending"
 +                    )
 +                    continue
-+                self._restart_waiting_wakes[commission.id] = expected
++                self._restart_waiting_wakes[commission.id] = set(expected)
++                self._restart_resume_wakes[commission.id] = set(expected)
++                self._restart_resume_parts[commission.id] = []
 +            elif resume is not None:
 +                self._resume[commission.id] = resume
 +
@@ -329,19 +340,49 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
-@@ -7212,9 +7414,18 @@
+@@ -7100,7 +7313,16 @@
+         from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
+ 
+         ids = [wake.id for wake in wakes]
+         commission_id = commission.id
++        restart_primary = self._restart_resume_wakes.get(commission_id)
++        if restart_primary:
++            # The old host had already made these the primary continuation.
++            # Fire them separately from later wakes so restart cannot demote
++            # the primary work into a note or reorder it behind newer input.
++            primary = [wake for wake in wakes if wake.id in restart_primary]
++            if primary:
++                wakes = primary
++                ids = [wake.id for wake in primary]
+         if commission.status == "waiting_user":
+             # Not in between its question and the answer, and not so that
+             # it gets to work with its question open. It goes once the
+@@ -7212,8 +7434,31 @@
                  await self._send_text(self._runtime_of(session), session, "steer", _Handed(text, fired))
              elif chosen == "along":
                  # Being started, or waiting for a place: it goes along with
                  # the work it is about to be given.
-                 self._notes.setdefault(commission_id, []).append(_Handed(text, fired))
++                handed = _Handed(text, fired)
++                primary = self._restart_resume_wakes.get(commission_id)
++                if primary is not None and any(wake_id in primary for wake_id in fired):
++                    parts = self._restart_resume_parts.setdefault(commission_id, [])
++                    parts.append(handed)
++                    primary.difference_update(fired)
++                    if not primary:
++                        all_ids = [wake_id for part in parts for wake_id in part.wakes]
++                        combined = str(parts[0]) if len(parts) == 1 else "\n".join(str(part) for part in parts)
++                        self._resume[commission_id] = _Handed(combined, all_ids)
++                        self._restart_resume_wakes.pop(commission_id, None)
++                        self._restart_resume_parts.pop(commission_id, None)
++                else:
++                    self._notes.setdefault(commission_id, []).append(handed)
 +                waiting = self._restart_waiting_wakes.get(commission_id)
 +                if waiting is not None:
 +                    waiting.difference_update(fired)
 +                    if not waiting:
 +                        self._restart_waiting_wakes.pop(commission_id, None)
-+                        # The exact native wake ids have now been handed once;
-+                        # the recovered queue may start with the handed note.
++                        # Every required native wake has now been handed once;
++                        # the recovered queue may start with the restored primary.
 +                        if self._queue and len(self._sessions) < self.limit:
 +                            self._spawn(self._start_next())
              elif not await self._wake_working(commission_id, _Handed(text, fired), reason=_WOKEN_REASON):
