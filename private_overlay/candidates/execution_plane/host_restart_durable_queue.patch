@@ -120,9 +120,34 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  return
              self._queue.remove(commission_id)
              if self._take_place(commission_id):
-@@ -5538,5 +5599,10 @@
+@@ -5526,4 +5587,11 @@
+-    async def _wake_working(self, parent_id: str, message: str, *, reason: str) -> bool:
++    async def _wake_working(
++        self,
++        parent_id: str,
++        message: str,
++        *,
++        reason: str,
++        before: list[str] | None = None,
++    ) -> bool:
+         """Take up again a commission that is ``working`` with no session open in a runtime, ``message`` its next work.
+ 
+         Such a commission waits for something: for task agents it started
+@@ -5538,5 +5606,22 @@
              if parent_id in self._queue or parent_id in self._requeueing or starting:
                  # Already on its way back: this result goes along with it.
++                for note in before or ():
++                    await self._ledger.append_event(
++                        parent_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
++                for note in before or ():
++                    await self._ledger.append_event(
++                        parent_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
 +                await self._ledger.append_event(
 +                    parent_id,
 +                    "restart_queue_note",
@@ -131,7 +156,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  self._notes.setdefault(parent_id, []).append(message)
                  return True
              parent = await self._ledger.get(parent_id)
-@@ -5566,44 +5632,66 @@
+@@ -5566,44 +5651,72 @@
              break
          else:
              return False
@@ -147,6 +172,12 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          self._requeueing.add(parent_id)
          try:
 +            try:
++                for note in before or ():
++                    await self._ledger.append_event(
++                        parent_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
 +                await self._ledger.append_event(
 +                    parent_id,
 +                    "restart_queue_resume",
@@ -198,7 +229,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          self._prepaid_starts.discard(commission_id)
          session = self._sessions.get(commission_id)
          if session is None:
-@@ -5702,13 +5790,13 @@
+@@ -5702,13 +5815,13 @@
          if commission.status == "queued" or (session is not None and not session.ready and not session.closing):
              called_off = self._called_off(commission_id)
              if called_off is not None:
@@ -213,7 +244,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              await self._ledger.append_event(commission_id, "told", {"text": text, "queued": True})
 +            self._notes.setdefault(commission_id, []).append(text)
              return True
-@@ -5843,9 +5931,14 @@
+@@ -5843,9 +5956,14 @@
          if commission_id in self._queue:
              # An earlier sentence took it up again, and it waits for a place
              # by now (this one read the commission before that was
@@ -228,7 +259,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              self._notes.setdefault(commission_id, []).append(text)
              return True
          if commission_id in self._taking_up or commission_id in self._requeueing:
-@@ -5869,5 +5962,10 @@
+@@ -5869,5 +5987,10 @@
              # An earlier sentence is taking it up again or queueing it right
              # now: this one goes along with that rather than starting or
              # queueing a second time, which would then be refused.
@@ -239,7 +270,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +            )
              self._notes.setdefault(commission_id, []).append(text)
              return True
-@@ -5899,7 +5997,11 @@
+@@ -5899,7 +6022,11 @@
          self._requeueing.add(commission_id)
          self._new_round_of(commission_id, same_round=same_round, excerpt=excerpt)
          if from_copy:
@@ -252,7 +283,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +        )
          self._note_under_way(commission_id, still_wanted, queueing)
          return await asyncio.shield(queueing)
-@@ -5967,15 +6069,36 @@
+@@ -5967,15 +6094,36 @@
      async def _requeue(
          self,
          commission_id: str,
@@ -292,7 +323,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,7 +6314,197 @@
+@@ -6191,7 +6339,197 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
@@ -490,7 +521,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
-@@ -7100,7 +7413,23 @@
+@@ -7100,7 +7438,23 @@
          from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
  
          ids = [wake.id for wake in wakes]
@@ -514,7 +545,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          if commission.status == "waiting_user":
              # Not in between its question and the answer, and not so that
              # it gets to work with its question open. It goes once the
-@@ -7212,8 +7541,66 @@
+@@ -7212,8 +7566,66 @@
                  await self._send_text(self._runtime_of(session), session, "steer", _Handed(text, fired))
              elif chosen == "along":
                  # Being started, or waiting for a place: it goes along with
@@ -581,6 +612,19 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  # It rests, or waits for task agents with its session
                  # closed, and could not be taken up this moment. (The
                  # request that was counted for it stays counted, for when
+@@ -8993,6 +9405,11 @@
+         for delay in (*REST_LOOK_RETRY_DELAYS, None):
+             try:
+-                woken = await self._wake_working(commission_id, message, reason="handed back by a copy of its session")
++                woken = await self._wake_working(
++                    commission_id,
++                    message,
++                    reason="handed back by a copy of its session",
++                    before=told,
++                )
+                 break
+             except Exception as exc:  # noqa: BLE001 - asked again; the last failure ends the commission
+                 if delay is None:
 diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
 --- a/nekoclaw/host/service.py
 +++ b/nekoclaw/host/service.py
