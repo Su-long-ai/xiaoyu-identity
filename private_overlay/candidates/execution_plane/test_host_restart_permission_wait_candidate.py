@@ -221,3 +221,107 @@ async def test_next_protected_action_must_ask_current_permission_gate_again(
         )
     finally:
         await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stale_recovered_permission_question_id_is_rejected_without_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host = make_host(tmp_path, None)
+    resumed: list[str] = []
+
+    async def take_up_again(_commission_id: str, text: str, **_kwargs: Any) -> bool:
+        resumed.append(text)
+        return True
+
+    monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
+    try:
+        commission_id, question = await _host_waiting_permission(host)
+        await host.permission_store.set_mode("outside_read", "first_ask")
+
+        assert await host.answer(
+            commission_id,
+            "yes",
+            choice="session",
+            question_id="permission-question-from-an-older-epoch",
+        ) is False
+
+        current = await host.ledger.get(commission_id)
+        assert current is not None and current.status == "waiting_user"
+        assert current.question() == question
+        assert resumed == []
+        assert host.permissions.run_grants(commission_id) == frozenset()
+        assert host.permissions.session_grants(commission_id) == frozenset()
+        assert await host.permission_store.mode("outside_read") == "first_ask"
+    finally:
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_permission_wait_rejects_late_recovery_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host = make_host(tmp_path, None)
+    resumed: list[str] = []
+
+    async def take_up_again(_commission_id: str, text: str, **_kwargs: Any) -> bool:
+        resumed.append(text)
+        return True
+
+    monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
+    try:
+        commission_id, question = await _host_waiting_permission(host)
+        assert (
+            await host.ledger.transition(
+                commission_id,
+                "cancelled",
+                reason="explicit user stop won the restart race",
+            )
+        ).applied
+
+        assert await host.answer(
+            commission_id,
+            "yes",
+            choice="always",
+            question_id=str(question["id"]),
+        ) is False
+
+        current = await host.ledger.get(commission_id)
+        assert current is not None and current.status == "cancelled"
+        assert current.status_reason == "explicit user stop won the restart race"
+        assert resumed == []
+        assert host.permissions.run_grants(commission_id) == frozenset()
+        assert host.permissions.session_grants(commission_id) == frozenset()
+    finally:
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_recovered_permission_without_a_valid_choice_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host = make_host(tmp_path, None)
+    continuations: list[str] = []
+
+    async def take_up_again(_commission_id: str, text: str, **_kwargs: Any) -> bool:
+        continuations.append(text)
+        return True
+
+    monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
+    try:
+        commission_id, question = await _host_waiting_permission(host)
+        await host.permission_store.set_mode("outside_read", "first_ask")
+
+        assert await host.answer(
+            commission_id,
+            "continue",
+            choice=None,
+            question_id=str(question["id"]),
+        )
+        assert len(continuations) == 1
+        assert "user declined that permission" in continuations[0]
+        assert host.permissions.run_grants(commission_id) == frozenset()
+        assert host.permissions.session_grants(commission_id) == frozenset()
+        assert await host.permission_store.mode("outside_read") == "first_ask"
+    finally:
+        await host.shutdown()
