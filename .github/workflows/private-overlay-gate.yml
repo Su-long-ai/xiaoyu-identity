@@ -35,6 +35,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Public repository secret leak gate
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
       - name: Require product main current at agent commit boundary
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/agent/') }}
         run: |
