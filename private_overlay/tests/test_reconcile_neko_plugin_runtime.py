@@ -98,7 +98,27 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(result["not_running"], [])
         self.assertEqual(result["attempts"]["alpha"], ["already_running"])
         self.assertEqual(result["attempts"]["beta"], ["started"])
+        self.assertEqual(result["initial_not_running"], ["beta"])
+        self.assertEqual(result["recovered"], ["beta"])
+        self.assertIsNotNone(result["recovery_elapsed_ms"])
+        self.assertGreaterEqual(result["recovery_elapsed_ms"], 0.0)
+        self.assertGreaterEqual(result["elapsed_ms"], result["recovery_elapsed_ms"])
         self.assertEqual(_FakeHandler.state["starts"], ["beta"])
+
+    def test_healthy_autostart_does_not_claim_a_recovery_latency(self):
+        _FakeHandler.state["plugins"][0]["status"] = "running"
+        _FakeHandler.state["plugins"][1]["status"] = "running"
+
+        result = mod.reconcile_native_autostart(
+            plugin_url=self.base,
+            request_timeout=1,
+        )
+
+        self.assertEqual(result["initial_not_running"], [])
+        self.assertEqual(result["recovered"], [])
+        self.assertIsNone(result["recovery_elapsed_ms"])
+        self.assertGreaterEqual(result["elapsed_ms"], 0.0)
+        self.assertEqual(_FakeHandler.state["starts"], [])
 
     def test_autostart_start_requests_respect_absolute_deadline(self):
         _FakeHandler.state["start_delay"] = 0.40
@@ -158,6 +178,8 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         self.assertEqual(result["plugin_lifecycle_authority"],"neko_native_http_api")
         self.assertEqual(result["dependency_and_process_authority"],"neko_native")
         self.assertEqual(result["native_autostart"]["running"],["alpha","beta"])
+        self.assertGreaterEqual(result["elapsed_ms"], 0.0)
+        self.assertIsNotNone(result["native_autostart"]["recovery_elapsed_ms"])
 
 
     def test_runtime_record_routes_reconcile_to_negotiated_native_ports(self):

@@ -34,6 +34,7 @@ def _put(metrics: dict[str, float], key: str, value: Any, scale: float = 1.0) ->
 def extract_metrics(
     native_benchmark: dict[str, Any] | None,
     live_soak: dict[str, Any] | None,
+    plugin_reconcile: dict[str, Any] | None = None,
 ) -> tuple[dict[str, float], list[str]]:
     metrics: dict[str, float] = {}
     source_errors: list[str] = []
@@ -90,6 +91,21 @@ def extract_metrics(
             _put(metrics, f"soak.{role}.pid_churn_events", summary.get("pid_churn_events"))
             _put(metrics, f"soak.{role}.cpu_percent", summary.get("cpu_percent_approx"))
             _put(metrics, f"soak.{role}.process_count_max", summary.get("count_max"))
+
+    if plugin_reconcile is not None:
+        verdict = str(plugin_reconcile.get("verdict") or "").upper()
+        if verdict != "PASS":
+            source_errors.append(
+                "plugin_reconcile:" + (verdict.lower() if verdict else "missing_verdict")
+            )
+        _put(metrics, "plugin.reconcile_ms", plugin_reconcile.get("elapsed_ms"))
+        native_autostart = plugin_reconcile.get("native_autostart")
+        if isinstance(native_autostart, dict):
+            _put(
+                metrics,
+                "plugin.recovery_ms",
+                native_autostart.get("recovery_elapsed_ms"),
+            )
 
     return metrics, source_errors
 
@@ -156,6 +172,7 @@ def evaluate(
         "measurement_authority": {
             "cold_start_process_tree": "neko_native_runtime_memory_baseline",
             "live_process_soak": "xiaoyu_read_only_companion_runtime_soak",
+            "plugin_recovery": "xiaoyu_existing_native_api_reconcile",
             "adapter": "normalization_and_budget_only",
         },
         "metrics": dict(sorted(metrics.items())),
@@ -177,17 +194,23 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--native-benchmark", type=Path)
     parser.add_argument("--live-soak", type=Path)
+    parser.add_argument("--plugin-reconcile", type=Path)
     parser.add_argument("--budgets", type=Path, required=True)
     parser.add_argument("--result-path", type=Path)
     args = parser.parse_args()
 
-    if args.native_benchmark is None and args.live_soak is None:
+    if (
+        args.native_benchmark is None
+        and args.live_soak is None
+        and args.plugin_reconcile is None
+    ):
         parser.error("at least one measurement source is required")
 
     native = _read_json(args.native_benchmark)
     soak = _read_json(args.live_soak)
+    plugin_reconcile = _read_json(args.plugin_reconcile)
     budget_payload = _read_json(args.budgets) or {}
-    metrics, source_errors = extract_metrics(native, soak)
+    metrics, source_errors = extract_metrics(native, soak, plugin_reconcile)
     result = evaluate(metrics, budget_payload, source_errors=source_errors)
 
     encoded = json.dumps(result, ensure_ascii=False, indent=2)

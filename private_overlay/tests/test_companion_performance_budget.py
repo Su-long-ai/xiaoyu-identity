@@ -32,7 +32,16 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
             },
         }
 
-        metrics, errors = mod.extract_metrics(native, soak)
+        plugin_reconcile = {
+            "verdict": "PASS",
+            "elapsed_ms": 140.0,
+            "native_autostart": {
+                "initial_not_running": ["xiaoyu_private"],
+                "recovered": ["xiaoyu_private"],
+                "recovery_elapsed_ms": 95.0,
+            },
+        }
+        metrics, errors = mod.extract_metrics(native, soak, plugin_reconcile)
 
         self.assertEqual(errors, [])
         self.assertEqual(metrics["startup.backend_ready_ms"], 2500.0)
@@ -46,16 +55,24 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
         self.assertEqual(metrics["soak.desktop.rss_growth_mib"], 12.5)
         self.assertEqual(metrics["soak.backend.pid_churn_events"], 1.0)
         self.assertEqual(metrics["soak.backend.cpu_percent"], 2.25)
+        self.assertEqual(metrics["plugin.reconcile_ms"], 140.0)
+        self.assertEqual(metrics["plugin.recovery_ms"], 95.0)
 
     def test_source_failures_and_missing_requested_metrics_fail_closed(self):
         native = {"ports_ready_elapsed_s": 3.0, "validation_errors": ["residual port 48911"]}
         soak = {"verdict": "FAIL", "failures": ["endpoint:agent:1"], "process_summary": {}}
-        metrics, errors = mod.extract_metrics(native, soak)
+        plugin_reconcile = {
+            "verdict": "PARTIAL",
+            "elapsed_ms": 200.0,
+            "native_autostart": {"recovery_elapsed_ms": None},
+        }
+        metrics, errors = mod.extract_metrics(native, soak, plugin_reconcile)
         result = mod.evaluate(metrics, {"voice.first_audio_ms": {"max": 1000}}, source_errors=errors)
 
         self.assertEqual(result["verdict"], "FAIL")
         self.assertIn({"kind": "source_error", "detail": "native_benchmark:residual port 48911"}, result["failures"])
         self.assertIn({"kind": "source_error", "detail": "live_soak:endpoint:agent:1"}, result["failures"])
+        self.assertIn({"kind": "source_error", "detail": "plugin_reconcile:partial"}, result["failures"])
         self.assertIn({"kind": "missing_metric", "metric": "voice.first_audio_ms"}, result["failures"])
 
     def test_explicit_budget_boundaries_pass_and_regressions_fail(self):
@@ -102,6 +119,26 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
         self.assertNotIn("startup.backend_ready_ms", extracted)
         missing = mod.evaluate(extracted, {"startup.backend_ready_ms": {"max": 1000}})
         self.assertEqual(missing["failures"][0]["kind"], "missing_metric")
+
+    def test_recovery_budget_fails_closed_when_no_recovery_measurement_exists(self):
+        metrics, errors = mod.extract_metrics(
+            None,
+            None,
+            {
+                "verdict": "PASS",
+                "elapsed_ms": 25.0,
+                "native_autostart": {
+                    "initial_not_running": [],
+                    "recovered": [],
+                    "recovery_elapsed_ms": None,
+                },
+            },
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(metrics["plugin.reconcile_ms"], 25.0)
+        result = mod.evaluate(metrics, {"plugin.recovery_ms": {"max": 1000}})
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertEqual(result["failures"][0]["kind"], "missing_metric")
 
     def test_adapter_remains_offline_and_non_authoritative(self):
         tree = ast.parse(MODULE_PATH.read_text(encoding="utf-8-sig"))
