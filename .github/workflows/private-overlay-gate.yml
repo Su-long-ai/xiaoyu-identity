@@ -550,6 +550,21 @@ jobs:
             tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
             tests/unit/nekoclaw/test_host_task_agents.py::test_a_commission_taken_up_before_the_data_root_moved_goes_on_in_the_session_it_had
 
+      - name: Exercise durable queue host-restart candidate
+        shell: bash
+        run: |
+          git -C _neko_product apply --check ../private_overlay/candidates/execution_plane/host_restart_durable_queue.patch
+          git -C _neko_product apply ../private_overlay/candidates/execution_plane/host_restart_durable_queue.patch
+          python -m py_compile \
+            _neko_product/nekoclaw/host/ledger.py \
+            _neko_product/nekoclaw/host/task_agents.py \
+            _neko_product/nekoclaw/host/service.py
+          PYTHONPATH="_neko_product:$PYTHONPATH" pytest -q \
+            private_overlay/candidates/execution_plane/test_host_restart_durable_queue_candidate.py
+          PYTHONPATH="_neko_product:$PYTHONPATH" pytest -q \
+            _neko_product/tests/unit/nekoclaw/test_host_task_agents.py \
+            -k "queued_commission or commissions_handed_over_at_once or blocked_commission_can_be_taken_up_again"
+
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
         with:
