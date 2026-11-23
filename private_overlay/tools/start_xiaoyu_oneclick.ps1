@@ -12,19 +12,40 @@ param(
 $ErrorActionPreference = "Stop"
 $StartScript = Join-Path $PSScriptRoot "start_xiaoyu.ps1"
 
-function Test-Http200([string]$Url) {
-    try {
-        $r = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
-        return ($r.StatusCode -eq 200)
-    } catch {
-        return $false
-    }
-}
+# Readiness observation is intentionally short-lived and read-only. Reuse
+# .NET's native HTTP/task primitives so one polling iteration is bounded by
+# one request timeout instead of serially paying three independent timeouts.
+$script:XiaoYuReadyHttpClient = [System.Net.Http.HttpClient]::new()
+$script:XiaoYuReadyHttpClient.Timeout = [TimeSpan]::FromSeconds(2)
 
 function Test-XiaoYuBackendReady {
-    return (Test-Http200 $MainUrl) -and
-           (Test-Http200 $MemoryHealthUrl) -and
-           (Test-Http200 $AgentHealthUrl)
+    $tasks = @(
+        $script:XiaoYuReadyHttpClient.GetAsync($MainUrl),
+        $script:XiaoYuReadyHttpClient.GetAsync($MemoryHealthUrl),
+        $script:XiaoYuReadyHttpClient.GetAsync($AgentHealthUrl)
+    )
+    $responses = @()
+    try {
+        $all = [System.Threading.Tasks.Task]::WhenAll(
+            [System.Threading.Tasks.Task[]]$tasks
+        )
+        $all.GetAwaiter().GetResult() | Out-Null
+
+        foreach ($task in $tasks) {
+            $response = $task.GetAwaiter().GetResult()
+            $responses += $response
+            if (-not $response.IsSuccessStatusCode) {
+                return $false
+            }
+        }
+        return $true
+    } catch {
+        return $false
+    } finally {
+        foreach ($response in $responses) {
+            try { $response.Dispose() } catch {}
+        }
+    }
 }
 
 function Invoke-XiaoYuSingleFlight {
