@@ -4423,6 +4423,78 @@
           "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:proactive-policy-class-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion latest-state admission is already exercised, but product soak does not repeatedly protect N.E.K.O's distinct policy classes for focused-work breaks, focus-to-leisure anti-slack, game invites, focused-video immersion and ordinary proactive delivery.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O ActivitySnapshot + UserActivityTracker",
+          "type": "native_current_pin",
+          "outcome": "selected; already owns focused_work/leisure/gaming/focused_video state, propensity and reminder pending semantics",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected activity/tracker and proactive policy test blobs are identical to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "existing proactive service + mini-game routing tests",
+          "type": "native_test_runtime",
+          "outcome": "selected; repeat native policy-class and round-ownership witnesses inside the existing Companion soak",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "second activity daemon/proactive scheduler/reminder DB",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates N.E.K.O activity and proactive ownership",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime capability gap exists. The residual product gap is repeated acceptance of native policy distinctions under the same bounded soak that already covers delivery-time latest-state admission.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships an integrated multi-round proactive policy-class soak or materially replaces the ActivitySnapshot/tracker policy seams.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains activity/proactive runtime authority; XiaoYu only adds product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already separates work-break, anti-slack, game-invite, focused-video and ordinary proactive semantics.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream 843a was checked; selected policy/runtime/test blobs are byte-identical to the current pin.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No external component should own N.E.K.O activity/proactive policy."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Another scheduler/activity monitor would duplicate existing native policy and activity authority; existing pytest is sufficient for repeated fault exposure.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration adds existing native test selectors only to the current SOAK_ROUNDS loop.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second activity daemon, proactive scheduler, reminder database or policy engine is introduced.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

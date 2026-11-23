@@ -1478,6 +1478,23 @@ class OverlayContractTests(unittest.TestCase):
             "test_voice_callback_defers_when_microphone_activity_arrived_first",
             "test_user_input_between_claim_and_lock_is_detected",
             "test_user_input_during_agent_delivery_sets_preempted",
+            "test_work_break_pending_armed_at_threshold",
+            "test_work_break_pending_persists_until_cleared",
+            "test_break_acc_extends_through_transitioning_when_already_started",
+            "test_break_acc_resets_on_any_other_state",
+            "test_long_gap_clears_work_break_pending_too",
+            "test_anti_slack_pending_fires_on_focus_to_leisure",
+            "test_anti_slack_skipped_when_focus_too_short",
+            "test_anti_slack_skipped_for_idle_target",
+            "test_anti_slack_respects_cooldown",
+            "test_anti_slack_pending_cleared_on_return_to_focus",
+            "test_focused_video_fires_after_sustained_dwell",
+            "test_focused_video_dwell_resets_on_window_switch",
+            "test_repeat_suppressed_break_reminder_consumes_pending_source",
+            "test_all_break_reminder_branches_consume_repeat_suppression",
+            "test_break_reminder_respects_round_ownership",
+            "test_break_reminder_stops_when_round_retires_during_generation",
+            "test_work_break_theater_prompt_invites_from_the_frozen_public_opening",
         ):
             self.assertIn(required, companion_soak)
 
