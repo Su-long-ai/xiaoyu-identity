@@ -3743,6 +3743,76 @@
           "evidence": "evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:public-main-mirror-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The repository is now public, but GitHub's default branch main is a strict ancestor of the product branch and is 630 commits behind. Public landing pages, default code search, and default pull-request targets therefore expose the obsolete 2026-11-17 product state. Fast-forwarding main is safe because private/neko-overlay-v1 is a pure descendant, but main must run the same machine gate so it cannot become a bypass path.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Git fast-forward of existing main to green product head",
+          "type": "native_tooling",
+          "outcome": "selected; branches already share ancestry and product is 630 commits ahead / 0 behind",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Existing XiaoYu private-overlay machine gate",
+          "type": "existing_governance",
+          "outcome": "selected; add main to its existing push/PR trigger surface rather than creating another workflow",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Separate public mirror workflow",
+          "type": "private_implementation",
+          "outcome": "rejected; duplicates trigger/gate authority and can drift from product checks",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Force rewrite or file-copy synchronization",
+          "type": "private_implementation",
+          "outcome": "rejected; unnecessary because main is a direct ancestor of the product branch",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Git already provides a lossless fast-forward and the existing workflow already provides the full gate. Only branch trigger wiring plus the one-time ref fast-forward are required.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json",
+      "retirement_condition": "Retire the mirror policy if GitHub's default branch is changed to private/neko-overlay-v1 or the product branch is intentionally renamed/promoted to main with equivalent machine gates.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "private/neko-overlay-v1 remains canonical product authority; main is only a public default mirror.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O runtime pin does not own GitHub repository branch/default-view synchronization."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O extension seams are unrelated to repository branch routing."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component is required for a native Git fast-forward."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external branch mirroring service is needed; native Git/GitHub refs already solve the problem.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: add main to the existing workflow trigger lists and fast-forward the ref after green validation.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected new mirror daemons, workflows, history rewriters, and duplicate branch state.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

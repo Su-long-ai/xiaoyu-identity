@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PUBLIC_MAIN_MIRROR_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "The repository is now public, but GitHub's default branch main is a strict ancestor of the product branch and is 630 commits behind. Public landing pages, default code search, and default pull-request targets therefore expose the obsolete 2026-11-17 product state. Fast-forwarding main is safe because private/neko-overlay-v1 is a pure descendant, but main must run the same machine gate so it cannot become a bypass path.",
+  "selected": {
+    "strategy": "Fast-forward main to the same already-green product commit after the trigger change itself passes the product gate.",
+    "workflow": "Reuse .github/workflows/private-overlay-gate.yml and add main to the existing push and pull_request branch lists.",
+    "product_authority": "private/neko-overlay-v1 remains the canonical product-development branch; main is the public default mirror."
+  },
+  "rejected": [
+    "force-push or rewrite main history",
+    "create a separate public mirror workflow",
+    "copy product files into main without shared ancestry",
+    "move development authority away from private/neko-overlay-v1 during active agent work"
+  ],
+  "acceptance": [
+    "main is a fast-forward only; no history rewrite",
+    "main and private/neko-overlay-v1 point to the same green commit at mirror time",
+    "push and pull_request events targeting main execute the same reuse/architecture/secret/product gate",
+    "agent freshness continues to use private/neko-overlay-v1 as product authority",
+    "future product releases may fast-forward main again only after the product head is green"
+  ],
+  "retirement_condition": "Retire the mirror policy if GitHub's default branch is changed to private/neko-overlay-v1 or the product branch is intentionally renamed/promoted to main with equivalent machine gates."
+}
