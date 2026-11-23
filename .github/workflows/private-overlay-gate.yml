@@ -554,17 +554,17 @@ jobs:
       - name: Exercise durable queue host-restart candidate
         shell: bash
         run: |
-          git -C _neko_product apply --check ../private_overlay/candidates/execution_plane/host_restart_durable_queue.patch
-          git -C _neko_product apply ../private_overlay/candidates/execution_plane/host_restart_durable_queue.patch
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_durable_queue.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_durable_queue.patch"
           python -m py_compile \
             _neko_product/nekoclaw/host/ledger.py \
             _neko_product/nekoclaw/host/task_agents.py \
             _neko_product/nekoclaw/host/service.py
-          PYTHONPATH="_neko_product:$PYTHONPATH" pytest -q \
-            private_overlay/candidates/execution_plane/test_host_restart_durable_queue_candidate.py
-          PYTHONPATH="_neko_product:$PYTHONPATH" pytest -q \
-            _neko_product/tests/unit/nekoclaw/test_host_task_agents.py \
-            -k "queued_commission or commissions_handed_over_at_once or blocked_commission_can_be_taken_up_again"
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_durable_queue_candidate.py" \
+            tests/unit/nekoclaw/test_host_task_agents.py \
+            -k "durable_queue_candidate or queued_commission or commissions_handed_over_at_once or blocked_commission_can_be_taken_up_again"
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
