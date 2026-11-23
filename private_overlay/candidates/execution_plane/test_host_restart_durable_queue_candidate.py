@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from nekoclaw.host.ledger import Ledger
+from nekoclaw.host.ledger import Ledger, MessageLimits
 from nekoclaw.host.task_agents import (
     _Found,
     _Handed,
@@ -457,4 +457,120 @@ async def test_handed_wake_uses_native_wake_ids_once_after_restart(tmp_path: Pat
         assert commission_id not in host.task_agents._resume
     finally:
         await host.abort(commission_id, reason="test cleanup")
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_message_wake_uses_session_authority_once_after_restart(tmp_path: Path) -> None:
+    root = tmp_path / "message-wake-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        target, created = await ledger.create(
+            lanlan_name="Lan",
+            title="message target",
+            dispatch_text="target",
+            user_text="target",
+            source="dispatch",
+        )
+        assert created
+        target = await ledger.update(target.id, route="task_agent")
+        assert target is not None
+        target, target_session = await ledger.give_session(
+            target.id, kind="single", name=target.id, duty="message target"
+        )
+        assert (await ledger.transition(target.id, "working", reason="target run")).applied
+
+        source, created = await ledger.create(
+            lanlan_name="Lan",
+            title="message source",
+            dispatch_text="source",
+            user_text="source",
+            source="dispatch",
+        )
+        assert created
+        source = await ledger.update(source.id, route="task_agent")
+        assert source is not None
+        source, source_session = await ledger.give_session(
+            source.id, kind="single", name=source.id, duty="message source"
+        )
+        assert (await ledger.transition(source.id, "working", reason="source run")).applied
+
+        message, refusal, _retry = await ledger.message_add(
+            from_session=source_session.id,
+            from_commission=source.id,
+            to_session=target_session.id,
+            body="message wake after restart",
+            depth=1,
+            notify_when_done=False,
+            notice_after=60.0,
+            limits=MessageLimits(
+                target_interval=0.0,
+                per_hour=100,
+                queue_max=100,
+                dedup_seconds=0.0,
+            ),
+        )
+        assert message is not None
+        assert refusal == ""
+
+        pending = await ledger.wakes_pending(session_id=target_session.id)
+        message_wakes = [wake for wake in pending if wake.reason == "message" and wake.message_id == message.id]
+        assert len(message_wakes) == 1
+        wake = message_wakes[0]
+        # Message handoff is a session-level authority; unlike timers it does
+        # not need to name the commission that happens to own the session.
+        assert wake.commission_id is None
+        fired = await ledger.wakes_fire([wake.id], into=target.id)
+        assert fired == [wake.id]
+        await ledger.append_event(
+            target.id,
+            "restart_queue_resume",
+            {"resume": _queue_text_payload(_Handed("serialized message must not replay", fired))},
+        )
+        assert (
+            await ledger.transition(
+                target.id,
+                "queued",
+                reason="message handoff; waiting for a place",
+            )
+        ).applied
+        target_id = target.id
+        wake_id = wake.id
+    finally:
+        await ledger.close()
+
+    host = _recovery_host(root)
+    try:
+        host.start()
+        await wait_until(
+            lambda: target_id in host.task_agents.queued,
+            what="message-backed queue to be reconstructed",
+        )
+        current = await host.ledger.get(target_id)
+        assert current is not None and current.status == "queued"
+        assert current.session_id == target_session.id
+        assert target_id not in host.task_agents._resume
+        assert host.task_agents._restart_waiting_wakes[target_id] == {wake_id}
+
+        pending = await host.ledger.wakes_pending(session_id=target_session.id)
+        matching = [wake for wake in pending if wake.id == wake_id]
+        assert len(matching) == 1
+        target_row = await host.ledger.get_session(target_session.id)
+        assert target_row is not None
+        await host.task_agents._hand_to(current, target_row, matching)
+
+        await wait_until(
+            lambda: target_id not in host.task_agents._restart_waiting_wakes,
+            what="session-level message wake to be handed exactly once",
+        )
+        handed = [
+            note
+            for note in host.task_agents._notes.get(target_id, [])
+            if isinstance(note, _Handed) and wake_id in note.wakes
+        ]
+        assert len(handed) == 1
+        assert target_id not in host.task_agents._resume
+    finally:
+        await host.abort(target_id)
         await host.shutdown()
