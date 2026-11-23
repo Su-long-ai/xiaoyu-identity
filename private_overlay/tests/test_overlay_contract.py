@@ -1355,6 +1355,38 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+        companion_soak = workflow[
+            workflow.index("Companion Runtime soak round"):
+            workflow.index("Verify pinned native Execution Plane seams")
+        ]
+        for required in (
+            "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+            "test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+            "test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+            "test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+            "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+            "test_the_automatic_restart_stands_down_at_every_resumption_point",
+            "voice_preview_races.cjs",
+        ):
+            self.assertIn(required, companion_soak)
+
+        qq_soak = workflow[
+            workflow.index("QQ Runtime soak round"):
+            workflow.index("Probe plugin-visible delivery-floor native gap")
+        ]
+        for required in (
+            "test_qq_outbound_guard.py",
+            "test_group_send_safety.py",
+            "test_proactive_budget_integration.py",
+            "test_qq_proactive_initiative.py",
+            "test_qq_auto_reply_forward_client.py",
+            "test_qq_buffer_no_append_after_delivery.py",
+            "test_qq_buffer_send_time_floor.py",
+            "test_qq_reply_buffer_switch.py",
+            "test_live_inbound_idempotency_faults.py",
+        ):
+            self.assertIn(required, qq_soak)
+
         reviews = json.loads(
             (ROOT / "governance" / "reuse_reviews.json").read_text(
                 encoding="utf-8-sig"
