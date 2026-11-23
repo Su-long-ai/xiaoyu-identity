@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "decision_id": "HOST_RESTART_FAULT_INJECTION_V1",
+  "recorded_at_local": "2026-11-24T00:42:00+08:00",
+  "branch": "agent/execution-continuity-v2",
+  "product_main_basis": "fd6e5f2086135887b741dc7262bfcbb177eab48f",
+  "authority": "N.E.K.O native Ledger + TaskAgentManager + PermissionGate",
+  "reuse_reviews": [
+    "candidate:execution-plane/host-restart-continuity-gap",
+    "candidate:execution_plane/host_restart_report_wait.patch",
+    "candidate:execution_plane/host_restart_permission_wait.patch"
+  ],
+  "native_reuse_check": {
+    "pinned_neko": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "latest_upstream_checked": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "latest_upstream_result": "NO_EQUIVALENT_HOST_RESTART_WAIT_CONTINUITY",
+    "observed_gap": [
+      "Ledger._reconcile still fails old queued/working/waiting_user commissions",
+      "TaskAgentManager._answer_closed still resumes report questions only"
+    ]
+  },
+  "implementation_mode": "candidate_only_native_seam_deepening",
+  "no_second_authority": true,
+  "hard_kill_harness": {
+    "child": "candidates/execution_plane/host_restart_fault_child.py",
+    "acceptance": "candidates/execution_plane/test_host_restart_fault_matrix_candidate.py",
+    "crash_mechanism": "parent kills child after awaited SQLite checkpoint commit; child deliberately never calls Ledger.close or host shutdown hooks",
+    "matrix": {
+      "queued": "fail_closed",
+      "working": "fail_closed_unknown_work",
+      "blocked": "preserve_native_blocked",
+      "done": "preserve_terminal",
+      "waiting_report": "preserve_durable_checkpoint",
+      "waiting_permission_task_agent": "preserve_durable_checkpoint_without_grant_restore",
+      "waiting_permission_plugin": "fail_closed",
+      "waiting_tool_question": "fail_closed",
+      "waiting_malformed_question": "fail_closed",
+      "cancelled_from_wait": "preserve_terminal_across_multiple_restart_epochs"
+    }
+  },
+  "promotion": "PROHIBITED",
+  "promotion_reason": "Parent active-commission restart blocker remains open and architecture correctness-exception budget is already fully allocated. These tests deepen candidate acceptance without changing managed patch admission.",
+  "next_blockers": [
+    "durable answer-received-before-resume handoff",
+    "queued/working resumed-answer crash window",
+    "effect boundary fault injection after protected action starts",
+    "outbox claim/visible receipt/main epoch reconciliation matrix"
+  ]
+}
