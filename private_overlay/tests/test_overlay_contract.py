@@ -318,6 +318,22 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("disableHardwareAcceleration", script)
         self.assertNotIn("disable-gpu", script)
 
+    def test_oneclick_parallelizes_backend_readiness_without_new_lifecycle_authority(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        for required in (
+            "System.Net.Http.HttpClient",
+            "System.Threading.Tasks.Task]::WhenAll",
+            "$script:XiaoYuReadyHttpClient.GetAsync($MainUrl)",
+            "$script:XiaoYuReadyHttpClient.GetAsync($MemoryHealthUrl)",
+            "$script:XiaoYuReadyHttpClient.GetAsync($AgentHealthUrl)",
+            "N.E.K.O launcher.py already owns backend single-instance semantics",
+        ):
+            self.assertIn(required, script)
+        self.assertNotIn("function Test-Http200", script)
+        self.assertNotIn("Invoke-WebRequest -UseBasicParsing -Uri $Url", script)
+
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
         script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
             encoding="utf-8-sig"
