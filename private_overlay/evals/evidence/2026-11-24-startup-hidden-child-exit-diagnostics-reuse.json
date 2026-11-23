@@ -52,5 +52,17 @@
     "no stdout/stderr persistence, additional process, network request or lifecycle authority is added",
     "PowerShell parse and ordinary agent push gates remain green"
   ],
-  "retirement_condition": "Remove the XiaoYu child-exit observer when the official N.E.K.O desktop/launcher path can surface native startup failure before Companion UI exposure with equivalent actionable diagnostics."
+  "retirement_condition": "Remove the XiaoYu child-exit observer when the official N.E.K.O desktop/launcher path can surface native startup failure before Companion UI exposure with equivalent actionable diagnostics.",
+  "implementation": {
+    "launcher": "private_overlay/tools/start_xiaoyu_oneclick.ps1",
+    "contract_test": "private_overlay/tests/test_overlay_contract.py::OverlayContractTests::test_oneclick_fails_fast_only_on_nonzero_hidden_backend_exit",
+    "behavior": [
+      "retain the existing hidden Start-Process child through -PassThru",
+      "check authoritative backend readiness before classifying child exit",
+      "fail early only when the child has exited non-zero",
+      "preserve exit-0 native single-instance handoff",
+      "surface exit code, launcher-record status/path and the existing -PreflightOnly command",
+      "persist no new stdout/stderr log"
+    ]
+  }
 }

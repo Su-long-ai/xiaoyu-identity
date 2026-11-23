@@ -372,6 +372,37 @@ class OverlayContractTests(unittest.TestCase):
         self.assertEqual(script.count("function Test-XiaoYuBackendReady"), 1)
 
 
+    def test_oneclick_fails_fast_only_on_nonzero_hidden_backend_exit(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        for required in (
+            "$BackendLauncherProcess = Start-Process",
+            "-WindowStyle Hidden -PassThru",
+            "$BackendLauncherProcess.HasExited",
+            "$BackendLauncherProcess.ExitCode",
+            "$candidateExitCode -ne 0",
+            "$BackendLauncherExitCode = $candidateExitCode",
+            "$null -ne $BackendLauncherExitCode",
+            "XiaoYu backend launcher exited before readiness",
+            "-PreflightOnly",
+            "exit 5",
+        ):
+            self.assertIn(required, script)
+
+        loop_ready = script.index(
+            "if (Test-XiaoYuBackendReady) { break }",
+            script.index("$deadline = (Get-Date).AddSeconds(180)"),
+        )
+        child_exit = script.index(
+            "$BackendLauncherProcess.HasExited",
+            loop_ready,
+        )
+        self.assertLess(loop_ready, child_exit)
+        self.assertNotIn("RedirectStandardOutput", script)
+        self.assertNotIn("RedirectStandardError", script)
+
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
         script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
             encoding="utf-8-sig"
