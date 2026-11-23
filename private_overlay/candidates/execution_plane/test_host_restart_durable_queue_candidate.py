@@ -78,8 +78,16 @@ async def _prepared_queue(
             source="dispatch",
         )
         assert created
-        await ledger.update(commission.id, route="task_agent")
+        updated = await ledger.update(commission.id, route="task_agent")
+        assert updated is not None
+        commission = updated
         if resume is not None or invalid_resume:
+            commission, _session = await ledger.give_session(
+                commission.id,
+                kind="single",
+                name=commission.id,
+                duty="durable restart queue",
+            )
             assert (await ledger.transition(commission.id, "working", reason="first run")).applied
             assert (await ledger.transition(commission.id, "blocked", reason="waiting to resume")).applied
             await ledger.append_event(
@@ -178,8 +186,9 @@ async def test_restart_reconstructs_initial_queue_with_same_native_session_ident
 @pytest.mark.asyncio
 async def test_restart_reconstructs_exact_resume_provenance_without_new_identity(tmp_path: Path) -> None:
     root = tmp_path / "resume-root"
-    payload = _queue_text_payload(_Handed("continue after wake", [11, 12]))
-    commission_id = await _prepared_queue(root, resume=payload)
+    unsaid = _Unsaid("continue from copied result", "recipient-session")
+    unsaid.retried = True
+    commission_id = await _prepared_queue(root, resume=_queue_text_payload(unsaid))
     host = _recovery_host(root)
     try:
         host.start()
@@ -191,31 +200,32 @@ async def test_restart_reconstructs_exact_resume_provenance_without_new_identity
         assert current is not None and current.status == "queued"
         assert current.session_id == commission_id
         restored = host.task_agents._resume[commission_id]
-        assert isinstance(restored, _Handed)
-        assert str(restored) == "continue after wake"
-        assert restored.wakes == (11, 12)
+        assert isinstance(restored, _Unsaid)
+        assert str(restored) == "continue from copied result"
+        assert restored.recipient == "recipient-session"
+        assert restored.retried is True
     finally:
         await host.abort(commission_id, reason="test cleanup")
         await host.shutdown()
 
 
 @pytest.mark.asyncio
-async def test_invalid_or_missing_retake_provenance_blocks_instead_of_replaying(tmp_path: Path) -> None:
+async def test_invalid_retake_provenance_fails_closed_without_replaying(tmp_path: Path) -> None:
     root = tmp_path / "bad-root"
     commission_id = await _prepared_queue(root, invalid_resume=True)
     host = _recovery_host(root)
     try:
         host.start()
 
-        async def blocked() -> bool:
+        async def failed_closed() -> bool:
             row = await host.ledger.get(commission_id)
-            return row is not None and row.status == "blocked"
+            return row is not None and row.status == "failed"
 
-        await wait_until(blocked, what="invalid queue provenance to block")
+        await wait_until(failed_closed, what="invalid queue provenance to fail closed")
         current = await host.ledger.get(commission_id)
         assert current is not None
-        assert current.status == "blocked"
-        assert "provenance is not recoverable" in current.status_reason
+        assert current.status == "failed"
+        assert "current queue cycle is missing or invalid" in current.status_reason
         assert commission_id not in host.task_agents.queued
         assert commission_id not in host.task_agents.running
     finally:
@@ -237,4 +247,214 @@ async def test_cancelled_queue_is_never_recovered_or_revived(tmp_path: Path) -> 
         assert commission_id not in host.task_agents.queued
         assert commission_id not in host.task_agents.running
     finally:
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_pre_candidate_requeue_without_durable_resume_fails_closed(tmp_path: Path) -> None:
+    root = tmp_path / "legacy-requeue-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="legacy requeue",
+            dispatch_text="legacy work",
+            user_text="legacy work",
+            source="dispatch",
+        )
+        assert created
+        commission = await ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, _session = await ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="legacy requeue"
+        )
+        assert (await ledger.transition(commission.id, "working", reason="first run")).applied
+        assert (
+            await ledger.transition(
+                commission.id, "queued", reason="taken up again; waiting for a place"
+            )
+        ).applied
+        commission_id = commission.id
+    finally:
+        await ledger.close()
+
+    host = _recovery_host(root)
+    try:
+        host.start()
+
+        async def failed_closed() -> bool:
+            row = await host.ledger.get(commission_id)
+            return row is not None and row.status == "failed"
+
+        await wait_until(failed_closed, what="legacy requeue without continuation to fail closed")
+        current = await host.ledger.get(commission_id)
+        assert current is not None
+        assert "durable continuation for the current queue cycle is missing or invalid" in current.status_reason
+        assert commission_id not in host.task_agents.queued
+    finally:
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_orphan_resume_event_does_not_poison_initial_queue(tmp_path: Path) -> None:
+    root = tmp_path / "orphan-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="initial queue with orphan",
+            dispatch_text="initial",
+            user_text="initial",
+            source="dispatch",
+        )
+        assert created
+        commission = await ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        await ledger.append_event(
+            commission.id,
+            "restart_queue_resume",
+            {"resume": _queue_text_payload(_Found("must not leak into opening"))},
+        )
+        commission_id = commission.id
+    finally:
+        await ledger.close()
+
+    host = _recovery_host(root)
+    try:
+        host.start()
+        await wait_until(
+            lambda: commission_id in host.task_agents.queued,
+            what="initial queue to be reconstructed",
+        )
+        current = await host.ledger.get(commission_id)
+        assert current is not None and current.status == "queued"
+        assert current.session_id == commission_id
+        assert commission_id not in host.task_agents._resume
+    finally:
+        await host.abort(commission_id, reason="test cleanup")
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_wake_working_persists_resume_before_queued_transition(tmp_path: Path) -> None:
+    root = tmp_path / "wake-working-root"
+    host = _recovery_host(root)
+    try:
+        commission, created = await host.ledger.create(
+            lanlan_name="Lan",
+            title="wake working",
+            dispatch_text="initial",
+            user_text="initial",
+            source="dispatch",
+        )
+        assert created
+        commission = await host.ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, _session = await host.ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="wake working"
+        )
+        assert (await host.ledger.transition(commission.id, "working", reason="first run")).applied
+
+        assert await host.task_agents._wake_working(
+            commission.id,
+            _Found("child result"),
+            reason="child completed while session was closed",
+        )
+
+        events = await host.ledger.events(commission.id)
+        resume = next(event for event in events if event.type == "restart_queue_resume")
+        queued = next(
+            event
+            for event in events
+            if event.type == "status" and event.payload.get("to") == "queued"
+        )
+        assert resume.seq < queued.seq
+        assert resume.payload["resume"]["provenance"] == "found"
+        assert resume.payload["resume"]["text"] == "child result"
+    finally:
+        await host.abort(commission.id, reason="test cleanup")
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_handed_wake_uses_native_wake_ids_once_after_restart(tmp_path: Path) -> None:
+    root = tmp_path / "handed-wake-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="wake restart",
+            dispatch_text="initial",
+            user_text="initial",
+            source="dispatch",
+        )
+        assert created
+        commission = await ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, session = await ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="wake restart"
+        )
+        assert (await ledger.transition(commission.id, "working", reason="first run")).applied
+        wake, refusal = await ledger.wake_add(
+            session_id=session.id,
+            commission_id=commission.id,
+            note="native wake after restart",
+            due_at=0.0,
+            pending_max=10,
+            daily_max=10,
+        )
+        assert refusal == "" and wake is not None
+        fired = await ledger.wakes_fire([wake.id], into=commission.id)
+        assert fired == [wake.id]
+        await ledger.append_event(
+            commission.id,
+            "restart_queue_resume",
+            {"resume": _queue_text_payload(_Handed("serialized wake must not replay", fired))},
+        )
+        assert (
+            await ledger.transition(
+                commission.id,
+                "queued",
+                reason="woken; waiting for a place",
+            )
+        ).applied
+        commission_id = commission.id
+        wake_id = wake.id
+    finally:
+        await ledger.close()
+
+    # Opening a new host reconciles fired-but-untaken wake ids back to pending.
+    host = _recovery_host(root)
+    try:
+        host.start()
+        await wait_until(
+            lambda: commission_id in host.task_agents.queued,
+            what="wake-backed queue to be reconstructed",
+        )
+        assert commission_id not in host.task_agents._resume
+
+        pending = await host.ledger.wakes_pending(commission_id=commission_id)
+        if pending:
+            current = await host.ledger.get(commission_id)
+            assert current is not None and current.session_id
+            target = await host.ledger.get_session(current.session_id)
+            assert target is not None
+            await host.task_agents._hand_to(current, target, pending)
+
+        await wait_until(
+            lambda: commission_id not in host.task_agents._restart_waiting_wakes,
+            what="native wake ids to be handed to recovered queue",
+        )
+        handed = [
+            note
+            for note in host.task_agents._notes.get(commission_id, [])
+            if isinstance(note, _Handed) and wake_id in note.wakes
+        ]
+        assert len(handed) == 1
+        assert commission_id not in host.task_agents._resume
+    finally:
+        await host.abort(commission_id, reason="test cleanup")
         await host.shutdown()
