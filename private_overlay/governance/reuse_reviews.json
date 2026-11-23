@@ -3601,6 +3601,78 @@
           "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:public-ci-managed-product-worktree-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "After 0011-0014 were promoted into the live managed series, the public GitHub gate still replayed them individually onto the clean N.E.K.O pin. Because managed patches are an ordered chain and 0012 legitimately overlaps earlier product patches, CI now tests an invalid state and fails before product regression.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing Git worktree + series.json ordered patch chain",
+          "type": "native_tooling",
+          "outcome": "selected; create one persistent managed product worktree while retaining a clean pin baseline",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        {
+          "name": "Existing startup managed-patch chain verifier",
+          "type": "existing_governance",
+          "outcome": "reused as the governing composition model: overlapping managed patches are an ordered chain, not independent overlays",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        {
+          "name": "Replay live patches individually on clean pin",
+          "type": "existing_ci",
+          "outcome": "rejected because it constructs a state that is not the product and fails on legitimate overlap",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        {
+          "name": "External patch/build manager",
+          "type": "external",
+          "outcome": "rejected; native Git worktree/apply already provides exact composition without a second authority",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The required primitives already exist. Only the public workflow still composes them incorrectly after promotion; the fix is a thin CI orchestration change with no runtime implementation.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json",
+      "retirement_condition": "Retire the CI worktree composition when XiaoYu no longer carries a managed N.E.K.O patch series or upstream provides an equivalent native product-build/install artifact.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O plus the ordered XiaoYu series remain the sole code authorities.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "The clean c3fc33ff pin is retained unchanged as native baseline; product state is derived by applying the managed chain once.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Current pin exposes no native XiaoYu product artifact; Git worktree remains the native composition seam.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns N.E.K.O product patch composition in CI."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External patch/build managers add authority and state without benefit over native Git worktree/apply.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: prepare _neko_product once and route managed product regressions to it.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No new runtime, patch database, installer or daemon is introduced.",
+          "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

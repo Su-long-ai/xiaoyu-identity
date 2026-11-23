@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PUBLIC_CI_MANAGED_PRODUCT_WORKTREE_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "After 0011-0014 were promoted into the live managed series, the public GitHub gate still replayed them individually onto the clean N.E.K.O pin. Because managed patches are an ordered chain and 0012 legitimately overlaps earlier product patches, CI now tests an invalid state and fails before product regression.",
+  "selected": {
+    "mode": "reuse existing Git worktree + ordered series",
+    "clean_authority": "_neko_upstream remains the untouched pinned native baseline",
+    "product_authority": "_neko_product is a detached Git worktree from the same pin with every series.json patch applied exactly once in order",
+    "execution": "Companion and managed Execution verification run against _neko_product; clean native baselines remain on _neko_upstream"
+  },
+  "rejected": [
+    "replay already-live 0011-0014 as if they were candidates on the clean pin",
+    "mutate the clean native baseline in place",
+    "duplicate the patch list in workflow YAML",
+    "introduce another package/patch manager",
+    "weaken git apply --check or ignore overlapping patch failures"
+  ],
+  "acceptance": [
+    "series.json is the only ordered managed-patch list",
+    "each managed patch applies exactly once to _neko_product",
+    "_neko_upstream stays clean for native/baseline tests",
+    "managed effect-state, receipt, unknown-effect and idempotency verification use _neko_product without reapplying their patch files",
+    "paired managed regression compares clean _neko_upstream against _neko_product using the same test list",
+    "candidate-only restart patches remain layered only after the managed product state"
+  ],
+  "retirement_condition": "Retire the CI worktree composition when XiaoYu no longer carries a managed N.E.K.O patch series or upstream provides an equivalent native product-build/install artifact."
+}

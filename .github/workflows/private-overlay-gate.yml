@@ -129,15 +129,10 @@ jobs:
           path: _neko_upstream
           fetch-depth: 1
 
-      - name: Exercise patched companion switch/audio ownership regression
+      - name: Prepare managed N.E.K.O product worktree
         run: |
-          python -m pip install -q uv
-          PRODUCT_WORKTREE="$RUNNER_TEMP/xiaoyu-neko-product-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          cleanup_product_worktree() {
-            git -C _neko_upstream worktree remove --force "$PRODUCT_WORKTREE" >/dev/null 2>&1 || true
-          }
-          trap cleanup_product_worktree EXIT
-          git -C _neko_upstream worktree add --detach "$PRODUCT_WORKTREE" HEAD
+          rm -rf _neko_product
+          git -C _neko_upstream worktree add --detach "$GITHUB_WORKSPACE/_neko_product" HEAD
           mapfile -t XIAOYU_PATCHES < <(python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); [print(item["file"]) for item in data["patches"]]' "$GITHUB_WORKSPACE/private_overlay/patches/series.json")
           if [ "${#XIAOYU_PATCHES[@]}" -eq 0 ]; then
             echo "managed patch series is empty" >&2
@@ -146,10 +141,15 @@ jobs:
           for patch in "${XIAOYU_PATCHES[@]}"; do
             PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/patches/$patch"
             test -f "$PATCH_PATH"
-            git -C "$PRODUCT_WORKTREE" apply --check -- "$PATCH_PATH"
-            git -C "$PRODUCT_WORKTREE" apply -- "$PATCH_PATH"
-            git -C "$PRODUCT_WORKTREE" apply --reverse --check -- "$PATCH_PATH"
+            git -C _neko_product apply --check -- "$PATCH_PATH"
+            git -C _neko_product apply -- "$PATCH_PATH"
+            git -C _neko_product apply --reverse --check -- "$PATCH_PATH"
           done
+
+      - name: Exercise patched companion switch/audio ownership regression
+        run: |
+          python -m pip install -q uv
+          PRODUCT_WORKTREE="$GITHUB_WORKSPACE/_neko_product"
           cd "$PRODUCT_WORKTREE"
           PYTHONPATH="$PRODUCT_WORKTREE" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/test_character_switch_queue.py \
@@ -345,44 +345,36 @@ jobs:
           fi
           test -s "$RUNNER_TEMP/execution-native-baseline.xml"
 
-      - name: Exercise managed effect-state patch on fresh native pin
+      - name: Verify managed effect-state patch in product worktree
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0011-execution-outbox-effect-state.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0011-execution-outbox-effect-state.patch"
-          python -m py_compile             _neko_upstream/nekoclaw/host/ledger.py             _neko_upstream/nekoclaw/host/outbox.py
-          python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_upstream
+          python -m py_compile             _neko_product/nekoclaw/host/ledger.py             _neko_product/nekoclaw/host/outbox.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_product
 
-      - name: Exercise managed native delivery receipt patch
+      - name: Verify managed native delivery receipt in product worktree
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0012-native-delivery-receipt.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0012-native-delivery-receipt.patch"
           python -m py_compile \
-            _neko_upstream/main_logic/agent_event_bus.py \
-            _neko_upstream/app/agent_server/api_runtime.py \
-            _neko_upstream/app/agent_server/nekoclaw_mount.py \
-            _neko_upstream/app/main_server/character_runtime.py
-          python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_upstream
+            _neko_product/main_logic/agent_event_bus.py \
+            _neko_product/app/agent_server/api_runtime.py \
+            _neko_product/app/agent_server/nekoclaw_mount.py \
+            _neko_product/app/main_server/character_runtime.py
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_product
 
       - name: Exercise native delivery receipt real-ZMQ E2E
         run: |
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
-          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_upstream
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_product
 
-      - name: Exercise managed plugin-run unknown-effect patch
+      - name: Verify managed plugin-run unknown-effect in product worktree
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0013-plugin-run-unknown-effect.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0013-plugin-run-unknown-effect.patch"
-          python -m py_compile             _neko_upstream/nekoclaw/host/plugin_runs.py             _neko_upstream/nekoclaw/host/task_brain.py             _neko_upstream/nekoclaw/host/gateway.py
-          cd _neko_upstream
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q             tests/unit/nekoclaw/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait             tests/unit/nekoclaw/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted             tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report             tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py"
+          python -m py_compile             _neko_product/nekoclaw/host/plugin_runs.py             _neko_product/nekoclaw/host/task_brain.py             _neko_product/nekoclaw/host/gateway.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q             tests/unit/nekoclaw/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait             tests/unit/nekoclaw/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted             tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report             tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py"
 
-      - name: Exercise managed plugin-run idempotency patch
+      - name: Verify managed plugin-run idempotency in product worktree
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/patches/0014-plugin-run-idempotency.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/patches/0014-plugin-run-idempotency.patch"
-          python -m py_compile _neko_upstream/nekoclaw/host/plugin_runs.py
-          cd _neko_upstream
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+          python -m py_compile _neko_product/nekoclaw/host/plugin_runs.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once \
             tests/unit/nekoclaw/test_host_plugin_runs.py \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
@@ -390,7 +382,7 @@ jobs:
       - name: Regress managed native Execution Plane
         run: |
           python -m pip install -q uv
-          cd _neko_upstream
+          cd _neko_product
           mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"
           set +e
           uv run --locked --group dev python -m pytest -q \
@@ -449,11 +441,11 @@ jobs:
 
       - name: Exercise report-wait host-restart candidate
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
-          python -m py_compile _neko_upstream/nekoclaw/host/ledger.py
-          cd _neko_upstream
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
+          python -m py_compile _neko_product/nekoclaw/host/ledger.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
             tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
             tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
@@ -461,13 +453,13 @@ jobs:
 
       - name: Exercise permission-wait host-restart candidate
         run: |
-          git -C _neko_upstream apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
-          git -C _neko_upstream apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
           python -m py_compile \
-            _neko_upstream/nekoclaw/host/ledger.py \
-            _neko_upstream/nekoclaw/host/task_agents.py
-          cd _neko_upstream
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_upstream" uv run --locked --group dev python -m pytest -q \
+            _neko_product/nekoclaw/host/ledger.py \
+            _neko_product/nekoclaw/host/task_agents.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
             tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py"

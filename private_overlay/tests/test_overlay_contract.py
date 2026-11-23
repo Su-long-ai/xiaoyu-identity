@@ -520,7 +520,7 @@ class OverlayContractTests(unittest.TestCase):
         for item in required:
             self.assertIn(item, workflow)
 
-        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
+        uncertain = workflow.index("Verify managed plugin-run unknown-effect in product worktree")
         regression = workflow.index("Regress managed native Execution Plane")
         report_wait = workflow.index("Exercise report-wait host-restart candidate")
         permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
@@ -557,8 +557,9 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise managed plugin-run unknown-effect patch",
-            "patches/0013-plugin-run-unknown-effect.patch",
+            "Verify managed plugin-run unknown-effect in product worktree",
+            "Prepare managed N.E.K.O product worktree",
+            'PYTHONPATH="$GITHUB_WORKSPACE/_neko_product"',
             "candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py",
             "test_unreadable_status_answers_end_the_wait",
             "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
@@ -568,8 +569,8 @@ class OverlayContractTests(unittest.TestCase):
         for item in required:
             self.assertIn(item, workflow)
 
-        idempotency = workflow.index("Exercise managed plugin-run idempotency patch")
-        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
+        idempotency = workflow.index("Verify managed plugin-run idempotency in product worktree")
+        uncertain = workflow.index("Verify managed plugin-run unknown-effect in product worktree")
         regression = workflow.index("Regress managed native Execution Plane")
         self.assertLess(uncertain, idempotency)
         self.assertLess(idempotency, regression)
@@ -582,8 +583,9 @@ class OverlayContractTests(unittest.TestCase):
         required = (
             "tests/unit/nekoclaw/test_host_plugin_runs.py",
             "plugin/tests/unit/server/test_run_manager_idempotency.py",
-            "Exercise managed plugin-run idempotency patch",
-            "patches/0014-plugin-run-idempotency.patch",
+            "Verify managed plugin-run idempotency in product worktree",
+            "Prepare managed N.E.K.O product worktree",
+            'PYTHONPATH="$GITHUB_WORKSPACE/_neko_product"',
             "candidates/execution_plane/test_plugin_run_idempotency_candidate.py",
             "test_retry_after_lost_response_executes_once",
         )
@@ -591,8 +593,8 @@ class OverlayContractTests(unittest.TestCase):
             self.assertIn(item, workflow)
 
         baseline = workflow.index("Capture clean native Execution Plane regression baseline")
-        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
-        candidate = workflow.index("Exercise managed plugin-run idempotency patch")
+        uncertain = workflow.index("Verify managed plugin-run unknown-effect in product worktree")
+        candidate = workflow.index("Verify managed plugin-run idempotency in product worktree")
         regression = workflow.index("Regress managed native Execution Plane")
         self.assertLess(baseline, uncertain)
         self.assertLess(uncertain, candidate)
@@ -681,7 +683,7 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("test_stopping_a_commission_stops_a_builtin_call_under_way", workflow)
 
         product_e2e = workflow.index("Exercise native Execution Plane product E2E")
-        effect_candidate = workflow.index("Exercise managed effect-state patch on fresh native pin")
+        effect_candidate = workflow.index("Verify managed effect-state patch in product worktree")
         self.assertLess(product_e2e, effect_candidate)
         self.assertNotIn("continue-on-error", workflow[product_e2e:effect_candidate])
 
@@ -809,10 +811,10 @@ class OverlayContractTests(unittest.TestCase):
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
         for required in (
-            "0011-execution-outbox-effect-state.patch",
-            "git -C _neko_upstream apply --check",
-            "verify_execution_effect_state_candidate.py",
-            "Exercise managed effect-state patch on fresh native pin",
+            "Prepare managed N.E.K.O product worktree",
+            "git -C _neko_product apply --check",
+            "verify_execution_effect_state_candidate.py --neko-root _neko_product",
+            "Verify managed effect-state patch in product worktree",
         ):
             self.assertIn(required, workflow)
 
@@ -908,16 +910,19 @@ class OverlayContractTests(unittest.TestCase):
         )
         for item in required:
             self.assertIn(item, workflow)
+        prepare_gate = workflow.index("Prepare managed N.E.K.O product worktree")
         product_gate = workflow.index(
             "Exercise patched companion switch/audio ownership regression"
         )
         clean_candidate_gate = workflow.index("Verify pinned native Execution Plane seams")
+        self.assertLess(prepare_gate, product_gate)
         self.assertLess(product_gate, clean_candidate_gate)
-        self.assertIn("PRODUCT_WORKTREE=", workflow[product_gate:clean_candidate_gate])
+        self.assertIn('PRODUCT_WORKTREE="$GITHUB_WORKSPACE/_neko_product"', workflow[product_gate:clean_candidate_gate])
+        self.assertIn('git -C _neko_product apply -- "$PATCH_PATH"', workflow[prepare_gate:product_gate])
         self.assertNotIn(
             'git -C _neko_upstream apply -- "$PATCH_PATH"',
-            workflow[product_gate:clean_candidate_gate],
-            "managed product patches must stay in the disposable worktree",
+            workflow[prepare_gate:clean_candidate_gate],
+            "managed product patches must stay in the product worktree",
         )
 
     def test_xiaoyu_owned_console_launches_remain_hidden(self):
@@ -1025,10 +1030,12 @@ class OverlayContractTests(unittest.TestCase):
         baseline = workflow.index(
             "Capture clean native Execution Plane regression baseline"
         )
-        candidate = workflow.index("Exercise managed effect-state patch on fresh native pin")
+        candidate = workflow.index("Verify managed effect-state patch in product worktree")
         patched = workflow.index("Regress managed native Execution Plane")
         self.assertLess(baseline, candidate)
         self.assertLess(candidate, patched)
+        self.assertIn("cd _neko_upstream", workflow[baseline:candidate])
+        self.assertIn("cd _neko_product", workflow[patched:workflow.index("Exercise report-wait host-restart candidate")])
         self.assertEqual(
             workflow.count('mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"'),
             2,
@@ -1084,9 +1091,9 @@ class OverlayContractTests(unittest.TestCase):
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
         for required in (
-            "0012-native-delivery-receipt.patch",
-            "verify_native_delivery_receipt_candidate.py",
-            "Exercise managed native delivery receipt patch",
+            "Prepare managed N.E.K.O product worktree",
+            "verify_native_delivery_receipt_candidate.py --neko-root _neko_product",
+            "Verify managed native delivery receipt in product worktree",
         ):
             self.assertIn(required, workflow)
 
