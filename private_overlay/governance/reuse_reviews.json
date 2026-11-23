@@ -4724,7 +4724,7 @@
       "status": "approved",
       "reviewed_at": "2026-11-24",
       "problem": "The current N.E.K.O product pin predates native TTS HTTP pooling/preconnect and substantial realtime/ASR connection-generation hardening now present at d90. XiaoYu must determine whether those native capabilities can replace private lifecycle glue and improve first-audio/reconnect reliability without blindly upgrading across 46 upstream commits or breaking the 14 managed product patches.",
-      "decision": "candidate_probe",
+      "decision": "reuse_native",
       "candidate_only": true,
       "promotion_forbidden": true,
       "candidates": [
@@ -4793,7 +4793,8 @@
           "outcome": "No XiaoYu HTTP pool, realtime transport, voice daemon or copied upstream implementation is permitted.",
           "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
         }
-      }
+      },
+      "machine_gate_note": "candidate_only/promotion_forbidden constrain this native reuse decision to an acceptance probe; the product pin remains c3 until promotion_policy closes."
     }
   ],
   "hierarchy_policy": {
