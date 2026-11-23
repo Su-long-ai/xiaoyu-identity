@@ -1405,6 +1405,9 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("soak_rounds:", workflow)
         self.assertIn('default: "12"', workflow)
         self.assertIn("SOAK_ROUNDS=3", workflow)
+        self.assertIn(
+            "private_overlay.tests.test_companion_performance_budget", workflow
+        )
         self.assertGreaterEqual(
             workflow.count('for round in $(seq 1 "$SOAK_ROUNDS")'),
             2,

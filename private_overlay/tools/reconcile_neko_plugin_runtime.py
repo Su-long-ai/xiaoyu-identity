@@ -220,6 +220,7 @@ def reconcile_native_autostart(
     deadline: float | None = None,
 ) -> dict[str, Any]:
     plugin_url = plugin_url.rstrip("/")
+    phase_started = time.monotonic()
     _json_request(
         f"{plugin_url}/plugins/refresh",
         method="POST",
@@ -252,6 +253,7 @@ def reconcile_native_autostart(
     # declared auto-start; only ask N.E.K.O to start candidates that are not
     # currently running.
     pending = [plugin_id for plugin_id in candidates if plugin_id not in already_running]
+    initial_not_running = list(pending)
     confirmed_running = set(already_running)
     deadline_exhausted = False
     for _ in range(max(1, max_passes)):
@@ -319,10 +321,25 @@ def reconcile_native_autostart(
         for plugin_id in candidates
         if by_id.get(plugin_id, {}).get("status") != "running"
     ]
+    recovered = [
+        plugin_id
+        for plugin_id in initial_not_running
+        if by_id.get(plugin_id, {}).get("status") == "running"
+    ]
+    elapsed_ms = round((time.monotonic() - phase_started) * 1000.0, 3)
+    recovery_elapsed_ms = (
+        elapsed_ms
+        if initial_not_running and final_state_confirmed and not not_running
+        else None
+    )
     return {
         "host_selected_candidates": candidates,
         "running": [plugin_id for plugin_id in candidates if plugin_id not in not_running],
         "not_running": not_running,
+        "initial_not_running": initial_not_running,
+        "recovered": recovered,
+        "elapsed_ms": elapsed_ms,
+        "recovery_elapsed_ms": recovery_elapsed_ms,
         "attempts": attempts,
         "host_registry_refreshed": True,
         "final_state_confirmed": final_state_confirmed,
@@ -394,6 +411,7 @@ def reconcile(
                 "agent_url": active_agent_url,
                 "plugin_url": active_plugin_url,
                 "agent_master_required": False,
+                "elapsed_ms": round((time.monotonic() - started) * 1000.0, 3),
                 "user_plugin_relay": relay,
                 "native_autostart": autostart,
             }
@@ -410,6 +428,7 @@ def reconcile(
         "endpoint_authority": endpoint_authority,
         "runtime_record": runtime_record,
         "agent_master_required": False,
+        "elapsed_ms": round((time.monotonic() - started) * 1000.0, 3),
         "error": last_error or "deadline exceeded",
     }
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +26,15 @@ def _checkpoint(native: dict[str, Any], label: str) -> dict[str, Any] | None:
 
 def _put(metrics: dict[str, float], key: str, value: Any, scale: float = 1.0) -> None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        metrics[key] = round(float(value) * scale, 3)
+        normalized = float(value) * scale
+        if math.isfinite(normalized):
+            metrics[key] = round(normalized, 3)
 
 
 def extract_metrics(
     native_benchmark: dict[str, Any] | None,
     live_soak: dict[str, Any] | None,
+    plugin_reconcile: dict[str, Any] | None = None,
 ) -> tuple[dict[str, float], list[str]]:
     metrics: dict[str, float] = {}
     source_errors: list[str] = []
@@ -79,6 +83,25 @@ def extract_metrics(
             source_errors.extend(
                 f"live_soak:{item}" for item in (live_soak.get("failures") or ["failed"])
             )
+        endpoint_summary = live_soak.get("endpoint_summary") or {}
+        for endpoint in ("main", "memory", "agent", "plugin"):
+            summary = endpoint_summary.get(endpoint) or {}
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_mean_ms",
+                summary.get("latency_ms_mean"),
+            )
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_p95_ms",
+                summary.get("latency_ms_p95"),
+            )
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_max_ms",
+                summary.get("latency_ms_max"),
+            )
+
         process_summary = live_soak.get("process_summary") or {}
         for role in ("desktop", "backend"):
             summary = process_summary.get(role) or {}
@@ -87,6 +110,21 @@ def extract_metrics(
             _put(metrics, f"soak.{role}.pid_churn_events", summary.get("pid_churn_events"))
             _put(metrics, f"soak.{role}.cpu_percent", summary.get("cpu_percent_approx"))
             _put(metrics, f"soak.{role}.process_count_max", summary.get("count_max"))
+
+    if plugin_reconcile is not None:
+        verdict = str(plugin_reconcile.get("verdict") or "").upper()
+        if verdict != "PASS":
+            source_errors.append(
+                "plugin_reconcile:" + (verdict.lower() if verdict else "missing_verdict")
+            )
+        _put(metrics, "plugin.reconcile_ms", plugin_reconcile.get("elapsed_ms"))
+        native_autostart = plugin_reconcile.get("native_autostart")
+        if isinstance(native_autostart, dict):
+            _put(
+                metrics,
+                "plugin.recovery_ms",
+                native_autostart.get("recovery_elapsed_ms"),
+            )
 
     return metrics, source_errors
 
@@ -111,7 +149,10 @@ def evaluate(
                 value = raw_rule[bound]
                 if not isinstance(value, (int, float)) or isinstance(value, bool):
                     raise ValueError(f"budget {key!r}.{bound} must be numeric")
-                rule[bound] = float(value)
+                normalized = float(value)
+                if not math.isfinite(normalized):
+                    raise ValueError(f"budget {key!r}.{bound} must be finite")
+                rule[bound] = normalized
         if not rule:
             raise ValueError(f"budget for {key!r} must declare max and/or min")
         normalized_budgets[key] = rule
@@ -120,6 +161,11 @@ def evaluate(
             failures.append({"kind": "missing_metric", "metric": key})
             continue
         value = metrics[key]
+        if not math.isfinite(value):
+            failures.append(
+                {"kind": "invalid_metric", "metric": key, "value": repr(value)}
+            )
+            continue
         if "max" in rule and value > rule["max"]:
             failures.append(
                 {
@@ -145,6 +191,7 @@ def evaluate(
         "measurement_authority": {
             "cold_start_process_tree": "neko_native_runtime_memory_baseline",
             "live_process_soak": "xiaoyu_read_only_companion_runtime_soak",
+            "plugin_recovery": "xiaoyu_existing_native_api_reconcile",
             "adapter": "normalization_and_budget_only",
         },
         "metrics": dict(sorted(metrics.items())),
@@ -166,17 +213,23 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--native-benchmark", type=Path)
     parser.add_argument("--live-soak", type=Path)
+    parser.add_argument("--plugin-reconcile", type=Path)
     parser.add_argument("--budgets", type=Path, required=True)
     parser.add_argument("--result-path", type=Path)
     args = parser.parse_args()
 
-    if args.native_benchmark is None and args.live_soak is None:
+    if (
+        args.native_benchmark is None
+        and args.live_soak is None
+        and args.plugin_reconcile is None
+    ):
         parser.error("at least one measurement source is required")
 
     native = _read_json(args.native_benchmark)
     soak = _read_json(args.live_soak)
+    plugin_reconcile = _read_json(args.plugin_reconcile)
     budget_payload = _read_json(args.budgets) or {}
-    metrics, source_errors = extract_metrics(native, soak)
+    metrics, source_errors = extract_metrics(native, soak, plugin_reconcile)
     result = evaluate(metrics, budget_payload, source_errors=source_errors)
 
     encoded = json.dumps(result, ensure_ascii=False, indent=2)

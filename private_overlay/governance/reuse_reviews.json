@@ -4228,7 +4228,7 @@
         {
           "name": "existing XiaoYu companion_runtime_soak.py",
           "type": "existing_thin_adapter",
-          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn and process count; it does not own plugin/process lifecycle",
+          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn, process count and already-emitted main/memory/agent/plugin endpoint latency summaries; it does not own plugin/process lifecycle",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         {
@@ -4254,7 +4254,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream benchmark checked; no newer Companion-specific startup/process-tree budget authority replaces the current-pin stack contract.",
+          "outcome": "Latest upstream d90f837 runtime benchmark checked; no newer Companion-wide budget authority replaces the current-pin native stack contract or the existing XiaoYu live-soak endpoint observations.",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         "L3_existing_pinned_external": {
@@ -4268,7 +4268,7 @@
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Selected: normalize existing JSON outputs and enforce explicit fail-closed budgets without launching or sampling processes.",
+          "outcome": "Selected: normalize existing native/live-soak JSON outputs, including endpoint latency summaries, and enforce explicit fail-closed budgets without launching, probing or sampling anything new.",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         "L6_private_implementation": {
@@ -4493,6 +4493,84 @@
           "status": "checked",
           "outcome": "No second activity daemon, proactive scheduler, reminder database or policy engine is introduced.",
           "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:plugin-reconcile-recovery-latency-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion needs plugin recovery latency without inventing a second process supervisor or telemetry daemon. The existing explicit/startup reconcile already recovers host-declared non-running auto-start plugins through N.E.K.O native lifecycle APIs.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin plugin lifecycle/status",
+          "type": "native_current_pin",
+          "outcome": "selected as process/lifecycle authority; it detects crash and owns refresh/list/start",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream d90f837",
+          "type": "native_upstream",
+          "outcome": "checked; still explicitly does not auto-restart crashed plugins and adds no native crash-recovery timing verdict",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        {
+          "name": "existing reconcile_neko_plugin_runtime",
+          "type": "existing_thin_adapter",
+          "outcome": "selected; timestamp its existing native API path without adding requests or lifecycle ownership",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        {
+          "name": "existing check_companion_performance evaluator",
+          "type": "existing_thin_adapter",
+          "outcome": "selected to normalize recovery timing and apply explicit budgets",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        {
+          "name": "watchdog/supervisor/telemetry daemon",
+          "type": "private_runtime",
+          "outcome": "rejected because it duplicates N.E.K.O lifecycle/process ownership",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native lifecycle and the existing reconcile path perform recovery but emit no XiaoYu product-budget timing. The residual work is measurement around already-existing calls plus offline normalization only.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O exposes native crash-recovery timing/product telemetry or a host-owned restart policy and release verdict that can be consumed directly.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process authority; XiaoYu only observes timing around its already-approved explicit/startup reconcile.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin crash detection and explicit refresh/list/start APIs are reused unchanged.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream d90f837 was checked; runtime-model still explicitly says crashed plugins are not automatically restarted and no restart-on-crash policy exists.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned provider/QQ components do not own N.E.K.O plugin process lifecycle or its recovery timing."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Python monotonic timing plus existing unittest/GitHub Actions is sufficient; external monitors/process supervisors would duplicate runtime ownership.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: add timing fields to existing reconcile results and normalize them in the existing performance evaluator; no extra network call or resident component.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No watchdog, daemon, polling loop, process owner, cache or lifecycle DB is introduced.",
+          "evidence": "evals/evidence/2026-11-24-plugin-reconcile-recovery-latency-reuse.json"
         }
       }
     },

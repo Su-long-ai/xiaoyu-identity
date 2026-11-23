@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_RECONCILE_RECOVERY_LATENCY_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion performance acceptance needs plugin recovery latency, but N.E.K.O intentionally owns plugin process lifecycle and does not auto-restart crashed plugins. XiaoYu already has an approved explicit/startup reconcile path that recovers host-declared auto-start plugins only through N.E.K.O refresh/list/start APIs.",
+  "authority": {
+    "plugin_lifecycle": "N.E.K.O native plugin host and lifecycle HTTP APIs",
+    "recovery_trigger": "existing XiaoYu explicit/startup reconcile only",
+    "measurement": "time.monotonic around the already-existing reconcile calls",
+    "forbidden": [
+      "background watchdog",
+      "second process supervisor",
+      "extra polling loop",
+      "new plugin lifecycle database",
+      "direct child-process restart"
+    ]
+  },
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "runtime_model_sha": "26c170bd7db6e29d5a5a540c43fde895810d850a",
+    "lifecycle_service_sha": "6bf7036118f06cbfe0629d9199420c8f3cda68f3",
+    "crash_status_sha": "885798e2cc66539ce5f173e36028dbcfc0530a26",
+    "finding": "native host classifies crashed state and exposes explicit lifecycle operations; runtime documentation explicitly says crashed plugins are not automatically restarted"
+  },
+  "latest_upstream_checked": {
+    "sha": "d90f8371653c5a2a9b01d655c38475414711266a",
+    "runtime_model_sha": "26c170bd7db6e29d5a5a540c43fde895810d850a",
+    "lifecycle_service_sha": "61bd73ca55dd720de695e26beb8387e32a554520",
+    "crash_status_sha": "885798e2cc66539ce5f173e36028dbcfc0530a26",
+    "finding": "latest upstream still documents no automatic crash restart and exposes no restart-on-crash policy marker; do not introduce a second supervisor"
+  },
+  "selected": {
+    "recovery_path": "private_overlay/tools/reconcile_neko_plugin_runtime.py",
+    "budget_adapter": "private_overlay/tools/check_companion_performance.py",
+    "behavior": [
+      "stamp total explicit/startup reconcile elapsed time without adding requests",
+      "record initial host-declared non-running auto-start plugins and which were recovered",
+      "publish recovery elapsed time only when a real non-running set existed, final host state was confirmed, and every candidate recovered",
+      "normalize plugin.reconcile_ms and plugin.recovery_ms into the existing explicit-budget evaluator",
+      "treat non-PASS reconcile results as source errors"
+    ]
+  },
+  "acceptance": [
+    "healthy already-running plugins do not claim a recovery latency",
+    "crashed/stopped host-declared auto-start plugins recovered through the native start API produce a bounded recovery measurement",
+    "no additional HTTP request is introduced for measurement",
+    "no watchdog, daemon, polling loop, process manager or plugin lifecycle authority is added",
+    "ordinary agent push already executes both reconcile and performance contract test modules"
+  ],
+  "retirement_condition": "Retire XiaoYu recovery timing when N.E.K.O exposes native crash-recovery timing/product telemetry or a host-owned restart policy and release verdict that can be consumed directly."
+}
