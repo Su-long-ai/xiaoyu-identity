@@ -365,6 +365,11 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn('neko_launcher_record', reconcile)
         self.assertIn('explicit_urls_fallback', reconcile)
         self.assertNotIn('XiaoYuBackendLaunch', script)
+        self.assertEqual(
+            script.count("function Sync-XiaoYuEndpointsFromNativeRuntimeRecord"),
+            1,
+        )
+        self.assertEqual(script.count("function Test-XiaoYuBackendReady"), 1)
 
 
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
@@ -1439,6 +1444,18 @@ class OverlayContractTests(unittest.TestCase):
             "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
             "test_the_automatic_restart_stands_down_at_every_resumption_point",
             "voice_preview_races.cjs",
+            "test_windows_notification_block_preserves_activity_but_closes_propensity",
+            "test_nonblocking_windows_notification_state_keeps_native_propensity",
+            "test_maybe_deliver_is_leisure_only",
+            "test_maybe_deliver_allows_explicit_leisure_states",
+            "test_maybe_deliver_aborts_when_user_engages_during_phase2_transition",
+            "test_maybe_deliver_pass_when_user_takes_over_before_finish",
+            "test_voice_session_still_gated_by_lock_and_suspend",
+            "test_voice_session_ignores_display_off_and_return_quiet",
+            "test_voice_gate_sees_arbiter_busyness_not_just_the_responding_flag",
+            "test_voice_callback_defers_when_microphone_activity_arrived_first",
+            "test_user_input_between_claim_and_lock_is_detected",
+            "test_user_input_during_agent_delivery_sets_preempted",
         ):
             self.assertIn(required, companion_soak)
 
