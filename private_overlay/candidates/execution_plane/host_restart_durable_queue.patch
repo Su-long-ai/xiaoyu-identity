@@ -96,7 +96,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +        self._restart_note_wakes: dict[str, list[tuple[int, ...]]] = {}
 +        # Pending native wakes are not handed into TaskAgentManager until
 +        # durable queued authority has been reconstructed after restart.
-+        self._restart_queue_recovered = False
++        self._restart_queue_recovered = True
          # Commissions whose task agent is being started again right now.
          self._taking_up: set[str] = set()
          # Commissions whose closed session an answer is taking up again right
@@ -326,7 +326,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,7 +6342,212 @@
+@@ -6191,7 +6342,216 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
@@ -425,6 +425,10 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +        """Reconstruct durable queued authority before native wake hand-over."""
 +        if self._closed:
 +            return
++        # _first_use has no await between wakes.kick() and this call, so this
++        # closes the gate before the wake task can run while leaving direct
++        # TaskAgentManager use compatible before host startup.
++        self._restart_queue_recovered = False
 +
 +        async def recover_then_ready() -> None:
 +            try:
@@ -539,7 +543,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
-@@ -7042,5 +7398,7 @@
+@@ -7042,5 +7402,7 @@
          from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
  
 +        if not self._restart_queue_recovered:
@@ -547,7 +551,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          ids = [wake.id for wake in wakes]
          if self._closed or not ids:
              return Handover("held", WAKE_HELD_RETRY_SECONDS)
-@@ -7100,7 +7458,23 @@
+@@ -7100,7 +7462,23 @@
          from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
  
          ids = [wake.id for wake in wakes]
@@ -571,7 +575,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          if commission.status == "waiting_user":
              # Not in between its question and the answer, and not so that
              # it gets to work with its question open. It goes once the
-@@ -7212,8 +7586,66 @@
+@@ -7212,8 +7590,66 @@
                  await self._send_text(self._runtime_of(session), session, "steer", _Handed(text, fired))
              elif chosen == "along":
                  # Being started, or waiting for a place: it goes along with
@@ -638,7 +642,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  # It rests, or waits for task agents with its session
                  # closed, and could not be taken up this moment. (The
                  # request that was counted for it stays counted, for when
-@@ -8993,6 +9425,11 @@
+@@ -8993,6 +9429,11 @@
          for delay in (*REST_LOOK_RETRY_DELAYS, None):
              try:
 -                woken = await self._wake_working(commission_id, message, reason="handed back by a copy of its session")
