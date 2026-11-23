@@ -67,6 +67,7 @@ async def _prepared_queue(
     invalid_resume: bool = False,
     cancel: bool = False,
 ) -> str:
+    root.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(root / "ledger.db")
     try:
         commission, created = await ledger.create(
