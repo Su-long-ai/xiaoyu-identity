@@ -3673,6 +3673,97 @@
           "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_answer_handoff.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A report/permission answer accepted after host restart is currently written as a native answered event immediately before TaskAgentManager._take_up_again. If the host dies in that boundary, the durable waiting checkpoint survives but the accepted answer has no startup consumer. Re-asking loses accepted input; replaying arbitrary active work would be unsafe.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger event log + TaskAgentManager transcript-tail resume",
+          "type": "native_current_pin",
+          "outcome": "selected as the durable handoff and continuation authorities",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main 843a3624",
+          "type": "native_upstream",
+          "outcome": "checked; no accepted-answer restart consumer or equivalent host-restart seam exists",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionGate + pending_question + existing call audit/effect patches",
+          "type": "native_extension_planes",
+          "outcome": "selected for stale-id/authorization/effect boundaries; grants remain current-host only",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Pinned external providers and surfaces",
+          "type": "external_pinned",
+          "outcome": "not applicable to host-internal accepted-answer continuation",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Temporal/Restate/Durable Task/approval workflow engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate orchestrator/ledger/permission authority for a seam already represented by native SQLite events",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Thin durable answer envelope in existing Ledger events",
+          "type": "thin_adapter",
+          "outcome": "selected as candidate; consume only a still-current task-agent waiting question with the same question id",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Private pending-answer database/recovery journal/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate state and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native Ledger events already provide the durable write and TaskAgentManager already provides transcript-tail continuation, but no native code reconnects an accepted answer event to the still-current waiting checkpoint after a host process loss. A thin event-to-native-resume bridge is required; no new persistence or executor is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively persists and consumes accepted report/permission answers across host restart with equivalent question-id matching, cancellation terminality, no permission-grant restoration and no blind replay of active/unknown effects.",
+      "promotion_policy": "candidate_only_until_parent_active_commission_restart_blocker_is_closed_and_architecture_admission_allows_it",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/permission/call-audit/outbox authority; the event log is reused rather than a new recovery store.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin durably stores events and waiting questions and can resume a closed transcript, but has no restart consumer for an answer committed before _take_up_again.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream 843a3624 was checked and still has no equivalent accepted-answer host-restart seam.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned QQ/provider/runtime components do not own the internal task-agent accepted-answer boundary."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow and approval systems can model the handoff but would duplicate the frozen N.E.K.O ledger/orchestrator/permission authorities.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: one durable event envelope plus a current-question-matching native resume consumer; no new table, daemon or queue.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private pending-answer stores, recovery journals, daemons and second runtimes are rejected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
