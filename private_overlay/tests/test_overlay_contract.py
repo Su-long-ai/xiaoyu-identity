@@ -1073,7 +1073,9 @@ class OverlayContractTests(unittest.TestCase):
             backend_start,
         )
         backend_segment = oneclick[backend_start:backend_ready]
-        self.assertIn(') -WindowStyle Hidden | Out-Null', backend_segment)
+        self.assertIn(") -WindowStyle Hidden -PassThru", backend_segment)
+        self.assertNotIn("WindowStyle Normal", backend_segment)
+        self.assertNotIn("WindowStyle Minimized", backend_segment)
 
         restore_args = startup.index('$RestoreArgs = @(')
         launcher_start = startup.index(
