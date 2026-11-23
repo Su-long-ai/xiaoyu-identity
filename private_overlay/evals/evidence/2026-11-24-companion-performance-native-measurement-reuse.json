@@ -25,13 +25,14 @@
       "electron_attached process-tree RSS/USS/count",
       "synthetic_chat elapsed_s",
       "first_chat_complete_live process-tree checkpoint",
-      "graceful shutdown and residual PID/port validation"
+      "graceful shutdown and residual PID/port validation",
+      "live soak endpoint mean/p95/max latency summaries for main/memory/agent/plugin"
     ]
   },
   "latest_upstream_checked": {
-    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "sha": "d90f8371653c5a2a9b01d655c38475414711266a",
     "runtime_memory_baseline_sha": "31df06272851a87c66a73bfa1c494f1beb8f04f9",
-    "relevant_difference": "Latest file differs mainly around NekoPower browser scenario and a port-release check; no newer Companion-specific startup/process-tree/first-chat measurement authority replaces the current-pin stack contract."
+    "relevant_difference": "Latest runtime_memory_baseline.py remains a native stack/process measurement source rather than a Companion-wide budget verdict; the existing XiaoYu live soak already owns read-only endpoint timing for current running services."
   },
   "selected": {
     "mechanism": "thin offline JSON normalizer and explicit budget evaluator",
@@ -41,7 +42,8 @@
       "never samples psutil itself",
       "extracts only measurements already emitted by native benchmark/live soak",
       "fails closed when a requested budget metric is absent",
-      "propagates native benchmark validation_errors and live-soak FAIL as product failures"
+      "propagates native benchmark validation_errors and live-soak FAIL as product failures",
+      "normalizes existing live-soak main/memory/agent/plugin endpoint mean/p95/max latency without adding probes"
     ],
     "contract_gate": "private_overlay/tests/test_companion_performance_budget.py executed by the existing private-overlay agent push gate",
     "hardening": [
@@ -62,7 +64,8 @@
     "adapter imports no psutil and creates no subprocess/process owner",
     "ordinary agent/** pushes execute the Companion performance evaluator contract tests",
     "the overlay contract machine-checks that the performance budget test remains in the push workflow",
-    "NaN/Infinity cannot bypass an explicit product budget"
+    "NaN/Infinity cannot bypass an explicit product budget",
+    "long-running main/memory/agent/plugin endpoint mean/p95/max latency is normalized from the existing live soak"
   ],
   "retirement_condition": "Retire the thin evaluator when N.E.K.O exposes an equivalent stable product-budget verdict over its native benchmark/telemetry outputs or Companion release gating consumes that native verdict directly."
 }

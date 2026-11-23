@@ -26,6 +26,28 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
         }
         soak = {
             "verdict": "PASS",
+            "endpoint_summary": {
+                "main": {
+                    "latency_ms_mean": 12.5,
+                    "latency_ms_p95": 18.0,
+                    "latency_ms_max": 23.0,
+                },
+                "memory": {
+                    "latency_ms_mean": 8.0,
+                    "latency_ms_p95": 9.5,
+                    "latency_ms_max": 11.0,
+                },
+                "agent": {
+                    "latency_ms_mean": 16.0,
+                    "latency_ms_p95": 22.5,
+                    "latency_ms_max": 31.0,
+                },
+                "plugin": {
+                    "latency_ms_mean": 20.0,
+                    "latency_ms_p95": 27.5,
+                    "latency_ms_max": 35.0,
+                },
+            },
             "process_summary": {
                 "desktop": {"rss_mib_growth": 12.5, "rss_mib_max": 420.0, "pid_churn_events": 0, "cpu_percent_approx": 1.5, "count_max": 1},
                 "backend": {"rss_mib_growth": 8.0, "rss_mib_max": 700.0, "pid_churn_events": 1, "cpu_percent_approx": 2.25, "count_max": 1},
@@ -55,6 +77,10 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
         self.assertEqual(metrics["soak.desktop.rss_growth_mib"], 12.5)
         self.assertEqual(metrics["soak.backend.pid_churn_events"], 1.0)
         self.assertEqual(metrics["soak.backend.cpu_percent"], 2.25)
+        self.assertEqual(metrics["soak.endpoint.main.latency_p95_ms"], 18.0)
+        self.assertEqual(metrics["soak.endpoint.memory.latency_max_ms"], 11.0)
+        self.assertEqual(metrics["soak.endpoint.agent.latency_mean_ms"], 16.0)
+        self.assertEqual(metrics["soak.endpoint.plugin.latency_p95_ms"], 27.5)
         self.assertEqual(metrics["plugin.reconcile_ms"], 140.0)
         self.assertEqual(metrics["plugin.recovery_ms"], 95.0)
 
@@ -96,6 +122,51 @@ class CompanionPerformanceBudgetTests(unittest.TestCase):
         self.assertEqual(
             {item["metric"] for item in failing["failures"]},
             {"startup.backend_ready_ms", "soak.desktop.rss_growth_mib"},
+        )
+
+    def test_live_endpoint_latency_uses_explicit_budgets_and_missing_is_fail_closed(self):
+        metrics, errors = mod.extract_metrics(
+            None,
+            {
+                "verdict": "PASS",
+                "endpoint_summary": {
+                    "main": {
+                        "latency_ms_mean": 10.0,
+                        "latency_ms_p95": 25.0,
+                        "latency_ms_max": 30.0,
+                    }
+                },
+                "process_summary": {},
+            },
+        )
+        self.assertEqual(errors, [])
+
+        passing = mod.evaluate(
+            metrics,
+            {"soak.endpoint.main.latency_p95_ms": {"max": 25.0}},
+        )
+        failing = mod.evaluate(
+            metrics,
+            {
+                "soak.endpoint.main.latency_p95_ms": {"max": 24.9},
+                "soak.endpoint.agent.latency_p95_ms": {"max": 50.0},
+            },
+        )
+
+        self.assertEqual(passing["verdict"], "PASS")
+        self.assertEqual(failing["verdict"], "FAIL")
+        self.assertIn(
+            {
+                "kind": "over_budget",
+                "metric": "soak.endpoint.main.latency_p95_ms",
+                "value": 25.0,
+                "max": 24.9,
+            },
+            failing["failures"],
+        )
+        self.assertIn(
+            {"kind": "missing_metric", "metric": "soak.endpoint.agent.latency_p95_ms"},
+            failing["failures"],
         )
 
     def test_invalid_and_nonfinite_values_cannot_bypass_the_gate(self):

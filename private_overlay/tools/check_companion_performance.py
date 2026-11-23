@@ -83,6 +83,25 @@ def extract_metrics(
             source_errors.extend(
                 f"live_soak:{item}" for item in (live_soak.get("failures") or ["failed"])
             )
+        endpoint_summary = live_soak.get("endpoint_summary") or {}
+        for endpoint in ("main", "memory", "agent", "plugin"):
+            summary = endpoint_summary.get(endpoint) or {}
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_mean_ms",
+                summary.get("latency_ms_mean"),
+            )
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_p95_ms",
+                summary.get("latency_ms_p95"),
+            )
+            _put(
+                metrics,
+                f"soak.endpoint.{endpoint}.latency_max_ms",
+                summary.get("latency_ms_max"),
+            )
+
         process_summary = live_soak.get("process_summary") or {}
         for role in ("desktop", "backend"):
             summary = process_summary.get(role) or {}

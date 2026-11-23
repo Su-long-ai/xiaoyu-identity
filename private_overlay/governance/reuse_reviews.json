@@ -4228,7 +4228,7 @@
         {
           "name": "existing XiaoYu companion_runtime_soak.py",
           "type": "existing_thin_adapter",
-          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn and process count; it does not own plugin/process lifecycle",
+          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn, process count and already-emitted main/memory/agent/plugin endpoint latency summaries; it does not own plugin/process lifecycle",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         {
@@ -4254,7 +4254,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream benchmark checked; no newer Companion-specific startup/process-tree budget authority replaces the current-pin stack contract.",
+          "outcome": "Latest upstream d90f837 runtime benchmark checked; no newer Companion-wide budget authority replaces the current-pin native stack contract or the existing XiaoYu live-soak endpoint observations.",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         "L3_existing_pinned_external": {
@@ -4268,7 +4268,7 @@
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Selected: normalize existing JSON outputs and enforce explicit fail-closed budgets without launching or sampling processes.",
+          "outcome": "Selected: normalize existing native/live-soak JSON outputs, including endpoint latency summaries, and enforce explicit fail-closed budgets without launching, probing or sampling anything new.",
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         },
         "L6_private_implementation": {
