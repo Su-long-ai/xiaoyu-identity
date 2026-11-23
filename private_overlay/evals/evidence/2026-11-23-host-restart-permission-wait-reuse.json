@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_HOST_RESTART_PERMISSION_WAIT_CONTINUITY_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "Host restart while a task-agent commission is waiting for a N.E.K.O PermissionGate answer before a protected runtime/capability action begins.",
+  "parent_gap": "candidate:execution-plane/host-restart-continuity-gap",
+  "depends_on_candidate": "candidate:execution_plane/host_restart_report_wait.patch",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "native_facts": {
+    "effect_boundary": "nekoclaw/runtime/execution.py asks the host with execution_action phase=begin before tool.execute is called. ExecutionAudit.begin waits for PermissionGate and exposes a receipt only after allow=true. Therefore a commission still waiting on the permission question has not begun the protected tool effect.",
+    "grant_lifetime": "PermissionGate session/once/run grants and scoped loans are intentionally in-memory and are invalidated with run/session/host lifetime. Only explicit persistent permission settings live in PermissionStore.",
+    "pending_question": "TaskAgentManager._ask stores PermissionAsk.to_json() as durable commission.pending_question and native outbox delivery before awaiting an in-memory Future.",
+    "lost_continuation": "After host restart the old Future, PermissionAsk.at_answer callback, scoped loan bindings and execution_audit worker are gone. TaskAgentManager._answer_closed currently refuses every non-report question.",
+    "transcript_repair": "nekoclaw/runtime/loop/tool_history.py::repair_tool_history synthesizes an error result 'Tool call interrupted by user' for an assistant tool call whose result is missing. _provider_context applies repair_tool_history before every provider request, so reopening the durable transcript does not replay the interrupted tool call.",
+    "native_resume": "TaskAgentManager._take_up_again already reopens a durable closed session/transcript and records resumed=true. The next actual tool call goes through the normal current PermissionGate and current policy again."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin PermissionGate + ExecutionAudit + TaskAgentManager + transcript repair",
+      "outcome": "selected",
+      "reason": "The native runtime already proves no protected effect started while the permission Future was pending, repairs the incomplete tool history, and can reopen the session."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin",
+      "reason": "No newer upstream host-restart permission continuation seam exists at review time."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O NekoClaw permission store / session / ledger / native outbox",
+      "outcome": "selected_as_authority",
+      "reason": "PermissionStore remains the only persistent permission authority; commission.pending_question/outbox remains the only pending-user-input durability; transcript repair/reopen remains the only runtime continuation."
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external components",
+      "outcome": "not_applicable",
+      "reason": "No pinned provider or surface owns the host-internal PermissionGate Future or runtime transcript."
+    },
+    {
+      "order": 5,
+      "candidate": "Mature durable workflow engines / approval stores",
+      "outcome": "rejected_for_product_authority",
+      "reason": "Temporal/Restate-style workflow or approval persistence would add a second orchestrator/permission state authority. N.E.K.O already has the required durable checkpoint and transcript repair."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin native continuation adapter",
+      "outcome": "candidate_selected",
+      "reason": "Preserve only task_agent permission waiting rows across reconcile and let _answer_closed turn the post-restart answer into a transcript continuation. Never recreate the old grant or execution receipt."
+    },
+    {
+      "order": 7,
+      "candidate": "Private permission/grant/recovery store",
+      "outcome": "rejected",
+      "reason": "Would duplicate PermissionStore/PermissionGate and violate the single permission authority freeze."
+    }
+  ],
+  "candidate_contract": {
+    "preserve_only": "route=task_agent AND status=waiting_user AND pending_question.kind=permission",
+    "do_not_preserve": [
+      "direct plugin permission questions with no task-agent transcript continuation",
+      "generic tool questions not proven safe by this unit",
+      "malformed or empty pending_question",
+      "queued or working commissions",
+      "any action for which an execution receipt was already issued"
+    ],
+    "answer_semantics": "After restart, accept the answer only for the matching durable question_id. Append a resumed answer event and feed a host-authored continuation into the existing transcript-tail resume path.",
+    "grant_semantics": "The continuation MUST explicitly state that the earlier permission check was interrupted before the protected tool executed and that no once/session/always grant was restored. If the action is still needed the model must issue the tool again, which invokes the current PermissionGate/current settings again.",
+    "choice_semantics": "The user's choice may be included as context, but recovery code must not call PermissionStore.set_mode, create a scoped loan, recreate an execution receipt, or otherwise treat that choice as an authorization token.",
+    "tool_history_semantics": "Provider context relies on native repair_tool_history to pair the old unanswered tool call with a synthetic interruption result; the old tool call itself is never replayed.",
+    "no_startup_effect": "Opening the new host/ledger must not start a runtime/model turn or execute a tool; continuation starts only after an explicit matching user answer."
+  },
+  "machine_acceptance": [
+    "Pinned repair_tool_history still synthesizes 'Tool call interrupted by user' for a missing tool result.",
+    "A prior-host task_agent permission wait remains waiting_user after reconcile; a direct-plugin permission wait still fails closed.",
+    "Opening the new host starts no runtime/model/tool work.",
+    "A matching permission answer resumes the existing transcript with resumed=true but creates no PermissionGate session/run grant and changes no PermissionStore setting.",
+    "The provider sees the old tool call paired with the synthetic interruption result before the continuation message.",
+    "If the resumed model reissues the protected tool, the current PermissionGate asks again; exactly one real protected effect occurs only after that new approval.",
+    "A deny answer can be continued without any protected effect.",
+    "Existing report-wait restart, permission, execution-audit, tool-history and restart-failure regressions remain green."
+  ],
+  "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+  "retirement_condition": "Delete this candidate when upstream N.E.K.O natively survives host restart during task-agent permission prompts without restoring stale once/session grants, replays no old tool call, rechecks current permission on any retried action, and has equivalent direct-plugin fail-closed plus transcript-repair coverage.",
+  "conclusion": "THIN_NATIVE_CONTINUATION_CANDIDATE. Recover task continuity, not authorization state."
+}

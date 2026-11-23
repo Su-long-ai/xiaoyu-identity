@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PLUGIN_RECONCILE_DEADLINE_PRECISION_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "The existing thin native plugin-runtime reconcile adapter caps HTTP request timeout by an absolute monotonic deadline, but its 1ms floor can exceed a sub-millisecond remaining budget. A Windows test also compared a computed float to the nominal 50ms literal and can fail from large-monotonic floating-point representation.",
+  "selected": {
+    "implementation": "Keep the existing N.E.K.O native HTTP lifecycle authority and existing reconcile adapter. For deadline-bound calls, return min(preferred, actual positive remaining) with no minimum floor; make the unit test deterministic by patching monotonic time and add a sub-millisecond regression.",
+    "authority": "N.E.K.O native plugin HTTP APIs",
+    "time_source": "Python time.monotonic"
+  },
+  "considered": [
+    {
+      "candidate": "Existing reconcile_neko_plugin_runtime thin adapter",
+      "outcome": "selected; this is the already-reviewed explicit/startup recovery seam"
+    },
+    {
+      "candidate": "N.E.K.O native lifecycle APIs",
+      "outcome": "retained as sole refresh/list/start/process authority"
+    },
+    {
+      "candidate": "asyncio timeout/external retry library",
+      "outcome": "rejected; would not improve this synchronous urllib absolute-budget arithmetic"
+    },
+    {
+      "candidate": "Relax the flaky assertion with epsilon",
+      "outcome": "rejected because it would leave the real sub-millisecond deadline overrun possible"
+    },
+    {
+      "candidate": "New watchdog/retry daemon",
+      "outcome": "rejected as duplicate runtime authority"
+    }
+  ],
+  "acceptance": [
+    "_bounded_timeout never returns a value greater than actual positive remaining budget",
+    "sub-millisecond remaining budget is not inflated to 1ms",
+    "no-deadline preferred timeout retains the existing >=1ms normalization",
+    "deadline-exhausted behavior still raises TimeoutError",
+    "existing native reconcile tests remain green"
+  ],
+  "retirement_condition": "Retire this XiaoYu helper only when N.E.K.O exposes an equivalent native bounded reconcile operation that removes the thin adapter entirely."
+}

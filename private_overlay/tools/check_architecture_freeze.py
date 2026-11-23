@@ -55,8 +55,156 @@ def main() -> int:
         raise SystemExit("private core patches must remain reuse-reviewed")
     if patch_policy.get("retire_when_native_extension_exists") is not True:
         raise SystemExit("native extension points must retire equivalent private patches")
-    if int(patch_policy.get("max_managed_patch_budget", 999)) > 10:
-        raise SystemExit("managed patch budget may not exceed 10")
+    base_patch_budget = int(patch_policy.get("base_managed_patch_budget", 999))
+    correctness_exception_budget = int(
+        patch_policy.get("correctness_exception_budget", 999)
+    )
+    max_patch_budget = int(patch_policy.get("max_managed_patch_budget", 999))
+    if base_patch_budget < 1 or base_patch_budget > 10:
+        raise SystemExit("base managed patch budget must remain in 1..10")
+    if correctness_exception_budget < 0 or correctness_exception_budget > 4:
+        raise SystemExit("correctness exception patch budget must remain in 0..4")
+    if max_patch_budget != base_patch_budget + correctness_exception_budget:
+        raise SystemExit(
+            "max managed patch budget must equal base budget plus correctness exceptions"
+        )
+
+    exception_policy_rel = str(
+        patch_policy.get("correctness_exception_policy") or ""
+    ).strip()
+    exception_policy_path = ROOT / exception_policy_rel
+    if not exception_policy_rel or not exception_policy_path.is_file():
+        raise SystemExit(
+            f"correctness exception policy missing: {exception_policy_rel}"
+        )
+    exception_policy = json.loads(
+        exception_policy_path.read_text(encoding="utf-8-sig")
+    )
+    if (
+        exception_policy.get("policy_id")
+        != "XIAOYU_CORE_PATCH_CORRECTNESS_EXCEPTIONS_V1"
+    ):
+        raise SystemExit("correctness exception policy id changed or missing")
+    if int(exception_policy.get("base_managed_patch_budget", -1)) != base_patch_budget:
+        raise SystemExit("correctness exception policy base budget drifted")
+    if (
+        int(exception_policy.get("correctness_exception_budget", -1))
+        != correctness_exception_budget
+    ):
+        raise SystemExit("correctness exception policy exception budget drifted")
+    if int(exception_policy.get("max_managed_patch_budget", -1)) != max_patch_budget:
+        raise SystemExit("correctness exception policy max budget drifted")
+
+    series = json.loads(
+        (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+    )
+    managed_patch_files = [
+        str(item.get("file") or "") for item in series.get("patches", [])
+    ]
+    if len(managed_patch_files) > max_patch_budget:
+        raise SystemExit("managed patch queue exceeds total architecture budget")
+
+    exceptions = exception_policy.get("exceptions")
+    if not isinstance(exceptions, list):
+        raise SystemExit("correctness exception policy exceptions must be a list")
+    exception_files = [str(item.get("file") or "") for item in exceptions]
+    if len(exception_files) != len(set(exception_files)):
+        raise SystemExit("duplicate correctness exception patch entry")
+    if len(exception_files) > correctness_exception_budget:
+        raise SystemExit("correctness exception patch queue exceeds exception budget")
+    if any(name not in managed_patch_files for name in exception_files):
+        raise SystemExit("correctness exception patch is not in the managed series")
+    if len(managed_patch_files) - len(exception_files) > base_patch_budget:
+        raise SystemExit("non-exception managed patch queue exceeds base budget")
+
+    reviews = json.loads(
+        (ROOT / "governance" / "reuse_reviews.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    review_ids = {
+        str(item.get("id") or "")
+        for item in reviews.get("reviews", [])
+        if item.get("status") == "approved"
+    }
+    for item in exceptions:
+        filename = str(item.get("file") or "")
+        review_id = str(item.get("reuse_review_id") or "")
+        evidence = str(item.get("evidence") or "")
+        retirement = str(item.get("retirement_condition") or "").strip()
+        group = str(item.get("group") or "").strip()
+        if review_id != f"patch:{filename}" or review_id not in review_ids:
+            raise SystemExit(
+                f"correctness exception lacks exact approved patch review: {filename}"
+            )
+        if not evidence or not (ROOT / evidence).is_file():
+            raise SystemExit(
+                f"correctness exception acceptance evidence missing: {filename}"
+            )
+        if not retirement:
+            raise SystemExit(
+                f"correctness exception retirement condition missing: {filename}"
+            )
+        if not group:
+            raise SystemExit(
+                f"correctness exception promotion group missing: {filename}"
+            )
+
+    groups = exception_policy.get("promotion_groups")
+    if not isinstance(groups, list) or not groups:
+        raise SystemExit("correctness exception promotion groups missing")
+    grouped_files: set[str] = set()
+    for group in groups:
+        group_id = str(group.get("id") or "").strip()
+        blockers = group.get("blockers_closed")
+        patches = group.get("patches")
+        evidence = group.get("evidence")
+        if not group_id:
+            raise SystemExit("correctness exception promotion group missing id")
+        if not isinstance(blockers, list) or not blockers:
+            raise SystemExit(
+                f"correctness exception group has no reproduced blockers: {group_id}"
+            )
+        if not isinstance(patches, list) or not patches:
+            raise SystemExit(
+                f"correctness exception group has no patches: {group_id}"
+            )
+        if not isinstance(evidence, list) or not evidence:
+            raise SystemExit(
+                f"correctness exception group has no evidence: {group_id}"
+            )
+        for relpath in evidence:
+            if not (ROOT / str(relpath)).is_file():
+                raise SystemExit(
+                    f"correctness exception group evidence missing: {group_id}: {relpath}"
+                )
+        for filename in patches:
+            filename = str(filename)
+            if filename not in exception_files:
+                raise SystemExit(
+                    f"correctness exception group references unadmitted patch: {group_id}: {filename}"
+                )
+            grouped_files.add(filename)
+    if grouped_files != set(exception_files):
+        raise SystemExit(
+            "every correctness exception patch must belong to a blocker-closing promotion group"
+        )
+
+    candidate_only = {
+        Path(str(item)).name
+        for item in exception_policy.get("candidate_only_exclusions", [])
+    }
+    if any(name in managed_patch_files for name in candidate_only):
+        raise SystemExit(
+            "candidate-only host-restart continuity patch was promoted without closing its parent blocker"
+        )
+
+    lock = json.loads(
+        (ROOT / "NEKO_UPSTREAM.lock.json").read_text(encoding="utf-8-sig")
+    )
+    if int(lock.get("core_patch_budget", -1)) != max_patch_budget:
+        raise SystemExit("N.E.K.O lock core patch budget drifted from architecture freeze")
+
     retirement_evidence = str(patch_policy.get("latest_retirement_audit") or "")
     if not retirement_evidence or not (ROOT / retirement_evidence).is_file():
         raise SystemExit(f"latest patch-retirement audit missing: {retirement_evidence}")

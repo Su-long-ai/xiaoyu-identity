@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_MANAGED_PATCH_CHAIN_VERIFICATION_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "setup_local.ps1 detects each managed patch independently with git apply --reverse --check. After blocker-backed patch promotion, 0009 and 0012 legitimately overlap character_runtime.py, so the final correct 14-patch tree makes 0009 reverse-check fail even though 0009 is present. Per-patch reverse checks are not a valid full-chain identity test when later patches edit earlier patch context.",
+  "observed": {
+    "final_chain_apply": "14/14 PASS from pinned c3fc33ff",
+    "reverse_checks": {
+      "passing": [
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+        "0010",
+        "0011",
+        "0012",
+        "0013",
+        "0014"
+      ],
+      "false_negative": [
+        "0009-proactive-interruptibility-gate.patch"
+      ]
+    },
+    "cause": "later managed patch 0012 changes context also touched by 0009; reverse-check asks whether 0009 can be removed independently from the final tree, not whether its semantics are present",
+    "incremental_prefix_path_handling": "A valid older prefix can lack files introduced only by later managed patches; exact-tree observation now stages only paths that exist in the current worktree or existed at the pinned base, so future-added absent paths do not cause pathspec failure while real deletions still stage correctly."
+  },
+  "selected": {
+    "mechanism": "Git temporary index + tree identity",
+    "expected": "read pinned tested_commit into an isolated temporary index, apply the complete ordered managed patch series with git apply --cached, then git write-tree",
+    "observed": "read the same tested_commit into a second temporary index, git add -A only the union of managed patch paths from the actual N.E.K.O worktree, then git write-tree",
+    "verdict": "equal tree hashes mean the complete managed chain is present exactly on all managed paths; unrelated paths remain governed by check_overlay",
+    "fallback": "When not already at exact full-chain identity and not VerifyOnly, keep the existing sequential reverse-check/apply path for incremental upgrades, then require exact full-chain identity at the end."
+  },
+  "reuse": [
+    "existing pinned N.E.K.O Git repository",
+    "existing ordered patches/series.json",
+    "Git read-tree/apply --cached/write-tree/add -A primitives",
+    "existing setup_local.ps1 lifecycle"
+  ],
+  "rejected": [
+    "special-case 0009",
+    "flatten/mega-patch the series",
+    "store a second manifest of per-file hashes",
+    "new patch manager/package runtime",
+    "ignore reverse-check failures"
+  ],
+  "acceptance": [
+    "final overlapping 14-patch tree verifies exactly",
+    "a missing or modified managed-path byte fails exact verification",
+    "incremental upgrade from an older valid prefix can still apply missing patches sequentially",
+    "post-apply exact verification is mandatory",
+    "VerifyOnly does not mutate the N.E.K.O worktree",
+    "temporary Git indexes are removed",
+    "future-added paths absent from an older valid prefix do not fail actual-tree capture, while baseline-tracked deletions remain observable"
+  ],
+  "retirement_condition": "Retire the private chain verifier when upstream packaging provides a native ordered patch-set identity/install primitive that can verify overlapping patches without a second authority.",
+  "local_upgrade_validation": {
+    "date": "2026-11-23",
+    "starting_state": "runtime checkout was closest to legal prefix 10 but eight 0009-owned paths were missing, proving the previous per-patch/no-extra-change checks could miss a partially lost managed patch",
+    "verifier_behavior": "new exact tree verifier rejected the illegal mixed state instead of guessing",
+    "repair": "restored only the missing 0009 hunks on the eight identified paths; verifier then recognized a legal 10/14 prefix",
+    "upgrade": "setup_local applied 0011-0014 in order and verified exact 14/14 managed tree",
+    "full_regression": "run_checks.ps1 exit 0 on the resulting 14/14 runtime; native Execution Plane 1262 passed / 27 skipped, release readiness 25/25 PASS"
+  }
+}

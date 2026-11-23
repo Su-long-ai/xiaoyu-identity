@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_HOST_RESTART_COMMISSION_CONTINUITY_GAP_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "NekoClaw host/main-server restart while a multi-step task-agent commission is queued, working, or waiting for the user.",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "native_gap": {
+    "ledger_reconcile": "nekoclaw/host/ledger.py::_reconcile transitions prior-host queued, working and waiting_user commissions to failed with HOST_ENDED_REASON, except deferred and resting work.",
+    "native_test": "tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open explicitly freezes queued/working/waiting_user -> failed across a new Ledger instance.",
+    "passive_failure_delivery": "tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure proves a passive task_result is enqueued instead of continuation.",
+    "session_durability": "Task-agent session_dir/session_id/runtime/transcript are durable. Native tests prove blocked/waiting sessions can reopen at the transcript tail and runtime-process loss can be recovered without discarding session state.",
+    "runtime_process_recovery": "tests/unit/nekoclaw/test_host_task_agents.py covers runtime process exit and subsequent resumed=true continuation inside a surviving host.",
+    "host_restart_difference": "The missing seam is therefore host-level continuation policy/reconciliation, not transcript persistence, runtime session reopen, task ledger, or journal durability."
+  },
+  "effect_safety": {
+    "risk": "Automatically requeueing every interrupted working commission is unsafe because the previous process may have died after an external effect but before its result/audit terminal write.",
+    "existing_evidence": "Ledger reconciliation changes running host_calls to interrupted and call_audit.reclaim preserves existing host-call authority; interrupted must not be treated as proof that no effect occurred.",
+    "safe_direction": "Any future continuation must distinguish an effect-free checkpoint from an interrupted/uncertain external call and must reuse existing ledger/session/call-audit state rather than replaying blindly."
+  },
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin Ledger + TaskAgentManager + runtime transcript/session recovery",
+      "outcome": "selected_for_probe_and_future_thin_reconciliation",
+      "reason": "All durable authority and resume primitives already exist; the observable gap is the host-restart policy that fails active commissions."
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin",
+      "reason": "Git compare is identical at review time; there is no newer upstream host-restart continuation seam to absorb."
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O NekoClaw ledger/call audit/runtime/native delivery",
+      "outcome": "selected",
+      "reason": "Existing commission/session rows, call audit, transcript, runtime reopen and durable outbox are the required authority boundaries."
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external components",
+      "outcome": "not_applicable",
+      "reason": "No pinned surface/provider owns NekoClaw commission lifecycle across host restart."
+    },
+    {
+      "order": 5,
+      "candidate": "Temporal/Restate/Durable Task/workflow engines",
+      "outcome": "rejected_for_product_authority",
+      "reason": "Introducing one would create a second task ledger/orchestrator and violate the frozen N.E.K.O authority; their recovery ideas may inform tests only."
+    },
+    {
+      "order": 6,
+      "candidate": "Thin N.E.K.O reconciliation policy",
+      "outcome": "not_yet_admitted_for_product",
+      "reason": "First reproduce the exact native host-restart gap and classify in-flight call safety. A later candidate may only reuse existing Ledger/TaskAgentManager/call-audit primitives."
+    },
+    {
+      "order": 7,
+      "candidate": "Private recovery journal/daemon/state store",
+      "outcome": "rejected",
+      "reason": "Would duplicate N.E.K.O ledger/session/call-audit authority."
+    }
+  ],
+  "admitted_work": {
+    "type": "probe_only",
+    "allowed": [
+      "machine-verifiable source/test probe proving current host-restart behavior",
+      "selection of existing native recovery tests in the agent push gate",
+      "acceptance-matrix blocker entry"
+    ],
+    "forbidden": [
+      "automatic requeue implementation before effect-boundary classification",
+      "new recovery journal",
+      "new task ledger",
+      "new daemon or supervisor",
+      "fresh execution after an interrupted host call"
+    ]
+  },
+  "machine_acceptance": [
+    "Pinned N.E.K.O still fails prior-host queued/working/waiting_user commissions on ledger reopen.",
+    "Pinned N.E.K.O still preserves blocked, deferred and resting states rather than flattening every state.",
+    "Native TaskAgentManager still supports transcript-tail resume for blocked/waiting work and runtime-process loss.",
+    "Running host calls are still marked interrupted during reconcile.",
+    "No native host-restart auto-resume seam has appeared; if it appears, the probe must fail and force reuse re-evaluation."
+  ],
+  "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION until a separate reuse decision proves a safe effect-aware continuation policy and machine acceptance for crash-before-effect versus crash-after-effect.",
+  "retirement_condition": "Retire this probe when pinned N.E.K.O natively provides host-restart continuation/reconciliation for active commissions with explicit treatment of interrupted/uncertain external effects, or when upstream changes the relevant ledger/session/call-audit semantics and this review is re-run.",
+  "conclusion": "PROBE_NATIVE_GAP_ONLY. Reuse durable N.E.K.O state; do not add a second recovery system."
+}

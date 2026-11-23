@@ -156,6 +156,20 @@
       "test": "tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went"
     },
     {
+      "id": "effect.plugin_run_create_ambiguous_response",
+      "domain": "effect",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "PluginRunner does not yet pass the plugin server's native idempotency_key when creating /runs, so a response lost after run creation can be reported as failure while the plugin effect may already exist; candidate plugin_run_idempotency.patch reuses the native RunStore dedupe primitive but is not a live managed patch."
+    },
+    {
+      "id": "effect.plugin_run_poll_unknown_effect",
+      "domain": "effect",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "A known plugin run that becomes unreadable during status polling is currently collapsed to confirmed failure even though its external effect may already exist. Candidate plugin_run_unknown_effect.patch preserves the native unknown state, blocks direct auto-continuation, and returns a non-error no-repeat result through the task-agent gateway, but is not yet a live managed patch."
+    },
+    {
       "id": "delivery.main_process_effect_receipt",
       "domain": "delivery",
       "status": "acceptance_gap",
@@ -175,6 +189,20 @@
       "status": "acceptance_gap",
       "severity": "blocker",
       "reason": "blind retry after an ambiguous visible effect can duplicate delivery; must reconcile or remain uncertain"
+    },
+    {
+      "id": "recovery.host_restart_active_commission",
+      "domain": "recovery",
+      "status": "acceptance_gap",
+      "severity": "blocker",
+      "reason": "Pinned N.E.K.O can resume durable task-agent sessions after runtime-process loss, but Ledger._reconcile still converts prior-host queued/working/waiting_user commissions to failed on host restart. The existing host_restart_continuity_gap probe freezes this blocker; no auto-resume candidate is admitted until interrupted external-call effect safety is classified."
+    },
+    {
+      "id": "recovery.host_restart_report_wait",
+      "domain": "recovery",
+      "status": "acceptance_gap",
+      "severity": "high",
+      "reason": "A report-style waiting_user checkpoint is durably resumable by native TaskAgentManager._answer_closed, but pinned Ledger._reconcile still fails it on host restart. Candidate host_restart_report_wait.patch preserves only report questions, keeps permission/tool questions fail-closed, and has product fault-injection coverage; it is not a live managed patch."
     }
   ]
 }

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
+import subprocess
 import json
 import tomllib
 from pathlib import Path
@@ -86,10 +86,17 @@ def evaluate_matrix(matrix: dict, overlay_root: Path) -> list[str]:
 
 
 
-def _git_blob_sha(path: Path) -> str:
-    data = path.read_bytes()
-    header = f"blob {len(data)}\0".encode("ascii")
-    return hashlib.sha1(header + data).hexdigest()
+def _git_blob_sha(path: Path, repo_root: Path) -> str:
+    rel = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    completed = subprocess.run(
+        ["git", "hash-object", f"--path={rel}", str(path.resolve())],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return completed.stdout.strip()
 
 
 def evaluate_release_manifest(manifest: dict, overlay_root: Path) -> list[str]:
@@ -176,7 +183,7 @@ def evaluate_release_manifest(manifest: dict, overlay_root: Path) -> list[str]:
     }
     bindings = manifest.get("bindings_git_blob_sha", {})
     for label, relpath in expected_bindings.items():
-        expected_sha = _git_blob_sha(overlay_root / relpath)
+        expected_sha = _git_blob_sha(overlay_root / relpath, overlay_root.parent)
         if bindings.get(label) != expected_sha:
             problems.append(f"release manifest binding stale: {label}")
 

@@ -27,8 +27,11 @@
     "requires_reuse_review": true,
     "requires_reproduced_product_gap": true,
     "retire_when_native_extension_exists": true,
-    "max_managed_patch_budget": 10,
-    "latest_retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v4.json"
+    "max_managed_patch_budget": 14,
+    "latest_retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v4.json",
+    "base_managed_patch_budget": 10,
+    "correctness_exception_budget": 4,
+    "correctness_exception_policy": "governance/core_patch_correctness_exceptions_v1.json"
   },
   "principles": {
     "no_second_runtime": true,

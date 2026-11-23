@@ -23,17 +23,62 @@ class OverlayContractTests(unittest.TestCase):
         lock = json.loads(
             (ROOT / "NEKO_UPSTREAM.lock.json").read_text(encoding="utf-8-sig")
         )
+        architecture = json.loads(
+            (ROOT / "governance" / "architecture_freeze.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        exception_policy = json.loads(
+            (
+                ROOT
+                / "governance"
+                / "core_patch_correctness_exceptions_v1.json"
+            ).read_text(encoding="utf-8-sig")
+        )
         series = json.loads(
             (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
         )
         patches = series["patches"]
-        self.assertLessEqual(len(patches), lock["core_patch_budget"])
-        self.assertGreaterEqual(lock["core_patch_budget"], 1)
-        self.assertLessEqual(
-            lock["core_patch_budget"],
-            10,
-            "Managed N.E.K.O patch budget must remain deliberately small",
+        patch_files = [item["file"] for item in patches]
+        patch_policy = architecture["private_core_patch_policy"]
+        base_budget = patch_policy["base_managed_patch_budget"]
+        exception_budget = patch_policy["correctness_exception_budget"]
+        total_budget = patch_policy["max_managed_patch_budget"]
+        exceptions = [item["file"] for item in exception_policy["exceptions"]]
+
+        self.assertLessEqual(base_budget, 10)
+        self.assertLessEqual(exception_budget, 4)
+        self.assertEqual(total_budget, base_budget + exception_budget)
+        self.assertEqual(lock["core_patch_budget"], total_budget)
+        self.assertLessEqual(len(patches), total_budget)
+        self.assertLessEqual(len(exceptions), exception_budget)
+        self.assertLessEqual(len(patches) - len(exceptions), base_budget)
+        self.assertEqual(
+            set(exceptions),
+            {
+                "0011-execution-outbox-effect-state.patch",
+                "0012-native-delivery-receipt.patch",
+                "0013-plugin-run-unknown-effect.patch",
+                "0014-plugin-run-idempotency.patch",
+            },
         )
+        self.assertTrue(set(exceptions).issubset(set(patch_files)))
+        self.assertTrue(
+            {
+                Path(item).name
+                for item in exception_policy["candidate_only_exclusions"]
+            }.isdisjoint(set(patch_files))
+        )
+
+        grouped = set()
+        for group in exception_policy["promotion_groups"]:
+            self.assertTrue(group["blockers_closed"])
+            self.assertTrue(group["patches"])
+            for evidence in group["evidence"]:
+                self.assertTrue((ROOT / evidence).is_file())
+            grouped.update(group["patches"])
+        self.assertEqual(grouped, set(exceptions))
+
         for patch in patches:
             self.assertTrue((ROOT / "patches" / patch["file"]).is_file())
             self.assertTrue(patch["reason"].strip())
@@ -383,7 +428,10 @@ class OverlayContractTests(unittest.TestCase):
             "npm run build-only",
             "npm run build",
             "Ensure-NekoCorePatches",
-            "git -C $NekoRoot apply --reverse --check",
+            "Get-NekoManagedPatchPrefixLength",
+            "git -C $NekoRoot apply --cached --check",
+            "git -C $NekoRoot ls-tree -r --name-only",
+            "refusing to guess through partial, reordered, or manual changes",
             "git -C $NekoRoot apply --check",
         }
         for marker in required:
@@ -457,6 +505,183 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
+    def test_github_gate_exercises_report_wait_host_restart_candidate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise report-wait host-restart candidate",
+            "candidates/execution_plane/host_restart_report_wait.patch",
+            "candidates/execution_plane/test_host_restart_report_wait_candidate.py",
+            "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
+            "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
+            "test_an_answer_after_the_idle_session_was_closed_takes_it_up_again",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
+        regression = workflow.index("Regress managed native Execution Plane")
+        report_wait = workflow.index("Exercise report-wait host-restart candidate")
+        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        self.assertLess(uncertain, regression)
+        self.assertLess(regression, report_wait)
+        self.assertLess(report_wait, permission_wait)
+        self.assertNotIn("continue-on-error", workflow[report_wait:permission_wait])
+
+    def test_github_gate_exercises_permission_wait_host_restart_candidate(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise permission-wait host-restart candidate",
+            "candidates/execution_plane/host_restart_permission_wait.patch",
+            "candidates/execution_plane/test_host_restart_permission_wait_candidate.py",
+            "test_missing_result_gets_synthetic_interruption",
+            "test_outside_reads_and_their_model_results_share_one_user_answer",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        regression = workflow.index("Regress managed native Execution Plane")
+        report_wait = workflow.index("Exercise report-wait host-restart candidate")
+        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        qq_checkout = workflow.index("Checkout pinned QQ plugin candidate base")
+        self.assertLess(regression, report_wait)
+        self.assertLess(report_wait, permission_wait)
+        self.assertLess(permission_wait, qq_checkout)
+        self.assertNotIn("continue-on-error", workflow[permission_wait:qq_checkout])
+
+    def test_github_gate_exercises_managed_plugin_run_unknown_effect_patch(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise managed plugin-run unknown-effect patch",
+            "patches/0013-plugin-run-unknown-effect.patch",
+            "candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py",
+            "test_unreadable_status_answers_end_the_wait",
+            "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            "test_failed_plugin_call_ends_failed_with_a_report",
+            "test_failed_run_is_an_error_result",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        idempotency = workflow.index("Exercise managed plugin-run idempotency patch")
+        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
+        regression = workflow.index("Regress managed native Execution Plane")
+        self.assertLess(uncertain, idempotency)
+        self.assertLess(idempotency, regression)
+        self.assertNotIn("continue-on-error", workflow[uncertain:regression])
+
+    def test_github_gate_exercises_managed_plugin_run_idempotency_patch(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "tests/unit/nekoclaw/test_host_plugin_runs.py",
+            "plugin/tests/unit/server/test_run_manager_idempotency.py",
+            "Exercise managed plugin-run idempotency patch",
+            "patches/0014-plugin-run-idempotency.patch",
+            "candidates/execution_plane/test_plugin_run_idempotency_candidate.py",
+            "test_retry_after_lost_response_executes_once",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        baseline = workflow.index("Capture clean native Execution Plane regression baseline")
+        uncertain = workflow.index("Exercise managed plugin-run unknown-effect patch")
+        candidate = workflow.index("Exercise managed plugin-run idempotency patch")
+        regression = workflow.index("Regress managed native Execution Plane")
+        self.assertLess(baseline, uncertain)
+        self.assertLess(uncertain, candidate)
+        self.assertLess(candidate, regression)
+        self.assertNotIn("continue-on-error", workflow[uncertain:regression])
+
+    def test_github_gate_probes_host_restart_continuity_gap(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Probe native host-restart commission continuity gap",
+            "candidates/execution_plane/probe_host_restart_continuity_gap.py",
+            "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
+            "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
+            "test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away",
+            "test_a_blocked_commission_is_taken_up_again_where_it_stopped",
+            "test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        probe = workflow.index("Probe native host-restart commission continuity gap")
+        dsh = workflow.index("Exercise native dsh optional-runtime product acceptance")
+        self.assertLess(probe, dsh)
+        self.assertNotIn("continue-on-error", workflow[probe:dsh])
+
+    def test_github_gate_executes_native_dsh_optional_runtime_acceptance(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise native dsh optional-runtime product acceptance",
+            "test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped",
+            "test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started",
+            "test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued",
+            "test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again",
+            "test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used",
+            "test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made",
+            "test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events",
+            "test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused",
+            "test_dsh_profile.py::test_nothing_is_uploaded",
+            "test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh",
+            "test_dsh_install.py::test_another_version_on_the_disk_is_not_used",
+            "test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done",
+            "test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since",
+            "test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference",
+            "test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went",
+            "test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        dsh_gate = workflow.index("Exercise native dsh optional-runtime product acceptance")
+        execution_gate = workflow.index("Exercise native Execution Plane product E2E")
+        self.assertLess(dsh_gate, execution_gate)
+        self.assertNotIn("continue-on-error", workflow[dsh_gate:execution_gate])
+
+    def test_github_gate_executes_native_execution_product_e2e(self):
+        workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
+            encoding="utf-8-sig"
+        )
+        required = (
+            "Exercise native Execution Plane product E2E",
+            "test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end",
+            "test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind",
+            "test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command",
+            "test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped",
+            "test_host_task_agents.py::test_web_search_runs_the_search_plugin",
+            "test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen",
+            "test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway",
+            "test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running",
+            "test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next",
+            "test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded",
+            "from nekoclaw.builtin.browser import launcher",
+            "launcher.find_browsers()",
+            "BLOCK_REAL_BROWSER_ACCEPTANCE",
+            "NEKO_TEST_REAL_BROWSER=1",
+            "test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read",
+            "test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document",
+        )
+        for item in required:
+            self.assertIn(item, workflow)
+
+        product_e2e = workflow.index("Exercise native Execution Plane product E2E")
+        effect_candidate = workflow.index("Exercise managed effect-state patch on fresh native pin")
+        self.assertLess(product_e2e, effect_candidate)
+        self.assertNotIn("continue-on-error", workflow[product_e2e:effect_candidate])
+
     def test_release_gate_executes_pinned_qq_surface_contracts_but_startup_does_not(self):
         script = (ROOT / "tools" / "run_checks.ps1").read_text(
             encoding="utf-8-sig"
@@ -491,6 +716,17 @@ class OverlayContractTests(unittest.TestCase):
             "test_character_switch_queue.py",
             "test_character_runtime_voice_identity.py",
             "test_model_switch_keeps_live_budget.py",
+            "test_native_realtime_loud_ingress_publishes_activity_before_worker",
+            "test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+            "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+            "test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+            "test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+            "test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+            "test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+            "test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
+            "test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+            "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+            "test_the_automatic_restart_stands_down_at_every_resumption_point",
             "test_cosyvoice_audio_done_generation.py",
             "test_proactive_sid_guard.py",
             "test_assistant_speech_finalize_static.py",
@@ -503,6 +739,8 @@ class OverlayContractTests(unittest.TestCase):
             "voice_recovery_races.cjs",
             "voice_preview_races.cjs",
             "$NekoPython -m pytest -q $CompanionPythonTests",
+            "$NekoPython -m pytest -q $CompanionOwnershipTargets",
+            "$CompanionOwnershipFiles",
             "--test $CompanionNodeTests",
         }
         for item in required:
@@ -531,9 +769,12 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(gate, startup_gate_end)
         self.assertIn("if (-not $StartupPreflight)", script[:gate])
 
-    def test_execution_effect_state_candidate_is_reviewed_but_not_live(self):
-        candidate = ROOT / "candidates" / "execution_plane" / "outbox_effect_state.patch"
-        self.assertTrue(candidate.is_file())
+    def test_execution_effect_state_is_managed_correctness_exception(self):
+        managed_patch = ROOT / "patches" / "0011-execution-outbox-effect-state.patch"
+        self.assertTrue(managed_patch.is_file())
+        self.assertFalse(
+            (ROOT / "candidates" / "execution_plane" / "outbox_effect_state.patch").exists()
+        )
 
         reviews = json.loads(
             (ROOT / "governance" / "reuse_reviews.json").read_text(
@@ -541,7 +782,7 @@ class OverlayContractTests(unittest.TestCase):
             )
         )
         by_id = {item["id"]: item for item in reviews["reviews"]}
-        review_id = "candidate:execution_plane/outbox_effect_state.patch"
+        review_id = "patch:0011-execution-outbox-effect-state.patch"
         self.assertIn(review_id, by_id)
         self.assertEqual(by_id[review_id]["status"], "approved")
 
@@ -549,19 +790,26 @@ class OverlayContractTests(unittest.TestCase):
             (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
         )
         managed = {item["file"] for item in series["patches"]}
-        self.assertNotIn(
-            "outbox_effect_state.patch",
-            managed,
-            "effect-state work must remain candidate-only until end-to-end receipt/reconciliation closes",
+        self.assertIn("0011-execution-outbox-effect-state.patch", managed)
+
+        exceptions = json.loads(
+            (
+                ROOT
+                / "governance"
+                / "core_patch_correctness_exceptions_v1.json"
+            ).read_text(encoding="utf-8-sig")
         )
+        exception_files = {item["file"] for item in exceptions["exceptions"]}
+        self.assertIn("0011-execution-outbox-effect-state.patch", exception_files)
 
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
         for required in (
-            "outbox_effect_state.patch",
+            "0011-execution-outbox-effect-state.patch",
             "git -C _neko_upstream apply --check",
             "verify_execution_effect_state_candidate.py",
+            "Exercise managed effect-state patch on fresh native pin",
         ):
             self.assertIn(required, workflow)
 
@@ -632,6 +880,17 @@ class OverlayContractTests(unittest.TestCase):
             "test_character_switch_queue.py",
             "test_character_runtime_voice_identity.py",
             "test_model_switch_keeps_live_budget.py",
+            "test_native_realtime_loud_ingress_publishes_activity_before_worker",
+            "test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+            "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+            "test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+            "test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
+            "test_neither_hook_runs_once_the_host_is_on_a_new_turn",
+            "test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+            "test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
+            "test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+            "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+            "test_the_automatic_restart_stands_down_at_every_resumption_point",
             "test_cosyvoice_audio_done_generation.py",
             "test_proactive_sid_guard.py",
             "test_assistant_speech_finalize_static.py",
@@ -746,7 +1005,7 @@ class OverlayContractTests(unittest.TestCase):
         )
         self.assertIn('PYTHONPATH="$PRODUCT_WORKTREE"', product_segment)
 
-    def test_execution_candidate_regression_is_paired_with_clean_native_baseline(self):
+    def test_managed_execution_regression_is_paired_with_clean_native_baseline(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
@@ -754,17 +1013,17 @@ class OverlayContractTests(unittest.TestCase):
             "Capture clean native Execution Plane regression baseline",
             "execution-native-tests.txt",
             "execution-native-baseline.xml",
-            "execution-native-patched.xml",
+            "execution-native-managed.xml",
             "BLOCK_EXECUTION_REGRESSION_TESTSET_DRIFT",
-            "BLOCK_EXECUTION_PATCHED_REGRESSION",
-            "patched_failures - baseline_failures",
+            "BLOCK_EXECUTION_MANAGED_REGRESSION",
+            "managed_failures - baseline_failures",
         ):
             self.assertIn(required, workflow)
         baseline = workflow.index(
             "Capture clean native Execution Plane regression baseline"
         )
-        candidate = workflow.index("Exercise effect-state candidate on fresh native pin")
-        patched = workflow.index("Regress patched native Execution Plane")
+        candidate = workflow.index("Exercise managed effect-state patch on fresh native pin")
+        patched = workflow.index("Regress managed native Execution Plane")
         self.assertLess(baseline, candidate)
         self.assertLess(candidate, patched)
         self.assertEqual(
@@ -772,14 +1031,17 @@ class OverlayContractTests(unittest.TestCase):
             2,
         )
 
-    def test_native_delivery_receipt_candidate_is_reviewed_but_not_live(self):
-        candidate = (
-            ROOT
-            / "candidates"
-            / "execution_plane"
-            / "native_delivery_receipt.patch"
+    def test_native_delivery_receipt_is_managed_correctness_exception(self):
+        managed_patch = ROOT / "patches" / "0012-native-delivery-receipt.patch"
+        self.assertTrue(managed_patch.is_file())
+        self.assertFalse(
+            (
+                ROOT
+                / "candidates"
+                / "execution_plane"
+                / "native_delivery_receipt.patch"
+            ).exists()
         )
-        self.assertTrue(candidate.is_file())
 
         reviews = json.loads(
             (ROOT / "governance" / "reuse_reviews.json").read_text(
@@ -787,7 +1049,7 @@ class OverlayContractTests(unittest.TestCase):
             )
         )
         by_id = {item["id"]: item for item in reviews["reviews"]}
-        review_id = "candidate:execution_plane/native_delivery_receipt.patch"
+        review_id = "patch:0012-native-delivery-receipt.patch"
         self.assertIn(review_id, by_id)
         self.assertEqual(by_id[review_id]["status"], "approved")
         self.assertTrue(
@@ -803,19 +1065,25 @@ class OverlayContractTests(unittest.TestCase):
             (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
         )
         managed = {item["file"] for item in series["patches"]}
-        self.assertNotIn(
-            "native_delivery_receipt.patch",
-            managed,
-            "receipt work must remain candidate-only until end-to-end receipt/reconciliation is release-proven",
+        self.assertIn("0012-native-delivery-receipt.patch", managed)
+
+        exceptions = json.loads(
+            (
+                ROOT
+                / "governance"
+                / "core_patch_correctness_exceptions_v1.json"
+            ).read_text(encoding="utf-8-sig")
         )
+        exception_files = {item["file"] for item in exceptions["exceptions"]}
+        self.assertIn("0012-native-delivery-receipt.patch", exception_files)
 
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
         for required in (
-            "native_delivery_receipt.patch",
+            "0012-native-delivery-receipt.patch",
             "verify_native_delivery_receipt_candidate.py",
-            "Exercise native delivery receipt candidate",
+            "Exercise managed native delivery receipt patch",
         ):
             self.assertIn(required, workflow)
 
@@ -1048,6 +1316,11 @@ class OverlayContractTests(unittest.TestCase):
             "test_character_switch_queue.py",
             "test_character_runtime_voice_identity.py",
             "test_model_switch_keeps_live_budget.py",
+            "test_native_realtime_loud_ingress_publishes_activity_before_worker",
+            "test_teardown_outliving_its_connection_does_not_touch_the_replacement",
+            "test_retired_receive_loop_cannot_condemn_or_report_the_replacement",
+            "test_the_rotation_stands_down_when_a_turn_starts_during_response_done",
+            "test_old_runtime_audio_waiting_for_frame_lock_is_not_sent",
             "test_xiaoyu_plugin_visible_final_admission.py",
             "test_qq_connection_status_refresh.py",
             "test_qq_runtime_transition_lock.py",
@@ -1129,12 +1402,25 @@ class OverlayContractTests(unittest.TestCase):
         series = json.loads(
             (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
         )
-        self.assertEqual(len(series["patches"]), 10)
+        exception_policy = json.loads(
+            (
+                ROOT
+                / "governance"
+                / "core_patch_correctness_exceptions_v1.json"
+            ).read_text(encoding="utf-8-sig")
+        )
+        exception_files = {item["file"] for item in exception_policy["exceptions"]}
         self.assertFalse(
             any(
                 "crash" in item["file"].lower()
                 or "watchdog" in item["file"].lower()
                 for item in series["patches"]
+            )
+        )
+        self.assertFalse(
+            any(
+                "crash" in filename.lower() or "watchdog" in filename.lower()
+                for filename in exception_files
             )
         )
 

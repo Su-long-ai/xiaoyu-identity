@@ -7,7 +7,7 @@
   "persona_storage_authority": "neko_native",
   "evolution_authority": "neko_native",
   "task_authority": "neko_native",
-  "core_patch_budget": 10,
+  "core_patch_budget": 14,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Ten evidence-backed managed patches remain required after promotion to N.E.K.O c3fc33ff. Patch 0006 was rebased to preserve upstream turn-ownership lifecycle while keeping whole-reply quiet atomic across text/TTS; patch 0009 dropped only an obsolete sys_snap relocation hunk while retaining distinct QUNS busy/fullscreen/presentation admission, latest-state final-delivery recheck, leisure-only game invites and shadow-only capability observation. No new private patch was added."
+  "core_patch_budget_reason": "Base managed patch budget remains 10. Four additional blocker-backed correctness exceptions are explicitly admitted by governance/core_patch_correctness_exceptions_v1.json: durable task-result effect state + exact main-process receipt/restart reconciliation, and plugin unknown-effect + idempotent run creation. Host-restart report/permission continuity remains candidate-only because it does not close the full active-commission blocker."
 }

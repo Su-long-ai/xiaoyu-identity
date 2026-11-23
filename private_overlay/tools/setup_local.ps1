@@ -15,17 +15,102 @@ function Assert-LastExitCode([string]$What) {
     }
 }
 
-function Test-NekoPatchApplied([string]$PatchPath) {
-    $PreviousPreference = $ErrorActionPreference
+function Get-ManagedPatchPaths([object[]]$Patches) {
+    $Paths = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    foreach ($Patch in $Patches) {
+        $PatchPath = Join-Path $OverlayRoot ("patches\" + [string]$Patch.file)
+        foreach ($Line in [System.IO.File]::ReadLines($PatchPath)) {
+            if ($Line -match '^(?:--- a/|\+\+\+ b/)(.+)$') {
+                $RelativePath = $Matches[1].Trim()
+                if ($RelativePath -and $RelativePath -ne "/dev/null") {
+                    [void]$Paths.Add($RelativePath)
+                }
+            }
+        }
+    }
+    return @($Paths | Sort-Object)
+}
+
+function Get-NekoManagedPatchPrefixLength([object[]]$Patches, [string]$TestedCommit) {
+    $ManagedPaths = @(Get-ManagedPatchPaths $Patches)
+    $ActualIndex = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "xiaoyu-patch-actual-" + [guid]::NewGuid().ToString("N") + ".idx"
+    )
+    $ExpectedIndex = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "xiaoyu-patch-expected-" + [guid]::NewGuid().ToString("N") + ".idx"
+    )
+    $PreviousIndex = $env:GIT_INDEX_FILE
     try {
-        $ErrorActionPreference = "SilentlyContinue"
-        git -C $NekoRoot apply --reverse --check -- $PatchPath 2>$null | Out-Null
-        $ExitCode = $LASTEXITCODE
+        $env:GIT_INDEX_FILE = $ActualIndex
+        git -C $NekoRoot read-tree $TestedCommit
+        Assert-LastExitCode "git read-tree actual managed patch baseline"
+        if ($ManagedPaths.Count -gt 0) {
+            $BaselineManagedPaths = [System.Collections.Generic.HashSet[string]]::new(
+                [System.StringComparer]::Ordinal
+            )
+            $BaselineTracked = @(git -C $NekoRoot ls-tree -r --name-only $TestedCommit -- $ManagedPaths)
+            Assert-LastExitCode "git ls-tree managed patch baseline paths"
+            foreach ($RelativePath in $BaselineTracked) {
+                if ($RelativePath) {
+                    [void]$BaselineManagedPaths.Add([string]$RelativePath)
+                }
+            }
+
+            $ActualManagedPaths = [System.Collections.Generic.List[string]]::new()
+            foreach ($RelativePath in $ManagedPaths) {
+                $WorktreePath = Join-Path $NekoRoot $RelativePath
+                if ((Test-Path -LiteralPath $WorktreePath) -or $BaselineManagedPaths.Contains($RelativePath)) {
+                    # Existing paths capture modifications/additions. Paths that
+                    # existed at the pin but are now absent capture deletions.
+                    # Future patch-only paths absent from both are intentionally
+                    # omitted until their introducing patch is present.
+                    $ActualManagedPaths.Add($RelativePath)
+                }
+            }
+            if ($ActualManagedPaths.Count -gt 0) {
+                git -C $NekoRoot add -A --sparse -- @($ActualManagedPaths)
+                Assert-LastExitCode "git add actual managed patch paths"
+            }
+        }
+        $ActualTree = (git -C $NekoRoot write-tree).Trim()
+        Assert-LastExitCode "git write-tree actual managed patch state"
+
+        $env:GIT_INDEX_FILE = $ExpectedIndex
+        git -C $NekoRoot read-tree $TestedCommit
+        Assert-LastExitCode "git read-tree expected managed patch baseline"
+        $ExpectedTree = (git -C $NekoRoot write-tree).Trim()
+        Assert-LastExitCode "git write-tree expected prefix 0"
+        $MatchedPrefix = if ($ExpectedTree -eq $ActualTree) { 0 } else { -1 }
+
+        for ($Index = 0; $Index -lt $Patches.Count; $Index++) {
+            $Patch = $Patches[$Index]
+            $PatchPath = Join-Path $OverlayRoot ("patches\" + [string]$Patch.file)
+            git -C $NekoRoot apply --cached --check -- $PatchPath
+            Assert-LastExitCode ("git apply --cached --check " + $Patch.file)
+            git -C $NekoRoot apply --cached -- $PatchPath
+            Assert-LastExitCode ("git apply --cached " + $Patch.file)
+            $ExpectedTree = (git -C $NekoRoot write-tree).Trim()
+            Assert-LastExitCode ("git write-tree expected prefix " + ($Index + 1))
+            if ($ExpectedTree -eq $ActualTree) {
+                $MatchedPrefix = $Index + 1
+            }
+        }
+        return $MatchedPrefix
     }
     finally {
-        $ErrorActionPreference = $PreviousPreference
+        if ($null -eq $PreviousIndex) {
+            Remove-Item Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:GIT_INDEX_FILE = $PreviousIndex
+        }
+        Remove-Item -LiteralPath $ActualIndex -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath ($ActualIndex + ".lock") -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $ExpectedIndex -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath ($ExpectedIndex + ".lock") -Force -ErrorAction SilentlyContinue
     }
-    return ($ExitCode -eq 0)
 }
 
 function Ensure-NekoCorePatches {
@@ -41,34 +126,55 @@ function Ensure-NekoCorePatches {
     if ($Patches.Count -gt [int]$NekoLock.core_patch_budget) {
         throw "N.E.K.O core patch queue exceeds declared budget"
     }
-
     foreach ($Patch in $Patches) {
-        $PatchPath = Join-Path $OverlayRoot ("patches\\" + [string]$Patch.file)
+        $PatchPath = Join-Path $OverlayRoot ("patches\" + [string]$Patch.file)
         if (-not (Test-Path $PatchPath)) {
             throw "Managed N.E.K.O patch is missing: $PatchPath"
         }
+    }
 
-        $AlreadyApplied = Test-NekoPatchApplied $PatchPath
-        if ($AlreadyApplied) {
-            Write-Host ("PASS: managed N.E.K.O patch already applied: " + $Patch.file)
-            continue
-        }
+    $InstalledPrefix = Get-NekoManagedPatchPrefixLength $Patches $NekoLock.tested_commit
+    if ($InstalledPrefix -eq $Patches.Count) {
+        Write-Host (
+            "PASS: exact managed N.E.K.O patch chain already applied (" +
+            $Patches.Count + "/" + $Patches.Count + ")"
+        )
+        return
+    }
+    if ($InstalledPrefix -lt 0) {
+        throw (
+            "N.E.K.O managed paths do not match any legal prefix of the ordered patch series; " +
+            "refusing to guess through partial, reordered, or manual changes"
+        )
+    }
+    if ($VerifyOnly) {
+        throw (
+            "Managed N.E.K.O patch chain is only at prefix " +
+            $InstalledPrefix + "/" + $Patches.Count +
+            "; run setup_local.ps1 once"
+        )
+    }
 
-        if ($VerifyOnly) {
-            throw "Managed N.E.K.O patch is not applied; run setup_local.ps1 once: $($Patch.file)"
-        }
-
-        Write-Host ("== Apply managed N.E.K.O patch: " + $Patch.file + " ==")
+    for ($Index = $InstalledPrefix; $Index -lt $Patches.Count; $Index++) {
+        $Patch = $Patches[$Index]
+        $PatchPath = Join-Path $OverlayRoot ("patches\" + [string]$Patch.file)
+        Write-Host (
+            "== Apply managed N.E.K.O patch [" + ($Index + 1) + "/" +
+            $Patches.Count + "]: " + $Patch.file + " =="
+        )
         git -C $NekoRoot apply --check -- $PatchPath
         Assert-LastExitCode ("git apply --check " + $Patch.file)
         git -C $NekoRoot apply -- $PatchPath
         Assert-LastExitCode ("git apply " + $Patch.file)
-
-        if (-not (Test-NekoPatchApplied $PatchPath)) {
-            throw "Managed N.E.K.O patch did not verify after apply: $($Patch.file)"
-        }
     }
 
+    $FinalPrefix = Get-NekoManagedPatchPrefixLength $Patches $NekoLock.tested_commit
+    if ($FinalPrefix -ne $Patches.Count) {
+        throw (
+            "Managed N.E.K.O patch chain failed exact post-apply verification: " +
+            $FinalPrefix + "/" + $Patches.Count
+        )
+    }
     Write-Host ("PASS: managed N.E.K.O core patches ready (" + $Patches.Count + ")")
 }
 

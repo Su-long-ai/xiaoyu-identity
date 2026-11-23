@@ -119,10 +119,31 @@ class ReconcileNativeRuntimeTests(unittest.TestCase):
         )
 
     def test_bounded_timeout_never_exceeds_remaining_budget(self):
-        deadline = time.monotonic() + 0.05
-        timeout = mod._bounded_timeout(deadline, 30.0)
+        now = 1000.0
+        deadline = 1000.05
+        remaining = deadline - now
+        original_monotonic = mod.time.monotonic
+        try:
+            mod.time.monotonic = lambda: now
+            timeout = mod._bounded_timeout(deadline, 30.0)
+        finally:
+            mod.time.monotonic = original_monotonic
         self.assertGreater(timeout, 0)
-        self.assertLessEqual(timeout, 0.05)
+        self.assertLessEqual(timeout, remaining)
+
+    def test_bounded_timeout_does_not_inflate_sub_millisecond_budget(self):
+        now = 1000.0
+        deadline = 1000.0004
+        remaining = deadline - now
+        original_monotonic = mod.time.monotonic
+        try:
+            mod.time.monotonic = lambda: now
+            timeout = mod._bounded_timeout(deadline, 30.0)
+        finally:
+            mod.time.monotonic = original_monotonic
+        self.assertGreater(timeout, 0)
+        self.assertLessEqual(timeout, remaining)
+        self.assertLess(timeout, 0.001)
 
     def test_relay_preserves_master_and_builtin_flags(self):
         result=mod.ensure_user_plugin_relay(agent_url=self.base,lanlan_name="XiaoYu",request_timeout=1)

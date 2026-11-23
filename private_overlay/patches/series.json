@@ -50,6 +50,26 @@
       "file": "0010-startup-event-loop-responsiveness.patch",
       "reason": "Live watchdog stacks exposed synchronous startup/event-loop hot paths across main, agent and memory processes: first OpenAI/plugin imports, filesystem/model discovery, config/storage resolution and lazy HTTP/TLS client construction. Reuse N.E.K.O's existing background/off-loop patterns, isolated plugin-server thread, native TokenTracker, get_internal_http_client and external pooled client; use asyncio.to_thread only at blocking boundaries, including first shared-client resolution. No XiaoYu HTTP pool, SSLContext cache, plugin host, model runtime or second lifecycle authority is introduced.",
       "evidence": "evals/evidence/2026-11-21-startup-event-loop-responsiveness.json"
+    },
+    {
+      "file": "0011-execution-outbox-effect-state.patch",
+      "reason": "Close the native task-result durable effect-state gap by extending the existing NekoClaw ledger/outbox with handoff, exact claim, uncertain-effect and terminal sent semantics. No second ledger/outbox is introduced.",
+      "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+    },
+    {
+      "file": "0012-native-delivery-receipt.patch",
+      "reason": "Connect the existing durable outbox delivery identity to N.E.K.O native callback acknowledgement and main-process epoch reconciliation so transport acceptance is not mistaken for visible effect completion.",
+      "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+    },
+    {
+      "file": "0013-plugin-run-unknown-effect.patch",
+      "reason": "Preserve a known plugin run with unreadable terminal status as effect-unknown rather than confirmed failure, using existing RunOutcome unknown, blocked commission and gateway result semantics to prevent blind duplicate execution.",
+      "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+    },
+    {
+      "file": "0014-plugin-run-idempotency.patch",
+      "reason": "Wire NekoClaw's existing stable host call identity into the plugin server's native RunCreateRequest.idempotency_key and retry only ambiguous create outcomes with that same key.",
+      "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

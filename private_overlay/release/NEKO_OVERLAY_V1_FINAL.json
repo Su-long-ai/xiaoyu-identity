@@ -5,7 +5,7 @@
   "status": "STABLE",
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
-  "refreshed_at_local": "2026-11-23T04:19:10+08:00",
+  "refreshed_at_local": "2026-11-23T22:41:00+08:00",
   "basis_commit": "4c2dfe845f064039704951d1c484dcc37c249826",
   "basis_commit_verification": {
     "workflow": "XiaoYu private overlay gate",
@@ -57,8 +57,8 @@
     }
   },
   "managed_core_patches": {
-    "count": 10,
-    "budget": 10,
+    "count": 14,
+    "budget": 14,
     "files": [
       "0001-proactive-autostart-idle-gate.patch",
       "0002-full-chat-native-voice-entry.patch",
@@ -69,9 +69,13 @@
       "0007-private-first-round-tool-route.patch",
       "0008-qwen-clone-provider-routing.patch",
       "0009-proactive-interruptibility-gate.patch",
-      "0010-startup-event-loop-responsiveness.patch"
+      "0010-startup-event-loop-responsiveness.patch",
+      "0011-execution-outbox-effect-state.patch",
+      "0012-native-delivery-receipt.patch",
+      "0013-plugin-run-unknown-effect.patch",
+      "0014-plugin-run-idempotency.patch"
     ],
-    "policy": "exception_only_reuse_reviewed_reproduced_gap_retire_on_native_equivalence",
+    "policy": "exception_only_reuse_reviewed_reproduced_gap_retire_on_native_equivalence_with_four_blocker_backed_correctness_exceptions",
     "latest_upstream_equals_pin": true
   },
   "private_runtime_plugins": {
@@ -129,11 +133,12 @@
     "canonical_c3_restart": "PASS; final cycle main/memory/agent/plugin HTTP 200, 4/4 admitted autostart plugins restored, zero new main-loop blocked/recovered events",
     "patched_product_cloud_regression": "PASS in product-main run 45065420130; patched Companion switch/audio/startup product state plus bounded Companion soak completed under the shared gate.",
     "pinned_qq_surface": "PASS in product-main run 45065420130 against qq_auto_reply 54acf36, including inbound-idempotency candidate and bounded QQ soak.",
-    "native_execution_and_receipt_candidates": "PASS in product-main run 45065420130; clean-vs-patched paired native regression and real-ZMQ receipt E2E remain candidate-only and separate from the stable managed patch series.",
+    "native_execution_and_receipt_candidates": "PASS locally: execution effect-state, native visible-effect receipt/reconciliation, plugin unknown-effect and idempotent run creation are promoted as managed correctness patches 0011-0014 under the explicit correctness-exception policy; host-restart report/permission continuity remains candidate-only.",
     "runtime_health_self_heal": "PASS; read-only-first, at most one native reconcile repair, forbidden Agent capabilities remain blocked",
     "plugin_capability_floor": "PASS; autostart dependency/model/UI/install authority expansion fails closed",
     "upstream_main_equals_pin": true,
-    "physical_windows_startup_refresh": "not re-claimed by cloud-only evidence; prior live c3 restart acceptance remains authoritative until next local physical timing run"
+    "physical_windows_startup_refresh": "not re-claimed by cloud-only evidence; prior live c3 restart acceptance remains authoritative until next local physical timing run",
+    "local_full_regression_2026_11_23": "PASS on Windows local product environment before online handoff: overlay/reuse/architecture/release gates green; native QQ/Companion/Execution regressions green, including 1262 passed / 27 skipped native Execution Plane tests."
   },
   "stable_scope": {
     "included": [
@@ -159,16 +164,16 @@
       "automatic dsh installation or silent Agent-master enablement"
     ],
     "candidate_only_not_promoted": [
-      "candidates/execution_plane/outbox_effect_state.patch",
-      "candidates/execution_plane/native_delivery_receipt.patch",
+      "candidates/execution_plane/host_restart_report_wait.patch",
+      "candidates/execution_plane/host_restart_permission_wait.patch",
       "candidates/qq/live_inbound_idempotency.patch"
     ]
   },
   "bindings_git_blob_sha": {
-    "NEKO_UPSTREAM.lock.json": "f8e33a6afe000e30ac1ae745be7ec10da79205fd",
+    "NEKO_UPSTREAM.lock.json": "d9f905123a6567aaa81c58532c680a6400764864",
     "QQ_PLUGIN_UPSTREAM.lock.json": "2c304f755ea30cffe55f118f3cb18ce7727804a2",
     "DESKTOP_SHELL.lock.json": "60e415eae8c9f8badcc4b810de27de1a79b8520b",
-    "patches/series.json": "422f7925d808c36b4efe9a15c3a240b5d2278fa5",
+    "patches/series.json": "55e6697444bc726a4be947038bfe9aca293d8dbe",
     "evals/acceptance_matrix.json": "026d6f6d5bc8f1469fcff16384b76bc70d3d3092",
     "plugins/manifest.json": "bcb91e7f6034f8359df9a3c6f50b6e055baa1218",
     "plugins/xiaoyu_interaction_policy/plugin.toml": "b98a9d2eba368fc92e077f9966beee2216637b62"

@@ -2276,74 +2276,1331 @@
       "id": "governance:companion-runtime-plugin-process-soak-v1",
       "status": "approved",
       "reviewed_at": "2026-11-23",
-      "problem": "The existing read-only live companion soak records N.E.K.O endpoint health plus desktop/backend process CPU/RSS, but it cannot attribute plugin child PID/RSS/CPU or detect plugin PID churn across a long idle/use soak. Those metrics are required for plugin restore latency/reliability and resource-leak diagnosis.",
-      "decision": "thin_adapter",
+      "problem": "The live companion soak should attribute plugin child PID/RSS/CPU and detect PID churn without inventing a second process authority. Re-audit of the pinned N.E.K.O c3 contract found that the assumed host PID read surface is not actually exposed.",
+      "decision": "reuse_native",
       "candidates": [
         {
-          "name": "N.E.K.O /plugin/status host health",
+          "name": "N.E.K.O current pin c3 plugin summary/status + internal PluginHost health",
           "type": "native_current_pin",
-          "outcome": "selected as the sole plugin PID/liveness authority",
+          "outcome": "selected as authority, but current public read surfaces do not expose the internal host pid needed for per-plugin process attribution",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
           "name": "N.E.K.O latest upstream main",
           "type": "native_upstream",
-          "outcome": "checked and identical to current pin; no newer replacement needed",
+          "outcome": "checked and identical to c3; no newer native host-PID read seam exists",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
           "name": "existing optional psutil sampling",
           "type": "existing_external",
-          "outcome": "selected only for RSS/CPU sampling of native host-provided PIDs",
+          "outcome": "retained only for already-authoritative desktop/backend PIDs; rejected for discovering or attributing plugin identity without a host PID",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         {
-          "name": "new monitoring daemon / exporter / process scanner",
+          "name": "private health endpoint / process scanner / monitoring daemon",
           "type": "private_duplicate",
-          "outcome": "rejected; duplicates native lifecycle/process authority and adds long-running state",
+          "outcome": "rejected because it would manufacture a second plugin-process attribution or lifecycle authority",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "N.E.K.O already exposes trustworthy plugin pid/liveness and the existing soak already has psutil sampling. The only missing piece is a read-only join between those two existing surfaces plus summary math; no runtime service or new monitoring authority is needed.",
+      "why_reuse_insufficient": "N.E.K.O owns the exact process identity internally, but c3 does not expose that PID through /plugin/status or Plugin SDK, and the frontend-declared /plugin/{id}/health route is not mounted by the backend. A thin observer therefore cannot safely attribute per-plugin RSS/CPU yet. Do not replace this missing read seam with command-line/process-tree guessing or a private lifecycle endpoint.",
       "acceptance_evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json",
       "search_layers": {
         "L0_authority": {
           "status": "checked",
-          "outcome": "N.E.K.O remains plugin lifecycle/process authority; XiaoYu only observes native status.",
+          "outcome": "N.E.K.O remains the sole plugin lifecycle/process identity authority; XiaoYu must not infer plugin identity from OS process discovery.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L1_neko_current_pin": {
           "status": "checked",
-          "outcome": "c3 /plugin/status and HealthCheckResponse provide pid/exitcode/liveness.",
+          "outcome": "c3 plugin summary/status expose runtime/status information, while PluginHost.health_check() contains pid internally; no mounted HTTP/SDK read surface joins those facts.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream main equals c3; no newer equivalent long-soak metrics surface is required.",
+          "outcome": "Latest upstream main equals c3 and still has no supported host-PID read seam.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L3_existing_pinned_external": {
           "status": "checked",
-          "outcome": "Existing optional psutil is already used by the soak and is reused only against host-provided PIDs.",
+          "outcome": "Existing psutil can sample a trusted PID but cannot become the authority that discovers which PID belongs to which N.E.K.O plugin.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L4_broader_external_ecosystem": {
           "status": "checked",
-          "outcome": "A new exporter/monitoring stack would add deployment/state complexity without improving N.E.K.O host authority; not selected.",
+          "outcome": "External supervisors/exporters observe OS processes but cannot preserve N.E.K.O plugin identity/admission/intent semantics, so they are not selected.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Selected: extend existing read-only soak parser/sampler/summary only.",
+          "outcome": "Blocked until N.E.K.O exposes a native host-derived plugin PID. No process-identity guess is admitted.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         },
         "L6_private_implementation": {
           "status": "checked",
-          "outcome": "New daemon/watchdog/store/process-discovery service/runtime patch rejected.",
+          "outcome": "New endpoint/core patch/watchdog/daemon/store/process scanner remains rejected; metrics do not justify widening authority.",
           "evidence": "evals/evidence/2026-11-23-companion-runtime-plugin-process-soak-reuse.json"
         }
       },
-      "retirement_condition": "Retire the thin parsing/sampling extension if pinned N.E.K.O exposes equivalent long-soak process metrics directly or an existing accepted monitoring surface becomes the product authority."
+      "retirement_condition": "Re-evaluate this blocker when the pinned N.E.K.O version exposes host-derived plugin PID/exitcode through an existing supported native read surface or another already-admitted component becomes the process-identity authority.",
+      "promotion_policy": "BLOCKED_NATIVE_PID_SURFACE_NO_IMPLEMENTATION"
+    },
+    {
+      "id": "governance:release-git-blob-portability-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Stable release binding verification hashes raw working-tree bytes instead of canonical Git blobs, so Windows text checkout line endings can falsely fail a valid stable manifest.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing check_release_readiness.py + Git hash-object",
+          "type": "existing_governance_native_git",
+          "outcome": "selected; keep the same release checker and delegate blob identity to Git clean-filter semantics",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        },
+        {
+          "name": "Manual CRLF/LF normalization table",
+          "type": "private_implementation",
+          "outcome": "rejected; duplicates Git attributes/filter semantics and will drift",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        },
+        {
+          "name": "Platform-specific release manifest hashes",
+          "type": "private_duplicate",
+          "outcome": "rejected; would split one stable release identity by checkout platform",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing checker remains the correct enforcement plane; only its blob hashing primitive is wrong on filtered Windows worktrees. Replace raw-byte reconstruction with Git native hash-object, without changing release authority or manifest schema.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json",
+      "retirement_condition": "Retire only if release bindings stop using Git blob identities.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "Repository Git objects and existing release manifest remain the only binding authorities.",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "This is repository release-metadata hashing and does not alter or depend on N.E.K.O runtime behavior."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O extension seams do not own XiaoYu repository release binding verification."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned QQ/Desktop components are binding inputs, not the Git blob hashing implementation."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Git itself already provides canonical clean-filter-aware blob hashing; no external release service is needed.",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: call Git hash-object from the existing checker and keep all current manifest comparisons.",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected hand-written EOL normalization and platform-specific manifest hashes.",
+          "evidence": "evals/evidence/2026-11-23-release-git-blob-portability-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "runtime:plugin-reconcile-deadline-precision-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The existing thin native plugin-runtime reconcile adapter caps HTTP request timeout by an absolute monotonic deadline, but its 1ms floor can exceed a sub-millisecond remaining budget. A Windows test also compared a computed float to the nominal 50ms literal and can fail from large-monotonic floating-point representation.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing reconcile_neko_plugin_runtime thin adapter",
+          "type": "existing_governance",
+          "outcome": "selected; preserve the already-reviewed explicit/startup recovery seam and correct only its absolute-budget arithmetic",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        {
+          "name": "N.E.K.O native plugin HTTP lifecycle APIs",
+          "type": "native_current_pin",
+          "outcome": "retained as the sole refresh/list/start/process authority; no lifecycle behavior is moved into XiaoYu",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        {
+          "name": "External timeout/retry framework",
+          "type": "external",
+          "outcome": "rejected; the gap is local monotonic arithmetic around synchronous urllib timeout values",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        {
+          "name": "Relax test with epsilon only",
+          "type": "test_only",
+          "outcome": "rejected because the existing 1ms floor can genuinely exceed a smaller remaining deadline",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        {
+          "name": "Private watchdog/retry daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate runtime/lifecycle authority",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "All runtime capability is already reused. The residual defect is only the thin adapter's deadline arithmetic and a nondeterministic float test; no new capability or authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json",
+      "retirement_condition": "Retire this XiaoYu helper only when N.E.K.O exposes an equivalent native bounded reconcile operation that removes the thin adapter entirely.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole plugin lifecycle/process authority; XiaoYu only bounds requests made through native APIs.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already supplies the native refresh/list/start APIs used by the existing thin adapter.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "No upstream replacement removes the explicit/startup reconcile seam at the current pin; this change does not expand that seam.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns N.E.K.O plugin lifecycle request deadlines."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External timeout/retry libraries were unnecessary for a local monotonic arithmetic defect in the existing urllib adapter.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: correct only _bounded_timeout and deterministic regressions in the existing thin adapter.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No new watchdog, daemon, retry store, plugin host or lifecycle authority is introduced.",
+          "evidence": "evals/evidence/2026-11-23-plugin-reconcile-deadline-precision-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:dsh-optional-runtime-product-acceptance-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "XiaoYu needs the supported N.E.K.O dsh/ACP alternate-runtime seam to be product-ready without silently installing it, duplicating Agent runtime authority, or relying on unit coverage that ordinary agent pushes never execute.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin c3fc33ff dsh/ACP runtime seam",
+          "type": "native_current_pin",
+          "outcome": "selected; reuse native ACP lifecycle, runtime selection, fallback, permissions, MCP host tools, credential forwarding, install/preference and console paths",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to current pin at review time; no newer seam needs absorption",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / PluginStore / NekoClaw / MCP / native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the surrounding authority boundaries; dsh remains an alternate execution runtime rather than a second authority",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "Pinned dsh 0.2.1rc2",
+          "type": "pinned_external",
+          "outcome": "selected only through the native N.E.K.O exact-version installer; not installed or enabled by XiaoYu",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "Generic ACP runtimes, external agent orchestrators, workflow engines and process supervisors",
+          "type": "broader_external",
+          "outcome": "rejected for this product seam because they would replace or duplicate the already-supported N.E.K.O runtime/lifecycle/permission authority without a reproduced gap",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "XiaoYu thin dsh adapter",
+          "type": "thin_adapter",
+          "outcome": "rejected as unnecessary; residual work is only machine acceptance by selecting existing native tests",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        {
+          "name": "XiaoYu managed/private alternate runtime",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate runtime authority",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native reuse is sufficient for runtime behavior. The only uncovered product obligation is that ordinary XiaoYu agent pushes do not yet execute a representative native dsh product acceptance set, so this unit is limited to CI test selection and an overlay contract that freezes that coverage.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json",
+      "retirement_condition": "Retire the overlay dsh acceptance selection when pinned N.E.K.O upstream CI exposes an equivalent mandatory optional-runtime product suite covering ACP lifecycle, readiness/fallback, permissions/MCP, credential isolation, cancellation/restart, version compatibility and console readiness, and XiaoYu can invoke it directly without reducing coverage.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole Companion Runtime, commission ledger, permission, capability, credential and native delivery authority; dsh is only the supported optional runtime seam.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current c3 pin already supplies the complete dsh runtime seam and native tests selected by this unit.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest N.E.K.O upstream main is identical to c3 at review time, so there is no newer implementation to absorb first.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned dsh 0.2.1rc2 is retained only behind N.E.K.O's exact-version native installer and explicit user choice.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Generic alternate ACP runtimes/orchestrators/workflow engines/process supervisors were considered and rejected because native N.E.K.O already owns this seam and replacing it would create dual authority.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "No runtime adapter is needed; the only thin integration is selecting existing N.E.K.O tests in the existing GitHub Actions gate.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private dsh runtime, daemon, supervisor, session store, permission store, credential store and gateway implementations are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-dsh-optional-runtime-product-acceptance-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/plugin_run_idempotency.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "NekoClaw PluginRunner does not consume the plugin server's existing idempotency_key contract, so an ambiguous POST /runs transport outcome can be recorded as failure even though the plugin run may already exist and may already have produced an external effect.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PluginRunner + /runs protocol",
+          "type": "native",
+          "outcome": "selected as the only plugin execution path and run durability authority",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer PluginRunner idempotency wiring exists",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O RunCreateRequest.idempotency_key + RunStore.create_or_get_idempotent",
+          "type": "native_sdk",
+          "outcome": "selected as the existing no-duplicate-effect primitive; candidate only wires host call identity into it",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal NekoClaw-to-plugin-server run creation boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "External idempotency middleware / workflow engines / durable queues",
+          "type": "external",
+          "outcome": "rejected because they would duplicate the existing N.E.K.O run store and call audit",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "XiaoYu private idempotency store or run ledger",
+          "type": "private_duplicate",
+          "outcome": "rejected by the frozen single-authority execution architecture",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native reuse is almost sufficient: the plugin server already implements idempotent run creation and the host already reserves a stable call identity before execution. The missing seam is only their connection plus bounded retry of ambiguous create outcomes. No new state authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+      "retirement_condition": "Delete the candidate when upstream N.E.K.O PluginRunner natively sends a stable per-host-call idempotency key and safely retries ambiguous POST /runs creation outcomes with equivalent lost-response, no-duplicate-effect and regression coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O host call audit and plugin RunStore remain the sole execution identity and run dedupe authorities.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin contains both the PluginRunner gap and the native server-side idempotency primitive selected for reuse.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and does not yet wire PluginRunner into idempotent run creation.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider or surface owns the internal NekoClaw-to-plugin-server POST /runs boundary where the ambiguous effect occurs."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External idempotency middleware, workflow engines and durable queues were considered but would duplicate a native protocol/store that already solves the dedupe half of the gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate is limited to passing the already-reserved host call identity as the existing run idempotency key and retrying only ambiguous create outcomes with that same key.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A XiaoYu idempotency store, task ledger, queue, router or daemon is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/plugin_run_unknown_effect.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A NekoClaw plugin run whose run_id is known but whose terminal state becomes unreadable after repeated polling failures is currently collapsed to failed. That is unsafe because the plugin effect may already have happened, failed commissions are resumable, and gateway tool errors may invite a fresh call.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin RunOutcome unknown + native blocked commission semantics",
+          "type": "native",
+          "outcome": "selected as the existing effect-uncertainty and stop-without-auto-continuation vocabulary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer unknown-effect semantics",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O plugin Run API / NekoClaw gateway / ledger / call audit",
+          "type": "native_sdk",
+          "outcome": "selected; use existing run_id, cancellation, blocked commission, audit and tool-result channels",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal host-to-plugin polling boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "External workflow/idempotency engines",
+          "type": "external",
+          "outcome": "rejected because they would duplicate native execution/ledger authority for a state already expressible natively",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "XiaoYu uncertain-effect store/router/daemon",
+          "type": "private_duplicate",
+          "outcome": "rejected by single-authority execution freeze",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The required states and transport paths already exist natively, but current wiring maps a lost run to confirmed failure. The candidate is restricted to native semantic wiring: lost polling becomes RunOutcome.status=unknown, direct work uses blocked rather than failed, and the gateway returns a non-error no-repeat safety result.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively distinguishes unknown plugin effect from confirmed failure across PluginRunner, direct commissions and task-agent gateway calls, with equivalent no-blind-retry and reconciliation coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole run, commission, audit and publication authority; no parallel uncertainty store is allowed.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already has RunOutcome unknown, native blocked commissions, run cancellation and the affected direct/gateway paths.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and contains no complete unknown-effect wiring.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned surface/provider component owns the internal plugin-run polling result."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/idempotency systems would replace or duplicate native authority and are unnecessary for this semantics-only gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate changes only status interpretation and existing direct/gateway result handling; it adds no durable state.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private effect stores, routers, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:execution-plugin-candidate-composition-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The two candidate-only plugin execution patches are individually valid against the pinned N.E.K.O base, but the existing CI applies idempotency first and unknown-effect second even though their plugin_runs.py hunks overlap. That order creates a patch-context failure before combined candidate regression can run.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing private-overlay GitHub Actions candidate sequence",
+          "type": "existing_governance",
+          "outcome": "selected as the only execution plane; change only the relative order of the two existing candidate steps",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "Existing plugin_run_unknown_effect.patch then plugin_run_idempotency.patch",
+          "type": "existing_candidates",
+          "outcome": "selected; exact replay against the pinned plugin_runs.py proves both apply clean in this order",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "Regenerate or merge the two patches",
+          "type": "private_implementation",
+          "outcome": "rejected; current patches already compose without modification in the compatible order",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        {
+          "name": "External patch orchestration framework",
+          "type": "external",
+          "outcome": "rejected; Git apply plus the existing workflow is sufficient for a two-candidate deterministic sequence",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Runtime reuse is already complete; the residual gap is only candidate composition in the existing CI job. Reordering the two existing steps and freezing that order is sufficient.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json",
+      "retirement_condition": "Retire when either candidate disappears or upstream N.E.K.O natively covers both plugin idempotency and unknown-effect semantics.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole plugin execution/run authority; CI only verifies candidate composition.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Pinned N.E.K.O plugin_runs.py is the exact composition base used for replay.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream remains the same pin and has no native replacement for these two candidate gaps.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external surface owns internal NekoClaw plugin-run patch composition."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "An external patch orchestration framework adds no benefit over deterministic git apply ordering in the existing job.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: reorder the two existing candidate steps and add an order contract only.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected patch regeneration, mega-patch, second workflow, and any new runtime/state authority.",
+          "evidence": "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution-plane/host-restart-continuity-gap",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Pinned N.E.K.O preserves task-agent session/transcript state and can recover runtime-process loss, but Ledger._reconcile intentionally fails prior-host queued/working/waiting_user commissions on host restart. Blind auto-requeue is also unsafe when a host call was interrupted after an external effect.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger + TaskAgentManager + transcript/session recovery",
+          "type": "native_current_pin",
+          "outcome": "selected for a machine gap probe and any future thin reconciliation",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked and identical to c3 at review time; no newer host-restart continuation seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "N.E.K.O NekoClaw call audit/runtime/native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the existing effect-boundary, resume and result-delivery authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to NekoClaw host-level commission lifecycle",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Temporal/Restate/Durable Task/workflow engines",
+          "type": "broader_external",
+          "outcome": "rejected as product authority because they would introduce a second orchestrator/task ledger; only conceptual comparison is relevant",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Thin N.E.K.O restart reconciliation",
+          "type": "thin_adapter",
+          "outcome": "not admitted yet; first classify interrupted call safety with a probe",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        {
+          "name": "Private recovery journal/state store/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native durability is sufficient for sessions, transcripts, ledger state, call audit and outbox, but current host-restart policy terminates ordinary active commissions. The first admitted unit is therefore a read-only machine gap probe plus native recovery test selection, not a recovery implementation.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json",
+      "machine_probe": "candidates/execution_plane/probe_host_restart_continuity_gap.py",
+      "retirement_condition": "Retire this probe when pinned N.E.K.O natively provides host-restart continuation/reconciliation for active commissions with explicit treatment of interrupted/uncertain external effects, or when upstream changes the relevant ledger/session/call-audit semantics and this review is re-run.",
+      "promotion_policy": "PROBE_ONLY_NO_RUNTIME_PROMOTION",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission ledger, session, call-audit, runtime and outbox authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 preserves session/transcript/runtime resume primitives but fails prior-host queued/working/waiting_user commissions in Ledger._reconcile.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream main equals c3; no newer host-restart continuation seam exists.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surface/provider components do not own the internal NekoClaw host commission lifecycle."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Mature durable workflow engines were considered but would duplicate the frozen N.E.K.O orchestration/ledger authority.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only a read-only gap probe is admitted now; effect-aware thin reconciliation requires a separate decision after interrupted-call classification.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private recovery journals, stores, routers, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-commission-continuity-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_report_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "Ledger._reconcile fails all prior-host waiting_user commissions even when the durable pending question is a report checkpoint that native TaskAgentManager._answer_closed can resume safely from the transcript tail. Permission/tool questions cannot use that path and must remain excluded.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger + TaskAgentManager._answer_closed + native outbox",
+          "type": "native_current_pin",
+          "outcome": "selected; all durability and resume primitives already exist",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to c3 at review time; no newer report-wait restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O NekoClaw ledger/session/outbox/native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only state and delivery authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to this host-internal checkpoint",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "External workflow/checkpoint engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate task/session durability authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Thin Ledger reconcile filter",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only waiting_user with durable pending_question.kind=report",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Private question/recovery store or daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate native pending_question/outbox/session authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native persistence and resume are sufficient but current Ledger._reconcile over-classifies the safe report-wait checkpoint as failed. The candidate only narrows that reconciliation condition; it introduces no state or execution path.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively preserves report-style waiting_user commissions across host restart with equivalent durable-question, transcript-tail resume, no-startup-effect and exclusion coverage for permission/tool questions.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/question/outbox authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already persists pending_question/outbox/session transcript and supports _answer_closed for report questions; only reconciliation is overbroad.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin and has no newer implementation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider owns host restart of a NekoClaw report wait."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External checkpoint/workflow engines were considered and rejected because native N.E.K.O already represents this checkpoint durably.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only filters the native fail-on-open set for report-style waiting_user rows.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private recovery/question stores, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_permission_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "A task-agent permission prompt is durably represented in pending_question/outbox, and the protected effect has not begun while PermissionGate is still waiting, but host restart currently fails the commission because the old in-memory permission Future is gone. Recreating that old grant would be unsafe and would duplicate permission authority.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PermissionGate + ExecutionAudit + TaskAgentManager + tool-history repair",
+          "type": "native_current_pin",
+          "outcome": "selected; native effect boundary, transcript repair and session reopen primitives are sufficient for continuity without grant restoration",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to current pin at review time; no newer permission-restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionStore / ledger pending_question / native outbox",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only permission and pending-input authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the host-internal permission Future/transcript boundary",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Durable workflow/approval stores",
+          "type": "broader_external",
+          "outcome": "rejected because they would create a second orchestrator/permission authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Thin host-restart permission continuation",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only task-agent permission waits and resume transcript after user answer without restoring any old grant",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Private permission/grant/recovery store",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate PermissionStore/PermissionGate authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native primitives already prove the effect has not started, repair incomplete tool history, and reopen durable sessions, but Ledger._reconcile and TaskAgentManager._answer_closed do not connect those primitives across a host restart. The candidate changes only reconciliation and continuation wiring; authorization is always rechecked by the current native PermissionGate.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively survives host restart during task-agent permission prompts without restoring stale once/session grants, replays no old tool call, rechecks current permission on any retried action, and has equivalent direct-plugin fail-closed plus transcript-repair coverage.",
+      "promotion_policy": "candidate_only_until_machine_gate_and_regression_evidence_and_patch_budget_or_upstream_adoption",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole permission, commission, execution-audit, session and outbox authority. Recovery may not mint or persist grants.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin has the pre-effect PermissionGate boundary, durable pending question, transcript repair and session reopen path, but no host-restart permission continuation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin; no newer seam exists.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned provider or surface owns NekoClaw PermissionGate continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/approval engines were considered but would duplicate frozen N.E.K.O orchestration and permission authority.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only preserves task-agent permission waiting rows and converts the post-restart answer into native transcript continuation. Old grants/receipts are never restored.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private grant stores, recovery journals, routers and daemons are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:execution-correctness-patch-budget-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "The frozen ten-patch cap is full, while four already-validated Execution candidates close five reproduced correctness blockers using existing N.E.K.O authorities. Two additional host-restart continuity candidates are useful but only partially close their parent blocker and must remain candidate-only. The governance gap is how to permit blocker-closing correctness patches without turning a numeric budget increase into an unrestricted fork-expansion path.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Existing architecture freeze + managed patch series + reuse/release gates with bounded correctness exceptions",
+          "type": "existing_governance",
+          "outcome": "selected; retain the base budget of ten and add at most four explicit blocker-backed correctness exception slots",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        {
+          "name": "Keep hard cap 10 regardless of product blockers",
+          "type": "existing_policy",
+          "outcome": "rejected; it would block five reproduced correctness closures solely because the historical count is full",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        {
+          "name": "Raise the generic patch cap to 16",
+          "type": "policy_relaxation",
+          "outcome": "rejected; two host-restart candidates do not close the full parent blocker, and a generic larger cap would not encode why extra patches are justified",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        {
+          "name": "Bundle candidates into fewer mega-patches",
+          "type": "private_implementation",
+          "outcome": "rejected; it hides independent ownership, evidence and retirement boundaries merely to game a count limit",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        {
+          "name": "OPA/Cedar or external workflow/policy service",
+          "type": "external",
+          "outcome": "rejected; existing JSON governance and Python gates already provide the enforcement plane, while an external service would add a second policy/runtime dependency",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing gates already provide all enforcement machinery, but their hard-coded <=10 rule cannot express a small, explicit, blocker-backed correctness exception class. A thin governance extension is required; no new policy engine or runtime is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json",
+      "retirement_condition": "Retire or shrink correctness-exception capacity whenever upstream N.E.K.O absorbs equivalent behavior; the exception class must never become a generic feature-patch allowance.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole runtime, ledger, permission, publication and plugin-run authority; this decision changes only private patch admission accounting.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current c3fc33ff pin reproduces the five blocker gaps and the four selected candidates reuse its native seams.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest reviewed upstream equals the current pin and exposes no native equivalents for the selected blocker closures.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component owns the NekoClaw host ledger, plugin-run, or native task-result visible-effect boundaries being repaired."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External workflow/policy engines were rejected because they would duplicate existing N.E.K.O authorities rather than improve the admission accounting problem.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: extend the existing JSON/Python governance plane with four enumerated correctness-exception slots and no new runtime.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected a new policy engine, mega-patch, duplicate workflow engine, or second execution-state authority.",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      }
+    },
+    {
+      "id": "patch:0011-execution-outbox-effect-state.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "PROMOTION of validated candidate candidate:execution_plane/outbox_effect_state.patch: NekoClaw's durable result outbox currently treats successful main-server transport handoff as delivery even though visible-effect receipt, main-restart reconciliation, and ambiguous-effect duplicate suppression are not yet durable.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O NekoClaw Ledger + OutboxSender",
+          "type": "native",
+          "outcome": "selected as the only commission/result durability authority; candidate extends its state semantics instead of introducing a XiaoYu ledger/outbox",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "N.E.K.O main event bus / ZeroMQ transport",
+          "type": "native",
+          "outcome": "retained as transport only; PUSH acceptance is insufficient as a user-visible effect receipt",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "XiaoYu second task ledger, queue, or delivery outbox",
+          "type": "private_duplicate",
+          "outcome": "rejected because it would violate the frozen single-authority architecture",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "Temporal/Restate/external workflow durability",
+          "type": "external",
+          "outcome": "not selected for this narrow gap because replacing the native commission/result authority would create dual authority; may remain useful for unrelated external workflows",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        {
+          "name": "Blocker-backed correctness exception admission",
+          "type": "existing_governance",
+          "outcome": "selected; promotion is permitted only through the bounded four-slot correctness-exception policy, not through a generic patch-cap increase",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      ],
+      "why_reuse_insufficient": "The candidate reuses N.E.K.O's existing SQLite ledger, durable outbox, host retry loop, and main transport. The missing product primitive is a durable distinction between transport handoff, main effect claim, uncertain visible effect, and confirmed completion. No native extension point currently supplies that distinction.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "NekoClaw host remains the sole commission ledger, result outbox and publication authority; no XiaoYu durability authority is allowed.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin Ledger + OutboxSender + main transport are reused as the implementation base.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream/native delivery acknowledgement seams were checked; they do not already provide the missing durable effect-state distinction.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No existing pinned external component owns generic NekoClaw commission/result durability; surface connectors such as QQ must remain downstream consumers."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Temporal/Restate-style workflow durability was considered and rejected for this narrow gap because it would replace or duplicate native authority.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate extends the existing native ledger/outbox state machine without adding another queue, ledger or runtime.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A XiaoYu task ledger/queue/outbox was explicitly rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json"
+        }
+      },
+      "promotion_from": "candidate:execution_plane/outbox_effect_state.patch",
+      "promotion_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json",
+      "retirement_condition": "Retire when upstream N.E.K.O provides durable task-result handoff/claim/uncertain/sent effect-state semantics with restart-safe exact reconciliation equivalent to this patch."
+    },
+    {
+      "id": "patch:0012-native-delivery-receipt.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "PROMOTION of validated candidate candidate:execution_plane/native_delivery_receipt.patch: NekoClaw task-result handoff needs an exact main-process visible-effect receipt/reconciliation barrier; transport acceptance alone is insufficient.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O NekoClaw outbox effect-state candidate",
+          "type": "native",
+          "outcome": "selected as sole durable ledger/outbox authority candidate; promotion remains blocked until its own machine gate is green",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer task-result durable receipt seam",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O DELIVERY_ACK_FUTURE_KEY + resolve_callback_delivery_ack + topic delivery pattern",
+          "type": "native",
+          "outcome": "selected for actual callback delivery confirmation; do not create a parallel delivery receipt subsystem",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "N.E.K.O Plugin SDK / PluginStore / MCP",
+          "type": "native_sdk",
+          "outcome": "reuse for capability execution; not a publication receipt authority",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "Pinned QQ surface component",
+          "type": "external_pinned",
+          "outcome": "surface-specific; not reusable for native desktop callback receipt",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "External transactional outbox/workflow engines",
+          "type": "external",
+          "outcome": "not selected because they would duplicate the frozen NekoClaw authority",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        {
+          "name": "Blocker-backed correctness exception admission",
+          "type": "existing_governance",
+          "outcome": "selected; promotion is permitted only through the bounded four-slot correctness-exception policy, not through a generic patch-cap increase",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native N.E.K.O already has the task/result ledger, native callback delivery acknowledgement, and acknowledged process bridge; the gap is only their missing connection. The candidate is restricted to that thin connection.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
+      "retirement_condition": "Retire when upstream N.E.K.O provides stable task-result delivery identity and durable visible-effect receipt/reconciliation with equivalent restart semantics.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "NekoClaw host owns result durability and N.E.K.O native delivery owns publication/effect authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already contains the task/result ledger and callback-delivery acknowledgement primitives selected for reuse.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream plus Plugin SDK/PluginStore/MCP/native delivery seams were checked; no complete task-result durable receipt seam exists.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ surface delivery was checked and rejected as surface-specific rather than a generic native desktop receipt authority.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External transactional outbox/workflow engines were considered and rejected because they would duplicate frozen NekoClaw authority.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only connects existing native durable outbox identity to existing native callback acknowledgement/reconciliation.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A parallel XiaoYu receipt subsystem is rejected by the single-authority execution contract; candidate remains a narrow native patch until upstream equivalence exists.",
+          "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json"
+        }
+      },
+      "promotion_from": "candidate:execution_plane/native_delivery_receipt.patch",
+      "promotion_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+    },
+    {
+      "id": "patch:0013-plugin-run-unknown-effect.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "PROMOTION of validated candidate candidate:execution_plane/plugin_run_unknown_effect.patch: A NekoClaw plugin run whose run_id is known but whose terminal state becomes unreadable after repeated polling failures is currently collapsed to failed. That is unsafe because the plugin effect may already have happened, failed commissions are resumable, and gateway tool errors may invite a fresh call.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin RunOutcome unknown + native blocked commission semantics",
+          "type": "native",
+          "outcome": "selected as the existing effect-uncertainty and stop-without-auto-continuation vocabulary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer unknown-effect semantics",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "N.E.K.O plugin Run API / NekoClaw gateway / ledger / call audit",
+          "type": "native_sdk",
+          "outcome": "selected; use existing run_id, cancellation, blocked commission, audit and tool-result channels",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal host-to-plugin polling boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "External workflow/idempotency engines",
+          "type": "external",
+          "outcome": "rejected because they would duplicate native execution/ledger authority for a state already expressible natively",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "XiaoYu uncertain-effect store/router/daemon",
+          "type": "private_duplicate",
+          "outcome": "rejected by single-authority execution freeze",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        {
+          "name": "Blocker-backed correctness exception admission",
+          "type": "existing_governance",
+          "outcome": "selected; promotion is permitted only through the bounded four-slot correctness-exception policy, not through a generic patch-cap increase",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      ],
+      "why_reuse_insufficient": "The required states and transport paths already exist natively, but current wiring maps a lost run to confirmed failure. The candidate is restricted to native semantic wiring: lost polling becomes RunOutcome.status=unknown, direct work uses blocked rather than failed, and the gateway returns a non-error no-repeat safety result.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively distinguishes unknown plugin effect from confirmed failure across PluginRunner, direct commissions and task-agent gateway calls, with equivalent no-blind-retry and reconciliation coverage.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole run, commission, audit and publication authority; no parallel uncertainty store is allowed.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already has RunOutcome unknown, native blocked commissions, run cancellation and the affected direct/gateway paths.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and contains no complete unknown-effect wiring.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned surface/provider component owns the internal plugin-run polling result."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/idempotency systems would replace or duplicate native authority and are unnecessary for this semantics-only gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate changes only status interpretation and existing direct/gateway result handling; it adds no durable state.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private effect stores, routers, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json"
+        }
+      },
+      "promotion_from": "candidate:execution_plane/plugin_run_unknown_effect.patch",
+      "promotion_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+    },
+    {
+      "id": "patch:0014-plugin-run-idempotency.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "PROMOTION of validated candidate candidate:execution_plane/plugin_run_idempotency.patch: NekoClaw PluginRunner does not consume the plugin server's existing idempotency_key contract, so an ambiguous POST /runs transport outcome can be recorded as failure even though the plugin run may already exist and may already have produced an external effect.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PluginRunner + /runs protocol",
+          "type": "native",
+          "outcome": "selected as the only plugin execution path and run durability authority",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "same SHA as current pin at review time; no newer PluginRunner idempotency wiring exists",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "N.E.K.O RunCreateRequest.idempotency_key + RunStore.create_or_get_idempotent",
+          "type": "native_sdk",
+          "outcome": "selected as the existing no-duplicate-effect primitive; candidate only wires host call identity into it",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the internal NekoClaw-to-plugin-server run creation boundary",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "External idempotency middleware / workflow engines / durable queues",
+          "type": "external",
+          "outcome": "rejected because they would duplicate the existing N.E.K.O run store and call audit",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "XiaoYu private idempotency store or run ledger",
+          "type": "private_duplicate",
+          "outcome": "rejected by the frozen single-authority execution architecture",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        {
+          "name": "Blocker-backed correctness exception admission",
+          "type": "existing_governance",
+          "outcome": "selected; promotion is permitted only through the bounded four-slot correctness-exception policy, not through a generic patch-cap increase",
+          "evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native reuse is almost sufficient: the plugin server already implements idempotent run creation and the host already reserves a stable call identity before execution. The missing seam is only their connection plus bounded retry of ambiguous create outcomes. No new state authority is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+      "retirement_condition": "Delete the candidate when upstream N.E.K.O PluginRunner natively sends a stable per-host-call idempotency key and safely retries ambiguous POST /runs creation outcomes with equivalent lost-response, no-duplicate-effect and regression coverage.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O host call audit and plugin RunStore remain the sole execution identity and run dedupe authorities.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin contains both the PluginRunner gap and the native server-side idempotency primitive selected for reuse.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals the current pin and does not yet wire PluginRunner into idempotent run creation.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider or surface owns the internal NekoClaw-to-plugin-server POST /runs boundary where the ambiguous effect occurs."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External idempotency middleware, workflow engines and durable queues were considered but would duplicate a native protocol/store that already solves the dedupe half of the gap.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate is limited to passing the already-reserved host call identity as the existing run idempotency key and retrying only ambiguous create outcomes with that same key.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "A XiaoYu idempotency store, task ledger, queue, router or daemon is explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+        }
+      },
+      "promotion_from": "candidate:execution_plane/plugin_run_idempotency.patch",
+      "promotion_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+    },
+    {
+      "id": "startup:managed-patch-chain-verification-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-23",
+      "problem": "setup_local.ps1 detects each managed patch independently with git apply --reverse --check. After blocker-backed patch promotion, 0009 and 0012 legitimately overlap character_runtime.py, so the final correct 14-patch tree makes 0009 reverse-check fail even though 0009 is present. Per-patch reverse checks are not a valid full-chain identity test when later patches edit earlier patch context.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Git temporary index/tree identity over existing ordered patch series",
+          "type": "native_tooling",
+          "outcome": "selected; reuses the repository's own object model and ordered series without introducing patch state",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        {
+          "name": "Existing per-patch reverse-check",
+          "type": "existing_governance",
+          "outcome": "retained only as incremental-upgrade fallback; rejected as final chain identity because overlapping later patches can invalidate reverse context",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        {
+          "name": "Special-case overlapping patch ids",
+          "type": "private_implementation",
+          "outcome": "rejected as brittle and non-general",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        {
+          "name": "External patch manager / second hash manifest",
+          "type": "external",
+          "outcome": "rejected; Git already supplies exact ordered index/tree primitives and a second manifest would duplicate authority",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The existing setup lifecycle is sufficient; only its final identity check must compose existing Git primitives so overlapping patches are verified as an ordered chain rather than independently.",
+      "acceptance_evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json",
+      "retirement_condition": "Retire the private chain verifier when upstream packaging provides a native ordered patch-set identity/install primitive that can verify overlapping patches without a second authority.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "The pinned N.E.K.O Git checkout and ordered XiaoYu managed series remain the only source authorities.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "The failure is reproduced on the current c3fc33ff pin with the validated 14-patch series.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "No upstream patch-set installer is present at the current pin; native Git remains the repository mechanism.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external runtime owns verification of the private ordered N.E.K.O patch series."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External patch managers were rejected because native Git index/tree identity already solves overlapping ordered patch verification exactly.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: compose read-tree, apply --cached, add -A and write-tree inside existing setup_local.ps1.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second patch database, hash authority, daemon or package manager is added.",
+          "evidence": "evals/evidence/2026-11-23-managed-patch-chain-verification-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

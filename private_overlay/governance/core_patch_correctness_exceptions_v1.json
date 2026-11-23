@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "policy_id": "XIAOYU_CORE_PATCH_CORRECTNESS_EXCEPTIONS_V1",
+  "base_managed_patch_budget": 10,
+  "correctness_exception_budget": 4,
+  "max_managed_patch_budget": 14,
+  "admission_rule": "Extra managed patches are allowed only when explicitly enumerated here as members of a blocker-closing correctness promotion group with reuse review, machine acceptance, broad integration evidence and retirement condition.",
+  "forbidden_uses": [
+    "feature expansion without a reproduced blocker",
+    "candidate promotion merely because an exception slot is unused",
+    "mega-patch bundling to game patch counts",
+    "second runtime/ledger/outbox/permission/plugin authority",
+    "host-restart report/permission continuity promotion before the parent active-commission blocker is closed"
+  ],
+  "promotion_groups": [
+    {
+      "id": "delivery-effect-receipt-v1",
+      "blockers_closed": [
+        "delivery.main_process_effect_receipt",
+        "delivery.main_restart_before_effect",
+        "delivery.duplicate_replay_after_ambiguous_effect"
+      ],
+      "patches": [
+        "0011-execution-outbox-effect-state.patch",
+        "0012-native-delivery-receipt.patch"
+      ],
+      "evidence": [
+        "evals/evidence/2026-11-23-execution-effect-state-candidate.json",
+        "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
+        "evals/evidence/2026-11-23-native-delivery-receipt-zmq-green-run.json",
+        "evals/evidence/2026-11-23-execution-six-candidate-local-integration.json"
+      ],
+      "broad_regression": "583/583 PASS in six-candidate integration; paired native delivery regression introduced zero new failures.",
+      "retirement_condition": "Retire both or the now-redundant member when upstream N.E.K.O supplies equivalent durable effect-state plus exact visible-effect receipt/restart reconciliation."
+    },
+    {
+      "id": "plugin-effect-safety-v1",
+      "blockers_closed": [
+        "effect.plugin_run_poll_unknown_effect",
+        "effect.plugin_run_create_ambiguous_response"
+      ],
+      "patches": [
+        "0013-plugin-run-unknown-effect.patch",
+        "0014-plugin-run-idempotency.patch"
+      ],
+      "evidence": [
+        "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+        "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+        "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json",
+        "evals/evidence/2026-11-23-execution-six-candidate-local-integration.json"
+      ],
+      "broad_regression": "583/583 PASS in six-candidate integration; native plugin-run and server idempotency regressions remain green.",
+      "retirement_condition": "Retire each patch independently when upstream N.E.K.O supplies its equivalent unknown-effect or idempotent run-creation behavior."
+    }
+  ],
+  "exceptions": [
+    {
+      "file": "0011-execution-outbox-effect-state.patch",
+      "source_candidate": "candidates/execution_plane/outbox_effect_state.patch",
+      "reuse_review_id": "patch:0011-execution-outbox-effect-state.patch",
+      "group": "delivery-effect-receipt-v1",
+      "evidence": "evals/evidence/2026-11-23-execution-effect-state-candidate.json",
+      "retirement_condition": "Retire when upstream N.E.K.O provides equivalent durable handoff/claim/uncertain/sent effect-state semantics."
+    },
+    {
+      "file": "0012-native-delivery-receipt.patch",
+      "source_candidate": "candidates/execution_plane/native_delivery_receipt.patch",
+      "reuse_review_id": "patch:0012-native-delivery-receipt.patch",
+      "group": "delivery-effect-receipt-v1",
+      "evidence": "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
+      "retirement_condition": "Retire when upstream N.E.K.O provides stable task-result delivery identity and durable visible-effect receipt/reconciliation with equivalent restart semantics."
+    },
+    {
+      "file": "0013-plugin-run-unknown-effect.patch",
+      "source_candidate": "candidates/execution_plane/plugin_run_unknown_effect.patch",
+      "reuse_review_id": "patch:0013-plugin-run-unknown-effect.patch",
+      "group": "plugin-effect-safety-v1",
+      "evidence": "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+      "retirement_condition": "Retire when upstream N.E.K.O natively distinguishes unknown plugin effect from confirmed failure across direct and gateway paths with equivalent no-blind-retry coverage."
+    },
+    {
+      "file": "0014-plugin-run-idempotency.patch",
+      "source_candidate": "candidates/execution_plane/plugin_run_idempotency.patch",
+      "reuse_review_id": "patch:0014-plugin-run-idempotency.patch",
+      "group": "plugin-effect-safety-v1",
+      "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+      "retirement_condition": "Retire when upstream N.E.K.O PluginRunner natively consumes stable run idempotency keys and safely retries ambiguous create outcomes."
+    }
+  ],
+  "candidate_only_exclusions": [
+    "candidates/execution_plane/host_restart_report_wait.patch",
+    "candidates/execution_plane/host_restart_permission_wait.patch"
+  ],
+  "decision_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+}

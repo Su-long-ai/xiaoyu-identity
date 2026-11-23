@@ -1,0 +1,25 @@
+﻿{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_RELEASE_GIT_BLOB_PORTABILITY_20261123",
+  "reviewed_at": "2026-11-23",
+  "problem": "check_release_readiness.py reconstructs Git blob SHA from raw working-tree bytes. On Windows a tracked text file can contain checkout line endings while git hash-object/HEAD correctly resolve the canonical clean-filtered blob, causing a false stale release binding.",
+  "observed": {
+    "path": "private_overlay/plugins/xiaoyu_interaction_policy/plugin.toml",
+    "git_hash_object": "b98a9d2eba368fc92e077f9966beee2216637b62",
+    "head_blob": "b98a9d2eba368fc92e077f9966beee2216637b62",
+    "current_python_raw_bytes_check": "mismatch on Windows checkout"
+  },
+  "selected": "Reuse Git's native hash-object clean-filter semantics inside the existing release-readiness checker.",
+  "rejected": [
+    "rewrite release manifest with Windows-specific hashes",
+    "normalize selected file extensions manually in Python",
+    "create a second release checker/service"
+  ],
+  "acceptance": [
+    "tracked release bindings compare against canonical Git blob identity on Windows and Linux",
+    "existing stale-binding fail-closed test remains valid",
+    "current stable release manifest passes unchanged",
+    "no release authority or manifest format changes"
+  ],
+  "retirement_condition": "Retire only if release binding representation no longer uses Git blob identities."
+}

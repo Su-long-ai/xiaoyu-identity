@@ -3,19 +3,32 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from check_release_readiness import evaluate_matrix, evaluate_release_manifest
+from check_release_readiness import _git_blob_sha, evaluate_matrix, evaluate_release_manifest
 
 
 class ReleaseReadinessTests(unittest.TestCase):
     def test_current_acceptance_matrix_is_release_ready(self):
         matrix = json.loads((ROOT / "evals" / "acceptance_matrix.json").read_text(encoding="utf-8-sig"))
         self.assertEqual(evaluate_matrix(matrix, ROOT), [])
+
+    def test_release_binding_uses_canonical_git_blob_identity(self):
+        rel = "private_overlay/plugins/xiaoyu_interaction_policy/plugin.toml"
+        expected = subprocess.check_output(
+            ["git", "-C", str(ROOT.parent), "rev-parse", f"HEAD:{rel}"],
+            text=True,
+            encoding="utf-8",
+        ).strip()
+        self.assertEqual(
+            _git_blob_sha(ROOT / "plugins" / "xiaoyu_interaction_policy" / "plugin.toml", ROOT.parent),
+            expected,
+        )
 
     def test_current_stable_release_manifest_matches_authoritative_product_state(self):
         manifest = json.loads(

@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_CORRECTNESS_PATCH_BUDGET_DECISION_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "Architecture-budget decision for promoting only the four blocker-closing Execution correctness candidates; host-restart report/permission continuity remains candidate-only.",
+  "current_product": {
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "managed_patch_count": 10,
+    "managed_patch_surface_changed_lines": 4165,
+    "full_retirements_available": 0,
+    "retirement_audit": "evals/evidence/2026-11-22-core-patch-retirement-audit-v4.json"
+  },
+  "candidate_assessment": {
+    "validated_chain": "evals/evidence/2026-11-23-execution-six-candidate-local-integration.json",
+    "broad_regression": "583/583 PASS",
+    "promote_groups": [
+      {
+        "id": "delivery-effect-receipt-v1",
+        "candidates": [
+          "candidates/execution_plane/outbox_effect_state.patch",
+          "candidates/execution_plane/native_delivery_receipt.patch"
+        ],
+        "planned_managed_files": [
+          "0011-execution-outbox-effect-state.patch",
+          "0012-native-delivery-receipt.patch"
+        ],
+        "blockers_closed": [
+          "delivery.main_process_effect_receipt",
+          "delivery.main_restart_before_effect",
+          "delivery.duplicate_replay_after_ambiguous_effect"
+        ],
+        "evidence": [
+          "evals/evidence/2026-11-23-execution-effect-state-candidate.json",
+          "evals/evidence/2026-11-23-native-delivery-receipt-reuse.json",
+          "evals/evidence/2026-11-23-native-delivery-receipt-zmq-green-run.json"
+        ]
+      },
+      {
+        "id": "plugin-effect-safety-v1",
+        "candidates": [
+          "candidates/execution_plane/plugin_run_unknown_effect.patch",
+          "candidates/execution_plane/plugin_run_idempotency.patch"
+        ],
+        "planned_managed_files": [
+          "0013-plugin-run-unknown-effect.patch",
+          "0014-plugin-run-idempotency.patch"
+        ],
+        "blockers_closed": [
+          "effect.plugin_run_poll_unknown_effect",
+          "effect.plugin_run_create_ambiguous_response"
+        ],
+        "evidence": [
+          "evals/evidence/2026-11-23-plugin-run-unknown-effect-reuse.json",
+          "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
+          "evals/evidence/2026-11-23-plugin-candidate-composition-order-reuse.json"
+        ]
+      }
+    ],
+    "remain_candidate_only": [
+      {
+        "candidate": "candidates/execution_plane/host_restart_report_wait.patch",
+        "reason": "Improves a safe waiting_user checkpoint but does not close the full recovery.host_restart_active_commission blocker because queued/working effect safety remains unresolved."
+      },
+      {
+        "candidate": "candidates/execution_plane/host_restart_permission_wait.patch",
+        "reason": "Improves safe permission-wait continuity but still does not close queued/working host-restart recovery and must not restore stale authorization state."
+      }
+    ],
+    "promoted_changed_lines": 1170,
+    "relative_surface_increase_vs_current_live": 0.2809
+  },
+  "governance_decision": {
+    "selected": "Keep a base managed-patch budget of 10 and add at most four explicitly enumerated correctness-exception slots for blocker-closing groups.",
+    "total_budget_after_decision": 14,
+    "base_budget": 10,
+    "correctness_exception_budget": 4,
+    "why_not_plain_raise_to_16": "Two host-restart candidates provide useful partial continuity but do not close their parent blocker; patch count must follow product correctness benefit, not candidate availability.",
+    "why_not_keep_hard_10": "The four selected patches close five reproduced Execution blockers using existing N.E.K.O authorities and have full machine evidence; rejecting them solely because the arbitrary count reached ten would reduce product correctness without reducing duplicate-authority risk.",
+    "why_not_mega_patch": "Combining logically separate candidates only to fit the old numeric cap would hide patch ownership and retirement boundaries.",
+    "why_not_external_workflow_engine": "Would duplicate NekoClaw ledger/outbox/permission/runtime authority for gaps already expressible with native seams."
+  },
+  "machine_policy_required": [
+    "base budget remains <=10",
+    "correctness exception budget remains <=4",
+    "every exception patch is explicitly listed in a governance file",
+    "every exception belongs to a promotion group with one or more reproduced blocker ids",
+    "every group has existing machine acceptance and broad integration evidence",
+    "every exception has a formal patch reuse review and retirement condition",
+    "no candidate may be promoted merely because an exception slot is unused",
+    "host-restart report/permission candidates remain outside the live series"
+  ],
+  "rollback": "Remove the four exception patches from the managed series and restore core_patch_budget=10; no data migration or second authority is introduced.",
+  "retirement_condition": "Reduce correctness-exception usage whenever upstream N.E.K.O absorbs equivalent behavior or an existing live patch becomes unnecessary; exception slots are not permanent entitlement."
+}

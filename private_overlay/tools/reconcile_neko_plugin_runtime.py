@@ -56,7 +56,9 @@ def _bounded_timeout(
     remaining = float(deadline) - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("reconcile deadline exhausted")
-    return max(0.001, min(preferred, remaining))
+    # An absolute deadline is authoritative. Do not inflate a tiny positive
+    # remainder to the no-deadline 1 ms normalization floor.
+    return min(preferred, remaining)
 
 
 def ensure_user_plugin_relay(

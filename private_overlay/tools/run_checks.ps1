@@ -79,6 +79,27 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\unit\test_qwen_intl_tts_routing.py"),
         (Join-Path $NekoRoot "tests\unit\test_voice_management_tts.py")
     )
+    $CompanionOwnershipFiles = @(
+        (Join-Path $NekoRoot "tests\unit\test_audio_stream_queue.py"),
+        (Join-Path $NekoRoot "tests\unit\test_realtime_close_ownership.py"),
+        (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_connection_recovery.py"),
+        (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_host_turn_identity.py"),
+        (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py"),
+        (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")
+    )
+    $CompanionOwnershipTargets = @(
+        ("{0}::test_native_realtime_loud_ingress_publishes_activity_before_worker" -f (Join-Path $NekoRoot "tests\unit\test_audio_stream_queue.py")),
+        ("{0}::test_teardown_outliving_its_connection_does_not_touch_the_replacement" -f (Join-Path $NekoRoot "tests\unit\test_realtime_close_ownership.py")),
+        ("{0}::test_retired_teardown_does_not_shut_the_replacements_arbiter_down" -f (Join-Path $NekoRoot "tests\unit\test_realtime_close_ownership.py")),
+        ("{0}::test_retired_receive_loop_cannot_condemn_or_report_the_replacement" -f (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_connection_recovery.py")),
+        ("{0}::test_late_failure_from_a_retired_generation_cannot_recover_the_successor" -f (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_connection_recovery.py")),
+        ("{0}::test_neither_hook_runs_once_the_host_is_on_a_new_turn" -f (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_host_turn_identity.py")),
+        ("{0}::test_the_rotation_stands_down_when_a_turn_starts_during_response_done" -f (Join-Path $NekoRoot "tests\unit\runtime\test_realtime_host_turn_identity.py")),
+        ("{0}::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py")),
+        ("{0}::test_runtime_handoff_drains_status_blocked_inside_websocket_send" -f (Join-Path $NekoRoot "tests\unit\test_tts_handoff_ownership.py")),
+        ("{0}::test_a_superseded_flow_cannot_release_the_newer_starts_slot" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py")),
+        ("{0}::test_the_automatic_restart_stands_down_at_every_resumption_point" -f (Join-Path $NekoRoot "tests\unit\test_voice_start_slot_ownership.py"))
+    )
     $CompanionNodeTests = @(
         (Join-Path $NekoRoot "tests\frontend\chat_avatar_integration.test.cjs"),
         (Join-Path $NekoRoot "tests\frontend\live2d_audio_ownership.test.cjs"),
@@ -86,7 +107,7 @@ if (-not $StartupPreflight) {
         (Join-Path $NekoRoot "tests\frontend\voice_recovery_races.cjs"),
         (Join-Path $NekoRoot "tests\frontend\voice_preview_races.cjs")
     )
-    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionNodeTests)) {
+    foreach ($CompanionTest in @($CompanionPythonTests + $CompanionOwnershipFiles + $CompanionNodeTests)) {
         if (-not (Test-Path -LiteralPath $CompanionTest)) {
             throw "Native companion regression test missing: $CompanionTest"
         }
@@ -96,6 +117,10 @@ if (-not $StartupPreflight) {
         & $NekoPython -m pytest -q $CompanionPythonTests
         $CompanionPythonExit = $LASTEXITCODE
         if ($CompanionPythonExit -ne 0) { exit $CompanionPythonExit }
+
+        & $NekoPython -m pytest -q $CompanionOwnershipTargets
+        $CompanionOwnershipExit = $LASTEXITCODE
+        if ($CompanionOwnershipExit -ne 0) { exit $CompanionOwnershipExit }
 
         $NodeCommand = Get-Command node -ErrorAction Stop
         & $NodeCommand.Source --test $CompanionNodeTests

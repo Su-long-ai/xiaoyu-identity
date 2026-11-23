@@ -559,9 +559,10 @@ def _verify_wiring(root: Path) -> None:
     assert 'if event_type == "nekoclaw_main_epoch_ack":' in main
     _ordered(
         main,
-        'delivery_claim = await _claim_nekoclaw_delivery(event)',
-        "# Resolve target session manager",
         "mgr = _get_session_manager(lanlan)",
+        'delivery_claim = await _claim_nekoclaw_delivery(event)',
+        'if not mgr and event_type in ("proactive_message", "task_result"):',
+        'if event_type in ("task_result", "proactive_message"):',
     )
     assert 'await _settle_nekoclaw_delivery(delivery_claim, False)' in main
     _ordered(

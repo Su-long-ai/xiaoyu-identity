@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_SIX_CANDIDATE_LOCAL_INTEGRATION_20261123",
+  "observed_at_local": "2026-11-23T16:15:46+08:00",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "integration_branch": "local/execution-integration-v1",
+  "candidate_order": [
+    "outbox_effect_state.patch",
+    "native_delivery_receipt.patch",
+    "plugin_run_unknown_effect.patch",
+    "plugin_run_idempotency.patch",
+    "host_restart_report_wait.patch",
+    "host_restart_permission_wait.patch"
+  ],
+  "verdict": "PASS_CANDIDATE_ONLY_NOT_LIVE",
+  "targeted": {
+    "execution_effect_state_candidate": "PASS",
+    "native_delivery_receipt_candidate": "PASS",
+    "native_delivery_receipt_real_zmq_e2e": "PASS",
+    "report_wait_stage": "4/4 PASS",
+    "permission_wait_stage": "7/7 PASS"
+  },
+  "broad_regression": {
+    "result": "583/583 PASS",
+    "suites": [
+      "tests/unit/nekoclaw/test_host_plugin_runs.py",
+      "tests/unit/nekoclaw/test_host_ledger.py",
+      "tests/unit/nekoclaw/test_host_task_agents.py",
+      "tests/unit/nekoclaw/test_host_task_brain.py",
+      "tests/unit/nekoclaw/test_host_gateway.py",
+      "tests/unit/nekoclaw/test_loop_tool_history.py",
+      "candidate unknown-effect",
+      "candidate idempotency",
+      "candidate permission-wait",
+      "report-wait compatible post-permission nodes"
+    ]
+  },
+  "repaired_during_local_integration": [
+    "Regenerated plugin_run_unknown_effect.patch from the pinned N.E.K.O base because the Agent patch contained overlapping gateway.py hunks and was not cleanly replayable.",
+    "Changed the unknown-effect fault injection so the native fake plugin actually executes the effect before the host observation is masked as unknown.",
+    "Made unknown-effect handling compatible with legacy/native fake runners that do not expose an outcome.status attribute.",
+    "Preserved N.E.K.O's existing RunCreateRequest.idempotency_key seam and updated the native gateway request-shape regression to include that official field.",
+    "Bound report-wait SQLite snapshotting on Windows by using a separate connection outside Ledger.run.",
+    "Represented recovery.host_restart_active_commission as acceptance_gap rather than an unknown status value."
+  ],
+  "promotion": {
+    "status": "HOLD_PATCH_BUDGET",
+    "reason": "architecture_freeze.private_core_patch_policy.max_managed_patch_budget is 10 and the current managed patch count is already 10; the latest retirement audit has no full retirements.",
+    "prohibited_shortcut": "Do not bundle the six candidates into a mega-patch merely to bypass the managed patch budget.",
+    "next_valid_paths": [
+      "upstream N.E.K.O adopts equivalent native behavior",
+      "a current managed patch is genuinely retired",
+      "an explicit architecture decision revises the patch budget based on product benefit"
+    ]
+  }
+}

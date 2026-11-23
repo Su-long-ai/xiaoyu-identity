@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_DSH_OPTIONAL_RUNTIME_PRODUCT_ACCEPTANCE_REUSE_20261123",
+  "reviewed_at": "2026-11-23",
+  "scope": "Optional dsh runtime product acceptance only; no installation, activation, alternate task ledger, permission store, credential store, or runtime adapter.",
+  "product_branch": "agent/execution-plane-v1",
+  "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_upstream_main": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "upstream_delta": "identical",
+  "reuse_order": [
+    {
+      "order": 1,
+      "candidate": "N.E.K.O current pin dsh runtime seam",
+      "outcome": "selected",
+      "evidence": [
+        "nekoclaw/dsh/acp.py owns ACP JSON-RPC stdio lifecycle",
+        "nekoclaw/dsh/driver.py implements the AgentRuntime-compatible dsh driver",
+        "nekoclaw/host/runtimes.py selects dsh only when installed/compatible and otherwise preserves built-in runtime",
+        "nekoclaw/host/permissions.py remains permission authority",
+        "nekoclaw/dsh/host_tools.py exposes host tools/capability gateway over the native MCP boundary",
+        "nekoclaw/dsh/forward.py keeps provider credentials in the host-side model forwarder",
+        "nekoclaw/dsh/install.py owns exact-version install/uninstall and runtime preference"
+      ]
+    },
+    {
+      "order": 2,
+      "candidate": "N.E.K.O latest upstream main",
+      "outcome": "same_as_current_pin",
+      "evidence": [
+        "Git compare c3fc33ff0d32e4a79fd905d1add22d45725071f5...main is identical at review time"
+      ]
+    },
+    {
+      "order": 3,
+      "candidate": "N.E.K.O Plugin SDK / PluginStore / NekoClaw / MCP / native delivery",
+      "outcome": "selected_as_authority_boundaries",
+      "evidence": [
+        "dsh host tools reuse the same host capability definitions and MCP gateway",
+        "task/result durability and delivery remain NekoClaw/native N.E.K.O responsibilities",
+        "dsh does not gain companion identity, memory, permission, credential, or publication authority"
+      ]
+    },
+    {
+      "order": 4,
+      "candidate": "Pinned external dsh runtime 0.2.1rc2",
+      "outcome": "selected_only_through_native_neko_installer",
+      "evidence": [
+        "config/nekoclaw_settings.py pins DSH_VERSION=0.2.1rc2",
+        "native installer verifies the exact release artifact and rejects a different version on disk",
+        "activation remains an explicit user product choice"
+      ]
+    },
+    {
+      "order": 5,
+      "candidate": "Generic alternate ACP runtimes, external agent orchestrators, workflow engines, and process supervisors",
+      "outcome": "rejected_for_this_unit",
+      "evidence": [
+        "the frozen product architecture already selects N.E.K.O's dsh seam",
+        "replacing or wrapping it would introduce a second runtime/lifecycle/ledger/permission authority without closing a reproduced acceptance gap"
+      ]
+    },
+    {
+      "order": 6,
+      "candidate": "Thin XiaoYu runtime adapter",
+      "outcome": "not_needed",
+      "evidence": [
+        "native console routes, runtime preference, readiness, fallback, permission guard, host MCP tools, credential forwarding, cancellation and recovery seams already exist",
+        "the residual product gap is test selection in the existing GitHub Actions gate only"
+      ]
+    },
+    {
+      "order": 7,
+      "candidate": "Managed/private dsh implementation",
+      "outcome": "rejected",
+      "evidence": [
+        "would duplicate the supported N.E.K.O alternate runtime seam and violate the single-runtime-authority freeze"
+      ]
+    }
+  ],
+  "native_product_capabilities": {
+    "optional_install": "native console install route runs installation behind the request and exposes progress/failure status",
+    "explicit_activation": "runtime preference remains auto|builtin and installation is never performed implicitly by XiaoYu",
+    "acp_stdio": "native AcpConnection handles JSON-RPC request/notification lifecycle, timeout, late reply drop, process exit and cancellation",
+    "permission_convergence": "dsh guard and host capability gateway converge on the NekoClaw host permission authority",
+    "credential_isolation": "provider model name/key are injected by host loopback forwarding; credentials are not handed to dsh",
+    "session_mapping": "native runtime records the selected runtime/session and resumes the same runtime when valid",
+    "fallback": "readiness/session-open/incompatibility failures fall back to built-in with a recorded user-visible reason",
+    "cancellation": "native runtime abort/close/process cancellation paths are covered",
+    "restart_recovery": "native dsh sessions can resume in a new dsh process; removed/unrecoverable dsh sessions restart on built-in according to host policy",
+    "capability_parity": "host report/search/fetch/subagent tools and capability gateway are exposed through the native MCP service",
+    "version_compatibility": "native exact version pin and install integrity checks reject incompatible on-disk runtime"
+  },
+  "selected_machine_acceptance": [
+    "ACP timeout drops a late answer instead of applying it to a newer request",
+    "cancelled ACP start terminates the child process",
+    "runtime abort stops the active turn and queued work",
+    "session resumes in a new dsh process without reconstructing a second XiaoYu session authority",
+    "permission guard not loaded blocks dsh use",
+    "dsh readiness failure falls back to built-in",
+    "host permission gate rules a capability before execution",
+    "host MCP tools reach dsh through the native service",
+    "model requests remain session-scoped and host-forwarded",
+    "pinned dsh denial precedes host approval",
+    "revoked dsh host-tool token cannot finish a call",
+    "nothing is uploaded by profile construction",
+    "model access is only through the host driver endpoint",
+    "host environment strips variables that would externally configure dsh",
+    "a different installed dsh version is not accepted",
+    "cancelled install leaves no half artifact",
+    "whatever prevents dsh from working still lets the commission complete on built-in",
+    "permission changes between approval and search execution are rechecked",
+    "console runtime status/preference/install paths remain native and user visible",
+    "host model forwarder replaces dsh placeholder credentials without exposing the host credential store"
+  ],
+  "implementation_boundary": {
+    "allowed": [
+      "select existing pinned N.E.K.O tests in the existing private-overlay GitHub Actions gate",
+      "add overlay contract tests that prevent accidental removal of that acceptance coverage"
+    ],
+    "forbidden": [
+      "install or enable dsh for the user",
+      "new dsh runtime adapter",
+      "new daemon or process supervisor",
+      "new task/session ledger",
+      "new permission store",
+      "new credential store",
+      "new capability gateway",
+      "new result outbox",
+      "new publication path"
+    ]
+  },
+  "acceptance_environment": {
+    "network_install_required": false,
+    "user_credentials_required": false,
+    "user_account_required": false,
+    "real_external_side_effect_required": false,
+    "note": "Selected tests use N.E.K.O's native fake dsh/fixtures and exercise production runtime code without installing or activating the optional runtime."
+  },
+  "retirement_condition": "Retire the overlay dsh acceptance selection when pinned N.E.K.O upstream CI exposes an equivalent mandatory optional-runtime product suite covering ACP lifecycle, readiness/fallback, host permissions/MCP, credential isolation, cancellation/restart, version compatibility and console readiness, and XiaoYu can invoke that suite directly without reducing coverage.",
+  "conclusion": "REUSE_NATIVE_ONLY. The supported dsh seam is already product-architected inside N.E.K.O; XiaoYu should add machine acceptance coverage, not another runtime implementation."
+}
