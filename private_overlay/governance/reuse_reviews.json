@@ -4125,7 +4125,7 @@
       "id": "candidate:execution_plane/host_restart_durable_queue.patch",
       "status": "approved",
       "reviewed_at": "2026-11-24",
-      "problem": "Initial queued commissions are durable, but take-up continuations and some provenance-bearing queue notes live in TaskAgentManager memory. Restart recovery must reconstruct them from native authority without flattening _Handed/_Unsaid/_Found trust semantics.",
+      "problem": "N.E.K.O queues both newly dispatched commissions and commissions being taken up again. The commission/session rows are durable, but requeue primary text, queued secondary notes, copy hand-back notes, and wake-note ordering otherwise depend on TaskAgentManager memory. A host death must reconstruct only the current queue epoch without flattening _Handed/_Unsaid/_Found provenance, duplicating native wake delivery, drifting session identity, or reviving cancellation.",
       "decision": "thin_adapter",
       "candidates": [
         {
@@ -4204,7 +4204,10 @@
           "outcome": "Private queue storage/scheduler/daemon rejected.",
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         }
-      }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
+      "outcome": "thin_adapter",
+      "notes": "Current candidate stays inside N.E.K.O Ledger/TaskAgentManager authority. It reconstructs only queued pre-effect work, scopes resume/note envelopes to the current queue epoch, preserves native session identity, re-hands timer/message wakes through native session wake authority, and rechecks terminal cancellation after session resolution. Promotion remains blocked until the latest candidate acceptance and full agent/** gate are green."
     },
     {
       "id": "governance:companion-performance-native-measurement-v1",
