@@ -42,6 +42,13 @@
       "extracts only measurements already emitted by native benchmark/live soak",
       "fails closed when a requested budget metric is absent",
       "propagates native benchmark validation_errors and live-soak FAIL as product failures"
+    ],
+    "contract_gate": "private_overlay/tests/test_companion_performance_budget.py executed by the existing private-overlay agent push gate",
+    "hardening": [
+      "non-finite measurement values are never normalized into comparable metrics",
+      "non-finite budget bounds are rejected instead of silently bypassing comparisons",
+      "direct non-finite requested metrics fail closed",
+      "source validation failures and requested missing metrics remain product failures"
     ]
   },
   "acceptance": [
@@ -52,7 +59,10 @@
     "budgets are explicit input rather than invented universal thresholds",
     "requested missing metrics fail closed",
     "source validation failures fail the product gate",
-    "adapter imports no psutil and creates no subprocess/process owner"
+    "adapter imports no psutil and creates no subprocess/process owner",
+    "ordinary agent/** pushes execute the Companion performance evaluator contract tests",
+    "the overlay contract machine-checks that the performance budget test remains in the push workflow",
+    "NaN/Infinity cannot bypass an explicit product budget"
   ],
   "retirement_condition": "Retire the thin evaluator when N.E.K.O exposes an equivalent stable product-budget verdict over its native benchmark/telemetry outputs or Companion release gating consumes that native verdict directly."
 }

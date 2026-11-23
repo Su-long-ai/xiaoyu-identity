@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,9 @@ def _checkpoint(native: dict[str, Any], label: str) -> dict[str, Any] | None:
 
 def _put(metrics: dict[str, float], key: str, value: Any, scale: float = 1.0) -> None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        metrics[key] = round(float(value) * scale, 3)
+        normalized = float(value) * scale
+        if math.isfinite(normalized):
+            metrics[key] = round(normalized, 3)
 
 
 def extract_metrics(
@@ -111,7 +114,10 @@ def evaluate(
                 value = raw_rule[bound]
                 if not isinstance(value, (int, float)) or isinstance(value, bool):
                     raise ValueError(f"budget {key!r}.{bound} must be numeric")
-                rule[bound] = float(value)
+                normalized = float(value)
+                if not math.isfinite(normalized):
+                    raise ValueError(f"budget {key!r}.{bound} must be finite")
+                rule[bound] = normalized
         if not rule:
             raise ValueError(f"budget for {key!r} must declare max and/or min")
         normalized_budgets[key] = rule
@@ -120,6 +126,11 @@ def evaluate(
             failures.append({"kind": "missing_metric", "metric": key})
             continue
         value = metrics[key]
+        if not math.isfinite(value):
+            failures.append(
+                {"kind": "invalid_metric", "metric": key, "value": repr(value)}
+            )
+            continue
         if "max" in rule and value > rule["max"]:
             failures.append(
                 {
