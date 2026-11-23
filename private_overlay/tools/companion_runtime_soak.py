@@ -181,6 +181,7 @@ def summarize(
     elapsed_seconds: float,
     require_desktop: bool = False,
     require_single_backend: bool = False,
+    performance_budgets: dict[str, dict[str, float | int]] | None = None,
 ) -> dict[str, Any]:
     endpoint_names = sorted(
         {
@@ -230,16 +231,49 @@ def summarize(
         for sample in samples
         if (sample.get("processes") or {}).get("available") is True
     ]
-    process_summary: dict[str, Any] = {"available": bool(process_samples)}
+    process_summary: dict[str, Any] = {
+        "available": bool(process_samples),
+        "samples": len(process_samples),
+    }
+    normalized_budgets = performance_budgets or {}
+
     for role in ("desktop", "backend"):
         counts = [len(sample.get(role) or []) for sample in process_samples]
         rss_totals = [
             sum(int(item.get("rss_bytes") or 0) for item in sample.get(role) or [])
             for sample in process_samples
         ]
+        pid_sets = [
+            frozenset(int(item["pid"]) for item in sample.get(role) or [])
+            for sample in process_samples
+        ]
+        distinct_pids = sorted({pid for pid_set in pid_sets for pid in pid_set})
+        pid_churn_events = sum(
+            1 for previous, current in zip(pid_sets, pid_sets[1:]) if previous != current
+        )
+
+        rss_first = rss_totals[0] if rss_totals else None
+        rss_last = rss_totals[-1] if rss_totals else None
         role_summary: dict[str, Any] = {
             "count_min": min(counts) if counts else None,
             "count_max": max(counts) if counts else None,
+            "pid_distinct_count": len(distinct_pids) if process_samples else None,
+            "pid_churn_events": pid_churn_events if process_samples else None,
+            "rss_mib_first": (
+                round(rss_first / 1024.0 / 1024.0, 3)
+                if rss_first is not None
+                else None
+            ),
+            "rss_mib_last": (
+                round(rss_last / 1024.0 / 1024.0, 3)
+                if rss_last is not None
+                else None
+            ),
+            "rss_mib_growth": (
+                round((rss_last - rss_first) / 1024.0 / 1024.0, 3)
+                if rss_first is not None and rss_last is not None
+                else None
+            ),
             "rss_mib_max": (
                 round(max(rss_totals) / 1024.0 / 1024.0, 3)
                 if rss_totals
@@ -248,8 +282,14 @@ def summarize(
             "cpu_percent_approx": None,
         }
         if len(process_samples) >= 2 and elapsed_seconds > 0:
-            first = {int(p["pid"]): float(p["cpu_seconds"]) for p in process_samples[0].get(role) or []}
-            last = {int(p["pid"]): float(p["cpu_seconds"]) for p in process_samples[-1].get(role) or []}
+            first = {
+                int(p["pid"]): float(p["cpu_seconds"])
+                for p in process_samples[0].get(role) or []
+            }
+            last = {
+                int(p["pid"]): float(p["cpu_seconds"])
+                for p in process_samples[-1].get(role) or []
+            }
             if first and first.keys() == last.keys():
                 delta = sum(max(0.0, last[pid] - first[pid]) for pid in first)
                 role_summary["cpu_percent_approx"] = round(
@@ -257,6 +297,29 @@ def summarize(
                     3,
                 )
         process_summary[role] = role_summary
+
+        budget = normalized_budgets.get(role) or {}
+        if budget and not process_samples:
+            failures.append(f"{role}_process_metrics_unavailable")
+            continue
+
+        max_growth = budget.get("max_rss_growth_mib")
+        growth = role_summary["rss_mib_growth"]
+        if max_growth is not None and growth is not None and growth > float(max_growth):
+            failures.append(f"{role}_rss_growth_mib")
+
+        max_churn = budget.get("max_pid_churn_events")
+        churn = role_summary["pid_churn_events"]
+        if max_churn is not None and churn is not None and churn > int(max_churn):
+            failures.append(f"{role}_pid_churn")
+
+        max_cpu = budget.get("max_cpu_percent")
+        cpu = role_summary["cpu_percent_approx"]
+        if max_cpu is not None:
+            if cpu is None:
+                failures.append(f"{role}_cpu_metric_unavailable")
+            elif cpu > float(max_cpu):
+                failures.append(f"{role}_cpu_percent")
 
     if require_desktop and process_samples:
         counts = [len(sample.get("desktop") or []) for sample in process_samples]
@@ -278,6 +341,7 @@ def summarize(
             "nonrunning_observations": nonrunning_observations,
         },
         "process_summary": process_summary,
+        "performance_budgets": normalized_budgets,
         "failures": failures,
         "privacy": {
             "conversation_text_recorded": False,
@@ -297,6 +361,7 @@ def run_soak(
     desktop_exe: Path | None = None,
     require_desktop: bool = False,
     require_single_backend: bool = False,
+    performance_budgets: dict[str, dict[str, float | int]] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     deadline = started + max(0.0, duration_seconds)
@@ -321,6 +386,7 @@ def run_soak(
         elapsed_seconds=max(0.0, time.monotonic() - started),
         require_desktop=require_desktop,
         require_single_backend=require_single_backend,
+        performance_budgets=performance_budgets,
     )
 
 
@@ -337,8 +403,38 @@ def main() -> int:
     )
     parser.add_argument("--require-desktop", action="store_true")
     parser.add_argument("--require-single-backend", action="store_true")
+    parser.add_argument("--max-desktop-rss-growth-mib", type=float)
+    parser.add_argument("--max-backend-rss-growth-mib", type=float)
+    parser.add_argument("--max-desktop-pid-churn", type=int)
+    parser.add_argument("--max-backend-pid-churn", type=int)
+    parser.add_argument("--max-desktop-cpu-percent", type=float)
+    parser.add_argument("--max-backend-cpu-percent", type=float)
     parser.add_argument("--result-path", type=Path)
     args = parser.parse_args()
+
+    performance_budgets = {
+        "desktop": {
+            key: value
+            for key, value in {
+                "max_rss_growth_mib": args.max_desktop_rss_growth_mib,
+                "max_pid_churn_events": args.max_desktop_pid_churn,
+                "max_cpu_percent": args.max_desktop_cpu_percent,
+            }.items()
+            if value is not None
+        },
+        "backend": {
+            key: value
+            for key, value in {
+                "max_rss_growth_mib": args.max_backend_rss_growth_mib,
+                "max_pid_churn_events": args.max_backend_pid_churn,
+                "max_cpu_percent": args.max_backend_cpu_percent,
+            }.items()
+            if value is not None
+        },
+    }
+    performance_budgets = {
+        role: budget for role, budget in performance_budgets.items() if budget
+    }
 
     result = run_soak(
         duration_seconds=args.duration_seconds,
@@ -348,6 +444,7 @@ def main() -> int:
         desktop_exe=args.desktop_exe,
         require_desktop=args.require_desktop,
         require_single_backend=args.require_single_backend,
+        performance_budgets=performance_budgets,
     )
     rendered = json.dumps(result, ensure_ascii=False, indent=2)
     print(rendered)
