@@ -148,5 +148,116 @@ class CompanionRuntimeSoakTests(unittest.TestCase):
         self.assertNotIn("desktop_process_count", summary["failures"])
 
 
+    def test_process_growth_and_pid_churn_are_observable_without_plugin_pid_guessing(self):
+        mib = 1024 * 1024
+        samples = [
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {
+                    "available": True,
+                    "desktop": [{"pid": 10, "rss_bytes": 100 * mib, "cpu_seconds": 1.0}],
+                    "backend": [{"pid": 20, "rss_bytes": 200 * mib, "cpu_seconds": 2.0}],
+                },
+            },
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {
+                    "available": True,
+                    "desktop": [{"pid": 10, "rss_bytes": 120 * mib, "cpu_seconds": 1.2}],
+                    "backend": [{"pid": 20, "rss_bytes": 205 * mib, "cpu_seconds": 2.2}],
+                },
+            },
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {
+                    "available": True,
+                    "desktop": [{"pid": 11, "rss_bytes": 130 * mib, "cpu_seconds": 0.1}],
+                    "backend": [{"pid": 20, "rss_bytes": 210 * mib, "cpu_seconds": 2.4}],
+                },
+            },
+        ]
+
+        summary = mod.summarize(samples, elapsed_seconds=2.0)
+
+        desktop = summary["process_summary"]["desktop"]
+        self.assertEqual(desktop["pid_distinct_count"], 2)
+        self.assertEqual(desktop["pid_churn_events"], 1)
+        self.assertEqual(desktop["rss_mib_first"], 100.0)
+        self.assertEqual(desktop["rss_mib_last"], 130.0)
+        self.assertEqual(desktop["rss_mib_growth"], 30.0)
+        self.assertIsNone(desktop["cpu_percent_approx"])
+
+        backend = summary["process_summary"]["backend"]
+        self.assertEqual(backend["pid_distinct_count"], 1)
+        self.assertEqual(backend["pid_churn_events"], 0)
+        self.assertEqual(backend["rss_mib_growth"], 10.0)
+        self.assertAlmostEqual(backend["cpu_percent_approx"], 20.0)
+
+    def test_explicit_performance_budgets_fail_closed_on_user_visible_regressions(self):
+        mib = 1024 * 1024
+        samples = [
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {
+                    "available": True,
+                    "desktop": [{"pid": 10, "rss_bytes": 100 * mib, "cpu_seconds": 1.0}],
+                    "backend": [{"pid": 20, "rss_bytes": 200 * mib, "cpu_seconds": 2.0}],
+                },
+            },
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {
+                    "available": True,
+                    "desktop": [{"pid": 10, "rss_bytes": 140 * mib, "cpu_seconds": 2.0}],
+                    "backend": [{"pid": 20, "rss_bytes": 202 * mib, "cpu_seconds": 2.1}],
+                },
+            },
+        ]
+
+        summary = mod.summarize(
+            samples,
+            elapsed_seconds=10.0,
+            performance_budgets={
+                "desktop": {
+                    "max_rss_growth_mib": 20.0,
+                    "max_pid_churn_events": 0,
+                    "max_cpu_percent": 5.0,
+                }
+            },
+        )
+
+        self.assertEqual(summary["verdict"], "FAIL")
+        self.assertIn("desktop_rss_growth_mib", summary["failures"])
+        self.assertIn("desktop_cpu_percent", summary["failures"])
+        self.assertNotIn("desktop_pid_churn", summary["failures"])
+        self.assertEqual(
+            summary["performance_budgets"]["desktop"]["max_rss_growth_mib"],
+            20.0,
+        )
+
+    def test_requested_performance_budget_requires_process_metrics(self):
+        samples = [
+            {
+                "endpoints": {},
+                "plugins": {"not_running": [], "parse_error": ""},
+                "processes": {"available": False, "reason": "psutil_unavailable"},
+            }
+        ]
+
+        summary = mod.summarize(
+            samples,
+            elapsed_seconds=1.0,
+            performance_budgets={"backend": {"max_pid_churn_events": 0}},
+        )
+
+        self.assertEqual(summary["verdict"], "FAIL")
+        self.assertIn("backend_process_metrics_unavailable", summary["failures"])
+
+
 if __name__ == "__main__":
     unittest.main()
