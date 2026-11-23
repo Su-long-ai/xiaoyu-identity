@@ -4718,6 +4718,82 @@
           "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:voice/neko-d90-native-promotion-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The current N.E.K.O product pin predates native TTS HTTP pooling/preconnect and substantial realtime/ASR connection-generation hardening now present at d90. XiaoYu must determine whether those native capabilities can replace private lifecycle glue and improve first-audio/reconnect reliability without blindly upgrading across 46 upstream commits or breaking the 14 managed product patches.",
+      "decision": "candidate_probe",
+      "candidate_only": true,
+      "promotion_forbidden": true,
+      "candidates": [
+        {
+          "name": "N.E.K.O current product pin c3fc33ff",
+          "type": "native_current_pin",
+          "outcome": "retain as product authority while candidate is evaluated",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "N.E.K.O d90f837 native Voice lifecycle",
+          "type": "native_upstream_candidate",
+          "outcome": "selected as fixed candidate because it adds native TTS HTTP pooling/preconnect and substantial realtime/ASR ownership hardening",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "existing managed patch series + native/XiaoYu tests",
+          "type": "existing_product_acceptance",
+          "outcome": "selected as the compatibility/product proof; candidate must replay patches in declared order and reuse existing test surfaces",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "copy d90 HTTP pool/preconnect/transport into XiaoYu",
+          "type": "private_implementation",
+          "outcome": "rejected because N.E.K.O already owns these capabilities natively",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "d90 contains the desired native lifecycle capabilities, but the product carries 14 ordered managed patches and eight touch files changed by upstream. A fixed candidate compatibility/test probe is required before native reuse can safely replace the c3 product pin.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json",
+      "retirement_condition": "Retire this candidate probe after a specific newer N.E.K.O pin is promoted and all replaced XiaoYu patches are retired/rebased with equivalent product acceptance, or when upstream itself ships the remaining XiaoYu-specific Qwen bundle/policy behavior and the managed patches disappear.",
+      "promotion_policy": "Candidate/probe only. Do not edit NEKO_UPSTREAM.lock.json or product patch baselines until the machine verdict is promotion_ready=true and the current product acceptance suite is green.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole audio/realtime/HTTP-pool runtime authority; candidate work may only test promotion.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 remains product pin and current green baseline.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "d90 adds native _http_pool, _preconnect, Qwen reconnect/socket retirement and broad realtime/ASR generation hardening absent from the prior L2 snapshot.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing XiaoYu managed patch/test surfaces remain compatibility evidence; Qwen bundle behavior has no d90 native replacement.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "git + pytest + existing GitHub Actions are sufficient for candidate compatibility; no external transport/pool/test framework is needed.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: fixed candidate checkout, ordered patch replay, existing native/product tests, structured verdict only.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No XiaoYu HTTP pool, realtime transport, voice daemon or copied upstream implementation is permitted.",
+          "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

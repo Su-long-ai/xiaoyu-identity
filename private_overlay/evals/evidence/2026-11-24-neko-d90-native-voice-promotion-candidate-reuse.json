@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_D90_NATIVE_VOICE_PROMOTION_CANDIDATE_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "candidate_pin": "d90f8371653c5a2a9b01d655c38475414711266a",
+  "license_at_candidate": "Apache-2.0",
+  "problem": "The current N.E.K.O product pin predates native TTS HTTP pooling/preconnect and substantial realtime/ASR connection-generation hardening now present at d90. XiaoYu must determine whether those native capabilities can replace private lifecycle glue and improve first-audio/reconnect reliability without blindly upgrading across 46 upstream commits or breaking the 14 managed product patches.",
+  "prior_review_freshness": {
+    "stale_observation": "governance:voice-replacement-reconnect-soak-v1 previously recorded latest upstream as equivalent to c3; upstream has since advanced to d90, so that L2 observation is no longer valid for promotion decisions.",
+    "rule": "Do not edit historical evidence to pretend it knew about d90; this candidate is the fresh superseding upstream investigation."
+  },
+  "authority": {
+    "audio_realtime_runtime": "N.E.K.O",
+    "tts_http_pool": "N.E.K.O native _http_pool.py at candidate",
+    "tts_preconnect": "N.E.K.O native _preconnect.py at candidate",
+    "qwen_clone_product_policy": "existing XiaoYu managed patch 0008 until an upstream native equivalent exists",
+    "product_pin_promotion": "forbidden in this unit",
+    "forbidden": [
+      "second HTTP pool",
+      "second WebSocket/realtime transport",
+      "new voice daemon",
+      "manual copy/cherry-pick of d90 transport code into overlay",
+      "direct NEKO_UPSTREAM.lock.json promotion before candidate acceptance closes"
+    ]
+  },
+  "candidate_native_value": {
+    "files": {
+      "main_logic/tts_client/_http_pool.py": "native pooled TTS clients with longer keepalive for stale-idle first-sentence failures",
+      "main_logic/tts_client/_preconnect.py": "TTS_PRECONNECT_SENTINEL + SpareSocket ownership, bounded handshake/confirm/retired-close lifecycle",
+      "main_logic/tts_client/workers/qwen.py": "bounded reconnect while retaining speech identity and staged text; tracked socket retirement",
+      "main_logic/omni_realtime_client/_transport.py": "connection-generation ownership and retired-connection isolation",
+      "main_logic/asr_client/runtime.py": "session epoch/start generation/cleanup ownership"
+    },
+    "native_tests": [
+      "tests/unit/test_spare_socket.py",
+      "tests/unit/test_tts_preconnect_providers.py",
+      "tests/unit/test_step_tts_preconnect.py"
+    ]
+  },
+  "managed_patch_overlap": {
+    "total_managed_patches": 14,
+    "patches_touching_files_changed_between_c3_and_d90": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0006-private-speech-output-gate.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0009-proactive-interruptibility-gate.patch",
+      "0010-startup-event-loop-responsiveness.patch",
+      "0012-native-delivery-receipt.patch"
+    ],
+    "voice_critical_overlap": {
+      "0003": [
+        "main_logic/omni_realtime_client/_transport.py"
+      ],
+      "0006": [
+        "main_logic/core/tts_runtime.py"
+      ],
+      "0008": [
+        "main_logic/core/tts_runtime.py",
+        "main_logic/tts_client/__init__.py",
+        "main_logic/tts_client/_infra.py"
+      ],
+      "0010": [
+        "main_logic/core/tts_runtime.py"
+      ]
+    },
+    "implication": "File overlap is not proof of conflict, but it is a machine-relevant reason to require ordered git-apply compatibility plus focused native/XiaoYu tests before promotion."
+  },
+  "selected_candidate_work": {
+    "stage_1": "Build a fixed-d90 candidate checkout and machine probe. Reuse git apply --check/apply in declared patch order; never mutate product pin.",
+    "stage_2": "Run d90 native preconnect/socket ownership tests on the clean candidate.",
+    "stage_3": "If and only if managed patch replay succeeds, run the existing XiaoYu patched Companion Voice ownership/Qwen bundle tests on the candidate product state.",
+    "verdict": "Emit a structured promotion-ready=false/true candidate verdict. A blocker is a successful probe result, not permission to bypass it."
+  },
+  "acceptance": [
+    "candidate is pinned to d90; no moving-main nonreproducibility",
+    "ordinary product N.E.K.O pin remains c3",
+    "candidate verifies Apache-2.0 license marker",
+    "candidate validates native TTS preconnect/socket ownership tests",
+    "candidate replays all managed patches in series order or records the exact first incompatible patch/file as a promotion blocker",
+    "when patch replay succeeds, existing XiaoYu Voice/Qwen ownership tests must pass on d90 before promotion_ready can become true",
+    "candidate never copies d90 HTTP pool/preconnect/transport implementation into XiaoYu overlay",
+    "promotion_ready must remain false on any patch conflict, native test failure, XiaoYu product test failure, missing candidate test, or license mismatch"
+  ],
+  "retirement_condition": "Retire this candidate probe after a specific newer N.E.K.O pin is promoted and all replaced XiaoYu patches are retired/rebased with equivalent product acceptance, or when upstream itself ships the remaining XiaoYu-specific Qwen bundle/policy behavior and the managed patches disappear."
+}
