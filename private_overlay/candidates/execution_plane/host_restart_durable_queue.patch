@@ -323,7 +323,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,7 +6339,197 @@
+@@ -6191,7 +6339,213 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
@@ -418,10 +418,26 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +        if commission_id in self._queue:
 +            self._queue.remove(commission_id)
 +
-+    def recover_restart_queue(self) -> None:
-+        """Reconstruct durable task-agent queue entries from an earlier host."""
-+        if not self._closed:
-+            self._spawn(self._recover_restart_queue())
++    def recover_restart_queue(self, *, on_ready: Callable[[], None] | None = None) -> None:
++        """Reconstruct the durable queue, then release startup wake delivery."""
++        if self._closed:
++            if on_ready is not None:
++                on_ready()
++            return
++
++        async def recover_then_ready() -> None:
++            try:
++                await self._recover_restart_queue()
++            finally:
++                if on_ready is not None:
++                    on_ready()
++
++        try:
++            self._spawn(recover_then_ready())
++        except BaseException:
++            if on_ready is not None:
++                on_ready()
++            raise
 +
 +    async def _recover_restart_queue(self) -> None:
 +        startable = 0
@@ -521,7 +537,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
-@@ -7100,7 +7438,23 @@
+@@ -7100,7 +7454,23 @@
          from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
  
          ids = [wake.id for wake in wakes]
@@ -545,7 +561,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
          if commission.status == "waiting_user":
              # Not in between its question and the answer, and not so that
              # it gets to work with its question open. It goes once the
-@@ -7212,8 +7566,66 @@
+@@ -7212,8 +7582,66 @@
                  await self._send_text(self._runtime_of(session), session, "steer", _Handed(text, fired))
              elif chosen == "along":
                  # Being started, or waiting for a place: it goes along with
@@ -612,7 +628,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
                  # It rests, or waits for task agents with its session
                  # closed, and could not be taken up this moment. (The
                  # request that was counted for it stays counted, for when
-@@ -8993,6 +9405,11 @@
+@@ -8993,6 +9421,11 @@
          for delay in (*REST_LOOK_RETRY_DELAYS, None):
              try:
 -                woken = await self._wake_working(commission_id, message, reason="handed back by a copy of its session")
@@ -628,10 +644,13 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
 --- a/nekoclaw/host/service.py
 +++ b/nekoclaw/host/service.py
-@@ -388,5 +388,6 @@
+@@ -388,5 +388,9 @@
          self.outbox.kick()
++        # Queue provenance must be reconstructed before pending native wakes
++        # can be handed over, or a primary wake can be demoted into a note.
++        self.wakes.hold()
          self.wakes.kick()
          self.task_agents.recover_restart_answers()
-+        self.task_agents.recover_restart_queue()
++        self.task_agents.recover_restart_queue(on_ready=self.wakes.release)
  
      # -- what the main dialogue uses --------------------------------------
