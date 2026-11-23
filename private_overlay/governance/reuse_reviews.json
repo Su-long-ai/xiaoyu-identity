@@ -4516,9 +4516,9 @@
           "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
         },
         {
-          "name": "N.E.K.O latest upstream 843a3624",
+          "name": "N.E.K.O latest upstream d90f8371",
           "type": "native_upstream",
-          "outcome": "checked; old-host active work is still collapsed to failed",
+          "outcome": "rechecked; latest upstream still collapses old-host non-resting active work to failed",
           "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
         },
         {
@@ -4563,7 +4563,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream still collapses old active work to failed.",
+          "outcome": "Rechecked latest upstream d90f8371: old-host non-resting active work is still failed; no native effect-aware explicit-reconciliation seam exists.",
           "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
         },
         "L3_existing_pinned_external": {

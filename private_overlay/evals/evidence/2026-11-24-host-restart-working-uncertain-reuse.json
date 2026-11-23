@@ -28,8 +28,8 @@
       "gap": "_reconcile marks every other old-host working commission failed even when effect occurrence is ambiguous."
     },
     "L2_neko_upstream_extensions": {
-      "commit": "843a3624f11679466d0d07e692e0cc589e83eace",
-      "result": "Latest upstream still uses the same fail-old-active restart policy; no effect-aware working->uncertain/blocked seam was found."
+      "commit": "d90f8371653c5a2a9b01d655c38475414711266a",
+      "result": "Rechecked latest upstream after the original review. nekopower/host/ledger.py::_reconcile still selects old-host queued/working/waiting_user rows and transitions them to failed, excluding only resting working. No native effect-aware working->blocked/no-auto-retry seam is present."
     },
     "L3_existing_pinned_external": "Managed 0011-0014 already provide outbox visible-effect and plugin ambiguous-effect/idempotency evidence; they are reused, not duplicated.",
     "L4_broader_external_ecosystem": "A durable workflow engine could model unknown activity, but would duplicate N.E.K.O commission/session/effect authorities.",
@@ -49,5 +49,12 @@
   ],
   "decision": "REUSE_NATIVE_BLOCKED_FOR_RESTART_UNCERTAIN_CANDIDATE",
   "promotion": "CANDIDATE_ONLY",
-  "retirement_condition": "Delete when upstream N.E.K.O natively distinguishes prior-host active task-agent work from failed work and provides equivalent no-auto-retry, explicit-resume, current-permission semantics."
+  "retirement_condition": "Delete when upstream N.E.K.O natively distinguishes prior-host active task-agent work from failed work and provides equivalent no-auto-retry, explicit-resume, current-permission semantics.",
+  "latest_upstream_recheck": {
+    "checked_at": "2026-11-24",
+    "commit": "d90f8371653c5a2a9b01d655c38475414711266a",
+    "path": "nekopower/host/ledger.py",
+    "observed": "_reconcile keeps the prior behavior: old-host queued/working/waiting_user -> failed, except deferred and resting working.",
+    "decision_impact": "NO_CHANGE_CANDIDATE_STILL_NEEDED"
+  }
 }
