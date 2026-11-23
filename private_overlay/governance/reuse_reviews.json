@@ -4646,6 +4646,78 @@
           "evidence": "evals/evidence/2026-11-24-companion-performance-gate-orchestration-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:startup-hidden-child-exit-diagnostics-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The one-click launcher starts start_xiaoyu.ps1 in a hidden child PowerShell and discards its process handle. If that child fails before backend readiness, the visible launcher keeps polling for up to 180 seconds and can only report generic endpoint-not-ready state. N.E.K.O already owns startup failure semantics and propagates startup/runtime failures as a non-zero launcher exit code, so XiaoYu should surface that existing signal rather than add another supervisor or error protocol.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin launcher exit/failure seam",
+          "type": "native_current_pin",
+          "outcome": "selected as failure authority; XiaoYu observes only the existing child exit status and launcher record",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream d90f837",
+          "type": "native_upstream",
+          "outcome": "checked; report_startup_failure is the same blob as c3 and there is no newer pre-desktop failure consumer",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        {
+          "name": "Windows PowerShell Start-Process -PassThru",
+          "type": "mature_native_ecosystem",
+          "outcome": "selected to observe the existing hidden child process without adding a service or transport",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        {
+          "name": "stdout/stderr redirection, new watchdog, supervisor or error IPC",
+          "type": "private_runtime",
+          "outcome": "rejected because redirection would become a long-lived log and the other options duplicate native lifecycle/failure authority",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "N.E.K.O already provides the authoritative success/failure process status and PowerShell already exposes the child handle, but the current one-click wrapper discards that handle. Residual work is only fail-fast observation inside the existing readiness loop.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json",
+      "retirement_condition": "Remove the XiaoYu child-exit observer when the official N.E.K.O desktop/launcher path can surface native startup failure before Companion UI exposure with equivalent actionable diagnostics.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole startup/lifecycle/failure authority; XiaoYu only observes the hidden child it already launches.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 native launcher failure/exit semantics are selected; no overlay error taxonomy is added.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest d90f837 has the identical report_startup_failure blob and no replacement pre-desktop failure consumer.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned QQ, provider and other external plugins do not own N.E.K.O backend launcher startup or its pre-desktop failure state."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Built-in Windows PowerShell Start-Process -PassThru is sufficient; long-lived stream redirection and third-party launchers/loggers are rejected.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: observe non-zero child exit inside the already-existing readiness loop and reuse current preflight/native diagnostics.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No watchdog, supervisor, daemon, error protocol, log store, state database or extra network path is introduced.",
+          "evidence": "evals/evidence/2026-11-24-startup-hidden-child-exit-diagnostics-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
