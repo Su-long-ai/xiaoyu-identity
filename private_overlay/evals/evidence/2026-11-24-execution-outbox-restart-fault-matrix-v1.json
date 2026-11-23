@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "acceptance_id": "EXECUTION_OUTBOX_RESTART_FAULT_MATRIX_V1",
+  "recorded_at_local": "2026-11-24T00:55:00+08:00",
+  "branch": "agent/execution-continuity-v2",
+  "reuse_reviews": [
+    "patch:0011-execution-outbox-effect-state.patch",
+    "patch:0012-native-delivery-receipt.patch"
+  ],
+  "implementation": "test_only_existing_managed_product_semantics",
+  "authority": "N.E.K.O native SQLite Ledger/outbox and native main visible-effect receipt",
+  "hard_kill_points": [
+    "result committed + outbox pending",
+    "handoff written before main claim",
+    "main claim written before visible receipt",
+    "positive visible receipt committed before host death"
+  ],
+  "expected_semantics": {
+    "pending": "retryable",
+    "handoff_before_claim": "restart_releases_to_retryable_pending",
+    "claimed_without_receipt": "restart_freezes_uncertain_no_retry",
+    "sent": "terminal_no_retry",
+    "exact_late_positive_receipt": "may_reconcile_uncertain_to_sent",
+    "mismatched_or_negative_late_receipt": "cannot_make_uncertain_retryable",
+    "main_epoch_change": "claimed_to_uncertain_without_blind_retry"
+  },
+  "no_new_runtime": true,
+  "no_new_outbox": true,
+  "no_new_ledger": true
+}

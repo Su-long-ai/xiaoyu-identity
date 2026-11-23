@@ -488,6 +488,22 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("python -m compileall", script)
         self.assertIn("check_release_readiness.py", script)
 
+    def test_public_main_mirror_uses_same_machine_gate(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        self.assertGreaterEqual(workflow.count('      - "main"'), 2)
+        self.assertIn('      - "private/neko-overlay-v1"', workflow)
+        self.assertIn('      - "agent/**"', workflow)
+        for required in (
+            "Public repository secret leak gate",
+            "Reuse-first hard gate",
+            "Frozen architecture hard gate",
+            "Repository-only plugin admission gate",
+            "Release evidence gate",
+        ):
+            self.assertIn(required, workflow)
+
     def test_github_gate_blocks_public_secret_leaks(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"

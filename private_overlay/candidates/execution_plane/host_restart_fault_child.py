@@ -43,6 +43,10 @@ async def main() -> None:
             "waiting-tool",
             "waiting-malformed",
             "cancelled-from-wait",
+            "outbox-pending",
+            "outbox-handoff",
+            "outbox-claimed",
+            "outbox-sent",
         ),
         required=True,
     )
@@ -63,11 +67,29 @@ async def main() -> None:
 
     question: dict[str, Any] | None = None
     outbox_id: int | None = None
+    attempt_id: str | None = None
+    claim_id: str | None = None
+    outbox_state = args.state.startswith("outbox-")
 
     if args.state != "queued":
         assert (await ledger.transition(commission.id, "working", reason="fault injector started")).applied
 
-    if args.state == "blocked":
+    if outbox_state:
+        assert (await ledger.transition(commission.id, "done", reason="result committed before delivery")).applied
+        outbox_id = await ledger.outbox_add(
+            commission.id,
+            "task_result",
+            {"task_id": commission.id, "text": f"durable result for {args.state}"},
+        )
+        attempt_id = "attempt-before-hard-kill"
+        claim_id = "claim-before-hard-kill"
+        if args.state in {"outbox-handoff", "outbox-claimed", "outbox-sent"}:
+            assert await ledger.outbox_mark_handoff(outbox_id, attempt_id)
+        if args.state in {"outbox-claimed", "outbox-sent"}:
+            assert await ledger.outbox_claim_delivery(outbox_id, attempt_id, claim_id) == "claimed"
+        if args.state == "outbox-sent":
+            assert await ledger.outbox_commit_delivery(outbox_id, attempt_id, claim_id) == "committed"
+    elif args.state == "blocked":
         assert (await ledger.transition(commission.id, "blocked", reason="fault injector blocked")).applied
     elif args.state == "done":
         assert (await ledger.transition(commission.id, "done", reason="fault injector done")).applied
@@ -117,6 +139,8 @@ async def main() -> None:
         "route": route,
         "question_id": None if question is None else question.get("id"),
         "outbox_id": outbox_id,
+        "attempt_id": attempt_id,
+        "claim_id": claim_id,
     }
     args.marker.parent.mkdir(parents=True, exist_ok=True)
     args.marker.write_text(json.dumps(marker), encoding="utf-8")

@@ -161,3 +161,131 @@ async def test_hard_kill_unknown_work_never_becomes_retryable_work(tmp_path: Pat
         assert after is not None and after.status == "failed"
     finally:
         await reopened.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("state", "expected_delivery_state", "retryable"),
+    [
+        ("outbox-pending", "pending", True),
+        ("outbox-handoff", "pending", True),
+        ("outbox-claimed", "uncertain", False),
+        ("outbox-sent", "sent", False),
+    ],
+)
+async def test_hard_kill_outbox_effect_state_matrix(
+    tmp_path: Path,
+    state: str,
+    expected_delivery_state: str,
+    retryable: bool,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, state)
+    item_id = int(snapshot["outbox_id"])
+
+    reopened = Ledger(db)
+    try:
+        commission = await reopened.get(str(snapshot["commission_id"]))
+        assert commission is not None and commission.status == "done"
+        assert await reopened.outbox_delivery_state(item_id) == expected_delivery_state
+
+        pending_ids = {item.id for item in await reopened.outbox_pending()}
+        assert (item_id in pending_ids) is retryable
+    finally:
+        await reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_hard_kill_claimed_result_accepts_only_exact_late_positive_receipt(
+    tmp_path: Path,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, "outbox-claimed")
+    item_id = int(snapshot["outbox_id"])
+    attempt_id = str(snapshot["attempt_id"])
+    claim_id = str(snapshot["claim_id"])
+
+    reopened = Ledger(db)
+    try:
+        assert await reopened.outbox_delivery_state(item_id) == "uncertain"
+
+        assert (
+            await reopened.outbox_commit_delivery(
+                item_id,
+                attempt_id,
+                "different-claim-from-new-main",
+            )
+            == "not_ready"
+        )
+        assert await reopened.outbox_delivery_state(item_id) == "uncertain"
+
+        # A negative/stale settlement cannot make an uncertain visible effect
+        # retryable. Only the exact positive receipt can reconcile it.
+        assert await reopened.outbox_release_delivery(item_id, attempt_id, claim_id) == "uncertain"
+        assert await reopened.outbox_delivery_state(item_id) == "uncertain"
+
+        assert await reopened.outbox_commit_delivery(item_id, attempt_id, claim_id) == "committed"
+        assert await reopened.outbox_delivery_state(item_id) == "sent"
+        assert item_id not in {item.id for item in await reopened.outbox_pending()}
+    finally:
+        await reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_main_epoch_change_freezes_claim_without_host_restart(tmp_path: Path) -> None:
+    path = tmp_path / "main-epoch.db"
+    ledger = Ledger(path)
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="main epoch",
+            dispatch_text="main epoch",
+            user_text="main epoch",
+            source="dispatch",
+        )
+        assert created
+        await ledger.update(commission.id, route="task_agent")
+        assert (await ledger.transition(commission.id, "working", reason="ready")).applied
+        assert (await ledger.transition(commission.id, "done", reason="result committed")).applied
+
+        item_id = await ledger.outbox_add(
+            commission.id,
+            "task_result",
+            {"task_id": commission.id, "text": "visible result"},
+        )
+        attempt_id = "attempt-old-main"
+        claim_id = "claim-old-main"
+        assert await ledger.outbox_mark_handoff(item_id, attempt_id)
+        assert await ledger.outbox_claim_delivery(item_id, attempt_id, claim_id) == "claimed"
+
+        assert await ledger.outbox_mark_main_restart_uncertain() == 1
+        assert await ledger.outbox_delivery_state(item_id) == "uncertain"
+        assert await ledger.outbox_claim_delivery(item_id, attempt_id, "new-main-claim") == "uncertain"
+        assert item_id not in {item.id for item in await ledger.outbox_pending()}
+
+        # Retired-main exact positive receipt remains useful reconciliation
+        # evidence; it commits the already-observed effect rather than replaying.
+        assert await ledger.outbox_commit_delivery(item_id, attempt_id, claim_id) == "committed"
+        assert await ledger.outbox_delivery_state(item_id) == "sent"
+    finally:
+        await ledger.close()
+
+
+@pytest.mark.asyncio
+async def test_unclaimed_handoff_after_hard_kill_is_safe_to_retry_with_new_identity(
+    tmp_path: Path,
+) -> None:
+    db, snapshot = _kill_after_committed_checkpoint(tmp_path, "outbox-handoff")
+    item_id = int(snapshot["outbox_id"])
+
+    reopened = Ledger(db)
+    try:
+        assert await reopened.outbox_delivery_state(item_id) == "pending"
+        assert item_id in {item.id for item in await reopened.outbox_pending()}
+
+        new_attempt = "attempt-after-restart"
+        new_claim = "claim-after-restart"
+        assert await reopened.outbox_mark_handoff(item_id, new_attempt)
+        assert await reopened.outbox_claim_delivery(item_id, new_attempt, new_claim) == "claimed"
+        assert await reopened.outbox_commit_delivery(item_id, new_attempt, new_claim) == "committed"
+        assert await reopened.outbox_delivery_state(item_id) == "sent"
+    finally:
+        await reopened.close()

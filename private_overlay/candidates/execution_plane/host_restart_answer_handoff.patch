@@ -1,9 +1,7 @@
 diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 --- a/nekoclaw/host/task_agents.py
 +++ b/nekoclaw/host/task_agents.py
-@@ -6090,9 +6090,90 @@
-             if text.strip():
-                 continuation += "\nUser's answer to the interrupted permission prompt: " + text.strip()
+@@ -6109,7 +6109,88 @@
 -            await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
 +            durable_question_id = str(question.get("id") or "")
 +            accepted = await self._restart_answer(commission_id, durable_question_id)

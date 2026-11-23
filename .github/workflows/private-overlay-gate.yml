@@ -3,10 +3,12 @@ name: XiaoYu private overlay gate
 on:
   push:
     branches:
+      - "main"
       - "private/neko-overlay-v1"
       - "agent/**"
   pull_request:
     branches:
+      - "main"
       - "private/neko-overlay-v1"
   workflow_dispatch:
     inputs:
