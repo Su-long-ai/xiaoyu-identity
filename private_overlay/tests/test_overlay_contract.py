@@ -659,6 +659,7 @@ class OverlayContractTests(unittest.TestCase):
             "Exercise native Execution Plane product E2E",
             "test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end",
             "test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind",
+            "test_builtin_provider.py::test_cancelling_a_desktop_call_sets_its_stop_event_and_waits_for_the_worker",
             "test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command",
             "test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped",
             "test_host_task_agents.py::test_web_search_runs_the_search_plugin",
@@ -676,6 +677,8 @@ class OverlayContractTests(unittest.TestCase):
         )
         for item in required:
             self.assertIn(item, workflow)
+
+        self.assertNotIn("test_stopping_a_commission_stops_a_builtin_call_under_way", workflow)
 
         product_e2e = workflow.index("Exercise native Execution Plane product E2E")
         effect_candidate = workflow.index("Exercise managed effect-state patch on fresh native pin")
