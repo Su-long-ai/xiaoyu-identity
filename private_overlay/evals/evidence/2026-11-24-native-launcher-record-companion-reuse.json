@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NATIVE_LAUNCHER_RECORD_COMPANION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "XiaoYu one-click readiness and detached plugin reconcile still assumed N.E.K.O default ports 48911/48912/48915/48916. N.E.K.O can negotiate fallback public/internal ports, so a healthy runtime can be misclassified as failed or plugin recovery can poll an obsolete generation.",
+  "authority": {
+    "lifecycle": "N.E.K.O native single-instance lock + launcher.py",
+    "readiness_and_ports": "N.E.K.O launcher.json state=ready plus negotiated ports/internal_ports",
+    "xiaoyu_role": "read-only consumer plus bounded health verification",
+    "forbidden": [
+      "second backend lock",
+      "second process supervisor",
+      "resident endpoint daemon",
+      "port ownership inference"
+    ]
+  },
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "launcher_runtime_sha": "369bc0265b3c917a2f24398943aee4bd98b78219",
+    "single_instance_sha": "516b38e6e05fc8a91f3130d248ef0d35b1e00b7f"
+  },
+  "latest_upstream_checked": {
+    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "launcher_runtime_sha": "369bc0265b3c917a2f24398943aee4bd98b78219",
+    "single_instance_sha": "516b38e6e05fc8a91f3130d248ef0d35b1e00b7f",
+    "native_seam_unchanged": true
+  },
+  "selected": {
+    "mechanism": "consume native launcher.json and dynamically bind XiaoYu observers to negotiated public/internal ports",
+    "http_role": "final health verification only; explicit URLs are compatibility fallback only when the native record is absent",
+    "plugin_reconcile": "re-read launcher.json on every retry so generation/port replacement cannot leave the adapter pinned to stale endpoints"
+  },
+  "acceptance": [
+    "state=starting/invalid native records never cause guessed-default probing",
+    "state=ready record selects TOOL_SERVER_PORT and USER_PLUGIN_SERVER_PORT for plugin reconcile",
+    "one-click selects MAIN/MEMORY/TOOL and USER_PLUGIN ports from the same native record",
+    "one-click still verifies all core HTTP endpoints before declaring backend ready",
+    "custom StorageRoot is forwarded to the hidden native start path so the observer and owner share the same runtime record",
+    "no new process owner, lock, daemon, transport or credential authority is introduced",
+    "ordinary agent push continues through reuse, architecture, parse and product-worktree gates"
+  ],
+  "retirement_condition": "Remove the XiaoYu record adapter when the official N.E.K.O desktop/native launcher exposes a direct owner-ready/endpoint attachment seam to the Companion host and plugin reconcile no longer needs an external observer."
+}

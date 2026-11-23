@@ -3885,6 +3885,78 @@
           "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:native-launcher-record-companion-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion startup observers and native plugin reconcile were coupled to default N.E.K.O ports even though the N.E.K.O launcher already publishes one authoritative ready record with final negotiated public/internal ports.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin single-instance launcher record",
+          "type": "native_current_pin",
+          "outcome": "selected; authoritative lifecycle/readiness/endpoint source",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream launcher record",
+          "type": "native_upstream",
+          "outcome": "checked; relevant launcher_core/runtime.py and utils/single_instance.py blobs are unchanged from the current pin",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "HTTP probes of fixed default ports",
+          "type": "existing_thin_adapter",
+          "outcome": "demoted to final health verification and absent-record compatibility fallback; no longer endpoint authority",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        {
+          "name": "new supervisor/readiness daemon/process discovery",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates N.E.K.O lifecycle authority and cannot improve negotiated-port correctness",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native seam is sufficient; XiaoYu only needs a narrow consumer adapter because its one-click PowerShell and detached plugin reconcile are outside the native launcher process.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json",
+      "retirement_condition": "Retire when the official N.E.K.O Companion host directly consumes native owner-ready/endpoint attachment and XiaoYu no longer needs an external launcher observer.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O single-instance lock and launcher record remain authoritative; XiaoYu owns no backend lifecycle.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin publishes state=ready only after services are ready and preserves negotiated ports/internal_ports in launcher.json.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked; the relevant native launcher-record files have identical blob SHAs to the product pin.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No external component is authoritative for N.E.K.O runtime ports."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "A supervisor/readiness package would duplicate an already authoritative native record and was rejected.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: read-only launcher-record consumer plus bounded HTTP verification.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private daemon, process manager, lock, transport or state authority is added.",
+          "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

@@ -334,6 +334,39 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn("function Test-Http200", script)
         self.assertNotIn("Invoke-WebRequest -UseBasicParsing -Uri $Url", script)
 
+    def test_oneclick_consumes_native_launcher_record_and_negotiated_ports(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        starter = (ROOT / "tools" / "start_xiaoyu.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        reconcile = (
+            ROOT / "tools" / "reconcile_neko_plugin_runtime.py"
+        ).read_text(encoding="utf-8-sig")
+
+        for required in (
+            '.runtime\\launcher.json',
+            'record.state',
+            'MAIN_SERVER_PORT',
+            'MEMORY_SERVER_PORT',
+            'TOOL_SERVER_PORT',
+            'USER_PLUGIN_SERVER_PORT',
+            'XiaoYuRuntimeRecordStatus',
+            '--plugin-health-url',
+            '--plugin-url',
+            '--agent-url',
+            '"-StorageRoot"',
+        ):
+            self.assertIn(required, script)
+        self.assertIn('--runtime-record', starter)
+        self.assertIn('launcher.json', starter)
+        self.assertIn('resolve_native_runtime_record', reconcile)
+        self.assertIn('neko_launcher_record', reconcile)
+        self.assertIn('explicit_urls_fallback', reconcile)
+        self.assertNotIn('XiaoYuBackendLaunch', script)
+
+
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
         script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
             encoding="utf-8-sig"
