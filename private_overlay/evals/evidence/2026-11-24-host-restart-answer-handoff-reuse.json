@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "decision_id": "HOST_RESTART_ANSWER_HANDOFF_REUSE_V1",
+  "reviewed_at_local": "2026-11-24T00:47:00+08:00",
+  "problem": "A report/permission answer can be durably appended to the native commission event log and the host can crash before TaskAgentManager._take_up_again has durably moved the commission. Re-asking loses an already accepted answer; blindly replaying active work is unsafe.",
+  "authority_boundary": {
+    "commission": "N.E.K.O Ledger",
+    "session": "N.E.K.O TaskAgentManager/session transcript",
+    "permission": "N.E.K.O PermissionGate/PermissionStore",
+    "effect": "N.E.K.O call audit + existing managed effect-safety patches",
+    "rejected_duplicates": [
+      "private pending-answer table",
+      "private recovery journal",
+      "second task runtime",
+      "second permission store",
+      "recovery daemon"
+    ]
+  },
+  "reuse_search": {
+    "L0_authority": "Keep all state in existing N.E.K.O ledger/events and task-agent transcript authority.",
+    "L1_neko_current_pin": {
+      "commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "reusable": [
+        "Ledger events are durable SQLite rows",
+        "waiting_user pending_question is durable",
+        "TaskAgentManager._take_up_again resumes the existing transcript tail",
+        "cancelled is terminal",
+        "PermissionGate grants are in-memory/current-authority and must not be reconstructed"
+      ],
+      "gap": "_answer_closed writes answered event then invokes in-memory resume; no startup consumer exists for an answer committed immediately before host death."
+    },
+    "L2_neko_upstream_extensions": {
+      "commit": "843a3624f11679466d0d07e692e0cc589e83eace",
+      "checked_at": "2026-11-24",
+      "result": "Latest upstream still fails prior-host queued/working/waiting_user in Ledger._reconcile and _answer_closed still only owns report resume; no durable accepted-answer restart seam exists."
+    },
+    "L3_existing_pinned_external": "Not applicable: pinned providers/surfaces do not own host-internal accepted-answer continuation.",
+    "L4_broader_external_ecosystem": "Durable workflow/approval engines can model this, but would duplicate the frozen N.E.K.O ledger/orchestrator/permission authority.",
+    "L5_thin_integration": "Selected: write a restart-answer envelope into the existing Ledger event log and let TaskAgentManager consume only a still-current matching waiting_user checkpoint on the next host use.",
+    "L6_private_implementation": "Rejected: no new database/table/daemon/runtime."
+  },
+  "safety_rules": [
+    "Envelope must carry the exact current question id.",
+    "Recovery only consumes when commission is still task_agent + waiting_user and the durable question id still matches.",
+    "Cancelled/done/failed/stale-question rows are never revived.",
+    "Permission envelope stores continuation text only; it never stores or recreates once/session/always grants.",
+    "Recovered permission work must encounter current PermissionGate again before a protected effect.",
+    "If status became working before crash, this unit does not auto-replay it; ambiguous active work remains fail-closed under the parent blocker."
+  ],
+  "decision": "THIN_NATIVE_EVENT_HANDOFF_CANDIDATE",
+  "promotion": "CANDIDATE_ONLY",
+  "retirement_condition": "Delete when upstream N.E.K.O natively persists and consumes accepted report/permission answers across host restart with equivalent stale-id, cancellation, no-grant-restore and no-active-effect-replay semantics."
+}
