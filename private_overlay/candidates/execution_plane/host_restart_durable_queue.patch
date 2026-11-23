@@ -308,7 +308,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +                expected = set(resume.wakes)
 +                pending = {
 +                    wake.id
-+                    for wake in await self._ledger.wakes_pending(commission_id=commission.id)
++                    for wake in await self._ledger.wakes_pending(session_id=current.session_id)
 +                }
 +                if not expected or not expected.issubset(pending):
 +                    await self._restart_queue_fail_closed(
