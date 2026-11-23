@@ -448,13 +448,16 @@ async def test_handed_wake_uses_native_wake_ids_once_after_restart(tmp_path: Pat
             lambda: commission_id not in host.task_agents._restart_waiting_wakes,
             what="native wake ids to be handed to recovered queue",
         )
-        handed = [
+        restored = host.task_agents._resume.get(commission_id)
+        assert isinstance(restored, _Handed)
+        assert restored.wakes == (wake_id,)
+        assert commission_id not in host.task_agents._restart_resume_wakes
+        handed_notes = [
             note
             for note in host.task_agents._notes.get(commission_id, [])
             if isinstance(note, _Handed) and wake_id in note.wakes
         ]
-        assert len(handed) == 1
-        assert commission_id not in host.task_agents._resume
+        assert handed_notes == []
     finally:
         await host.abort(commission_id, reason="test cleanup")
         await host.shutdown()
@@ -564,13 +567,16 @@ async def test_message_wake_uses_session_authority_once_after_restart(tmp_path: 
             lambda: target_id not in host.task_agents._restart_waiting_wakes,
             what="session-level message wake to be handed exactly once",
         )
-        handed = [
+        restored = host.task_agents._resume.get(target_id)
+        assert isinstance(restored, _Handed)
+        assert restored.wakes == (wake_id,)
+        assert target_id not in host.task_agents._restart_resume_wakes
+        handed_notes = [
             note
             for note in host.task_agents._notes.get(target_id, [])
             if isinstance(note, _Handed) and wake_id in note.wakes
         ]
-        assert len(handed) == 1
-        assert target_id not in host.task_agents._resume
+        assert handed_notes == []
     finally:
         await host.abort(target_id)
         await host.shutdown()
