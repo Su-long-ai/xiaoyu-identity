@@ -79,7 +79,99 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
  def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
      """Whether a session event shows the session took everything sent to it.
  
-@@ -5967,11 +6010,25 @@
+@@ -1088,6 +1131,9 @@
+         # What a commission taken up again is told: an addition to a blocked or
+         # failed one, or the answer to one whose waiting session was closed.
+         self._resume: dict[str, str] = {}
++        # Restart-only wake ids that must be re-handed by the native wake ledger
++        # before a recovered queued commission is allowed to start.
++        self._restart_waiting_wakes: dict[str, set[int]] = {}
+         # Commissions whose task agent is being started again right now.
+         self._taking_up: set[str] = set()
+         # Commissions whose closed session an answer is taking up again right
+@@ -3819,14 +3865,21 @@
+     async def _start_next(self) -> None:
+         """Give free places to queued commissions, in the order they were queued."""
+         while not self._closed and len(self._sessions) < self.limit:
+             # One whose old session is still on its way out keeps its turn;
+             # it is started when that session has gone. So does one whose
+             # session another commission holds: it is next when that one is
+             # over, and those behind it in other sessions go ahead meanwhile.
+             commission_id = next(
+-                (item for item in self._queue if item not in self._sessions and self._session_free_for(item)), None
++                (
++                    item
++                    for item in self._queue
++                    if item not in self._sessions
++                    and item not in self._restart_waiting_wakes
++                    and self._session_free_for(item)
++                ),
++                None,
+             )
+             if commission_id is None:
+                 return
+             self._queue.remove(commission_id)
+             if self._take_place(commission_id):
+@@ -5566,44 +5619,58 @@
+             break
+         else:
+             return False
+         if (session is not None and not closing_answer) or parent_id in self._queue or parent_id in self._requeueing:
+             # It is on its way back: this goes along with its work.
+             self._notes.setdefault(parent_id, []).append(message)
+             return True
+         self._requeueing.add(parent_id)
+         try:
++            try:
++                await self._ledger.append_event(
++                    parent_id,
++                    "restart_queue_resume",
++                    {"resume": _queue_text_payload(message)},
++                )
++            except Exception:
++                logger.warning(
++                    "persisting queued continuation for commission %s failed",
++                    parent_id,
++                    exc_info=True,
++                )
++                return False
+             moved = await self._ledger.transition(parent_id, "queued", reason=reason)
+         finally:
+             self._requeueing.discard(parent_id)
+         if not moved.applied:
+             # Not queued after all (it was stopped meanwhile, say).
+             self._settle_hold_of(parent_id)
+             return False
+         if self._closed:
+             await self._ledger.transition(parent_id, "failed", reason=_SHUT_DOWN_REASON)
+             return False
+         self._resume[parent_id] = message
+         if parent_id not in self._queue:
+             self._queue.append(parent_id)
+         if len(self._sessions) < self.limit:
+             self._spawn(self._start_next())
+         return True
+ 
+     # -- driving ----------------------------------------------------------
+ 
+     async def abort(self, commission_id: str) -> None:
+         """Stop a commission's task agent, and the task agents it started.
+ 
+         The caller has set the commission ``cancelled`` already.
+         """
+         for child in await self._ledger.select(parent_id=commission_id, statuses=ACTIVE_STATUSES):
+             await self._ledger.transition(child.id, "cancelled", reason="its parent was stopped")
+             await self.abort(child.id)
+         if commission_id in self._queue:
+             self._queue.remove(commission_id)
+         self._notes.pop(commission_id, None)
+         self._carried.pop(commission_id, None)
+         self._resume.pop(commission_id, None)
++        self._restart_waiting_wakes.pop(commission_id, None)
+         self._prepaid_starts.discard(commission_id)
+         session = self._sessions.get(commission_id)
+         if session is None:
+@@ -5967,11 +6034,25 @@
      async def _requeue(
          self, commission_id: str, text: str, *, still_wanted: Callable[[], bool] | None = None
      ) -> bool:
@@ -108,29 +200,58 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,7 +6248,97 @@
+@@ -6191,7 +6272,128 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
  
-+    async def _restart_queue_resume(self, commission_id: str) -> str | None:
-+        """Return the latest durable resume text for a queued re-take."""
++    async def _restart_queue_resume(self, commission_id: str) -> tuple[str | None, bool]:
++        """Return the continuation paired with the current durable requeue cycle."""
 +        after = 0
++        pending: Any = None
++        have_pending = False
 +        found: str | None = None
++        requeued = False
 +        invalid = False
 +        while True:
 +            page = await self._ledger.events(commission_id, after=after)
 +            for event in page:
-+                if event.type != "restart_queue_resume":
++                if event.type == "restart_queue_resume":
++                    pending = event.payload.get("resume")
++                    have_pending = True
 +                    continue
-+                restored = _queue_text_from_payload(event.payload.get("resume"))
-+                invalid = restored is None
-+                found = restored
++                if event.type != "status":
++                    continue
++                if str(event.payload.get("to") or "") == "queued":
++                    requeued = True
++                    if have_pending:
++                        found = _queue_text_from_payload(pending)
++                        invalid = found is None
++                    else:
++                        found = None
++                        invalid = True
++                # Resume data is scoped to the next status transition only.
++                # An orphan event from a failed/cancelled queue attempt cannot
++                # leak into a later queue epoch.
++                pending = None
++                have_pending = False
 +            if len(page) < 500:
 +                if invalid:
-+                    raise ValueError("queued continuation provenance is not recoverable")
-+                return found
++                    raise ValueError("durable continuation for the current queue cycle is missing or invalid")
++                return found, requeued
 +            after = page[-1].seq
++
++    async def _restart_queue_fail_closed(self, commission_id: str, reason: str) -> None:
++        """End queued work that cannot be reconstructed without guessing."""
++        await self._ledger.transition(
++            commission_id,
++            "failed",
++            reason=f"restart queue recovery failed closed: {reason}",
++        )
++        self._restart_waiting_wakes.pop(commission_id, None)
++        self._resume.pop(commission_id, None)
++        if commission_id in self._queue:
++            self._queue.remove(commission_id)
 +
 +    def recover_restart_queue(self) -> None:
 +        """Reconstruct durable task-agent queue entries from an earlier host."""
@@ -138,7 +259,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +            self._spawn(self._recover_restart_queue())
 +
 +    async def _recover_restart_queue(self) -> None:
-+        recovered = 0
++        startable = 0
 +        for commission in await self._ledger.select(statuses={"queued"}, oldest_first=True):
 +            if self._closed:
 +                return
@@ -152,40 +273,23 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +                continue
 +
 +            try:
-+                resume = await self._restart_queue_resume(commission.id)
++                resume, requeued = await self._restart_queue_resume(commission.id)
 +            except ValueError as exc:
-+                await self._ledger.transition(
-+                    commission.id,
-+                    "blocked",
-+                    reason=f"restart queue recovery blocked: {exc}",
-+                )
++                await self._restart_queue_fail_closed(commission.id, str(exc))
 +                continue
 +
-+            # A re-take queued by this seam must have its durable continuation.
-+            # Initial queued work has no such reason and starts from the native
-+            # opening message instead. An old/pre-candidate re-take fails closed.
-+            if current.status_reason == "taken up again; waiting for a place" and resume is None:
-+                await self._ledger.transition(
-+                    commission.id,
-+                    "blocked",
-+                    reason="restart queue recovery blocked: durable continuation is missing",
-+                )
-+                continue
-+
-+            # The session id is native authority. Never mint a replacement
-+            # during recovery: that could change transcript/capability scope.
-+            if not current.session_id:
-+                await self._ledger.transition(
-+                    commission.id,
-+                    "blocked",
-+                    reason="restart queue recovery blocked: durable session identity is missing",
++            # Initial queued work may not have received a session yet; native
++            # _know_session gives it the same canonical first session it would
++            # have received without a restart. A re-take must already name the
++            # exact session whose transcript is being continued.
++            if requeued and not current.session_id:
++                await self._restart_queue_fail_closed(
++                    commission.id, "durable session identity is missing for a requeue"
 +                )
 +                continue
 +            if not await self._know_session(commission.id):
-+                await self._ledger.transition(
-+                    commission.id,
-+                    "blocked",
-+                    reason="restart queue recovery blocked: native session is unavailable",
++                await self._restart_queue_fail_closed(
++                    commission.id, "native session is unavailable"
 +                )
 +                continue
 +
@@ -195,17 +299,55 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +            if current is None or current.status != "queued":
 +                self._session_of.pop(commission.id, None)
 +                continue
-+            if resume is not None:
-+                self._resume[commission.id] = resume
-+            self._queue.append(commission.id)
-+            recovered += 1
 +
-+        if recovered and not self._closed and len(self._sessions) < self.limit:
++            if isinstance(resume, _Handed):
++                # Fired-but-untaken wakes are returned to pending by Ledger
++                # reconciliation. Their ids, not the serialized text here,
++                # remain the delivery authority. Do not replay the text from
++                # _resume as well: wait for native hand_over to attach it once.
++                expected = set(resume.wakes)
++                pending = {
++                    wake.id
++                    for wake in await self._ledger.wakes_pending(commission_id=commission.id)
++                }
++                if not expected or not expected.issubset(pending):
++                    await self._restart_queue_fail_closed(
++                        commission.id, "wake provenance is no longer pending"
++                    )
++                    continue
++                self._restart_waiting_wakes[commission.id] = expected
++            elif resume is not None:
++                self._resume[commission.id] = resume
++
++            self._queue.append(commission.id)
++            if commission.id not in self._restart_waiting_wakes:
++                startable += 1
++
++        if startable and not self._closed and len(self._sessions) < self.limit:
 +            self._spawn(self._start_next())
 +
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
+@@ -7212,9 +7414,18 @@
+                 await self._send_text(self._runtime_of(session), session, "steer", _Handed(text, fired))
+             elif chosen == "along":
+                 # Being started, or waiting for a place: it goes along with
+                 # the work it is about to be given.
+                 self._notes.setdefault(commission_id, []).append(_Handed(text, fired))
++                waiting = self._restart_waiting_wakes.get(commission_id)
++                if waiting is not None:
++                    waiting.difference_update(fired)
++                    if not waiting:
++                        self._restart_waiting_wakes.pop(commission_id, None)
++                        # The exact native wake ids have now been handed once;
++                        # the recovered queue may start with the handed note.
++                        if self._queue and len(self._sessions) < self.limit:
++                            self._spawn(self._start_next())
+             elif not await self._wake_working(commission_id, _Handed(text, fired), reason=_WOKEN_REASON):
+                 # It rests, or waits for task agents with its session
+                 # closed, and could not be taken up this moment. (The
+                 # request that was counted for it stays counted, for when
 diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
 --- a/nekoclaw/host/service.py
 +++ b/nekoclaw/host/service.py
