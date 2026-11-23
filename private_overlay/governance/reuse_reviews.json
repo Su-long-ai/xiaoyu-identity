@@ -3673,6 +3673,78 @@
           "evidence": "evals/evidence/2026-11-23-public-ci-managed-product-worktree-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:startup-ready-parallel-preflight-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The one-click launcher waits for main, memory and agent readiness by probing three endpoints serially, so one iteration can consume roughly the sum of three request timeouts and overshoot the nominal startup deadline. The lifecycle itself is already owned by N.E.K.O; only XiaoYu's short-lived readiness observer is inefficient.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin launcher + native health surfaces",
+          "type": "native_current_pin",
+          "outcome": "selected as lifecycle/readiness authority; keep native single-instance launcher semantics and existing main/memory/agent health endpoints",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream/native seam",
+          "type": "native_upstream",
+          "outcome": "checked; no combined readiness endpoint or launcher-ready bridge replaces the existing three health surfaces in the selected product path",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": ".NET System.Net.Http.HttpClient + Task.WhenAll",
+          "type": "native_os",
+          "outcome": "selected; reuse one short-lived launcher client to probe all existing endpoints concurrently under one timeout budget",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        {
+          "name": "wait-on / process supervisor / resident readiness monitor",
+          "type": "external_or_private_runtime",
+          "outcome": "rejected; adds dependency or lifecycle authority for a bounded observation-only problem",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "N.E.K.O already owns every backend process and exposes the required health surfaces. The residual product gap is only that XiaoYu observes those surfaces serially. A thin PowerShell/.NET concurrency change closes the latency/deadline issue without a new runtime, supervisor, lock, HTTP service or process authority.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json",
+      "retirement_condition": "Retire the launcher observer when N.E.K.O exposes one authoritative combined ready endpoint or the desktop host can consume native launcher readiness directly.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O launcher.py and native services remain the sole backend lifecycle authority; XiaoYu only observes readiness.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin provides launcher single-instance semantics and the existing main/memory/agent health surfaces reused by the launcher.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest selected upstream path exposes no combined readiness seam that would eliminate the three existing health checks.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned external components do not own N.E.K.O backend readiness or launcher process lifecycle."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Third-party wait/supervisor tools were considered and rejected because native .NET Task/HttpClient primitives already solve the observer latency without another dependency or authority.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: concurrent read-only probes inside the existing short-lived one-click PowerShell launcher.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No resident monitor, custom process manager, daemon, readiness service, or second backend lock is introduced.",
+          "evidence": "evals/evidence/2026-11-24-startup-ready-parallel-preflight-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
