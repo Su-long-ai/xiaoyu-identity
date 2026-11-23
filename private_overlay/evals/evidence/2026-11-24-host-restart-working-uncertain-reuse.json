@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "decision_id": "HOST_RESTART_WORKING_UNCERTAIN_REUSE_V1",
+  "reviewed_at_local": "2026-11-24T01:27:00+08:00",
+  "problem": "A non-resting task-agent commission left working by a dead host may have been interrupted before an effect, during an effect, or after the effect but before its response was recorded. Native restart currently collapses all such commissions to failed. Failed is too strong because occurrence/effect may be unknown, while automatic retry would be unsafe.",
+  "authority_boundary": {
+    "commission": "N.E.K.O Ledger",
+    "effect_identity": "N.E.K.O host_calls + managed plugin idempotency + managed delivery receipt",
+    "permission": "N.E.K.O PermissionGate/PermissionStore in the current host",
+    "continuation": "N.E.K.O TaskAgentManager blocked/failed take-up path",
+    "rejected_duplicates": [
+      "new uncertain-state table",
+      "new execution journal",
+      "recovery daemon",
+      "private retry scheduler"
+    ]
+  },
+  "reuse_search": {
+    "L0_authority": "Keep the native commission row authoritative. Reuse its existing blocked status instead of inventing an uncertain status or a second ledger.",
+    "L1_neko_current_pin": {
+      "commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "reusable": [
+        "Ledger._reconcile atomically converts running host_calls to interrupted before commission reconciliation",
+        "Ledger status blocked is resumable: blocked -> working/queued, while cancelled is terminal",
+        "TaskAgentManager.tell already takes blocked commissions up again at the transcript tail",
+        "resting working commissions are already excluded from old-host failure because their wake is durable"
+      ],
+      "gap": "_reconcile marks every other old-host working commission failed even when effect occurrence is ambiguous."
+    },
+    "L2_neko_upstream_extensions": {
+      "commit": "843a3624f11679466d0d07e692e0cc589e83eace",
+      "result": "Latest upstream still uses the same fail-old-active restart policy; no effect-aware working->uncertain/blocked seam was found."
+    },
+    "L3_existing_pinned_external": "Managed 0011-0014 already provide outbox visible-effect and plugin ambiguous-effect/idempotency evidence; they are reused, not duplicated.",
+    "L4_broader_external_ecosystem": "A durable workflow engine could model unknown activity, but would duplicate N.E.K.O commission/session/effect authorities.",
+    "L5_thin_integration": "Selected candidate: during native Ledger reconciliation, convert only prior-host, non-resting task_agent working commissions to native blocked with an explicit restart-uncertain reason. Never enqueue or execute them automatically.",
+    "L6_private_implementation": "Rejected."
+  },
+  "safety_rules": [
+    "running host_calls are first converted to interrupted by native reconciliation",
+    "completed host_calls keep their exact completed call identity",
+    "non-resting old task-agent working becomes blocked, not failed and never queued",
+    "resting working remains working because native wake state is durable",
+    "plugin working remains on its existing plugin/deferred policy in this unit",
+    "cancelled/done remain terminal",
+    "blocked continuation is explicit through the existing TaskAgentManager.tell path",
+    "a resumed protected action must traverse the current host PermissionGate and managed idempotency/effect semantics",
+    "no restart report may claim an ambiguous effect failed"
+  ],
+  "decision": "REUSE_NATIVE_BLOCKED_FOR_RESTART_UNCERTAIN_CANDIDATE",
+  "promotion": "CANDIDATE_ONLY",
+  "retirement_condition": "Delete when upstream N.E.K.O natively distinguishes prior-host active task-agent work from failed work and provides equivalent no-auto-retry, explicit-resume, current-permission semantics."
+}

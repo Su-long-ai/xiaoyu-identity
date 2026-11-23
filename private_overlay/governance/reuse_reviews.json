@@ -4205,6 +4205,98 @@
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         }
       }
+    },
+    {
+      "id": "candidate:execution_plane/host_restart_working_uncertain.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A prior-host non-resting task-agent commission left working has unknown occurrence/effect semantics. Native reconciliation currently marks it failed; automatic retry would be unsafe. Reuse the native resumable blocked state as the explicit-reconciliation boundary.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O Ledger blocked state + TaskAgentManager.tell",
+          "type": "native_current_pin",
+          "outcome": "selected; blocked is resumable but never auto-executed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "N.E.K.O host_calls reconciliation",
+          "type": "native_current_pin",
+          "outcome": "selected; running calls become interrupted before commission reconciliation and completed identities stay completed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream 843a3624",
+          "type": "native_upstream",
+          "outcome": "checked; old-host active work is still collapsed to failed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "Managed 0011-0014 effect safety",
+          "type": "existing_pinned_external",
+          "outcome": "selected as existing visible-effect/plugin ambiguity/idempotency authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "External durable workflow engine",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate commission/session/effect authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "Thin Ledger reconciliation branch working->blocked",
+          "type": "thin_adapter",
+          "outcome": "selected as candidate; no queueing or automatic retry",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "New uncertain database/status/runtime/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native blocked/tell/call-audit seams already express the desired authority boundary, but _reconcile chooses failed for prior-host working. A small reconciliation branch is needed to connect the existing seams without new persistence or execution machinery.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json",
+      "retirement_condition": "Delete when upstream N.E.K.O provides equivalent effect-aware old-host working reconciliation with no automatic retry and explicit native continuation.",
+      "promotion_policy": "CANDIDATE_ONLY_UNTIL_ACTIVE_COMMISSION_RESTART_ACCEPTANCE_AND_PATCH_ADMISSION_CLOSE",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O Ledger/TaskAgentManager/PermissionGate/host_calls remain sole authorities.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "blocked + tell + host_calls reconciliation selected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream still collapses old active work to failed.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Managed 0011-0014 reused for effect/idempotency/visible receipt semantics.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External workflow engine rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one native reconciliation branch; no auto retry.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second status store/runtime/journal/daemon.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {

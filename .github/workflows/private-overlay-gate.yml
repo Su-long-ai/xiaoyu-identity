@@ -488,6 +488,17 @@ jobs:
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py" \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py"
 
+      - name: Exercise active-working host-restart uncertain candidate
+        run: |
+          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_working_uncertain.patch"
+          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_working_uncertain.patch"
+          python -m py_compile _neko_product/nekoclaw/host/ledger.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_working_uncertain_candidate.py" \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_commission_taken_up_before_the_data_root_moved_goes_on_in_the_session_it_had
+
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4
         with:

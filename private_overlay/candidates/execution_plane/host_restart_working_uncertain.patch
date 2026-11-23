@@ -1,0 +1,55 @@
+diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
+--- a/nekoclaw/host/ledger.py
++++ b/nekoclaw/host/ledger.py
+@@ -171,5 +171,10 @@
+ # Why a commission left unfinished by an earlier host process failed.
+ HOST_ENDED_REASON = "the host process ended before this finished"
++# Why active task-agent work from a dead host is held instead of retried.
++HOST_RESTART_UNCERTAIN_REASON = (
++    "the host process ended while this was active; its last effect may be unknown, "
++    "so it was not retried automatically"
++)
+ 
+ # (5: the notes sessions write to one another and what a session asked to be
+@@ -1179,4 +1184,5 @@
+             ).fetchall()
+             failed_rows = 0
++            blocked_rows = 0
+             for row in rows:
+                 if row["status"] == "waiting_user":
+@@ -1190,7 +1196,25 @@
+                         # transcript can take up again. Permission grants are not
+                         # restored here: a retried protected action must pass the
+                         # current PermissionGate in the new host.
+                         continue
++                if row["status"] == "working" and row["route"] == "task_agent":
++                    # The old process may have died before a real effect, in
++                    # one, or after it happened but before its result was
++                    # recorded. host_calls above has already changed any
++                    # still-running call to interrupted; that is evidence of
++                    # an interrupted observation, not proof that the effect did
++                    # not happen. Native blocked is resumable by a later
++                    # explicit tell, but it never runs by itself.
++                    moved = self._transition(
++                        conn,
++                        row["id"],
++                        "blocked",
++                        HOST_RESTART_UNCERTAIN_REASON,
++                        {},
++                    )
++                    if moved.applied:
++                        blocked_rows += 1
++                    continue
+                 moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
+                 if moved.applied:
+                     failed_rows += 1
+@@ -1218,5 +1242,10 @@
+         if failed_rows:
+             logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", failed_rows)
++        if blocked_rows:
++            logger.info(
++                "ledger: %d active task-agent commission(s) of an earlier run held blocked for reconciliation",
++                blocked_rows,
++            )
+ 
+     # -- a stop of everything that could not be written ---------------------

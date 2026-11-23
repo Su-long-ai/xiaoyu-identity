@@ -52,6 +52,8 @@ async def main() -> None:
             "call-running-plugin",
             "call-completed-device",
             "call-completed-plugin",
+            "working-resting",
+            "working-plugin-route",
         ),
         required=True,
     )
@@ -67,7 +69,7 @@ async def main() -> None:
     )
     assert created
 
-    route = "plugin" if args.state == "waiting-permission-plugin" else "task_agent"
+    route = "plugin" if args.state in {"waiting-permission-plugin", "working-plugin-route"} else "task_agent"
     await ledger.update(commission.id, route=route)
 
     question: dict[str, Any] | None = None
@@ -82,7 +84,18 @@ async def main() -> None:
     if args.state != "queued":
         assert (await ledger.transition(commission.id, "working", reason="fault injector started")).applied
 
-    if call_state:
+    if args.state == "working-resting":
+        wake, refusal = await ledger.wake_add(
+            session_id=f"{commission.id}-session",
+            commission_id=commission.id,
+            note="resume after restart",
+            due_at=ledger._clock() + 3600.0,
+            pending_max=10,
+            daily_max=10,
+        )
+        assert wake is not None and refusal == ""
+        assert await ledger.rest(commission.id) is not None
+    elif call_state:
         call_kind = "plugin" if args.state.endswith("-plugin") else "device"
         record = await call_audit.start_call(
             ledger,
