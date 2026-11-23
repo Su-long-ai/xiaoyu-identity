@@ -874,3 +874,103 @@ async def test_cancel_wins_while_restart_queue_recovery_is_resolving_session(
     finally:
         release.set()
         await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_startup_holds_native_wakes_until_queue_recovery_is_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "startup-wake-barrier-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="startup wake barrier",
+            dispatch_text="initial",
+            user_text="initial",
+            source="dispatch",
+        )
+        assert created
+        commission = await ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, session = await ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="startup wake barrier"
+        )
+        assert (await ledger.transition(commission.id, "working", reason="first run")).applied
+        wake, refusal = await ledger.wake_add(
+            session_id=session.id,
+            commission_id=commission.id,
+            note="must wait for restart queue recovery",
+            due_at=-1000.0,
+            pending_max=10,
+            daily_max=10,
+        )
+        assert refusal == "" and wake is not None
+        fired = await ledger.wakes_fire([wake.id], into=commission.id)
+        assert fired == [wake.id]
+        await ledger.append_event(
+            commission.id,
+            "restart_queue_resume",
+            {"resume": _queue_text_payload(_Handed("serialized text is not authority", fired))},
+        )
+        assert (
+            await ledger.transition(
+                commission.id,
+                "queued",
+                reason="woken; waiting for a place",
+            )
+        ).applied
+        commission_id = commission.id
+        wake_id = wake.id
+    finally:
+        await ledger.close()
+
+    host = _recovery_host(root)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    hand_over_called = asyncio.Event()
+    original_recover = host.task_agents._recover_restart_queue
+    original_hand_over = host.task_agents.hand_over
+
+    async def delayed_recover() -> None:
+        entered.set()
+        await release.wait()
+        await original_recover()
+
+    async def observed_hand_over(*args: Any, **kwargs: Any) -> Any:
+        hand_over_called.set()
+        return await original_hand_over(*args, **kwargs)
+
+    monkeypatch.setattr(host.task_agents, "_recover_restart_queue", delayed_recover)
+    monkeypatch.setattr(host.task_agents, "hand_over", observed_hand_over)
+    try:
+        host.start()
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        assert host.wakes.stopping is True
+
+        # Give the wake loop a real scheduling opportunity. The native hold is
+        # the barrier: no due wake can enter TaskAgentManager before recovery.
+        await asyncio.sleep(0.1)
+        assert hand_over_called.is_set() is False
+
+        release.set()
+        await wait_until(
+            lambda: not host.wakes.stopping,
+            what="startup wake barrier to release after queue recovery",
+        )
+        await asyncio.wait_for(hand_over_called.wait(), timeout=5)
+        await wait_until(
+            lambda: commission_id not in host.task_agents._restart_waiting_wakes,
+            what="primary wake to be handed after restart queue recovery",
+        )
+
+        current = await host.ledger.get(commission_id)
+        assert current is not None and current.status == "queued"
+        restored = host.task_agents._resume.get(commission_id)
+        assert isinstance(restored, _Handed)
+        assert restored.wakes == (wake_id,)
+    finally:
+        release.set()
+        await host.abort(commission_id)
+        await host.shutdown()
