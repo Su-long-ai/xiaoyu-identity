@@ -85,5 +85,19 @@
     "candidate never copies d90 HTTP pool/preconnect/transport implementation into XiaoYu overlay",
     "promotion_ready must remain false on any patch conflict, native test failure, XiaoYu product test failure, missing candidate test, or license mismatch"
   ],
-  "retirement_condition": "Retire this candidate probe after a specific newer N.E.K.O pin is promoted and all replaced XiaoYu patches are retired/rebased with equivalent product acceptance, or when upstream itself ships the remaining XiaoYu-specific Qwen bundle/policy behavior and the managed patches disappear."
+  "retirement_condition": "Retire this candidate probe after a specific newer N.E.K.O pin is promoted and all replaced XiaoYu patches are retired/rebased with equivalent product acceptance, or when upstream itself ships the remaining XiaoYu-specific Qwen bundle/policy behavior and the managed patches disappear.",
+  "implementation": {
+    "probe": "private_overlay/candidates/voice_upgrade/probe_neko_d90_voice_promotion.py",
+    "contract_test": "private_overlay/tests/test_probe_neko_d90_voice_promotion.py",
+    "workflow": ".github/workflows/private-overlay-gate.yml",
+    "branch_scope": "refs/heads/agent/companion-productization-v2",
+    "behavior": [
+      "checkout exact d90 candidate separately from the c3 product pin",
+      "run clean d90 native preconnect/Qwen reconnect tests",
+      "create a disposable d90 worktree and replay series.json in declared order with git apply --check/apply/reverse-check",
+      "stop at the first incompatible managed patch and emit its exact filename as a promotion blocker",
+      "run existing XiaoYu Qwen/handoff/realtime/voice-start product tests only after every managed patch replays",
+      "return promotion_ready=false as a successful candidate observation while keeping hard failures for candidate SHA or product-pin mutation"
+    ]
+  }
 }

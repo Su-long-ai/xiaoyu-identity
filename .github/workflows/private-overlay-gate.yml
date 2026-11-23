@@ -90,6 +90,7 @@ jobs:
             private_overlay.tests.test_execution_plane_tool \
             private_overlay.tests.test_companion_performance_budget \
             private_overlay.tests.test_run_companion_performance_gate \
+            private_overlay.tests.test_probe_neko_d90_voice_promotion \
             private_overlay.tests.test_companion_runtime_soak \
             private_overlay.tests.test_probe_neko_runtime_health \
             private_overlay.tests.test_release_readiness \
@@ -139,6 +140,25 @@ jobs:
           ref: c3fc33ff0d32e4a79fd905d1add22d45725071f5
           path: _neko_upstream
           fetch-depth: 1
+
+      - name: Checkout fixed d90 Voice promotion candidate
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        uses: actions/checkout@v4
+        with:
+          repository: Project-N-E-K-O/N.E.K.O
+          ref: d90f8371653c5a2a9b01d655c38475414711266a
+          path: _neko_voice_candidate
+          fetch-depth: 1
+
+      - name: Probe fixed d90 native Voice promotion boundary
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        run: |
+          python -m pip install -q uv
+          python private_overlay/candidates/voice_upgrade/probe_neko_d90_voice_promotion.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_voice_candidate" \
+            --result-path "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
+          cat "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
 
       - name: Prepare managed N.E.K.O product worktree
         run: |
