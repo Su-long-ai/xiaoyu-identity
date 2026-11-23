@@ -29,7 +29,7 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
 diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 --- a/nekoclaw/host/task_agents.py
 +++ b/nekoclaw/host/task_agents.py
-@@ -689,6 +689,52 @@
+@@ -689,6 +689,49 @@
      """
  
  
@@ -79,7 +79,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
  def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
      """Whether a session event shows the session took everything sent to it.
  
-@@ -5967,12 +6013,22 @@
+@@ -5967,11 +6010,25 @@
      async def _requeue(
          self, commission_id: str, text: str, *, still_wanted: Callable[[], bool] | None = None
      ) -> bool:
@@ -108,7 +108,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6191,6 +6247,91 @@
+@@ -6191,7 +6248,97 @@
                  await self._take_up_again(commission.id, continuation, same_round=True)
              finally:
                  self._answering_closed.discard(commission.id)
@@ -209,7 +209,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
 --- a/nekoclaw/host/service.py
 +++ b/nekoclaw/host/service.py
-@@ -388,6 +388,7 @@
+@@ -388,5 +388,6 @@
          self.outbox.kick()
          self.wakes.kick()
          self.task_agents.recover_restart_answers()
