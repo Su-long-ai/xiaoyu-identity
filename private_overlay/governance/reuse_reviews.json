@@ -3675,6 +3675,146 @@
       }
     },
     {
+      "id": "governance:public-repository-secret-scan-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The XiaoYu repository is now public and is developed through both the product branch and agent/** branches. GitHub public-repository secret scanning provides platform detection, but the existing XiaoYu machine gate had no explicit repository-visible secret scanner step for every agent/product push.",
+      "decision": "reuse_external",
+      "candidates": [
+        {
+          "name": "GitHub public secret scanning and user push protection",
+          "type": "platform_native",
+          "outcome": "selected as the public-repository baseline; GitHub scans public repositories for supported secrets and user push protection is enabled by default",
+          "evidence": "https://docs.github.com/en/code-security/reference/secret-security/secret-scanning-scope"
+        },
+        {
+          "name": "gitleaks/gitleaks-action@v3",
+          "type": "external",
+          "outcome": "selected as the explicit machine-gate supplement on every XiaoYu product/agent push; v3 is the Node 24 action supported on current GitHub-hosted runners",
+          "evidence": "https://github.com/gitleaks/gitleaks-action"
+        },
+        {
+          "name": "Custom XiaoYu regex scanner",
+          "type": "private_implementation",
+          "outcome": "rejected; duplicates mature provider-pattern detection and would create a weaker bespoke secret rule set",
+          "evidence": "private_overlay/evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
+        },
+        {
+          "name": "Separate secret-scanning workflow",
+          "type": "thin_adapter",
+          "outcome": "rejected; the existing product/agent machine gate already owns the required trigger surface",
+          "evidence": "private_overlay/evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "GitHub provides the native public-repository scanning baseline and Gitleaks provides mature explicit CI detection. Only one thin step in the existing workflow is needed; no XiaoYu scanning implementation is justified.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json",
+      "retirement_condition": "Retire the external Gitleaks step only if repository-level GitHub secret protection/push protection becomes machine-verifiably enforced for every product and agent push with equivalent historical/current detection and the XiaoYu gate can prove that protection.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "The GitHub repository and existing XiaoYu product/agent workflow remain the sole source/push and machine-gate authorities.",
+          "evidence": "evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O runtime code does not own repository credential-leak detection for the XiaoYu Git repository."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O Plugin SDK/NekoClaw/MCP do not provide Git repository secret scanning or push protection."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No existing pinned external XiaoYu component currently provides repository secret scanning."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Selected GitHub public secret scanning plus gitleaks/gitleaks-action@v3 instead of writing a private scanner.",
+          "evidence": "https://github.com/gitleaks/gitleaks-action"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Add one Gitleaks step to the existing full-history checkout workflow; no second workflow or state store.",
+          "evidence": "evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected custom regex scanners, credential databases, daemons, and duplicate workflows.",
+          "evidence": "evals/evidence/2026-11-24-public-repository-secret-scan-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:public-main-mirror-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "The repository is now public, but GitHub's default branch main is a strict ancestor of the product branch and is 630 commits behind. Public landing pages, default code search, and default pull-request targets therefore expose the obsolete 2026-11-17 product state. Fast-forwarding main is safe because private/neko-overlay-v1 is a pure descendant, but main must run the same machine gate so it cannot become a bypass path.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "Git fast-forward of existing main to green product head",
+          "type": "native_tooling",
+          "outcome": "selected; branches already share ancestry and product is 630 commits ahead / 0 behind",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Existing XiaoYu private-overlay machine gate",
+          "type": "existing_governance",
+          "outcome": "selected; add main to its existing push/PR trigger surface rather than creating another workflow",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Separate public mirror workflow",
+          "type": "private_implementation",
+          "outcome": "rejected; duplicates trigger/gate authority and can drift from product checks",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        {
+          "name": "Force rewrite or file-copy synchronization",
+          "type": "private_implementation",
+          "outcome": "rejected; unnecessary because main is a direct ancestor of the product branch",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Git already provides a lossless fast-forward and the existing workflow already provides the full gate. Only branch trigger wiring plus the one-time ref fast-forward are required.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json",
+      "retirement_condition": "Retire the mirror policy if GitHub's default branch is changed to private/neko-overlay-v1 or the product branch is intentionally renamed/promoted to main with equivalent machine gates.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "private/neko-overlay-v1 remains canonical product authority; main is only a public default mirror.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O runtime pin does not own GitHub repository branch/default-view synchronization."
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "not_applicable",
+          "rationale": "N.E.K.O extension seams are unrelated to repository branch routing."
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component is required for a native Git fast-forward."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "No external branch mirroring service is needed; native Git/GitHub refs already solve the problem.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: add main to the existing workflow trigger lists and fast-forward the ref after green validation.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Rejected new mirror daemons, workflows, history rewriters, and duplicate branch state.",
+          "evidence": "evals/evidence/2026-11-24-public-main-mirror-reuse.json"
+        }
+      }
+    },
+    {
       "id": "governance:startup-ready-parallel-preflight-v1",
       "status": "approved",
       "reviewed_at": "2026-11-24",

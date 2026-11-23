@@ -504,6 +504,45 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("python -m compileall", script)
         self.assertIn("check_release_readiness.py", script)
 
+    def test_public_main_mirror_uses_same_machine_gate(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        self.assertGreaterEqual(workflow.count('      - "main"'), 2)
+        self.assertIn('      - "private/neko-overlay-v1"', workflow)
+        self.assertIn('      - "agent/**"', workflow)
+        for required in (
+            "Public repository secret leak gate",
+            "Reuse-first hard gate",
+            "Frozen architecture hard gate",
+            "Repository-only plugin admission gate",
+            "Release evidence gate",
+        ):
+            self.assertIn(required, workflow)
+
+    def test_github_gate_blocks_public_secret_leaks(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for required in (
+            '      - "private/neko-overlay-v1"',
+            '      - "agent/**"',
+            "fetch-depth: 0",
+            "Public repository secret leak gate",
+            "gitleaks/gitleaks-action@v3",
+            'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
+            'GITLEAKS_ENABLE_COMMENTS: "false"',
+            'GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"',
+        ):
+            self.assertIn(required, workflow)
+        checkout = workflow.index("Checkout candidate")
+        secrets_gate = workflow.index("Public repository secret leak gate")
+        reuse_gate = workflow.index("Reuse-first hard gate")
+        architecture_gate = workflow.index("Frozen architecture hard gate")
+        self.assertLess(checkout, secrets_gate)
+        self.assertLess(secrets_gate, reuse_gate)
+        self.assertLess(reuse_gate, architecture_gate)
+
     def test_github_agent_branches_run_machine_reuse_gate(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
