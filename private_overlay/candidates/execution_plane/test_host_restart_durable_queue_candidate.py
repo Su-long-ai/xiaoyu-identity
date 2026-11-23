@@ -877,7 +877,7 @@ async def test_cancel_wins_while_restart_queue_recovery_is_resolving_session(
 
 
 @pytest.mark.asyncio
-async def test_startup_holds_native_wakes_until_queue_recovery_is_ready(
+async def test_startup_holds_native_wake_handoff_without_global_stop_semantics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "startup-wake-barrier-root"
@@ -922,6 +922,7 @@ async def test_startup_holds_native_wakes_until_queue_recovery_is_ready(
             )
         ).applied
         commission_id = commission.id
+        session_id = session.id
         wake_id = wake.id
     finally:
         await ledger.close()
@@ -929,42 +930,43 @@ async def test_startup_holds_native_wakes_until_queue_recovery_is_ready(
     host = _recovery_host(root)
     entered = asyncio.Event()
     release = asyncio.Event()
-    hand_over_called = asyncio.Event()
     original_recover = host.task_agents._recover_restart_queue
-    original_hand_over = host.task_agents.hand_over
 
     async def delayed_recover() -> None:
         entered.set()
         await release.wait()
         await original_recover()
 
-    async def observed_hand_over(*args: Any, **kwargs: Any) -> Any:
-        hand_over_called.set()
-        return await original_hand_over(*args, **kwargs)
-
     monkeypatch.setattr(host.task_agents, "_recover_restart_queue", delayed_recover)
-    monkeypatch.setattr(host.task_agents, "hand_over", observed_hand_over)
     try:
         host.start()
         await asyncio.wait_for(entered.wait(), timeout=5)
-        assert host.wakes.stopping is True
 
-        # Give the wake loop a real scheduling opportunity. The native hold is
-        # the barrier: no due wake can enter TaskAgentManager before recovery.
-        await asyncio.sleep(0.1)
-        assert hand_over_called.is_set() is False
+        # This is a hand-over barrier, not a fake stop-everything state.
+        assert host.wakes.stopping is False
+        assert host.task_agents._restart_queue_recovered is False
+
+        pending = await host.ledger.wakes_pending(session_id=session_id)
+        matching = [item for item in pending if item.id == wake_id]
+        assert len(matching) == 1
+        held = await host.task_agents.hand_over(
+            session_id,
+            commission_id,
+            matching,
+            still_wanted=lambda: True,
+        )
+        assert held.outcome == "held"
+        assert [item.id for item in await host.ledger.wakes_pending(session_id=session_id) if item.id == wake_id] == [wake_id]
 
         release.set()
         await wait_until(
-            lambda: not host.wakes.stopping,
-            what="startup wake barrier to release after queue recovery",
+            lambda: host.task_agents._restart_queue_recovered,
+            what="restart queue hand-over barrier to open",
         )
-        await asyncio.wait_for(hand_over_called.wait(), timeout=5)
         await wait_until(
             lambda: commission_id not in host.task_agents._restart_waiting_wakes,
-            what="primary wake to be handed after restart queue recovery",
+            what="primary wake to be handed after queue recovery",
         )
-
         current = await host.ledger.get(commission_id)
         assert current is not None and current.status == "queued"
         restored = host.task_agents._resume.get(commission_id)
@@ -972,5 +974,72 @@ async def test_startup_holds_native_wakes_until_queue_recovery_is_ready(
         assert restored.wakes == (wake_id,)
     finally:
         release.set()
+        await host.abort(commission_id)
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_failed_queue_recovery_keeps_native_wake_handoff_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "failed-recovery-barrier-root"
+    root.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(root / "ledger.db")
+    try:
+        commission, created = await ledger.create(
+            lanlan_name="Lan",
+            title="failed recovery barrier",
+            dispatch_text="initial",
+            user_text="initial",
+            source="dispatch",
+        )
+        assert created
+        commission = await ledger.update(commission.id, route="task_agent")
+        assert commission is not None
+        commission, session = await ledger.give_session(
+            commission.id, kind="single", name=commission.id, duty="failed recovery barrier"
+        )
+        wake, refusal = await ledger.wake_add(
+            session_id=session.id,
+            commission_id=commission.id,
+            note="must remain pending after failed recovery",
+            due_at=-1000.0,
+            pending_max=10,
+            daily_max=10,
+        )
+        assert refusal == "" and wake is not None
+        commission_id = commission.id
+        session_id = session.id
+        wake_id = wake.id
+    finally:
+        await ledger.close()
+
+    host = _recovery_host(root)
+    failed = asyncio.Event()
+
+    async def broken_recover() -> None:
+        failed.set()
+        raise RuntimeError("injected restart recovery failure")
+
+    monkeypatch.setattr(host.task_agents, "_recover_restart_queue", broken_recover)
+    try:
+        host.start()
+        await asyncio.wait_for(failed.wait(), timeout=5)
+        await host.task_agents.settle()
+        assert host.task_agents._restart_queue_recovered is False
+        assert host.wakes.stopping is False
+
+        pending = await host.ledger.wakes_pending(session_id=session_id)
+        matching = [item for item in pending if item.id == wake_id]
+        assert len(matching) == 1
+        held = await host.task_agents.hand_over(
+            session_id,
+            commission_id,
+            matching,
+            still_wanted=lambda: True,
+        )
+        assert held.outcome == "held"
+        assert [item.id for item in await host.ledger.wakes_pending(session_id=session_id) if item.id == wake_id] == [wake_id]
+    finally:
         await host.abort(commission_id)
         await host.shutdown()
