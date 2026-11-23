@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_PROACTIVE_POLICY_CLASS_SOAK_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion interruptibility already rechecks latest state at delivery, but product acceptance should preserve N.E.K.O's distinct policies for focused-work break reminders, focus-to-leisure anti-slack reminders, game invitations and ordinary proactive activity instead of treating every proactive event as one generic message class.",
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "blobs": {
+      "main_logic/activity/snapshot.py": "67dffb77255799ec9f4001130662aaaf9a2039f3",
+      "main_logic/activity/tracker.py": "00dffc7af7b1f3c2c7ac74e92d7aa1aa3eb9f611",
+      "tests/test_activity_tracker_followup.py": "86590439f5544239a76c140846b85bdcfd01736c",
+      "tests/unit/test_proactive_service_boundary.py": "d7eccb657885402c76fd4023efa51dc5882f503c",
+      "tests/unit/test_proactive_mini_game_short_circuit.py": "cfda05beba20b86a92000ebe0505aa5bf98d4cad"
+    }
+  },
+  "latest_upstream_checked": {
+    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "selected_blobs_identical_to_pin": true
+  },
+  "native_policy_classes": {
+    "work_break": "focused_work accumulator arms a bounded pending reminder; reminder ownership/consumption is explicit",
+    "anti_slack": "recent sufficiently-long focused_work to leisure transition queues a distinct reminder with cooldown and invalidation",
+    "game_invite": "mini-game delivery is leisure-only and separate from ordinary proactive",
+    "ordinary_proactive": "ActivitySnapshot propensity/tone plus latest-state admission handles ordinary proactive delivery",
+    "focused_video": "sustained video immersion has its own propensity/tone and dwell reset behavior"
+  },
+  "selected": {
+    "mechanism": "repeat existing native policy-class and ownership tests inside the existing Companion Runtime soak",
+    "cases": [
+      "work break pending arms at threshold and persists until consumed",
+      "break accumulator extends through short transitioning but resets outside focus",
+      "long suspend/gap cannot synthesize fake focus minutes",
+      "anti-slack fires only after sufficient focus-to-leisure transition, not idle/too-short focus, and honors cooldown",
+      "anti-slack pending clears on return to focused work",
+      "focused-video dwell/propensity is distinct from generic entertainment",
+      "repeat-suppressed break reminders consume pending source",
+      "all break reminder branches consume repeat suppression",
+      "break reminder respects round ownership and stops if round retires during generation",
+      "work-break theater prompt only invites from a frozen public opening"
+    ]
+  },
+  "acceptance": [
+    "policy-class tests run inside each SOAK_ROUNDS iteration",
+    "latest upstream policy/test blobs are unchanged from the current product pin",
+    "work reminder, anti-slack, game invite and ordinary proactive remain distinct native semantics",
+    "no second activity daemon, proactive scheduler, notification policy engine or reminder database is added"
+  ],
+  "retirement_condition": "Retire the private repeated selection when N.E.K.O ships an integrated multi-round proactive policy-class soak or materially replaces the native ActivitySnapshot/tracker policy seams."
+}

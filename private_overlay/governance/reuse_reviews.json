@@ -4207,6 +4207,296 @@
       }
     },
     {
+      "id": "governance:companion-performance-native-measurement-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion productization needs startup, first-chat, memory, CPU and process-churn product budgets, but N.E.K.O already has native cold-start/process-tree measurement and XiaoYu already has a read-only live soak observer.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin scripts/runtime_memory_baseline.py",
+          "type": "native_current_pin",
+          "outcome": "selected as cold-start, process-tree, Electron-attach, synthetic-chat and shutdown measurement authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream runtime_memory_baseline.py",
+          "type": "native_upstream",
+          "outcome": "checked; latest differs mainly in NekoPower browser scenario and a port-release detail, not a replacement Companion measurement contract",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "existing XiaoYu companion_runtime_soak.py",
+          "type": "existing_thin_adapter",
+          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn and process count; it does not own plugin/process lifecycle",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "new sampler/daemon/telemetry transport",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates existing measurement/runtime authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native and existing soak sources emit the required measurements but do not apply XiaoYu product budgets across both schemas. The residual work is an offline normalizer/verdict adapter only.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O exposes an equivalent stable product-budget verdict over its native benchmark/telemetry outputs or Companion release gating consumes that native verdict directly.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains process/startup measurement authority; XiaoYu owns only Companion product acceptance thresholds.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already measures signed readiness, startup timing, process-tree memory, Electron attachment, first chat and shutdown residuals.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream benchmark checked; no newer Companion-specific startup/process-tree budget authority replaces the current-pin stack contract.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component should own N.E.K.O desktop/backend performance measurement."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Another benchmark or monitoring package would duplicate existing psutil/process-tree/native session measurement and add no product-contract value.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: normalize existing JSON outputs and enforce explicit fail-closed budgets without launching or sampling processes.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second sampler, daemon, telemetry transport, process manager or cache is introduced.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:voice-replacement-reconnect-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Voice replacement/reconnect ownership already has authoritative N.E.K.O race tests, and the admitted Qwen clone patch already has a provider-routing suite, but several high-risk stale-generation/teardown/takeover cases plus the Qwen bundle suite are not repeatedly exercised in the product worktree.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin voice ownership/recovery tests",
+          "type": "native_current_pin",
+          "outcome": "selected; repeat existing native tests rather than implementing another audio/realtime fault harness",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected native race-test files have identical blobs to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "already-admitted 0008 Qwen clone routing suite",
+          "type": "managed_private_patch_test",
+          "outcome": "selected; reuse its existing product tests for Qwen clone/preview/text/realtime/rate/runtime-retirement behavior",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "pytest + existing GitHub Actions SOAK_ROUNDS",
+          "type": "mature_external",
+          "outcome": "selected; current bounded repetition framework already supplies scheduling diversity without a second soak framework",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime capability is missing. The residual product gap is coverage: authoritative native race witnesses and the already-admitted Qwen provider-routing suite are not all repeated under the existing Companion soak loop.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships equivalent integrated multi-round voice replacement/provider-routing soak or the selected ownership seams/managed Qwen patch disappear.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole audio/realtime/provider runtime authority; XiaoYu only strengthens product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already contains all selected native replacement/reconnect ownership race witnesses.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked and selected native test blobs are unchanged from the current pin.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "The existing managed 0008 Qwen clone patch and its tests are already reuse-admitted; this unit reuses that test surface instead of adding provider code.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest and GitHub Actions repetition solve the fault-exposure problem; another soak/fault framework adds no ownership coverage.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration is only additional existing test selectors inside the current bounded product-worktree soak.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private audio engine, transport, provider runtime, supervisor, retry service or fault daemon is added.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:character-model-latest-intent-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Character/model product-state regression already exists, but missing-VRM recovery, A-to-B-to-A latest-intent replay, socket reopen, stale card reload and renderer-failure latest-selection races are not all repeated inside the bounded Companion soak.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin chat/avatar, card-manager and model-runtime tests",
+          "type": "native_current_pin",
+          "outcome": "selected; reuse existing frontend and model runtime race witnesses",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected native test blobs are identical to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "already-admitted 0005 latest-character-switch-intent-replay patch",
+          "type": "existing_managed_patch",
+          "outcome": "selected; repeat its existing managed frontend product tests rather than creating another switch state machine",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        {
+          "name": "existing product worktree + pytest/node SOAK_ROUNDS",
+          "type": "existing_ci",
+          "outcome": "selected; provides the real managed product state and bounded repetition",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime implementation gap is identified. The residual product gap is repeated fault exposure of existing authoritative frontend/model tests against the already-managed product state.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships equivalent integrated character/model/frontend reconnect soak or the managed latest-intent patch is absorbed upstream with repeated acceptance.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains authoritative for character/model/frontend runtime; XiaoYu only strengthens product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin supplies the selected chat/avatar, card-manager and model-runtime test surfaces.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked and selected native test blobs are unchanged from the current pin.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing managed 0005 patch is already reuse-admitted and supplies the latest-intent frontend behavior being repeated.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest/node runners already exercise the authoritative product code; another switch/fault framework would duplicate machinery.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration adds existing test selectors only to the current bounded product-worktree soak.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second switch state machine, model loader, frontend transport, cache or recovery daemon is introduced.",
+          "evidence": "evals/evidence/2026-11-24-character-model-latest-intent-soak-reuse.json"
+        }
+      }
+    },
+    {
+      "id": "governance:proactive-policy-class-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion latest-state admission is already exercised, but product soak does not repeatedly protect N.E.K.O's distinct policy classes for focused-work breaks, focus-to-leisure anti-slack, game invites, focused-video immersion and ordinary proactive delivery.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O ActivitySnapshot + UserActivityTracker",
+          "type": "native_current_pin",
+          "outcome": "selected; already owns focused_work/leisure/gaming/focused_video state, propensity and reminder pending semantics",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected activity/tracker and proactive policy test blobs are identical to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "existing proactive service + mini-game routing tests",
+          "type": "native_test_runtime",
+          "outcome": "selected; repeat native policy-class and round-ownership witnesses inside the existing Companion soak",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        {
+          "name": "second activity daemon/proactive scheduler/reminder DB",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates N.E.K.O activity and proactive ownership",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime capability gap exists. The residual product gap is repeated acceptance of native policy distinctions under the same bounded soak that already covers delivery-time latest-state admission.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships an integrated multi-round proactive policy-class soak or materially replaces the ActivitySnapshot/tracker policy seams.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains activity/proactive runtime authority; XiaoYu only adds product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already separates work-break, anti-slack, game-invite, focused-video and ordinary proactive semantics.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream 843a was checked; selected policy/runtime/test blobs are byte-identical to the current pin.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No external component should own N.E.K.O activity/proactive policy."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Another scheduler/activity monitor would duplicate existing native policy and activity authority; existing pytest is sufficient for repeated fault exposure.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration adds existing native test selectors only to the current SOAK_ROUNDS loop.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second activity daemon, proactive scheduler, reminder database or policy engine is introduced.",
+          "evidence": "evals/evidence/2026-11-24-proactive-policy-class-soak-reuse.json"
+        }
+      }
+    },
+    {
       "id": "candidate:execution_plane/host_restart_working_uncertain.patch",
       "status": "approved",
       "reviewed_at": "2026-11-24",

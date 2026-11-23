@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_PERFORMANCE_NATIVE_MEASUREMENT_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion productization needs user-visible startup and long-running process budgets without creating a second sampler, supervisor or telemetry runtime.",
+  "authority": {
+    "cold_start_and_process_tree": "N.E.K.O current-pin scripts/runtime_memory_baseline.py",
+    "live_long_running_observation": "existing XiaoYu companion_runtime_soak.py read-only psutil observation for already-authoritative desktop/backend processes",
+    "budget_policy": "XiaoYu product acceptance only",
+    "forbidden": [
+      "second process sampler runtime",
+      "resident performance daemon",
+      "second launcher",
+      "second process supervisor",
+      "custom telemetry transport"
+    ]
+  },
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "runtime_memory_baseline_sha": "b905da23223a4233786cc737126024c30535e122",
+    "reused_outputs": [
+      "ports_ready_elapsed_s",
+      "services_ready_elapsed_s",
+      "cold_start_ready process-tree RSS/USS/count",
+      "electron_attached process-tree RSS/USS/count",
+      "synthetic_chat elapsed_s",
+      "first_chat_complete_live process-tree checkpoint",
+      "graceful shutdown and residual PID/port validation"
+    ]
+  },
+  "latest_upstream_checked": {
+    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "runtime_memory_baseline_sha": "31df06272851a87c66a73bfa1c494f1beb8f04f9",
+    "relevant_difference": "Latest file differs mainly around NekoPower browser scenario and a port-release check; no newer Companion-specific startup/process-tree/first-chat measurement authority replaces the current-pin stack contract."
+  },
+  "selected": {
+    "mechanism": "thin offline JSON normalizer and explicit budget evaluator",
+    "implementation": "private_overlay/tools/check_companion_performance.py",
+    "behavior": [
+      "never launches or supervises a process",
+      "never samples psutil itself",
+      "extracts only measurements already emitted by native benchmark/live soak",
+      "fails closed when a requested budget metric is absent",
+      "propagates native benchmark validation_errors and live-soak FAIL as product failures"
+    ]
+  },
+  "acceptance": [
+    "startup backend/main/memory/agent ready timings are normalized from native benchmark outputs",
+    "first chat completion is normalized from native synthetic_chat output",
+    "cold-start/avatar-host/first-chat process-tree memory is normalized from native checkpoints",
+    "long-running RSS growth/CPU/PID churn/count are normalized from existing live soak",
+    "budgets are explicit input rather than invented universal thresholds",
+    "requested missing metrics fail closed",
+    "source validation failures fail the product gate",
+    "adapter imports no psutil and creates no subprocess/process owner"
+  ],
+  "retirement_condition": "Retire the thin evaluator when N.E.K.O exposes an equivalent stable product-budget verdict over its native benchmark/telemetry outputs or Companion release gating consumes that native verdict directly."
+}

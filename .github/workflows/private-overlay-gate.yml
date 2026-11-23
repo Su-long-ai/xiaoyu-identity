@@ -208,22 +208,73 @@ jobs:
               tests/unit/test_character_switch_queue.py \
               tests/unit/test_character_runtime_voice_identity.py \
               tests/unit/test_model_switch_keeps_live_budget.py \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_renders_and_opens_cards_when_model_scan_never_resolves \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_saved_new_field_survives_immediate_reopen_with_stale_reload \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_cancels_stale_live2d_when_switching_to_3d_preview \
+              tests/frontend/test_character_card_manager_regressions.py::test_character_card_manager_panel_close_recreates_live2d_preview_context \
+              tests/unit/test_chat_sync_model_runtime.py::test_model_binding_waits_for_renderer_and_rejects_a_newer_unbind_race \
+              tests/unit/test_chat_sync_model_runtime.py::test_cloud_choice_retries_the_same_revision_after_a_renderer_failure \
+              tests/unit/test_chat_sync_model_runtime.py::test_selection_changes_during_pending_requests_use_the_current_model_next \
               tests/unit/test_audio_stream_queue.py::test_native_realtime_loud_ingress_publishes_activity_before_worker \
               tests/unit/test_realtime_close_ownership.py::test_teardown_outliving_its_connection_does_not_touch_the_replacement \
               tests/unit/test_realtime_close_ownership.py::test_retired_teardown_does_not_shut_the_replacements_arbiter_down \
+              tests/unit/test_realtime_close_ownership.py::test_repeated_close_runs_the_teardown_once \
+              tests/unit/test_realtime_close_ownership.py::test_close_inside_the_connect_window_does_not_latch_the_new_socket_shut \
+              tests/unit/test_realtime_close_ownership.py::test_audio_processor_is_not_released_after_a_replacement_adopts_it \
               tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_cannot_condemn_or_report_the_replacement \
+              tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_receive_loop_drops_buffered_frame_before_dispatch \
+              tests/unit/runtime/test_realtime_connection_recovery.py::test_retired_handler_exception_cannot_close_the_replacement \
               tests/unit/runtime/test_realtime_connection_recovery.py::test_late_failure_from_a_retired_generation_cannot_recover_the_successor \
               tests/unit/runtime/test_realtime_host_turn_identity.py::test_neither_hook_runs_once_the_host_is_on_a_new_turn \
               tests/unit/runtime/test_realtime_host_turn_identity.py::test_the_rotation_stands_down_when_a_turn_starts_during_response_done \
               tests/unit/test_tts_handoff_ownership.py::test_old_runtime_audio_waiting_for_frame_lock_is_not_sent \
+              tests/unit/test_tts_handoff_ownership.py::test_old_ready_waiting_for_cache_lock_cannot_publish_to_new_runtime \
+              tests/unit/test_tts_handoff_ownership.py::test_clear_pipeline_waiting_for_lock_preserves_replacement_cache \
+              tests/unit/test_tts_handoff_ownership.py::test_fallback_cannot_create_third_worker \
+              tests/unit/test_tts_handoff_ownership.py::test_retirement_during_audio_frame_keeps_header_and_payload_together \
               tests/unit/test_tts_handoff_ownership.py::test_runtime_handoff_drains_status_blocked_inside_websocket_send \
+              tests/unit/test_tts_handoff_ownership.py::test_fallback_timeout_reserves_recovery_for_only_its_session \
               tests/unit/test_voice_start_slot_ownership.py::test_a_superseded_flow_cannot_release_the_newer_starts_slot \
+              tests/unit/test_voice_start_slot_ownership.py::test_every_point_a_flow_resumes_from_an_await_stands_down \
+              tests/unit/test_voice_start_slot_ownership.py::test_standing_down_stops_committed_capture_before_it_unwinds \
+              tests/unit/test_voice_start_slot_ownership.py::test_the_mic_failure_cleanup_stands_down_before_ending_the_session \
               tests/unit/test_voice_start_slot_ownership.py::test_the_automatic_restart_stands_down_at_every_resumption_point \
               tests/unit/test_cosyvoice_audio_done_generation.py \
+              tests/unit/test_qwen_voice_bundle.py \
+              tests/unit/test_windows_interruptibility_signal.py::test_windows_notification_block_preserves_activity_but_closes_propensity \
+              tests/unit/test_windows_interruptibility_signal.py::test_nonblocking_windows_notification_state_keeps_native_propensity \
+              tests/unit/test_mini_game_invite.py::test_maybe_deliver_is_leisure_only \
+              tests/unit/test_mini_game_invite.py::test_maybe_deliver_allows_explicit_leisure_states \
+              tests/unit/test_mini_game_invite.py::test_maybe_deliver_aborts_when_user_engages_during_phase2_transition \
+              tests/unit/test_mini_game_invite.py::test_maybe_deliver_pass_when_user_takes_over_before_finish \
+              tests/unit/test_system_presence.py::test_voice_session_still_gated_by_lock_and_suspend \
+              tests/unit/test_system_presence.py::test_voice_session_ignores_display_off_and_return_quiet \
+              tests/unit/test_proactive_sm_integration.py::test_voice_gate_sees_arbiter_busyness_not_just_the_responding_flag \
+              tests/unit/test_proactive_sm_integration.py::test_voice_callback_defers_when_microphone_activity_arrived_first \
+              tests/unit/test_proactive_sm_integration.py::test_user_input_between_claim_and_lock_is_detected \
+              tests/unit/test_proactive_sm_integration.py::test_user_input_during_agent_delivery_sets_preempted \
+              tests/test_activity_tracker_followup.py::test_work_break_pending_armed_at_threshold \
+              tests/test_activity_tracker_followup.py::test_work_break_pending_persists_until_cleared \
+              tests/test_activity_tracker_followup.py::test_break_acc_extends_through_transitioning_when_already_started \
+              tests/test_activity_tracker_followup.py::test_break_acc_resets_on_any_other_state \
+              tests/test_activity_tracker_followup.py::test_long_gap_clears_work_break_pending_too \
+              tests/test_activity_tracker_followup.py::test_anti_slack_pending_fires_on_focus_to_leisure \
+              tests/test_activity_tracker_followup.py::test_anti_slack_skipped_when_focus_too_short \
+              tests/test_activity_tracker_followup.py::test_anti_slack_skipped_for_idle_target \
+              tests/test_activity_tracker_followup.py::test_anti_slack_respects_cooldown \
+              tests/test_activity_tracker_followup.py::test_anti_slack_pending_cleared_on_return_to_focus \
+              tests/test_activity_tracker_followup.py::test_focused_video_fires_after_sustained_dwell \
+              tests/test_activity_tracker_followup.py::test_focused_video_dwell_resets_on_window_switch \
+              tests/unit/test_proactive_service_boundary.py::test_repeat_suppressed_break_reminder_consumes_pending_source \
+              tests/unit/test_proactive_service_boundary.py::test_all_break_reminder_branches_consume_repeat_suppression \
+              tests/unit/test_proactive_service_boundary.py::test_break_reminder_respects_round_ownership \
+              tests/unit/test_proactive_service_boundary.py::test_break_reminder_stops_when_round_retires_during_generation \
+              tests/unit/test_proactive_mini_game_short_circuit.py::test_work_break_theater_prompt_invites_from_the_frozen_public_opening \
               tests/unit/test_proactive_sid_guard.py \
               tests/unit/test_xiaoyu_plugin_visible_final_admission.py \
               plugin/tests/unit/server/test_xiaoyu_push_origin.py
             node --test \
+              tests/frontend/chat_avatar_integration.test.cjs \
               tests/frontend/live2d_audio_ownership.test.cjs \
               tests/frontend/assistant-audio-lifecycle.test.cjs \
               tests/frontend/voice_recovery_races.cjs \

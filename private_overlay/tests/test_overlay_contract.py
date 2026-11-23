@@ -365,6 +365,11 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn('neko_launcher_record', reconcile)
         self.assertIn('explicit_urls_fallback', reconcile)
         self.assertNotIn('XiaoYuBackendLaunch', script)
+        self.assertEqual(
+            script.count("function Sync-XiaoYuEndpointsFromNativeRuntimeRecord"),
+            1,
+        )
+        self.assertEqual(script.count("function Test-XiaoYuBackendReady"), 1)
 
 
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
@@ -1433,12 +1438,63 @@ class OverlayContractTests(unittest.TestCase):
         ]
         for required in (
             "test_retired_teardown_does_not_shut_the_replacements_arbiter_down",
+            "test_repeated_close_runs_the_teardown_once",
+            "test_close_inside_the_connect_window_does_not_latch_the_new_socket_shut",
+            "test_audio_processor_is_not_released_after_a_replacement_adopts_it",
+            "test_retired_receive_loop_drops_buffered_frame_before_dispatch",
+            "test_retired_handler_exception_cannot_close_the_replacement",
             "test_late_failure_from_a_retired_generation_cannot_recover_the_successor",
             "test_neither_hook_runs_once_the_host_is_on_a_new_turn",
             "test_runtime_handoff_drains_status_blocked_inside_websocket_send",
+            "test_old_ready_waiting_for_cache_lock_cannot_publish_to_new_runtime",
+            "test_clear_pipeline_waiting_for_lock_preserves_replacement_cache",
+            "test_fallback_cannot_create_third_worker",
+            "test_retirement_during_audio_frame_keeps_header_and_payload_together",
+            "test_fallback_timeout_reserves_recovery_for_only_its_session",
             "test_a_superseded_flow_cannot_release_the_newer_starts_slot",
+            "test_every_point_a_flow_resumes_from_an_await_stands_down",
+            "test_standing_down_stops_committed_capture_before_it_unwinds",
+            "test_the_mic_failure_cleanup_stands_down_before_ending_the_session",
             "test_the_automatic_restart_stands_down_at_every_resumption_point",
+            "test_qwen_voice_bundle.py",
+            "test_character_card_manager_renders_and_opens_cards_when_model_scan_never_resolves",
+            "test_character_card_manager_saved_new_field_survives_immediate_reopen_with_stale_reload",
+            "test_character_card_manager_cancels_stale_live2d_when_switching_to_3d_preview",
+            "test_character_card_manager_panel_close_recreates_live2d_preview_context",
+            "test_model_binding_waits_for_renderer_and_rejects_a_newer_unbind_race",
+            "test_cloud_choice_retries_the_same_revision_after_a_renderer_failure",
+            "test_selection_changes_during_pending_requests_use_the_current_model_next",
+            "chat_avatar_integration.test.cjs",
             "voice_preview_races.cjs",
+            "test_windows_notification_block_preserves_activity_but_closes_propensity",
+            "test_nonblocking_windows_notification_state_keeps_native_propensity",
+            "test_maybe_deliver_is_leisure_only",
+            "test_maybe_deliver_allows_explicit_leisure_states",
+            "test_maybe_deliver_aborts_when_user_engages_during_phase2_transition",
+            "test_maybe_deliver_pass_when_user_takes_over_before_finish",
+            "test_voice_session_still_gated_by_lock_and_suspend",
+            "test_voice_session_ignores_display_off_and_return_quiet",
+            "test_voice_gate_sees_arbiter_busyness_not_just_the_responding_flag",
+            "test_voice_callback_defers_when_microphone_activity_arrived_first",
+            "test_user_input_between_claim_and_lock_is_detected",
+            "test_user_input_during_agent_delivery_sets_preempted",
+            "test_work_break_pending_armed_at_threshold",
+            "test_work_break_pending_persists_until_cleared",
+            "test_break_acc_extends_through_transitioning_when_already_started",
+            "test_break_acc_resets_on_any_other_state",
+            "test_long_gap_clears_work_break_pending_too",
+            "test_anti_slack_pending_fires_on_focus_to_leisure",
+            "test_anti_slack_skipped_when_focus_too_short",
+            "test_anti_slack_skipped_for_idle_target",
+            "test_anti_slack_respects_cooldown",
+            "test_anti_slack_pending_cleared_on_return_to_focus",
+            "test_focused_video_fires_after_sustained_dwell",
+            "test_focused_video_dwell_resets_on_window_switch",
+            "test_repeat_suppressed_break_reminder_consumes_pending_source",
+            "test_all_break_reminder_branches_consume_repeat_suppression",
+            "test_break_reminder_respects_round_ownership",
+            "test_break_reminder_stops_when_round_retires_during_generation",
+            "test_work_break_theater_prompt_invites_from_the_frozen_public_opening",
         ):
             self.assertIn(required, companion_soak)
 

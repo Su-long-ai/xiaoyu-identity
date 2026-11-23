@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_VOICE_REPLACEMENT_RECONNECT_SOAK_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion repeated soak covers primary old-audio and generation guards, but several high-risk native TTS/runtime replacement races and the admitted Qwen clone provider-routing suite remain one-shot or not product-worktree-gated.",
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "native_test_blobs": {
+      "tests/unit/test_tts_handoff_ownership.py": "6920a891abe3d05e4067d6fd9f5253c2be5e6723",
+      "tests/unit/test_realtime_close_ownership.py": "aaf9a273f95da61e7a09faa7302113ef6923b8e8",
+      "tests/unit/runtime/test_realtime_connection_recovery.py": "229e9b4c70a92bfe323d803a36f1a5ecd6228d6a",
+      "tests/unit/test_voice_start_slot_ownership.py": "60dbfc02ba676e360e50e7f2c925377ee6fcc25b",
+      "tests/unit/test_cosyvoice_audio_done_generation.py": "fa5f5f491b37147004c9d17f8bface6fec78ad73"
+    }
+  },
+  "latest_upstream_checked": {
+    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "selected_native_test_blobs_identical_to_pin": true
+  },
+  "managed_qwen_bundle": {
+    "patch": "private_overlay/patches/0008-qwen-clone-provider-routing.patch",
+    "reuse_review": "patch:0008-qwen-clone-provider-routing.patch",
+    "test_suite": "tests/unit/test_qwen_voice_bundle.py",
+    "product_contracts": [
+      "ordinary clone TTS routes through Qwen-Audio registry",
+      "matching Qwen3.8 realtime uses paired native Omni clone",
+      "wrong realtime route never receives bundle voice",
+      "preview uses Qwen-Audio and not generic CosyVoice",
+      "speech-rate update persists and retires matching active TTS runtime",
+      "realtime tempo follows selected bundle rate"
+    ],
+    "policy_boundary": "CosyVoice remains a separately selectable provider; it is not a silent internal fallback for qwen_bundle because the admitted reuse evidence rejected that generic preview path."
+  },
+  "selected": {
+    "mechanism": "repeat existing native pytest race witnesses plus the already-admitted managed Qwen bundle suite inside the existing bounded Companion Runtime soak",
+    "no_runtime_change": true,
+    "no_new_framework": true,
+    "cases": [
+      "old ready waiter cannot publish to replacement runtime",
+      "pipeline/cache lock cleanup cannot clear replacement state",
+      "fallback cannot create a third worker",
+      "retirement during an audio frame preserves frame atomicity",
+      "fallback recovery reservation stays with the owning session",
+      "retired receive loop drops buffered frames before dispatch",
+      "retired handler exception cannot close the replacement",
+      "repeated close tears down once",
+      "close during connect cannot latch successor closed",
+      "replacement-owned audio processor is not released by retired teardown",
+      "every resumed voice-start flow rechecks takeover",
+      "committed microphone capture is stopped when superseded",
+      "mic start failure cleanup stands down before ending session",
+      "Qwen clone preview/text/realtime/rate/retirement routing remains coherent under repeated product-worktree tests"
+    ]
+  },
+  "acceptance": [
+    "selected native ownership cases execute inside every SOAK_ROUNDS iteration",
+    "managed tests/unit/test_qwen_voice_bundle.py runs in both patched one-shot regression and every Companion soak iteration",
+    "current pin and checked latest upstream expose identical native race contracts for the selected native modules",
+    "CosyVoice generation/reconnect suite remains repeated independently from Qwen bundle routing",
+    "no second audio engine, realtime transport, provider runtime, supervisor or retry framework is added",
+    "ordinary agent push continues through reuse/architecture/product-worktree/release gates"
+  ],
+  "retirement_condition": "Retire the private repeated selection when N.E.K.O ships equivalent integrated multi-round voice replacement/provider-routing soak or the selected ownership seams/managed Qwen patch disappear."
+}

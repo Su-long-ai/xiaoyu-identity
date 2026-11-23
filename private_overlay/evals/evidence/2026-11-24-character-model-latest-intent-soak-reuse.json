@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_CHARACTER_MODEL_LATEST_INTENT_SOAK_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion product-state regression already contains authoritative frontend/model races, but rapid A-to-B-to-A recovery, missing VRM recovery, socket reopen, stale card/model reload and renderer-failure latest-selection cases are not all repeated under the bounded Companion soak.",
+  "current_pin": {
+    "sha": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "native_test_blobs": {
+      "tests/frontend/chat_avatar_integration.test.cjs": "d541a407632aedf7d19aed40ed5241c057f03781",
+      "tests/frontend/test_character_card_manager_regressions.py": "3b80c497d1c8d663f5b6e5483f0c067170f86ed2",
+      "tests/unit/test_chat_sync_model_runtime.py": "76ac326e482904e16d11c4c821d5d6f6c51b8bfe"
+    }
+  },
+  "latest_upstream_checked": {
+    "sha": "843a3624f11679466d0d07e692e0cc589e83eace",
+    "selected_native_test_blobs_identical_to_pin": true
+  },
+  "managed_latest_intent_patch": {
+    "patch": "private_overlay/patches/0005-latest-character-switch-intent-replay.patch",
+    "reuse_review": "patch:0005-latest-character-switch-intent-replay.patch",
+    "product_test_surface": "tests/frontend/chat_avatar_integration.test.cjs",
+    "added_contracts": [
+      "same-current VRM event recovers when the configured VRM instance is missing",
+      "healthy duplicate remains deduped",
+      "rapid switch back queues the latest target and force-reloads after in-flight failure",
+      "watchdog-retired late response cannot reclaim avatar identity"
+    ]
+  },
+  "selected": {
+    "mechanism": "repeat existing native/managed tests inside the current product worktree soak",
+    "frontend_suite": "tests/frontend/chat_avatar_integration.test.cjs",
+    "focused_native_cases": [
+      "test_character_card_manager_renders_and_opens_cards_when_model_scan_never_resolves",
+      "test_character_card_manager_saved_new_field_survives_immediate_reopen_with_stale_reload",
+      "test_character_card_manager_cancels_stale_live2d_when_switching_to_3d_preview",
+      "test_character_card_manager_panel_close_recreates_live2d_preview_context",
+      "test_model_binding_waits_for_renderer_and_rejects_a_newer_unbind_race",
+      "test_cloud_choice_retries_the_same_revision_after_a_renderer_failure",
+      "test_selection_changes_during_pending_requests_use_the_current_model_next"
+    ]
+  },
+  "acceptance": [
+    "frontend chat/avatar suite executes in every SOAK_ROUNDS iteration against the managed product worktree",
+    "VRM missing, A-to-B-to-A latest intent replay, stale completion and socket reopen remain covered by the managed frontend suite",
+    "card manager handles never-resolving scan, stale reload, stale Live2D cancellation and preview-context recreation",
+    "model runtime rejects newer-unbind race, retries same revision after renderer failure and follows latest selection during pending requests",
+    "no second character switch state machine, model loader, frontend transport or cache is introduced"
+  ],
+  "retirement_condition": "Retire the private repeated selection when N.E.K.O ships an equivalent integrated character/model/frontend reconnect soak or the managed latest-intent patch is absorbed upstream and carries its own repeated acceptance."
+}
