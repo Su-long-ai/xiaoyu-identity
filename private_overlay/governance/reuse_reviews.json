@@ -4029,6 +4029,79 @@
           "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:voice-replacement-reconnect-soak-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Voice replacement/reconnect ownership already has authoritative N.E.K.O race tests, and the admitted Qwen clone patch already has a provider-routing suite, but several high-risk stale-generation/teardown/takeover cases plus the Qwen bundle suite are not repeatedly exercised in the product worktree.",
+      "decision": "reuse_native",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin voice ownership/recovery tests",
+          "type": "native_current_pin",
+          "outcome": "selected; repeat existing native tests rather than implementing another audio/realtime fault harness",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "checked; selected native race-test files have identical blobs to the current product pin",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "already-admitted 0008 Qwen clone routing suite",
+          "type": "managed_private_patch_test",
+          "outcome": "selected; reuse its existing product tests for Qwen clone/preview/text/realtime/rate/runtime-retirement behavior",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        {
+          "name": "pytest + existing GitHub Actions SOAK_ROUNDS",
+          "type": "mature_external",
+          "outcome": "selected; current bounded repetition framework already supplies scheduling diversity without a second soak framework",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No runtime capability is missing. The residual product gap is coverage: authoritative native race witnesses and the already-admitted Qwen provider-routing suite are not all repeated under the existing Companion soak loop.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O ships equivalent integrated multi-round voice replacement/provider-routing soak or the selected ownership seams/managed Qwen patch disappear.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole audio/realtime/provider runtime authority; XiaoYu only strengthens product acceptance.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already contains all selected native replacement/reconnect ownership race witnesses.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream was checked and selected native test blobs are unchanged from the current pin.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "The existing managed 0008 Qwen clone patch and its tests are already reuse-admitted; this unit reuses that test surface instead of adding provider code.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Existing pytest and GitHub Actions repetition solve the fault-exposure problem; another soak/fault framework adds no ownership coverage.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected integration is only additional existing test selectors inside the current bounded product-worktree soak.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private audio engine, transport, provider runtime, supervisor, retry service or fault daemon is added.",
+          "evidence": "evals/evidence/2026-11-24-voice-replacement-reconnect-soak-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
