@@ -9,6 +9,13 @@ from nekoclaw.host.ledger import Ledger
 from tests.unit.nekoclaw.host_fakes import make_host
 
 
+async def _settle_starting(host: Any) -> None:
+    """Wait for native TaskAgentManager startup work, not just runtime events."""
+    while host.task_agents._starting:
+        await __import__("asyncio").gather(*tuple(host.task_agents._starting))
+    await host.task_agents.settle()
+
+
 async def _waiting(
     ledger: Ledger,
     *,
@@ -153,7 +160,7 @@ async def test_first_use_consumes_committed_report_answer_after_restart(
         # NekoClawHost.start() is the read-only caller's first-use path. The
         # recovery consumer is started there just like outbox/wake delivery.
         host.start()
-        await host.task_agents.settle()
+        await _settle_starting(host)
 
         assert resumed == [(commission_id, "continue from D:/Camera")]
         current = await host.ledger.get(commission_id)
@@ -253,7 +260,7 @@ async def test_restart_answer_recovery_never_revives_terminal_commission(
     monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
     try:
         host.start()
-        await host.task_agents.settle()
+        await _settle_starting(host)
         assert resumed == []
         current = await host.ledger.get(commission_id)
         assert current is not None and current.status == terminal
@@ -293,7 +300,7 @@ async def test_restart_answer_recovery_ignores_stale_question_id(
     monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
     try:
         host.start()
-        await host.task_agents.settle()
+        await _settle_starting(host)
         assert resumed == []
         current = await host.ledger.get(commission_id)
         assert current is not None and current.status == "waiting_user"
@@ -346,7 +353,7 @@ async def test_permission_answer_auto_recovery_restores_no_grant(
     monkeypatch.setattr(host.task_agents, "_take_up_again", take_up_again)
     try:
         host.start()
-        await host.task_agents.settle()
+        await _settle_starting(host)
         assert len(resumed) == 1
         assert "current host must check permission again" in resumed[0]
         assert host.permissions.run_grants(commission_id) == frozenset()
