@@ -3957,6 +3957,78 @@
           "evidence": "evals/evidence/2026-11-24-native-launcher-record-companion-reuse.json"
         }
       }
+    },
+    {
+      "id": "governance:companion-performance-native-measurement-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Companion productization needs startup, first-chat, memory, CPU and process-churn product budgets, but N.E.K.O already has native cold-start/process-tree measurement and XiaoYu already has a read-only live soak observer.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current-pin scripts/runtime_memory_baseline.py",
+          "type": "native_current_pin",
+          "outcome": "selected as cold-start, process-tree, Electron-attach, synthetic-chat and shutdown measurement authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream runtime_memory_baseline.py",
+          "type": "native_upstream",
+          "outcome": "checked; latest differs mainly in NekoPower browser scenario and a port-release detail, not a replacement Companion measurement contract",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "existing XiaoYu companion_runtime_soak.py",
+          "type": "existing_thin_adapter",
+          "outcome": "selected for long-running desktop/backend RSS growth, CPU, PID churn and process count; it does not own plugin/process lifecycle",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        {
+          "name": "new sampler/daemon/telemetry transport",
+          "type": "private_runtime",
+          "outcome": "rejected; duplicates existing measurement/runtime authority",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native and existing soak sources emit the required measurements but do not apply XiaoYu product budgets across both schemas. The residual work is an offline normalizer/verdict adapter only.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json",
+      "retirement_condition": "Retire when N.E.K.O exposes an equivalent stable product-budget verdict over its native benchmark/telemetry outputs or Companion release gating consumes that native verdict directly.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains process/startup measurement authority; XiaoYu owns only Companion product acceptance thresholds.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already measures signed readiness, startup timing, process-tree memory, Electron attachment, first chat and shutdown residuals.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream benchmark checked; no newer Companion-specific startup/process-tree budget authority replaces the current-pin stack contract.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external component should own N.E.K.O desktop/backend performance measurement."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "Another benchmark or monitoring package would duplicate existing psutil/process-tree/native session measurement and add no product-contract value.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: normalize existing JSON outputs and enforce explicit fail-closed budgets without launching or sampling processes.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second sampler, daemon, telemetry transport, process manager or cache is introduced.",
+          "evidence": "evals/evidence/2026-11-24-companion-performance-native-measurement-reuse.json"
+        }
+      }
     }
   ],
   "hierarchy_policy": {
