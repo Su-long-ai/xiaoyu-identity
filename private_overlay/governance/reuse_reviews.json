@@ -5722,7 +5722,7 @@
         {
           "name": "Existing patch-owned focused acceptance tests",
           "type": "native_existing_tests",
-          "outcome": "selected as the narrow first semantic-equivalence signal; a pass is not promotion authority",
+          "outcome": "selected as the semantic-equivalence signal for both passes; the second pass reuses the same helper on a disposable 0001-0009 prefix tree, and a pass is never promotion authority",
           "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
         },
         {
@@ -5749,7 +5749,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Exact a0bb was mechanically screened; only 0003/0005/0007/0008 show enough upstream semantic movement to justify focused retirement probes.",
+          "outcome": "Exact a0bb was screened in two passes: 0003/0005/0007/0008 are proven required; 0001/0004/0006/0009 are now probed on a disposable 0001-0009 prefix tree, while 0002 is classified by unchanged c3→a0bb native implementation/test blobs.",
           "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
         },
         "L3_existing_pinned_external": {
@@ -5773,7 +5773,7 @@
       },
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json",
       "outcome": "reuse_native",
-      "machine_gate_note": "Run only on exact a0bb fully migrated candidate; byte-for-byte restore is mandatory; any focused pass still requires a full omission rebuild and full product acceptance."
+      "machine_gate_note": "First pass runs on exact fully migrated a0bb; second pass builds an exact disposable 0001-0009 prefix tree so 0009 can reverse without later overlap. Every focused removal restores byte-for-byte, and no pass may mutate Stable without full omission acceptance."
     }
   ],
   "hierarchy_policy": {
