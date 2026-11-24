@@ -99,5 +99,29 @@
       "run existing XiaoYu Qwen/handoff/realtime/voice-start product tests only after every managed patch replays",
       "return promotion_ready=false as a successful candidate observation while keeping hard failures for candidate SHA or product-pin mutation"
     ]
+  },
+  "latest_probe_result": {
+    "github_actions_run_id": 45246458622,
+    "promotion_ready": false,
+    "verdict": "BLOCKED",
+    "first_machine_blocker": {
+      "kind": "managed_patch_conflict",
+      "patch": "0010-startup-event-loop-responsiveness.patch"
+    }
+  },
+  "blocker_decomposition_2026_11_24": {
+    "method": "candidate-only blobless sparse checkout at exact d90; replay managed patches in declared order without changing the product pin",
+    "observations": [
+      "0001-0009 replay cleanly on d90.",
+      "0010 applies everywhere except two top-of-file hunks in main_routers/characters_router/live2d_models.py.",
+      "The rejected asyncio import is redundant because d90 already imports asyncio.",
+      "The rejected _find_models_async helper is still semantically required because d90 still performs synchronous find_models() calls in the affected request path; a thin asyncio.to_thread(find_models) rebase closes this local context drift.",
+      "After that thin 0010 rebase, 0011 cannot replay by path because d90 renamed the execution host from nekoclaw/host to nekopower/host.",
+      "d90 NekoPower outbox still marks sent from the send callable result and has no delivery_handoff/delivery_claimed/delivery_uncertain barrier state, so 0011/0012 correctness is not natively equivalent.",
+      "d90 plugin_runs can observe status=unknown but plugin_terminal_status does not consume run status, so unknown effect is still flattened to failed; 0013 semantics are not natively equivalent.",
+      "d90 plugin run creation has no idempotency_key flow, so 0014 semantics are not natively equivalent."
+    ],
+    "conclusion": "D90_PROMOTION_REQUIRES_CORRECTNESS_PORT_NOT_BLIND_REBASE",
+    "next_candidate_boundary": "Keep c3 product pin. A future d90 promotion unit must formally review a thin 0010 context rebase plus NekoPower-native ports/replacements for 0011-0014, and prove all existing Execution/Voice acceptance before changing NEKO_UPSTREAM.lock.json."
   }
 }
