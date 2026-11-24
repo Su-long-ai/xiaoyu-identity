@@ -276,6 +276,15 @@ jobs:
             tests/unit/nekopower/test_host_preferences_permissions.py \
             tests/unit/nekopower/test_execution_audit.py
 
+      - name: Probe a0bb managed core patch retirement
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          python private_overlay/candidates/execution_plane/probe_a0bb_core_patch_retirement.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            --result "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
+          cat "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
+
       - name: Prepare managed N.E.K.O product worktree
         run: |
           rm -rf _neko_product
