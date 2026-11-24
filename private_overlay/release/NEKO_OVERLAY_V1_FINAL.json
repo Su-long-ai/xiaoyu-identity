@@ -6,12 +6,12 @@
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
   "refreshed_at_local": "2026-11-24",
-  "basis_commit": "956485022fb13f93a34e04b8240d54392e7bc092",
+  "basis_commit": "740801a3fd5e550958cc0b3e4478ecb86ce2c3b2",
   "basis_commit_verification": {
-    "workflow": "XiaoYu private overlay gate",
-    "run_id": 45352245336,
+    "workflow": "XiaoYu private overlay gate + local formal cutover acceptance",
+    "run_id": 45357517027,
     "conclusion": "success",
-    "note": "Fully green product-branch basis after ordered 19-patch managed N.E.K.O replay, Companion ownership/soak, native and managed Execution regressions, five-layer host-restart continuity, QQ surface checks, plugin gap probes, and release evidence under reuse/architecture gates."
+    "note": "Exact 871066 prerequisite candidate cloud gate is green. The cutover basis commit additionally passed local full-series replay, Voice/Execution/restart/QQ/browser acceptance. Formal cloud validation of the cutover head is required before product-branch promotion."
   },
   "product_branch": "private/neko-overlay-v1",
   "no_open_release_blockers": true,
@@ -30,17 +30,17 @@
   "external_pins": {
     "neko": {
       "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-      "commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
       "branch": "main"
     },
     "qq_plugin": {
       "repository": "https://github.com/zhaijiunknow/n.e.k.o_plugin_qq_auto_reply.git",
       "commit": "54acf36bf978edad4757e5fffc743c5618360700",
       "version": "0.16.0",
-      "neko_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+      "neko_commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
       "role": "external_qq_surface",
-      "compatibility_verdict": "PASS_C3_PINNED_QQ_SURFACE",
-      "compatibility_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json",
+      "compatibility_verdict": "PASS_871066_PINNED_QQ_SURFACE",
+      "compatibility_evidence": "evals/evidence/2026-11-24-neko-871066-product-cutover.json",
       "canonical_restart_evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json"
     },
     "desktop_shell": {
@@ -129,25 +129,33 @@
   },
   "verification": {
     "product_main_machine_gate": {
-      "commit": "956485022fb13f93a34e04b8240d54392e7bc092",
-      "run_id": 45352245336,
-      "conclusion": "success"
+      "commit": "3f4eb46d84254400a7c603151b297d52d5a40076",
+      "run_id": 45353340841,
+      "conclusion": "success",
+      "note": "Prior c3 product-main authority retained until the formal 871 cutover agent gate is green and promotion is performed."
     },
     "hierarchical_reuse_gate": "HIERARCHICAL_REUSE_V1 active; new reviews require L0-L6 checked/not_applicable evidence and local-only customization search fails closed",
     "agent_branch_freshness": "agent/** push requires current private/neko-overlay-v1 ancestor; stale bases fail BLOCK_AGENT_STALE_BASE",
     "release_readiness": "26/26 PASS",
     "canonical_c3_restart": "PASS; final cycle main/memory/agent/plugin HTTP 200, 4/4 admitted autostart plugins restored, zero new main-loop blocked/recovered events",
-    "patched_product_cloud_regression": "PASS in private product run 45352245336; exact product ref 956485022f replayed all 19 managed patches and passed Companion soak, native Execution baseline/E2E, effect/receipt/plugin correctness, report/permission/answer/working/durable-queue restart continuity, QQ surface/idempotency, plugin gap probes, and release evidence.",
-    "pinned_qq_surface": "PASS in private product run 45352245336 against pinned qq_auto_reply 54acf36, including delivery/floor, inbound-idempotency candidate, and QQ gap probes.",
-    "native_execution_and_receipt_candidates": "Managed correctness patches 0011-0019 are machine-admitted: effect state, delivery receipt, plugin unknown/idempotency, plus the full report/permission/answer/working/queue host-restart continuity stack. Source and NekoPower migration candidates remain available only for regression and future upstream cutover.",
+    "patched_product_cloud_regression": "Exact-target candidate run 45357517027 PASS on 871066. Formal cutover basis 591f422 has local full acceptance; its ordinary agent cloud gate is intentionally still pending at this metadata commit and is required before product promotion.",
+    "pinned_qq_surface": "PASS on exact 871066 with qq_auto_reply 54acf36: 173 local tests green and exact-target candidate cloud acceptance green. Prior c3 live restart evidence remains the physical restart authority.",
+    "native_execution_and_receipt_candidates": "NekoPower is the current execution authority for the 871066 cutover. Managed 0011-0019 are rebased one-for-one and validated for effect state, delivery receipt, plugin unknown/idempotency, report/permission/answer/working/durable-queue restart continuity.",
     "runtime_health_self_heal": "PASS; read-only-first, at most one native reconcile repair, forbidden Agent capabilities remain blocked",
     "plugin_capability_floor": "PASS; autostart dependency/model/UI/install authority expansion fails closed",
     "upstream_main_equals_pin": false,
-    "physical_windows_startup_refresh": "not re-claimed by cloud-only evidence; prior live c3 restart acceptance remains authoritative until next local physical timing run",
+    "physical_windows_startup_refresh": "Not re-claimed for full 871 Companion startup/restart timing. Prior live c3 physical restart/startup evidence remains authoritative until a later physical full-runtime cycle.",
     "local_full_regression_2026_11_23": "PASS on Windows local product environment before online handoff: overlay/reuse/architecture/release gates green; native QQ/Companion/Execution regressions green, including 1262 passed / 27 skipped native Execution Plane tests.",
-    "latest_upstream_observed": "791a42eaf9ca6d604eb0d993213b24b4c689cfaa; three commits after ede4 only touched memory/plugin-manager/test-fixture surfaces, with zero host-restart target overlap. Stable product pin intentionally remains c3 pending a separate NekoPower cutover.",
-    "managed_19_local_composition": "PASS: fresh c3 worktree replayed 19/19 patches; report 6/6, permission/answer/fail-closed 27/27, working/effect 10/10, durable queue 27/27 focused tests green.",
-    "execution_promotion_source": "agent/execution-continuity-v2 67ade38f957841b6222938a829fafa6418738a8e; full gate 45351246560 PASS. Product integration is a one-commit squash with identical Git tree d3195c0e973b49bfc076545bd25d73f1bc2138a2."
+    "latest_upstream_observed": "3699d626e7c30df85c310506e48eab66ecb05c00; three commits beyond 871066. The newer frontier includes a substantial NekoPower family/orchestrator change touching execution seams, so it is intentionally deferred to a separate upgrade unit rather than invalidating the completed exact-871 cutover evidence.",
+    "managed_19_local_composition": "PASS on exact 871066 full checkout: 19/19 patches replayed in declared order with apply-check/apply/reverse-check and diff-check; managed effect/receipt/plugin correctness and all five restart continuity layers are green.",
+    "execution_promotion_source": "agent/execution-continuity-v2 67ade38f957841b6222938a829fafa6418738a8e; full gate 45351246560 PASS. Product integration is a one-commit squash with identical Git tree d3195c0e973b49bfc076545bd25d73f1bc2138a2.",
+    "cutover_prerequisite_machine_gate": {
+      "commit": "47fc997bb814d603729fa86693764d566648c3cd",
+      "run_id": 45357517027,
+      "conclusion": "success",
+      "scope": "Exact 871066 candidate checkout/replay plus Voice, NekoPower, restart and pinned QQ acceptance."
+    },
+    "cutover_local_formal_acceptance": "PASS: 19/19 full-checkout patch replay; native Voice/ASR 135 passed / 3 skipped; XiaoYu Voice/Qwen 173 passed; NekoPower core 766 passed / 3 intentional deselections; restart composition 49 passed; projected fault matrix 9 passed; QQ 173 passed; raw Agent 22 passed; DSH 403 passed / 34 skipped; raw Execution E2E 21 passed; real browser 2 passed."
   },
   "stable_scope": {
     "included": [
@@ -161,7 +169,7 @@
       "proactive final-delivery interruptibility with Windows native attention state",
       "QQ private/trusted-group continuity and pinned QQ delivery-floor behavior",
       "native runtime health self-heal for admitted autostart plugins",
-      "NekoClaw native task execution and no-blind-retry uncertain-effect behavior",
+      "NekoPower native task execution and no-blind-retry uncertain-effect behavior",
       "Qwen clone bundle with CosyVoice retained as selectable fallback",
       "startup event-loop responsiveness fixes contained inside managed patch 0010",
       "plugin-visible chat/HUD output passes the shared final-admission delivery-floor extension",
@@ -178,8 +186,8 @@
     ]
   },
   "bindings_git_blob_sha": {
-    "NEKO_UPSTREAM.lock.json": "3d706f86e32443ab26ba0eee8c06428a4472321b",
-    "QQ_PLUGIN_UPSTREAM.lock.json": "2c304f755ea30cffe55f118f3cb18ce7727804a2",
+    "NEKO_UPSTREAM.lock.json": "8796f00709709e01b0aa8ce24ad8c4f1d94aea1c",
+    "QQ_PLUGIN_UPSTREAM.lock.json": "5ead6afea26fc4ce093888d9e22af9dc643dfd8b",
     "DESKTOP_SHELL.lock.json": "60e415eae8c9f8badcc4b810de27de1a79b8520b",
     "patches/series.json": "bd56d20aaf97c664e7f26f47e71bbb83843cae90",
     "evals/acceptance_matrix.json": "49510206e97e98ad167b7faf04f609b40c1fa05e",
