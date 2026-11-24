@@ -5278,6 +5278,77 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json",
       "outcome": "thin_adapter",
       "machine_gate_note": "Apply after a0bb 0010/0011/0012 migration candidates, then verify unknown terminal classification, repeated-poll ambiguity and do-not-repeat consumer behavior."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_plugin_run_idempotency.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Wire current a0bb NekoPower PluginRunner to the plugin server's existing native idempotent run-creation primitive without adding any dedupe authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "a0bb native plugin RunCreateRequest + RunStore",
+          "type": "native_upstream",
+          "outcome": "selected; idempotency_key, create_or_get_idempotent and lost-response executes-once test are all present",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        {
+          "name": "Existing host call audit identity",
+          "type": "native_current_pin",
+          "outcome": "selected as stable key source; no new identity store",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        {
+          "name": "External idempotency middleware/workflow engine",
+          "type": "broader_external",
+          "outcome": "rejected because N.E.K.O already has the exact native dedupe primitive",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "The native server already closes duplicate execution for same-key retries, but current NekoPower PluginRunner does not supply that key or retry ambiguous create outcomes. Only a one-file host wiring seam remains.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json",
+      "retirement_condition": "Delete after NekoPower product promotion makes it the one-for-one 0014 replacement, or when upstream PluginRunner natively uses stable host-call idempotency and same-key ambiguous-create reconciliation.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; must not expand the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O plugin RunStore and host call audit remain sole execution/dedupe authorities.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Managed 0014 provides the exact existing host-wiring contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "a0bb server still has idempotency_key/create_or_get_idempotent/native lost-response executes-once coverage; host wiring remains absent.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "External QQ/provider surfaces do not own plugin run creation."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External dedupe middleware rejected because it would duplicate the native RunStore.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-file PluginRunner wiring to existing call_id and server idempotency_key.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No new store, key registry, queue, scheduler or retry daemon.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply after the a0bb 0013 residual port; verify same-key retries for ambiguous create outcomes and no retry for unkeyed calls."
     }
   ],
   "hierarchy_policy": {

@@ -1676,7 +1676,9 @@ class OverlayContractTests(unittest.TestCase):
             "nekopower_outbox_effect_state.patch",
             "nekopower_native_delivery_receipt.patch",
             "nekopower_plugin_run_unknown_effect.patch",
+            "nekopower_plugin_run_idempotency.patch",
             "verify_nekopower_plugin_run_unknown_effect.py",
+            "verify_nekopower_plugin_run_idempotency.py",
             "--host-package nekopower",
             "--wire-prefix nekopower",
             "verify_native_delivery_receipt_candidate.py",
@@ -1705,6 +1707,19 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn('"candidate_only": true', unknown_effect)
         self.assertIn("nekopower_plugin_run_unknown_effect.patch", unknown_effect)
         self.assertIn("A0BB_0013_RESIDUAL_UNKNOWN_EFFECT_PORT_GREEN_CANDIDATE_ONLY", unknown_effect)
+
+        idempotency = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', idempotency)
+        self.assertIn("nekopower_plugin_run_idempotency.patch", idempotency)
+        self.assertIn(
+            "A0BB_0014_NATIVE_SERVER_IDEMPOTENCY_WIRING_GREEN_CANDIDATE_ONLY",
+            idempotency,
+        )
 
 if __name__ == "__main__":
     unittest.main()
