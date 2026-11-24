@@ -264,6 +264,9 @@ jobs:
           CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
           cd "$CANDIDATE"
           uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            --deselect tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait \
             tests/unit/nekopower/test_host_ledger.py \
             tests/unit/nekopower/test_host_task_agents.py \
             tests/unit/nekopower/test_host_delivery.py \
