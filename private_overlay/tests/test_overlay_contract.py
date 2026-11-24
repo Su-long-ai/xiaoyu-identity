@@ -47,7 +47,7 @@ class OverlayContractTests(unittest.TestCase):
         exceptions = [item["file"] for item in exception_policy["exceptions"]]
 
         self.assertLessEqual(base_budget, 10)
-        self.assertLessEqual(exception_budget, 4)
+        self.assertLessEqual(exception_budget, 9)
         self.assertEqual(total_budget, base_budget + exception_budget)
         self.assertEqual(lock["core_patch_budget"], total_budget)
         self.assertLessEqual(len(patches), total_budget)
@@ -60,6 +60,11 @@ class OverlayContractTests(unittest.TestCase):
                 "0012-native-delivery-receipt.patch",
                 "0013-plugin-run-unknown-effect.patch",
                 "0014-plugin-run-idempotency.patch",
+                "0015-host-restart-report-wait.patch",
+                "0016-host-restart-permission-wait.patch",
+                "0017-host-restart-answer-handoff.patch",
+                "0018-host-restart-working-uncertain.patch",
+                "0019-host-restart-durable-queue.patch",
             },
         )
         self.assertTrue(set(exceptions).issubset(set(patch_files)))
@@ -629,13 +634,12 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
-    def test_github_gate_exercises_report_wait_host_restart_candidate(self):
+    def test_github_gate_exercises_managed_report_wait_host_restart(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise report-wait host-restart candidate",
-            "candidates/execution_plane/host_restart_report_wait.patch",
+            "Exercise managed report-wait host-restart continuity",
             "candidates/execution_plane/test_host_restart_report_wait_candidate.py",
             "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
             "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
@@ -644,32 +648,63 @@ class OverlayContractTests(unittest.TestCase):
         for item in required:
             self.assertIn(item, workflow)
 
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertIn(
+            "0015-host-restart-report-wait.patch",
+            {item["file"] for item in series["patches"]},
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"',
+            workflow,
+        )
+
         uncertain = workflow.index("Verify managed plugin-run unknown-effect in product worktree")
         regression = workflow.index("Regress managed native Execution Plane")
-        report_wait = workflow.index("Exercise report-wait host-restart candidate")
-        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        report_wait = workflow.index("Exercise managed report-wait host-restart continuity")
+        permission_wait = workflow.index("Exercise managed permission and answer host-restart continuity")
         self.assertLess(uncertain, regression)
         self.assertLess(regression, report_wait)
         self.assertLess(report_wait, permission_wait)
         self.assertNotIn("continue-on-error", workflow[report_wait:permission_wait])
 
-    def test_github_gate_exercises_permission_wait_host_restart_candidate(self):
+    def test_github_gate_exercises_managed_permission_and_answer_host_restart(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise permission-wait host-restart candidate",
-            "candidates/execution_plane/host_restart_permission_wait.patch",
+            "Exercise managed permission and answer host-restart continuity",
             "candidates/execution_plane/test_host_restart_permission_wait_candidate.py",
+            "candidates/execution_plane/test_host_restart_answer_handoff_candidate.py",
             "test_missing_result_gets_synthetic_interruption",
             "test_outside_reads_and_their_model_results_share_one_user_answer",
         )
         for item in required:
             self.assertIn(item, workflow)
 
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        managed = {item["file"] for item in series["patches"]}
+        self.assertTrue(
+            {
+                "0016-host-restart-permission-wait.patch",
+                "0017-host-restart-answer-handoff.patch",
+            }.issubset(managed)
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"',
+            workflow,
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"',
+            workflow,
+        )
+
         regression = workflow.index("Regress managed native Execution Plane")
-        report_wait = workflow.index("Exercise report-wait host-restart candidate")
-        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        report_wait = workflow.index("Exercise managed report-wait host-restart continuity")
+        permission_wait = workflow.index("Exercise managed permission and answer host-restart continuity")
         qq_checkout = workflow.index("Checkout pinned QQ plugin candidate base")
         self.assertLess(regression, report_wait)
         self.assertLess(report_wait, permission_wait)
@@ -1161,7 +1196,14 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(baseline, candidate)
         self.assertLess(candidate, patched)
         self.assertIn("cd _neko_upstream", workflow[baseline:candidate])
-        self.assertIn("cd _neko_product", workflow[patched:workflow.index("Exercise report-wait host-restart candidate")])
+        self.assertIn(
+            "cd _neko_product",
+            workflow[
+                patched:workflow.index(
+                    "Exercise managed report-wait host-restart continuity"
+                )
+            ],
+        )
         self.assertEqual(
             workflow.count('mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"'),
             2,

@@ -5774,6 +5774,469 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json",
       "outcome": "reuse_native",
       "machine_gate_note": "First pass runs on exact fully migrated a0bb; second pass builds an exact disposable 0001-0009 prefix tree so 0009 can reverse without later overlap. Every focused removal restores byte-for-byte, and no pass may mutate Stable without full omission acceptance."
+    },
+    {
+      "id": "patch:0015-host-restart-report-wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Ledger._reconcile fails all prior-host waiting_user commissions even when the durable pending question is a report checkpoint that native TaskAgentManager._answer_closed can resume safely from the transcript tail. Permission/tool questions cannot use that path and must remain excluded.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger + TaskAgentManager._answer_closed + native outbox",
+          "type": "native_current_pin",
+          "outcome": "selected; all durability and resume primitives already exist",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to c3 at review time; no newer report-wait restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O NekoClaw ledger/session/outbox/native delivery",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only state and delivery authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to this host-internal checkpoint",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "External workflow/checkpoint engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate task/session durability authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Thin Ledger reconcile filter",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only waiting_user with durable pending_question.kind=report",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        {
+          "name": "Private question/recovery store or daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate native pending_question/outbox/session authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native persistence and resume are sufficient but current Ledger._reconcile over-classifies the safe report-wait checkpoint as failed. The candidate only narrows that reconciliation condition; it introduces no state or execution path.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively preserves report-style waiting_user commissions across host restart with equivalent durable-question, transcript-tail resume, no-startup-effect and exclusion coverage for permission/tool questions.",
+      "promotion_policy": "managed_correctness_exception_group:host-restart-continuity-v1",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/question/outbox authority.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin already persists pending_question/outbox/session transcript and supports _answer_closed for report questions; only reconciliation is overbroad.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin and has no newer implementation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned external provider owns host restart of a NekoClaw report wait."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External checkpoint/workflow engines were considered and rejected because native N.E.K.O already represents this checkpoint durably.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only filters the native fail-on-open set for report-style waiting_user rows.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private recovery/question stores, daemons and second ledgers are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+        }
+      },
+      "source_candidate": "candidates/execution_plane/host_restart_report_wait.patch",
+      "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
+    },
+    {
+      "id": "patch:0016-host-restart-permission-wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A task-agent permission prompt is durably represented in pending_question/outbox, and the protected effect has not begun while PermissionGate is still waiting, but host restart currently fails the commission because the old in-memory permission Future is gone. Recreating that old grant would be unsafe and would duplicate permission authority.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin PermissionGate + ExecutionAudit + TaskAgentManager + tool-history repair",
+          "type": "native_current_pin",
+          "outcome": "selected; native effect boundary, transcript repair and session reopen primitives are sufficient for continuity without grant restoration",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main",
+          "type": "native_upstream",
+          "outcome": "identical to current pin at review time; no newer permission-restart seam exists",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionStore / ledger pending_question / native outbox",
+          "type": "native_extension_planes",
+          "outcome": "selected as the only permission and pending-input authorities",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Pinned external components",
+          "type": "external_pinned",
+          "outcome": "not applicable to the host-internal permission Future/transcript boundary",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Durable workflow/approval stores",
+          "type": "broader_external",
+          "outcome": "rejected because they would create a second orchestrator/permission authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Thin host-restart permission continuation",
+          "type": "thin_adapter",
+          "outcome": "candidate selected; preserve only task-agent permission waits and resume transcript after user answer without restoring any old grant",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        {
+          "name": "Private permission/grant/recovery store",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate PermissionStore/PermissionGate authority",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native primitives already prove the effect has not started, repair incomplete tool history, and reopen durable sessions, but Ledger._reconcile and TaskAgentManager._answer_closed do not connect those primitives across a host restart. The candidate changes only reconciliation and continuation wiring; authorization is always rechecked by the current native PermissionGate.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively survives host restart during task-agent permission prompts without restoring stale once/session grants, replays no old tool call, rechecks current permission on any retried action, and has equivalent direct-plugin fail-closed plus transcript-repair coverage.",
+      "promotion_policy": "managed_correctness_exception_group:host-restart-continuity-v1",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole permission, commission, execution-audit, session and outbox authority. Recovery may not mint or persist grants.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin has the pre-effect PermissionGate boundary, durable pending question, transcript repair and session reopen path, but no host-restart permission continuation.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream equals current pin; no newer seam exists.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "No pinned provider or surface owns NekoClaw PermissionGate continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow/approval engines were considered but would duplicate frozen N.E.K.O orchestration and permission authority.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Candidate only preserves task-agent permission waiting rows and converts the post-restart answer into native transcript continuation. Old grants/receipts are never restored.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private grant stores, recovery journals, routers and daemons are explicitly rejected.",
+          "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+        }
+      },
+      "source_candidate": "candidates/execution_plane/host_restart_permission_wait.patch",
+      "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
+    },
+    {
+      "id": "patch:0017-host-restart-answer-handoff.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A report/permission answer accepted after host restart is currently written as a native answered event immediately before TaskAgentManager._take_up_again. If the host dies in that boundary, the durable waiting checkpoint survives but the accepted answer has no startup consumer. Re-asking loses accepted input; replaying arbitrary active work would be unsafe.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O current pin Ledger event log + TaskAgentManager transcript-tail resume",
+          "type": "native_current_pin",
+          "outcome": "selected as the durable handoff and continuation authorities",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream main 843a3624",
+          "type": "native_upstream",
+          "outcome": "checked; no accepted-answer restart consumer or equivalent host-restart seam exists",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "N.E.K.O PermissionGate + pending_question + existing call audit/effect patches",
+          "type": "native_extension_planes",
+          "outcome": "selected for stale-id/authorization/effect boundaries; grants remain current-host only",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Pinned external providers and surfaces",
+          "type": "external_pinned",
+          "outcome": "not applicable to host-internal accepted-answer continuation",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Temporal/Restate/Durable Task/approval workflow engines",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate orchestrator/ledger/permission authority for a seam already represented by native SQLite events",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Thin durable answer envelope in existing Ledger events",
+          "type": "thin_adapter",
+          "outcome": "selected as candidate; consume only a still-current task-agent waiting question with the same question id",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        {
+          "name": "Private pending-answer database/recovery journal/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected as duplicate state and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native Ledger events already provide the durable write and TaskAgentManager already provides transcript-tail continuation, but no native code reconnects an accepted answer event to the still-current waiting checkpoint after a host process loss. A thin event-to-native-resume bridge is required; no new persistence or executor is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Delete this candidate when upstream N.E.K.O natively persists and consumes accepted report/permission answers across host restart with equivalent question-id matching, cancellation terminality, no permission-grant restoration and no blind replay of active/unknown effects.",
+      "promotion_policy": "managed_correctness_exception_group:host-restart-continuity-v1",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/permission/call-audit/outbox authority; the event log is reused rather than a new recovery store.",
+          "evidence": "governance/execution_contract_v1.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Current pin durably stores events and waiting questions and can resume a closed transcript, but has no restart consumer for an answer committed before _take_up_again.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Latest upstream 843a3624 was checked and still has no equivalent accepted-answer host-restart seam.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned QQ/provider/runtime components do not own the internal task-agent accepted-answer boundary."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable workflow and approval systems can model the handoff but would duplicate the frozen N.E.K.O ledger/orchestrator/permission authorities.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: one durable event envelope plus a current-question-matching native resume consumer; no new table, daemon or queue.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private pending-answer stores, recovery journals, daemons and second runtimes are rejected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+        }
+      },
+      "source_candidate": "candidates/execution_plane/host_restart_answer_handoff.patch",
+      "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
+    },
+    {
+      "id": "patch:0018-host-restart-working-uncertain.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "A prior-host non-resting task-agent commission left working has unknown occurrence/effect semantics. Native reconciliation currently marks it failed; automatic retry would be unsafe. Reuse the native resumable blocked state as the explicit-reconciliation boundary.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O Ledger blocked state + TaskAgentManager.tell",
+          "type": "native_current_pin",
+          "outcome": "selected; blocked is resumable but never auto-executed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "N.E.K.O host_calls reconciliation",
+          "type": "native_current_pin",
+          "outcome": "selected; running calls become interrupted before commission reconciliation and completed identities stay completed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream d90f8371",
+          "type": "native_upstream",
+          "outcome": "rechecked; latest upstream still collapses old-host non-resting active work to failed",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "Managed 0011-0014 effect safety",
+          "type": "existing_pinned_external",
+          "outcome": "selected as existing visible-effect/plugin ambiguity/idempotency authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "External durable workflow engine",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate commission/session/effect authority",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "Thin Ledger reconciliation branch working->blocked",
+          "type": "thin_adapter",
+          "outcome": "selected as candidate; no queueing or automatic retry",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        {
+          "name": "New uncertain database/status/runtime/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native blocked/tell/call-audit seams already express the desired authority boundary, but _reconcile chooses failed for prior-host working. A small reconciliation branch is needed to connect the existing seams without new persistence or execution machinery.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Delete when upstream N.E.K.O provides equivalent effect-aware old-host working reconciliation with no automatic retry and explicit native continuation.",
+      "promotion_policy": "managed_correctness_exception_group:host-restart-continuity-v1",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O Ledger/TaskAgentManager/PermissionGate/host_calls remain sole authorities.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "blocked + tell + host_calls reconciliation selected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Rechecked latest upstream d90f8371: old-host non-resting active work is still failed; no native effect-aware explicit-reconciliation seam exists.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Managed 0011-0014 reused for effect/idempotency/visible receipt semantics.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External workflow engine rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one native reconciliation branch; no auto retry.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second status store/runtime/journal/daemon.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+        }
+      },
+      "source_candidate": "candidates/execution_plane/host_restart_working_uncertain.patch",
+      "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
+    },
+    {
+      "id": "patch:0019-host-restart-durable-queue.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "N.E.K.O queues both newly dispatched commissions and commissions being taken up again. The commission/session rows are durable, but requeue primary text, queued secondary notes, copy hand-back notes, and wake-note ordering otherwise depend on TaskAgentManager memory. A host death must reconstruct only the current queue epoch without flattening _Handed/_Unsaid/_Found provenance, duplicating native wake delivery, drifting session identity, or reviving cancellation.",
+      "decision": "thin_adapter",
+      "candidates": [
+        {
+          "name": "N.E.K.O Ledger + TaskAgentManager queue/session seams",
+          "type": "native_current_pin",
+          "outcome": "selected as sole durability/session substrate",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "N.E.K.O latest upstream ede4fcd0",
+          "type": "native_upstream",
+          "outcome": "checked; NekoPower Ledger._reconcile still fails prior-host queued/working/waiting_user commissions, no recover_restart equivalent exists, and the four a0bb→ede4 commits do not touch the migration patch surfaces",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "N.E.K.O wake requests/told events/transcripts/copy hand-back state",
+          "type": "native_extension_planes",
+          "outcome": "selected for provenance-preserving reconstruction",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "External workflow/reliable queue",
+          "type": "broader_external",
+          "outcome": "rejected as second orchestrator",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "Thin reconstruction into existing native queue",
+          "type": "thin_adapter",
+          "outcome": "candidate only until every provenance-bearing input has durable proof or fail-closed behavior",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        {
+          "name": "Private queue DB/scheduler/daemon",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Native queue/session machinery can restart work, but volatile queue memory can carry permission-relevant provenance. Recovery must be reconstructed from native durable sources, not serialized as plain text.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Delete when upstream natively reconstructs queued work with equivalent provenance, cancellation, identity and no-active-effect-replay semantics.",
+      "promotion_policy": "managed_correctness_exception_group:host-restart-continuity-v1",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Native ledger/task-agent/wake/transcript seams selected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "ede4fcd0 checked: latest NekoPower still lacks equivalent restart queue reconstruction and explicitly fails prior-host queued/working/waiting_user rows.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "Pinned surfaces/providers do not own task-agent queue state."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External queue/workflow engine rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Only provenance-preserving reconstruction into native queue may be implemented.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Private queue storage/scheduler/daemon rejected.",
+          "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
+      "outcome": "thin_adapter",
+      "notes": "Full agent gate 45322186743 is green at 1bf55acd. A later source audit found a reachable duplicate before-note persistence path while already queued; the regression now requires each provenance note exactly once and the corrected c3 candidate passes 27/27 selected queue tests. Core-patch retirement was independently closed at 0/9, so keep this candidate-only while shrinking native-gap surface or preparing a new blocker-closing correctness-budget decision; do not game the 14/14 count by bundling.",
+      "source_candidate": "candidates/execution_plane/host_restart_durable_queue.patch",
+      "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
     }
   ],
   "hierarchy_policy": {

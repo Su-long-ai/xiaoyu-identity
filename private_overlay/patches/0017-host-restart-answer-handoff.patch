@@ -1,0 +1,103 @@
+diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
+--- a/nekoclaw/host/task_agents.py
++++ b/nekoclaw/host/task_agents.py
+@@ -6109,7 +6109,88 @@
+-            await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
++            durable_question_id = str(question.get("id") or "")
++            accepted = await self._restart_answer(commission_id, durable_question_id)
++            if accepted is not None:
++                # The previous host accepted this exact question already and
++                # died before it could resume the transcript. Do not replace
++                # that durable answer with a later duplicate.
++                return await self._take_up_again(commission_id, accepted, same_round=True)
++            await self._ledger.append_events(
++                commission_id,
++                [
++                    (
++                        "answered",
++                        {
++                            "text": text,
++                            "resumed": True,
++                            "question_id": durable_question_id,
++                        },
++                    ),
++                    (
++                        "restart_answer_received",
++                        {
++                            "question_id": durable_question_id,
++                            "kind": kind,
++                            "continuation": continuation,
++                        },
++                    ),
++                ],
++            )
+             return await self._take_up_again(commission_id, continuation, same_round=True)
+         finally:
+             self._answering_closed.discard(commission_id)
+ 
++    async def _restart_answer(self, commission_id: str, question_id: str) -> str | None:
++        """Return a durable accepted answer for this exact question, if any."""
++        after = 0
++        found: str | None = None
++        while True:
++            page = await self._ledger.events(commission_id, after=after)
++            for event in page:
++                if (
++                    event.type == "restart_answer_received"
++                    and str(event.payload.get("question_id") or "") == question_id
++                ):
++                    found = str(event.payload.get("continuation") or "")
++            if len(page) < 500:
++                return found
++            after = page[-1].seq
++
++    def recover_restart_answers(self) -> None:
++        """Resume accepted answers left at durable waiting checkpoints."""
++        if not self._closed:
++            self._spawn(self._recover_restart_answers())
++
++    async def _recover_restart_answers(self) -> None:
++        for commission in await self._ledger.select(statuses={"waiting_user"}):
++            if self._closed:
++                return
++            if commission.route != "task_agent" or commission.id in self._answering_closed:
++                continue
++            question = commission.question() or {}
++            if question.get("kind") not in {"report", "permission"}:
++                continue
++            durable_question_id = str(question.get("id") or "")
++            if not durable_question_id:
++                continue
++            continuation = await self._restart_answer(commission.id, durable_question_id)
++            if continuation is None:
++                continue
++            self._answering_closed.add(commission.id)
++            try:
++                # Re-read after the event scan: cancellation or a newer
++                # question wins over recovery and is never resurrected.
++                current = await self._ledger.get(commission.id)
++                current_question = current.question() if current is not None else None
++                if (
++                    current is None
++                    or current.route != "task_agent"
++                    or current.status != "waiting_user"
++                    or not isinstance(current_question, dict)
++                    or str(current_question.get("id") or "") != durable_question_id
++                ):
++                    continue
++                await self._take_up_again(commission.id, continuation, same_round=True)
++            finally:
++                self._answering_closed.discard(commission.id)
++
+     async def _deliver_answer(self, session: _Session, text: str) -> bool:
+         """Give an idle session the answer to its ``waiting`` report as its next work."""
+diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
+--- a/nekoclaw/host/service.py
++++ b/nekoclaw/host/service.py
+@@ -388,5 +388,6 @@
+         self._used = True
+         self.outbox.kick()
+         self.wakes.kick()
++        self.task_agents.recover_restart_answers()
+ 
+     # -- what the main dialogue uses --------------------------------------

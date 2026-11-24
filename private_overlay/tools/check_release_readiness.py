@@ -43,6 +43,7 @@ REQUIRED_ACCEPTANCE_IDS = frozenset(
         "proactive_interruptibility_authority",
         "runtime_health_self_heal",
         "plugin_capability_floor",
+        "execution_host_restart_continuity",
     }
 )
 
