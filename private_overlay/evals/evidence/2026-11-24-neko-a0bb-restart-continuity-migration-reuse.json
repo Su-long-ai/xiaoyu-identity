@@ -120,5 +120,16 @@
     ],
     "environment": "uv run --project _neko_execution_migration_candidate --locked --group dev; candidate's own pytest.ini",
     "local_sparse_note": "Do not treat local collection failures as product failures: the sparse probe omits the full repository packaging/test environment."
+  },
+  "broad_regression_result": {
+    "github_actions_run_id": 45331960844,
+    "selected_native_tests": "769 total",
+    "passed": 766,
+    "intentional_supersessions": 3,
+    "unexpected_failures": 0,
+    "replacement_contracts": [
+      "0013 unknown-effect candidate verifier",
+      "0014 native idempotency candidate verifier"
+    ]
   }
 }
