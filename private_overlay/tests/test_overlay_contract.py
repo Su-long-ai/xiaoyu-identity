@@ -1793,5 +1793,49 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, restart)
 
+    def test_a0bb_core_patch_retirement_probe_is_candidate_only_and_gated(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "Probe a0bb managed core patch retirement",
+            "probe_a0bb_core_patch_retirement.py",
+            "_a0bb_core_patch_retirement_result.json",
+            "_neko_execution_migration_candidate",
+        ):
+            self.assertIn(marker, workflow)
+
+        probe_path = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "probe_a0bb_core_patch_retirement.py"
+        )
+        probe = probe_path.read_text(encoding="utf-8-sig")
+        for marker in (
+            "0003-qwen38-server-vad-reliability.patch",
+            "0005-latest-character-switch-intent-replay.patch",
+            "0007-private-first-round-tool-route.patch",
+            "0008-qwen-clone-provider-routing.patch",
+            "RETIREMENT_CANDIDATE_REQUIRES_FULL_OMISSION_ACCEPTANCE",
+            "PATCH_STILL_REQUIRED_BY_FOCUSED_ACCEPTANCE",
+            "restored_digest",
+        ):
+            self.assertIn(marker, probe)
+        self.assertNotIn('NEKO_UPSTREAM.lock.json").write', probe)
+        self.assertNotIn('patches/series.json").write', probe)
+
+        evidence = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', evidence)
+        self.assertIn("PROBE_PREPARED_NOT_RETIREMENT_AUTHORITY", evidence)
+        self.assertIn("45337209548", evidence)
+        self.assertIn("379d8fb43d030d0ba677a33bc8746a15d1ee4d19", evidence)
+        self.assertIn("full omission rebuild", evidence.lower())
+
 if __name__ == "__main__":
     unittest.main()
