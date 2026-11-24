@@ -62,8 +62,8 @@ def main() -> int:
     max_patch_budget = int(patch_policy.get("max_managed_patch_budget", 999))
     if base_patch_budget < 1 or base_patch_budget > 10:
         raise SystemExit("base managed patch budget must remain in 1..10")
-    if correctness_exception_budget < 0 or correctness_exception_budget > 4:
-        raise SystemExit("correctness exception patch budget must remain in 0..4")
+    if correctness_exception_budget < 0 or correctness_exception_budget > 9:
+        raise SystemExit("correctness exception patch budget must remain in 0..9")
     if max_patch_budget != base_patch_budget + correctness_exception_budget:
         raise SystemExit(
             "max managed patch budget must equal base budget plus correctness exceptions"

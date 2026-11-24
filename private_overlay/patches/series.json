@@ -70,6 +70,31 @@
       "file": "0014-plugin-run-idempotency.patch",
       "reason": "Wire NekoClaw's existing stable host call identity into the plugin server's native RunCreateRequest.idempotency_key and retry only ambiguous create outcomes with that same key.",
       "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json"
+    },
+    {
+      "file": "0015-host-restart-report-wait.patch",
+      "reason": "Preserve report-style waiting_user commissions across host restart using the existing Ledger pending question, transcript and TaskAgentManager resume seams; no second checkpoint store.",
+      "evidence": "evals/evidence/2026-11-23-host-restart-report-wait-reuse.json"
+    },
+    {
+      "file": "0016-host-restart-permission-wait.patch",
+      "reason": "Preserve task-agent permission waits across host restart without restoring stale grants; accepted answers resume the native transcript and any protected action re-enters the current PermissionGate.",
+      "evidence": "evals/evidence/2026-11-23-host-restart-permission-wait-reuse.json"
+    },
+    {
+      "file": "0017-host-restart-answer-handoff.patch",
+      "reason": "Persist an accepted report/permission answer in the existing Ledger event stream so a crash between answer acceptance and transcript resume cannot lose or replay the answer.",
+      "evidence": "evals/evidence/2026-11-24-host-restart-answer-handoff-reuse.json"
+    },
+    {
+      "file": "0018-host-restart-working-uncertain.patch",
+      "reason": "Reconcile prior-host active work to interrupted/uncertain effect state instead of replaying ambiguous work after restart; N.E.K.O host_calls remain the sole effect authority.",
+      "evidence": "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json"
+    },
+    {
+      "file": "0019-host-restart-durable-queue.patch",
+      "reason": "Reconstruct only the current queued task-agent epoch from native Ledger events and native session/wake authority, preserving ordered resume/note provenance exactly once and never reviving cancelled/terminal work.",
+      "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
     }
   ],
   "policy": "Prefer config -> external plugin -> adapter -> narrowly-scoped core patch. Keep every patch tied to a concrete live acceptance gap and remove it when upstream behavior makes it unnecessary."

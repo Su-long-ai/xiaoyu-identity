@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_A0BB_EXECUTION_MIGRATION_REFRESH_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+  "supersedes_candidate_observation": "fac795091e33cd92a6604d14ac242510944badac",
+  "problem": "Refresh the NekoPower migration against the actual current N.E.K.O main and reuse the already-proven 0010-0012 contracts without expanding Stable or creating a second execution authority.",
+  "authority": {
+    "kernel": "N.E.K.O only",
+    "product_runtime": "c3 Stable until the full NekoPower migration closes",
+    "candidate_runtime": "exact a0bb NekoPower checkout",
+    "forbidden": [
+      "changing NEKO_UPSTREAM.lock.json in this unit",
+      "adding a fifteenth Stable managed patch",
+      "second execution host/ledger/outbox/receipt store",
+      "blind path-only migration without existing acceptance",
+      "rewriting historical fac795 or d90 evidence"
+    ]
+  },
+  "latest_upstream_check": {
+    "method": "git ls-remote Project-N-E-K-O/N.E.K.O refs/heads/main",
+    "observed_sha": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+    "result": "fac795 is no longer the current upstream candidate; migration evidence was refreshed rather than extending the stale candidate."
+  },
+  "managed_prefix_replay": {
+    "0001_0009": "PASS unchanged on a0bb",
+    "0010": {
+      "result": "THIN_CONTEXT_REBASE",
+      "reusable_hunks": "all behavior hunks except two top-of-file Live2D context hunks",
+      "upstream_equivalence": "asyncio import is already native at a0bb",
+      "residual": "retain the existing _find_models_async = asyncio.to_thread(find_models) helper because the affected request path still needs off-loop catalog discovery",
+      "candidate_patch": "candidates/execution_plane/a0bb_startup_event_loop_responsiveness.patch"
+    }
+  },
+  "effect_state_0011": {
+    "candidate_patch": "candidates/execution_plane/nekopower_outbox_effect_state.patch",
+    "clean_apply_on_a0bb": true,
+    "py_compile": "PASS",
+    "verifier": "verify_execution_effect_state_candidate.py --host-package nekopower --wire-prefix nekopower",
+    "verifier_result": "PASS",
+    "new_authority": "none"
+  },
+  "delivery_receipt_0012": {
+    "source_contract": "patches/0012-native-delivery-receipt.patch plus its existing verifier and real-ZMQ E2E",
+    "candidate_patch": "candidates/execution_plane/nekopower_native_delivery_receipt.patch",
+    "changed_files": [
+      "app/agent_server/api_runtime.py",
+      "app/agent_server/nekopower_mount.py",
+      "app/main_server/character_runtime.py",
+      "main_logic/agent_event_bus.py"
+    ],
+    "diff": "+440/-88 across four files",
+    "migration_method": "reuse the validated c3 receipt helpers and protocol, namespace-rebased to NekoPower only where upstream structure changed",
+    "py_compile": "PASS",
+    "diff_check": "PASS",
+    "verifier_result": "native delivery receipt candidate: PASS",
+    "real_zmq_result": "native delivery receipt real-ZMQ E2E: PASS",
+    "semantics": [
+      "outbox handoff identity reaches the existing agent-to-main event",
+      "main epoch changes freeze previously claimed delivery as uncertain",
+      "main claims before visible effect",
+      "exact positive visible receipt commits the durable row",
+      "negative delivery releases the claim",
+      "ambiguous settlement never authorizes blind replay"
+    ],
+    "new_authority": "none"
+  },
+  "remaining_native_gaps": {
+    "restart_continuity": "a0bb TaskAgentManager still holds _resume and _notes in process memory; the green c3 restart stack is not yet natively equivalent",
+    "plugin_effect": "0013 unknown-effect and 0014 idempotent-create migration remain separate follow-up units and are not claimed closed by this evidence"
+  },
+  "promotion_ready": false,
+  "conclusion": "A0BB_0010_0012_MIGRATION_STACK_GREEN_BUT_CANDIDATE_ONLY",
+  "promotion_blockers": [
+    "migrate/retire 0013 unknown-effect semantics",
+    "migrate/retire 0014 idempotent-create semantics",
+    "port or retire the green restart continuity stack without expanding the 14-patch Stable budget",
+    "run the complete product acceptance before changing the N.E.K.O product pin"
+  ],
+  "retirement_condition": "Delete these migration candidates after a NekoPower product pin is promoted as one-for-one replacements, or sooner where upstream N.E.K.O supplies equivalent native semantics."
+}

@@ -6,12 +6,12 @@
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
   "refreshed_at_local": "2026-11-24",
-  "basis_commit": "f0c68d39e8313c678f85d7bbb178a42165e8d055",
+  "basis_commit": "956485022fb13f93a34e04b8240d54392e7bc092",
   "basis_commit_verification": {
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45318278808,
+    "run_id": 45352245336,
     "conclusion": "success",
-    "note": "Fully green current product basis after Companion performance-budget orchestration, hidden-child startup diagnostics, ordered 14-patch managed product validation, native Execution Plane regressions, restart candidates, QQ surface checks, and release evidence under reuse/architecture gates. The d90 Voice promotion probe remains separately candidate-scoped and is not claimed by this product-branch run."
+    "note": "Fully green product-branch basis after ordered 19-patch managed N.E.K.O replay, Companion ownership/soak, native and managed Execution regressions, five-layer host-restart continuity, QQ surface checks, plugin gap probes, and release evidence under reuse/architecture gates."
   },
   "product_branch": "private/neko-overlay-v1",
   "no_open_release_blockers": true,
@@ -57,8 +57,8 @@
     }
   },
   "managed_core_patches": {
-    "count": 14,
-    "budget": 14,
+    "count": 19,
+    "budget": 19,
     "files": [
       "0001-proactive-autostart-idle-gate.patch",
       "0002-full-chat-native-voice-entry.patch",
@@ -73,10 +73,15 @@
       "0011-execution-outbox-effect-state.patch",
       "0012-native-delivery-receipt.patch",
       "0013-plugin-run-unknown-effect.patch",
-      "0014-plugin-run-idempotency.patch"
+      "0014-plugin-run-idempotency.patch",
+      "0015-host-restart-report-wait.patch",
+      "0016-host-restart-permission-wait.patch",
+      "0017-host-restart-answer-handoff.patch",
+      "0018-host-restart-working-uncertain.patch",
+      "0019-host-restart-durable-queue.patch"
     ],
-    "policy": "exception_only_reuse_reviewed_reproduced_gap_retire_on_native_equivalence_with_four_blocker_backed_correctness_exceptions",
-    "latest_upstream_equals_pin": true
+    "policy": "exception_only_reuse_reviewed_reproduced_gap_retire_on_native_equivalence_with_nine_blocker_backed_correctness_exceptions",
+    "latest_upstream_equals_pin": false
   },
   "private_runtime_plugins": {
     "xiaoyu_interaction_policy": {
@@ -89,8 +94,8 @@
     }
   },
   "acceptance": {
-    "closed": 25,
-    "total": 25,
+    "closed": 26,
+    "total": 26,
     "ids": [
       "identity_restart",
       "identity_model_swap",
@@ -116,29 +121,33 @@
       "startup_event_loop_responsiveness",
       "proactive_interruptibility_authority",
       "runtime_health_self_heal",
-      "plugin_capability_floor"
+      "plugin_capability_floor",
+      "execution_host_restart_continuity"
     ],
     "release_gate": "PASS",
     "policy": "Every case must contain PASS semantics and existing evidence; pending/deferred/partial/blocked/not_yet markers fail closed."
   },
   "verification": {
     "product_main_machine_gate": {
-      "commit": "f0c68d39e8313c678f85d7bbb178a42165e8d055",
-      "run_id": 45318278808,
+      "commit": "956485022fb13f93a34e04b8240d54392e7bc092",
+      "run_id": 45352245336,
       "conclusion": "success"
     },
     "hierarchical_reuse_gate": "HIERARCHICAL_REUSE_V1 active; new reviews require L0-L6 checked/not_applicable evidence and local-only customization search fails closed",
     "agent_branch_freshness": "agent/** push requires current private/neko-overlay-v1 ancestor; stale bases fail BLOCK_AGENT_STALE_BASE",
-    "release_readiness": "25/25 PASS",
+    "release_readiness": "26/26 PASS",
     "canonical_c3_restart": "PASS; final cycle main/memory/agent/plugin HTTP 200, 4/4 admitted autostart plugins restored, zero new main-loop blocked/recovered events",
-    "patched_product_cloud_regression": "PASS in public product-main run 45318278808; the ordered 14-patch managed N.E.K.O worktree, Companion ownership/startup regressions, generation-safe performance gate contracts, managed Execution effect/receipt/unknown/idempotency correctness, restart candidates, QQ surface checks, and release evidence completed under the shared gate.",
-    "pinned_qq_surface": "PASS in public product-main run 45212418460 against qq_auto_reply 54acf36, including delivery/floor, inbound-idempotency candidate, and QQ gap probes.",
-    "native_execution_and_receipt_candidates": "PASS in public product-main run 45212418460: managed correctness patches 0011-0014 are validated in the ordered product worktree; host-restart report/permission continuity remains candidate-only and passed its dedicated gate steps.",
+    "patched_product_cloud_regression": "PASS in private product run 45352245336; exact product ref 956485022f replayed all 19 managed patches and passed Companion soak, native Execution baseline/E2E, effect/receipt/plugin correctness, report/permission/answer/working/durable-queue restart continuity, QQ surface/idempotency, plugin gap probes, and release evidence.",
+    "pinned_qq_surface": "PASS in private product run 45352245336 against pinned qq_auto_reply 54acf36, including delivery/floor, inbound-idempotency candidate, and QQ gap probes.",
+    "native_execution_and_receipt_candidates": "Managed correctness patches 0011-0019 are machine-admitted: effect state, delivery receipt, plugin unknown/idempotency, plus the full report/permission/answer/working/queue host-restart continuity stack. Source and NekoPower migration candidates remain available only for regression and future upstream cutover.",
     "runtime_health_self_heal": "PASS; read-only-first, at most one native reconcile repair, forbidden Agent capabilities remain blocked",
     "plugin_capability_floor": "PASS; autostart dependency/model/UI/install authority expansion fails closed",
-    "upstream_main_equals_pin": true,
+    "upstream_main_equals_pin": false,
     "physical_windows_startup_refresh": "not re-claimed by cloud-only evidence; prior live c3 restart acceptance remains authoritative until next local physical timing run",
-    "local_full_regression_2026_11_23": "PASS on Windows local product environment before online handoff: overlay/reuse/architecture/release gates green; native QQ/Companion/Execution regressions green, including 1262 passed / 27 skipped native Execution Plane tests."
+    "local_full_regression_2026_11_23": "PASS on Windows local product environment before online handoff: overlay/reuse/architecture/release gates green; native QQ/Companion/Execution regressions green, including 1262 passed / 27 skipped native Execution Plane tests.",
+    "latest_upstream_observed": "791a42eaf9ca6d604eb0d993213b24b4c689cfaa; three commits after ede4 only touched memory/plugin-manager/test-fixture surfaces, with zero host-restart target overlap. Stable product pin intentionally remains c3 pending a separate NekoPower cutover.",
+    "managed_19_local_composition": "PASS: fresh c3 worktree replayed 19/19 patches; report 6/6, permission/answer/fail-closed 27/27, working/effect 10/10, durable queue 27/27 focused tests green.",
+    "execution_promotion_source": "agent/execution-continuity-v2 67ade38f957841b6222938a829fafa6418738a8e; full gate 45351246560 PASS. Product integration is a one-commit squash with identical Git tree d3195c0e973b49bfc076545bd25d73f1bc2138a2."
   },
   "stable_scope": {
     "included": [
@@ -155,7 +164,8 @@
       "NekoClaw native task execution and no-blind-retry uncertain-effect behavior",
       "Qwen clone bundle with CosyVoice retained as selectable fallback",
       "startup event-loop responsiveness fixes contained inside managed patch 0010",
-      "plugin-visible chat/HUD output passes the shared final-admission delivery-floor extension"
+      "plugin-visible chat/HUD output passes the shared final-admission delivery-floor extension",
+      "host-restart continuity for report/permission waits, accepted answers, active effect uncertainty and durable task-agent queue recovery without stale grants or blind replay"
     ],
     "excluded": [
       "Steam-specific distribution behavior in the private source-launch environment",
@@ -164,17 +174,15 @@
       "automatic dsh installation or silent Agent-master enablement"
     ],
     "candidate_only_not_promoted": [
-      "candidates/execution_plane/host_restart_report_wait.patch",
-      "candidates/execution_plane/host_restart_permission_wait.patch",
       "candidates/qq/live_inbound_idempotency.patch"
     ]
   },
   "bindings_git_blob_sha": {
-    "NEKO_UPSTREAM.lock.json": "d9f905123a6567aaa81c58532c680a6400764864",
+    "NEKO_UPSTREAM.lock.json": "3d706f86e32443ab26ba0eee8c06428a4472321b",
     "QQ_PLUGIN_UPSTREAM.lock.json": "2c304f755ea30cffe55f118f3cb18ce7727804a2",
     "DESKTOP_SHELL.lock.json": "60e415eae8c9f8badcc4b810de27de1a79b8520b",
-    "patches/series.json": "55e6697444bc726a4be947038bfe9aca293d8dbe",
-    "evals/acceptance_matrix.json": "026d6f6d5bc8f1469fcff16384b76bc70d3d3092",
+    "patches/series.json": "bd56d20aaf97c664e7f26f47e71bbb83843cae90",
+    "evals/acceptance_matrix.json": "49510206e97e98ad167b7faf04f609b40c1fa05e",
     "plugins/manifest.json": "bcb91e7f6034f8359df9a3c6f50b6e055baa1218",
     "plugins/xiaoyu_interaction_policy/plugin.toml": "b98a9d2eba368fc92e077f9966beee2216637b62"
   },

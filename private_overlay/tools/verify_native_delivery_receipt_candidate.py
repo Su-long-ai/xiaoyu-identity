@@ -10,10 +10,21 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 
+_RUNTIME_NAME = "nekoclaw"
+
+
 def _text(root: Path, relative: str) -> str:
-    path = root / relative
-    assert path.exists(), f"missing patched file: {relative}"
-    return path.read_text(encoding="utf-8")
+    actual_relative = relative
+    if _RUNTIME_NAME == "nekopower":
+        actual_relative = actual_relative.replace("nekoclaw_mount.py", "nekopower_mount.py")
+    path = root / actual_relative
+    assert path.exists(), f"missing patched file: {actual_relative}"
+    text = path.read_text(encoding="utf-8")
+    if _RUNTIME_NAME == "nekopower":
+        # Normalize only the namespace spelling so the exact same receipt
+        # contract below exercises NekoPower without cloning a verifier.
+        text = text.replace("NekoPower", "NekoClaw").replace("nekopower", "nekoclaw")
+    return text
 
 
 def _ordered(text: str, *needles: str) -> None:
@@ -597,9 +608,16 @@ async def _verify(root: Path) -> None:
 
 
 def main() -> int:
+    global _RUNTIME_NAME
     parser = argparse.ArgumentParser()
     parser.add_argument("--neko-root", required=True, type=Path)
+    parser.add_argument(
+        "--runtime-name",
+        default="nekoclaw",
+        choices=("nekoclaw", "nekopower"),
+    )
     args = parser.parse_args()
+    _RUNTIME_NAME = args.runtime_name
     asyncio.run(_verify(args.neko_root))
     print("native delivery receipt candidate: PASS")
     return 0
