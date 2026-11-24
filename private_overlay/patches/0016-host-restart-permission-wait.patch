@@ -1,22 +1,15 @@
-diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
---- a/nekoclaw/host/ledger.py
-+++ b/nekoclaw/host/ledger.py
-@@ -1116,14 +1116,15 @@
-         if rows:
-             logger.info("ledger: %d commission(s) of an earlier build given their sessions", len(rows))
- 
--    def _reconcile(self, conn: sqlite3.Connection, path: Path) -> None:
--        """Reconcile what a previous host process left unfinished.
--
--        Nobody is working on those commissions any more. A report-style
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index 0feeb6691275a4e1d2663a43bb7155393e68c990..ee2f0ca654c36b685345099603468f4c8bd8c36a 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -1156,10 +1156,11 @@ class Ledger:
+         """Reconcile what a previous host process left unfinished.
+
+         Nobody is working on those commissions any more. A report-style
 -        question is already a durable checkpoint: it stays waiting because a
 -        later host can answer it through the existing transcript-tail resume
 -        path without replaying work. Other active work is failed. A blocked
 -        one stays blocked, and a deferred one stays as it is: until its deadline its
-+    def _reconcile(self, conn: sqlite3.Connection, path: Path) -> None:
-+        """Reconcile what a previous host process left unfinished.
-+
-+        Nobody is working on those commissions any more. A report-style
 +        question, and a task-agent permission question that is still before
 +        its protected effect, are durable checkpoints: they stay waiting so a
 +        later host can resume the existing transcript without replaying work.
@@ -25,101 +18,64 @@ diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
          plugin's result may still arrive, and past it the task brain's sweep
          fails it with the same report as when the host kept running.
          Questions of the failed ones that were never sent are dropped. With a
-@@ -1168,30 +1169,31 @@
-                 (self.instance,),
+@@ -1215,7 +1216,7 @@ class Ledger:
              ).fetchall()
              self._unfire(conn, [int(row["id"]) for row in on_its_way], None, "")
--            rows = conn.execute(
+             rows = conn.execute(
 -                "SELECT id, status, pending_question FROM commissions "
--                "WHERE status IN ('queued','working','waiting_user') "
--                "AND COALESCE(host_instance, '') != ? "
--                "AND deferred_until IS NULL "
--                "AND NOT (status = 'working' AND resting_since IS NOT NULL)",
--                (self.instance,),
--            ).fetchall()
--            failed_rows = 0
--            for row in rows:
--                if row["status"] == "waiting_user":
--                    try:
--                        question = json.loads(row["pending_question"] or "")
--                    except (TypeError, ValueError):
--                        question = None
++                "SELECT id, route, status, pending_question FROM commissions "
+                 "WHERE status IN ('queued','working','waiting_user') "
+                 "AND COALESCE(host_instance, '') != ? "
+                 "AND deferred_until IS NULL "
+@@ -1229,11 +1230,12 @@ class Ledger:
+                         question = json.loads(row["pending_question"] or "")
+                     except (TypeError, ValueError):
+                         question = None
 -                    if isinstance(question, dict) and question.get("kind") == "report":
 -                        # Its run is already at a durable user checkpoint.
 -                        # The new host owns it only when the answer moves it
 -                        # back to working; until then the native question/outbox
 -                        # and transcript remain exactly as the old host left them.
--                        continue
--                moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
--                if moved.applied:
--                    failed_rows += 1
-+            rows = conn.execute(
-+                "SELECT id, route, status, pending_question FROM commissions "
-+                "WHERE status IN ('queued','working','waiting_user') "
-+                "AND COALESCE(host_instance, '') != ? "
-+                "AND deferred_until IS NULL "
-+                "AND NOT (status = 'working' AND resting_since IS NOT NULL)",
-+                (self.instance,),
-+            ).fetchall()
-+            failed_rows = 0
-+            for row in rows:
-+                if row["status"] == "waiting_user":
-+                    try:
-+                        question = json.loads(row["pending_question"] or "")
-+                    except (TypeError, ValueError):
-+                        question = None
 +                    kind = question.get("kind") if isinstance(question, dict) else None
 +                    if kind == "report" or (kind == "permission" and row["route"] == "task_agent"):
 +                        # These are durable user checkpoints the native task-agent
 +                        # transcript can take up again. Permission grants are not
 +                        # restored here: a retried protected action must pass the
 +                        # current PermissionGate in the new host.
-+                        continue
-+                moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
-+                if moved.applied:
-+                    failed_rows += 1
-                 if moved.applied and moved.commission is not None and self._reconcile_report is not None:
-                     report = self._reconcile_report(moved.commission)
-                     if report is not None:
-diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
---- a/nekoclaw/host/task_agents.py
-+++ b/nekoclaw/host/task_agents.py
-@@ -6019,9 +6019,11 @@
-         is turned away with nothing changed. Not said (None), the
-         answer is for whichever question waits.
+                         continue
+                 moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
+                 if moved.applied:
+diff --git a/nekopower/host/task_agents.py b/nekopower/host/task_agents.py
+index 12d1a186e9d53db14ea1c5e88f08861742a5d813..df8636a51aefd0e6820c43cf9739b0ecf55bf5a1 100644
+--- a/nekopower/host/task_agents.py
++++ b/nekopower/host/task_agents.py
+@@ -6396,7 +6396,9 @@ class TaskAgentManager:
          """
--        session = self._sessions.get(commission_id) or self._direct_questions.get(commission_id)
--        if session is None:
+         session = self._sessions.get(commission_id) or self._direct_questions.get(commission_id)
+         if session is None:
 -            return await self._answer_closed(commission_id, text, question_id=question_id)
-+        session = self._sessions.get(commission_id) or self._direct_questions.get(commission_id)
-+        if session is None:
 +            return await self._answer_closed(
 +                commission_id, text, choice=choice, question_id=question_id
 +            )
          if question_id is not None and question_id != session.question_id:
              return False
          if session.question is not None and not session.question.done():
-@@ -6043,17 +6045,20 @@
-             return await self._deliver_answer(session, text)
+@@ -6419,15 +6421,18 @@ class TaskAgentManager:
          return False
- 
--    async def _answer_closed(
+
+     async def _answer_closed(
 -        self, commission_id: str, text: str, *, claimed: bool = False, question_id: str | None = None
--    ) -> bool:
++        self, commission_id: str, text: str, *, choice: str | None = None,
++        claimed: bool = False, question_id: str | None = None,
+     ) -> bool:
 -        """Answer a ``waiting`` report whose session was closed meanwhile.
--
++        """Answer a durable user checkpoint whose old session is gone.
+
 -        A runtime with nothing to do exits after a while and closes its idle
 -        sessions, those waiting for an answer included. The answer then takes
 -        the commission up again where its transcript ends. ``claimed`` is
 -        True for an answer its session kept, claimed for it when the session
 -        closed.
--        """
-+    async def _answer_closed(
-+        self, commission_id: str, text: str, *, choice: str | None = None,
-+        claimed: bool = False, question_id: str | None = None,
-+    ) -> bool:
-+        """Answer a durable user checkpoint whose old session is gone.
-+
 +        Report questions resume as before. A permission question can also be
 +        resumed after a host restart because it is still before the protected
 +        tool effect. Its old grant/Future is deliberately not reconstructed:
@@ -127,33 +83,24 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +        any action attempted again must pass the new host's PermissionGate.
 +        ``claimed`` is True for an answer its session kept, claimed for it
 +        when the session closed.
-+        """
+         """
          if not claimed:
              if self._closed or commission_id in self._answering_closed:
-                 # Another answer is taking it up again: that one is its next work.
-@@ -6065,17 +6070,44 @@
-             commission = await self._ledger.get(commission_id)
+@@ -6441,16 +6446,43 @@ class TaskAgentManager:
              if commission is None or commission.route != "task_agent" or commission.status != "waiting_user":
                  return False
--            question = commission.question() or {}
+             question = commission.question() or {}
 -            # A question asked through a tool call is answered to the session
 -            # that waits for it; only the question of a report can be answered
 -            # this way.
 -            if question.get("kind") != "report":
--                return False
--            if question_id is not None and question_id != question.get("id"):
--                # Read against another question than the one it waits with now.
--                return False
--            await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
--            return await self._take_up_again(commission_id, text, same_round=True)
-+            question = commission.question() or {}
 +            kind = question.get("kind")
 +            if kind not in {"report", "permission"}:
 +                # Other tool questions still belong to the old in-memory call.
-+                return False
-+            if question_id is not None and question_id != question.get("id"):
-+                # Read against another question than the one it waits with now.
-+                return False
+                 return False
+             if question_id is not None and question_id != question.get("id"):
+                 # Read against another question than the one it waits with now.
+                 return False
 +            continuation = text
 +            if kind == "permission":
 +                offered = {
@@ -182,8 +129,9 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +                    )
 +                if text.strip():
 +                    continuation += "\nUser's answer to the interrupted permission prompt: " + text.strip()
-+            await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
+             await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
+-            return await self._take_up_again(commission_id, text, same_round=True)
 +            return await self._take_up_again(commission_id, continuation, same_round=True)
          finally:
              self._answering_closed.discard(commission_id)
- 
+

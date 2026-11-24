@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_871066_PRODUCT_CUTOVER_20261124",
+  "recorded_at_local": "2026-11-24",
+  "status": "LOCAL_FORMAL_ACCEPTANCE_PASS_CLOUD_CUTOVER_PENDING",
+  "target": {
+    "neko_commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+    "host_package": "nekopower",
+    "managed_patch_count": 19,
+    "managed_patch_count_changed": false
+  },
+  "prior_product": {
+    "product_branch": "private/neko-overlay-v1",
+    "product_head_observed": "3f4eb46d84254400a7c603151b297d52d5a40076",
+    "neko_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "rollback_authority": "Retain the prior c3 product ref and its matching 19-patch set as rollback authority until the formal 871 cutover branch gate and product promotion are green."
+  },
+  "prerequisite_candidate": {
+    "branch": "agent/companion-productization-v2",
+    "head": "47fc997bb814d603729fa86693764d566648c3cd",
+    "github_actions_run_id": 45357517027,
+    "conclusion": "success",
+    "reuse_review": "candidate:neko-871066-product-promotion-v1",
+    "policy": "The approved candidate review permits a separate cutover only after the exact-target workflow is fully green; that prerequisite is satisfied."
+  },
+  "architecture": {
+    "companion_runtime_authority": "N.E.K.O",
+    "execution_authority": "N.E.K.O NekoPower",
+    "memory_authority": "N.E.K.O",
+    "task_authority": "N.E.K.O",
+    "overlay_role": "XiaoYu identity/persona continuity, relationship/privacy/interruptibility/provider policy and narrow compatibility integration only",
+    "no_second_runtime": true,
+    "no_nekoclaw_compat_alias": true,
+    "namespace_cutover": "Formal product gates and execution contract now validate native nekopower paths directly; historical evidence remains unchanged."
+  },
+  "formal_series_replay": {
+    "base": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+    "full_checkout": true,
+    "patches": "19/19",
+    "per_patch_checks": [
+      "git apply --check",
+      "git apply",
+      "git apply --reverse --check"
+    ],
+    "git_diff_check": "PASS",
+    "note": "A sparse-checkout false blocker was reproduced and eliminated by rebuilding from a full checkout; the formal series itself replays cleanly."
+  },
+  "formal_product_acceptance": {
+    "execution_effect_state": "PASS",
+    "native_delivery_receipt": "PASS",
+    "real_zmq_delivery_receipt": "PASS",
+    "plugin_unknown_effect": "PASS",
+    "plugin_idempotency": "PASS",
+    "restart_composition": "49 passed",
+    "projected_restart_fault_matrix": "9 passed",
+    "voice_native_asr": "135 passed, 3 skipped",
+    "xiaoyu_voice_qwen": "173 passed",
+    "nekopower_core": "766 passed, 3 intentionally deselected native expectations superseded by managed unknown/idempotency contracts",
+    "qq_pinned_surface": "173 passed",
+    "qq_commit": "54acf36bf978edad4757e5fffc743c5618360700"
+  },
+  "raw_871_native_acceptance": {
+    "execution_seams": "PASS",
+    "host_restart_native_gap_probe": "PASS: raw upstream still reproduces the known host-restart continuity gap, so managed 0015-0019 remain required",
+    "agent_readiness": "22 passed",
+    "dsh_optional_runtime": "403 passed, 34 skipped",
+    "execution_product_e2e": "21 passed",
+    "real_browser": "2 passed; Chrome and Edge discovered through native NekoPower launcher"
+  },
+  "qq_binding": {
+    "commit": "54acf36bf978edad4757e5fffc743c5618360700",
+    "neko_commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+    "compatibility_verdict": "PASS_871066_PINNED_QQ_SURFACE",
+    "physical_restart_evidence": "Prior c3 live physical restart evidence remains authoritative; this cutover does not falsely re-claim a full 871 physical Companion restart cycle."
+  },
+  "latest_upstream_observation": {
+    "observed_main": "3699d626e7c30df85c310506e48eab66ecb05c00",
+    "commits_ahead_of_target": 3,
+    "decision": "FREEZE_871066_FOR_THIS_CUTOVER",
+    "reason": "The newer frontier includes a substantial NekoPower family/orchestrator change touching ledger/service/task-agent execution seams. Folding it into this already-complete acceptance would create a new migration unit and invalidate the exact-target evidence. Evaluate it separately after 871 promotion."
+  },
+  "cloud_cutover": {
+    "formal_cutover_branch": "integration/neko-871-cutover-v1 -> agent/companion-productization-v2",
+    "status": "PENDING_PUSH_AND_FORMAL_GATE",
+    "promotion_rule": "Do not merge into private/neko-overlay-v1 until the formal cutover head passes the ordinary reuse/architecture/product gate."
+  },
+  "physical_scope": {
+    "local_windows_code_and_browser_acceptance": "PASS",
+    "full_871_companion_startup_restart_timing_reclaim": false,
+    "note": "No cloud-only or focused local test is allowed to overwrite the prior physical startup/restart claim."
+  }
+}

@@ -639,11 +639,12 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise managed report-wait host-restart continuity",
-            "candidates/execution_plane/test_host_restart_report_wait_candidate.py",
-            "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
-            "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
-            "test_an_answer_after_the_idle_session_was_closed_takes_it_up_again",
+            'Exercise managed report-wait host-restart continuity',
+            'prepare_nekopower_restart_candidate_tests.py',
+            'nekopower_restart_tests/test_host_restart_report_wait_candidate.py',
+            'test_unfinished_commissions_of_an_earlier_process_fail_on_open',
+            'test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure',
+            'test_an_answer_after_the_idle_session_was_closed_takes_it_up_again',
         )
         for item in required:
             self.assertIn(item, workflow)
@@ -674,11 +675,12 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise managed permission and answer host-restart continuity",
-            "candidates/execution_plane/test_host_restart_permission_wait_candidate.py",
-            "candidates/execution_plane/test_host_restart_answer_handoff_candidate.py",
-            "test_missing_result_gets_synthetic_interruption",
-            "test_outside_reads_and_their_model_results_share_one_user_answer",
+            'Exercise managed permission and answer host-restart continuity',
+            'nekopower_restart_tests/test_host_restart_permission_wait_candidate.py',
+            'nekopower_restart_tests/test_host_restart_answer_handoff_candidate.py',
+            'nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py',
+            'test_missing_result_gets_synthetic_interruption',
+            'test_outside_reads_and_their_model_results_share_one_user_answer',
         )
         for item in required:
             self.assertIn(item, workflow)
@@ -716,14 +718,12 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "Verify managed plugin-run unknown-effect in product worktree",
-            "Prepare managed N.E.K.O product worktree",
-            'PYTHONPATH="$GITHUB_WORKSPACE/_neko_product"',
-            "candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py",
-            "test_unreadable_status_answers_end_the_wait",
-            "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
-            "test_failed_plugin_call_ends_failed_with_a_report",
-            "test_failed_run_is_an_error_result",
+            'Verify managed plugin-run unknown-effect in product worktree',
+            'Prepare managed N.E.K.O product worktree',
+            'verify_nekopower_plugin_run_unknown_effect.py',
+            '_neko_product/nekopower/host/plugin_runs.py',
+            '_neko_product/nekopower/host/task_brain.py',
+            '_neko_product/nekopower/host/gateway.py',
         )
         for item in required:
             self.assertIn(item, workflow)
@@ -740,13 +740,12 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "tests/unit/nekoclaw/test_host_plugin_runs.py",
-            "plugin/tests/unit/server/test_run_manager_idempotency.py",
-            "Verify managed plugin-run idempotency in product worktree",
-            "Prepare managed N.E.K.O product worktree",
-            'PYTHONPATH="$GITHUB_WORKSPACE/_neko_product"',
-            "candidates/execution_plane/test_plugin_run_idempotency_candidate.py",
-            "test_retry_after_lost_response_executes_once",
+            'tests/unit/nekopower/test_host_plugin_runs.py',
+            'plugin/tests/unit/server/test_run_manager_idempotency.py',
+            'Verify managed plugin-run idempotency in product worktree',
+            'Prepare managed N.E.K.O product worktree',
+            'verify_nekopower_plugin_run_idempotency.py',
+            'test_retry_after_lost_response_executes_once',
         )
         for item in required:
             self.assertIn(item, workflow)
@@ -817,24 +816,24 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise native Execution Plane product E2E",
-            "test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end",
-            "test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind",
-            "test_builtin_provider.py::test_cancelling_a_desktop_call_sets_its_stop_event_and_waits_for_the_worker",
-            "test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command",
-            "test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped",
-            "test_host_task_agents.py::test_web_search_runs_the_search_plugin",
-            "test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen",
-            "test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway",
-            "test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running",
-            "test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next",
-            "test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded",
-            "from nekoclaw.builtin.browser import launcher",
-            "launcher.find_browsers()",
-            "BLOCK_REAL_BROWSER_ACCEPTANCE",
-            "NEKO_TEST_REAL_BROWSER=1",
-            "test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read",
-            "test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document",
+            'Exercise native Execution Plane product E2E',
+            'test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end',
+            'test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind',
+            'test_builtin_provider.py::test_cancelling_a_desktop_call_sets_its_stop_event_and_waits_for_the_worker',
+            'test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command',
+            'test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped',
+            'test_host_task_agents.py::test_web_search_runs_the_search_plugin',
+            'test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen',
+            'test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway',
+            'test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running',
+            'test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next',
+            'test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded',
+            'from nekopower.builtin.browser import launcher',
+            'launcher.find_browsers()',
+            'BLOCK_REAL_BROWSER_ACCEPTANCE',
+            'NEKO_TEST_REAL_BROWSER=1',
+            'test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read',
+            'test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document',
         )
         for item in required:
             self.assertIn(item, workflow)
@@ -1438,17 +1437,17 @@ class OverlayContractTests(unittest.TestCase):
             execution["implementation_mode"],
             "reuse_neko_native_no_second_agent_runtime",
         )
-        self.assertEqual(execution["authority"]["commission_ledger"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["permission_gate"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["capability_gateway"], "nekoclaw_host")
-        self.assertEqual(execution["authority"]["result_outbox"], "nekoclaw_host")
+        self.assertEqual(execution["authority"]["commission_ledger"], "nekopower_host")
+        self.assertEqual(execution["authority"]["permission_gate"], "nekopower_host")
+        self.assertEqual(execution["authority"]["capability_gateway"], "nekopower_host")
+        self.assertEqual(execution["authority"]["result_outbox"], "nekopower_host")
         self.assertEqual(execution["authority"]["identity_and_persona"], "neko_native")
         self.assertEqual(execution["authority"]["memory"], "neko_native")
         self.assertEqual(execution["routing"]["single_step"], "neko_plugin_direct")
-        self.assertEqual(execution["routing"]["multi_step"], "nekoclaw_task_agent")
+        self.assertEqual(execution["routing"]["multi_step"], "nekopower_task_agent")
         self.assertEqual(
             execution["routing"]["capabilities"],
-            "nekoclaw_mcp_capability_gateway",
+            "nekopower_mcp_capability_gateway",
         )
         self.assertTrue(execution["runtime_seam"]["builtin"]["allowed"])
         self.assertEqual(

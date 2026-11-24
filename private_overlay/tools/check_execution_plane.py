@@ -149,15 +149,23 @@ def _git(neko_root: Path, *args: str) -> str:
         return ""
     return proc.stdout.strip()
 
-def _source_contract_results(neko_root: Path) -> list[dict[str, Any]]:
+def _host_relpath(relpath: str, host_package: str) -> str:
+    if host_package not in {"nekoclaw", "nekopower"}:
+        raise ValueError(f"unsupported host package: {host_package}")
+    return relpath.replace("nekoclaw", host_package)
+
+def _source_contract_results(
+    neko_root: Path, host_package: str = "nekoclaw"
+) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for name, (relpath, needles) in SOURCE_CONTRACTS.items():
-        path = neko_root / relpath
+        resolved_relpath = _host_relpath(relpath, host_package)
+        path = neko_root / resolved_relpath
         if not path.is_file():
             results.append(
                 {
                     "name": name,
-                    "path": relpath,
+                    "path": resolved_relpath,
                     "ok": False,
                     "missing": ["<file>"],
                 }
@@ -168,7 +176,7 @@ def _source_contract_results(neko_root: Path) -> list[dict[str, Any]]:
         results.append(
             {
                 "name": name,
-                "path": relpath,
+                "path": resolved_relpath,
                 "ok": not missing,
                 "missing": missing,
             }
@@ -217,8 +225,12 @@ def _acceptance_matrix_summary() -> dict[str, Any]:
     }
 
 
-def _delivery_receipt_probe(neko_root: Path) -> dict[str, Any]:
-    mount = neko_root / "app/agent_server/nekoclaw_mount.py"
+def _delivery_receipt_probe(
+    neko_root: Path, host_package: str = "nekoclaw"
+) -> dict[str, Any]:
+    if host_package not in {"nekoclaw", "nekopower"}:
+        raise ValueError(f"unsupported host package: {host_package}")
+    mount = neko_root / f"app/agent_server/{host_package}_mount.py"
     bus = neko_root / "main_logic/agent_event_bus.py"
     main = neko_root / "app/main_server/character_runtime.py"
     runtime = neko_root / "app/agent_server/api_runtime.py"
@@ -229,14 +241,22 @@ def _delivery_receipt_probe(neko_root: Path) -> dict[str, Any]:
         "runtime": _read(runtime) if runtime.is_file() else "",
     }
     stable_identity = (
-        "item.id" in texts["mount"]
+        ("item.id" in texts["mount"] or "delivery_id" in texts["mount"])
         and ("delivery_id" in texts["mount"] or "report_id" in texts["mount"])
     )
-    ack_protocol = (
+    legacy_ack_protocol = (
         ("delivery_ack" in texts["bus"] or "report_ack" in texts["bus"])
         and ("delivery_ack" in texts["runtime"] or "report_ack" in texts["runtime"])
         and ("delivery_ack" in texts["main"] or "report_ack" in texts["main"])
     )
+    barrier_ack = f"{host_package}_delivery_barrier_ack"
+    native_barrier_protocol = (
+        barrier_ack in texts["bus"]
+        and barrier_ack in texts["runtime"]
+        and barrier_ack in texts["main"]
+        and "DELIVERY_ACK_FUTURE_KEY" in texts["main"]
+    )
+    ack_protocol = legacy_ack_protocol or native_barrier_protocol
     return {
         "ok": bool(stable_identity and ack_protocol),
         "stable_report_identity": stable_identity,
@@ -260,8 +280,11 @@ def _resolve_python(neko_root: Path, explicit: str | None) -> str:
             return str(candidate)
     return sys.executable
 
-def _run_tests(neko_root: Path, python: str, full: bool) -> dict[str, Any]:
-    selection = FULL_TESTS if full else CORE_TESTS
+def _run_tests(
+    neko_root: Path, python: str, full: bool, host_package: str = "nekoclaw"
+) -> dict[str, Any]:
+    raw_selection = FULL_TESTS if full else CORE_TESTS
+    selection = tuple(_host_relpath(item, host_package) for item in raw_selection)
     cmd = [python, "-m", "pytest", "-q", *selection]
     started = time.perf_counter()
     proc = subprocess.run(
@@ -290,16 +313,19 @@ def build_report(
     full: bool = False,
     strict_delivery_receipt: bool = False,
     strict_product_gaps: bool = False,
+    host_package: str = "nekoclaw",
 ) -> tuple[dict[str, Any], bool]:
     lock = json.loads(LOCK.read_text(encoding="utf-8-sig"))
     pinned = str(lock.get("tested_commit") or "")
     head = _git(neko_root, "rev-parse", "HEAD")
-    source_contracts = _source_contract_results(neko_root)
-    delivery_receipt = _delivery_receipt_probe(neko_root)
+    source_contracts = _source_contract_results(neko_root, host_package)
+    delivery_receipt = _delivery_receipt_probe(neko_root, host_package)
     acceptance_matrix = _acceptance_matrix_summary()
     tests: dict[str, Any] | None = None
     if run_pytest:
-        tests = _run_tests(neko_root, _resolve_python(neko_root, python), full)
+        tests = _run_tests(
+            neko_root, _resolve_python(neko_root, python), full, host_package
+        )
     ok = (
         bool(pinned)
         and head == pinned
@@ -317,6 +343,7 @@ def build_report(
         "observed_head": head,
         "head_matches_pin": head == pinned,
         "working_tree_status": _git(neko_root, "status", "--porcelain"),
+        "host_package": host_package,
         "source_contracts": source_contracts,
         "delivery_receipt": delivery_receipt,
         "acceptance_matrix": acceptance_matrix,
@@ -340,6 +367,12 @@ def main() -> int:
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--strict-delivery-receipt", action="store_true")
     parser.add_argument("--strict-product-gaps", action="store_true")
+    parser.add_argument(
+        "--host-package",
+        choices=("nekoclaw", "nekopower"),
+        default="nekoclaw",
+        help="Native N.E.K.O execution authority package to validate.",
+    )
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -351,6 +384,7 @@ def main() -> int:
         full=args.full,
         strict_delivery_receipt=args.strict_delivery_receipt,
         strict_product_gaps=args.strict_product_gaps,
+        host_package=args.host_package,
     )
     encoded = json.dumps(report, ensure_ascii=False, indent=2)
     if args.json_out:

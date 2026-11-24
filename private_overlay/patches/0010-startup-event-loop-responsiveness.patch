@@ -1,8 +1,8 @@
 diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
-index d7a70e063af8a8cc63718a17229fc7b7f1865721..4859e9bbc00b5ec97d9c4b373d79fb3b78a0bb15 100644
+index 06e9bdddb8a3c35a583f4ccaba58b44a46fe6cd6..23c939774a3d31ad6d121e9fe1b70c588b526956 100644
 --- a/app/agent_server/api_runtime.py
 +++ b/app/agent_server/api_runtime.py
-@@ -609,13 +609,16 @@ async def startup():
+@@ -608,13 +608,16 @@ async def startup():
          except Exception as e:
              logger.warning(f"[loop-stall] watchdog start failed: {e}")
  
@@ -162,10 +162,10 @@ index 0a8ca542c8e1fcafc4a12d93142abe4350fdcfbe..2c325a1cbc679745349b76108d1f5e13
          _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
          logger.debug("[Agent] UserPlugin capability check error: %s", e)
 diff --git a/app/main_server/__init__.py b/app/main_server/__init__.py
-index 21e7e4cacc38e2e81a395b4394d0f1db86ab2473..81b3149aa170742d768cb87036295e6eb1384145 100644
+index 6f022d588c17e1800e7042503523f7d25700cde4..828df187220cc3fe9389d3fd207091cb1d0270b5 100644
 --- a/app/main_server/__init__.py
 +++ b/app/main_server/__init__.py
-@@ -729,7 +729,7 @@ _runtime_startup_init_lock = asyncio.Lock()
+@@ -748,7 +748,7 @@ _runtime_startup_init_lock = asyncio.Lock()
  _runtime_startup_init_completed = False
  
  
@@ -174,7 +174,7 @@ index 21e7e4cacc38e2e81a395b4394d0f1db86ab2473..81b3149aa170742d768cb87036295e6e
  
  
  async def _sync_memory_server_after_startup_import(import_result):
-@@ -1009,6 +1009,11 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+@@ -1028,6 +1028,11 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
                  except Exception as e:
                      logger.warning(f"Steam Auto-Cloud startup import failed: {e}")
  
@@ -186,7 +186,7 @@ index 21e7e4cacc38e2e81a395b4394d0f1db86ab2473..81b3149aa170742d768cb87036295e6e
              await initialize_character_data()
              # One-time stable character_uid backfill for existing characters comes after cloudsave bootstrap/
              # startup imports, whose seed files must remain untouched, and after
-@@ -1060,19 +1065,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+@@ -1079,19 +1084,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
              await _init_and_mount_workshop()
              _schedule_workshop_sync(steamworks)
  
@@ -351,7 +351,7 @@ index b0ae5d73362c4b9e72ffd1facd3446d61ce1ffa3..e010e7d9d3332b1a1a0cd2b5adbb5e0b
              logger.warning(f"[Memory] Token tracker init failed: {e}")
  
 diff --git a/launcher_core/runtime.py b/launcher_core/runtime.py
-index 369bc0265b3c917a2f24398943aee4bd98b78219..ffa3be5a5a976bffe12134bf94089a2a523df3b0 100644
+index a9dff947448c63ed563ed33dabafb6fa30b7bef1..0de5d9474c3b8b97794811fbb38749329887f136 100644
 --- a/launcher_core/runtime.py
 +++ b/launcher_core/runtime.py
 @@ -153,6 +153,14 @@ SHUTDOWN_MODULE_ORDER = (
@@ -369,7 +369,7 @@ index 369bc0265b3c917a2f24398943aee4bd98b78219..ffa3be5a5a976bffe12134bf94089a2a
  MERGED_SERVER_READY_POLL_INTERVAL = 0.25
  MERGED_SERVER_SHUTDOWN_ORDER = ("Main", "Memory", "Agent")
  # Desktop-owned HTTP work can outlive its connection while the desktop waits
-@@ -3354,7 +3362,7 @@ def main():
+@@ -3431,7 +3439,7 @@ def main():
              return 1
  
          # 2. Await the final server's readiness.
@@ -430,10 +430,10 @@ index c24382c8ed820a5ee4fa91d4a3dbe99028b678bc..c77be5f560f1049ae371390d4ffe5ac4
              logger.warning("client_registration: register HTTP failed: %s", exc)
              return False
 diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
-index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680ebfa337a9 100644
+index f094e02d70d072387ddf9234695fb1114d35bcfd..0213ec6602c78870deeadc9fe3464d76fc84cfe1 100644
 --- a/main_logic/core/tts_runtime.py
 +++ b/main_logic/core/tts_runtime.py
-@@ -817,6 +817,10 @@ class TtsRuntimeMixin:
+@@ -910,6 +910,10 @@ class TtsRuntimeMixin:
          )
          return worker, api_key, route_voice_id, provider_key, False, dict(tts_config or {})
  
@@ -444,7 +444,7 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
      @staticmethod
      def _normalize_game_speech_preload_text(clean_text: str, *, normalize_spaces: bool) -> str:
          # Gated on contains_chinese exactly like normalize_text() below, which
-@@ -1476,7 +1480,12 @@ class TtsRuntimeMixin:
+@@ -1569,7 +1573,12 @@ class TtsRuntimeMixin:
                  check = None
              if check:
                  check()
@@ -458,7 +458,7 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
              try:
                  await self._wait_tts_capacity(
                      asyncio.get_running_loop().time() if recovering else deadline,
-@@ -1501,7 +1510,8 @@ class TtsRuntimeMixin:
+@@ -1594,7 +1603,8 @@ class TtsRuntimeMixin:
                  self._start_tts_thread(
                      preserve_provider_exclusions=bool(
                          getattr(self, "_tts_excluded_provider_keys", frozenset())
@@ -468,7 +468,7 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
                  )
              except TtsCapacityError:
                  if not recovering:
-@@ -1565,7 +1575,12 @@ class TtsRuntimeMixin:
+@@ -1658,7 +1668,12 @@ class TtsRuntimeMixin:
          local_base_url = str((tts_config or {}).get("base_url") or "").strip().lower()
          return local_base_url.startswith(("ws://", "wss://"))
  
@@ -482,7 +482,7 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
          """Create and start the TTS worker thread.
  
          Selects the worker by voice_id / core_api_type, resolves the api_key,
-@@ -1595,7 +1610,7 @@ class TtsRuntimeMixin:
+@@ -1688,7 +1703,7 @@ class TtsRuntimeMixin:
  
          # Check whether TTS is disabled.
          tts_worker, api_key, route_voice_id, provider_key, disabled, tts_config = (
@@ -492,7 +492,7 @@ index ebb9d805613218c6a4cf7f0f414719014548a966..ec9151a62220c53403479615ef0a680e
          if self._live_tts_runtime_count() >= self._tts_capacity_limit(tts_worker):
              self._tts_capacity_exhausted = True
 diff --git a/main_routers/agent_router.py b/main_routers/agent_router.py
-index 0b92bee4c61ccbbd35b341574506d4e008a23006..022f0c1994be8d8ff6cbbed2da7d79603c400c6b 100644
+index f7f60663168533e01bad120651950d7bc9a41f58..46ceed8a77ea0fe52073a4e51bbd8c085cf5621f 100644
 --- a/main_routers/agent_router.py
 +++ b/main_routers/agent_router.py
 @@ -42,11 +42,11 @@ from .shared_state import get_session_manager, get_config_manager
@@ -547,18 +547,10 @@ index 0b92bee4c61ccbbd35b341574506d4e008a23006..022f0c1994be8d8ff6cbbed2da7d7960
  
  @router.post('/flags')
 diff --git a/main_routers/characters_router/live2d_models.py b/main_routers/characters_router/live2d_models.py
-index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa309215a8 100644
+index 1478ba206092cf38326d3765781f29826b052efa..e5b4a398d74c5a922b2b24bfdcb8ce24c2f5d6e2 100644
 --- a/main_routers/characters_router/live2d_models.py
 +++ b/main_routers/characters_router/live2d_models.py
-@@ -22,6 +22,7 @@ Split out of the former monolithic ``main_routers/characters_router.py``.
- from ._shared import logger, router
- from .voice_providers import _config_value_is_enabled
- 
-+import asyncio
- import re
- import os
- import math
-@@ -46,6 +47,11 @@ from config import (
+@@ -53,6 +53,11 @@ from config import (
  )
  
  
@@ -567,10 +559,10 @@ index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa
 +    return await asyncio.to_thread(find_models)
 +
 +
- def _derive_live2d_model_name(model_ref: str) -> str:
-     raw_ref = str(model_ref or "").strip()
-     if not raw_ref:
-@@ -339,13 +345,23 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+ async def _finish_catgirl_runtime_refresh(
+     name: str,
+     *,
+@@ -391,13 +396,23 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
          saved_model_path = ""
          saved_asset_source = ""
          saved_item_id = ""
@@ -595,7 +587,7 @@ index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa
                  # Find the model matching item_id.
                  matching_model = next((m for m in all_models if m.get('item_id') == item_id), None)
  
-@@ -390,7 +406,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+@@ -442,7 +457,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
                      logger.debug(f"发现角色 {catgirl_name} 保存的item_id: {saved_item_id}")
                      try:
                          # Try to find the model using the saved item_id.
@@ -604,7 +596,7 @@ index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa
                          matching_model = _find_live2d_model_catalog_entry(
                              all_models,
                              model_name=live2d_model_name,
-@@ -409,7 +425,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+@@ -461,7 +476,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
          if live2d_model_name:
              try:
                  # Search the full model list first to get complete information, including item_id.
@@ -613,7 +605,7 @@ index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa
  
                  # Also get the Workshop model list to make sure Workshop models can be found.
                  try:
-@@ -524,7 +540,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+@@ -580,7 +595,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
              live2d_model_name = DEFAULT_LIVE2D_MODEL_NAME
              try:
                  # Search the full list for a built-in/static default model first to avoid accidentally matching a user or Workshop model with the same name.
@@ -623,7 +615,7 @@ index c3715125aceb5e9cf460aac0a1d1d4830a30341f..6edfe37d584d52728739be9c6aa0ccfa
                      (
                          m for m in all_models
 diff --git a/main_routers/pages_router.py b/main_routers/pages_router.py
-index c71da6093c39f6ebb1401d01d7da71092c737fc6..48a9ee850d176609aecd6f8018647e7d0be95f3e 100644
+index 0abc2d87bbe1769b7c22a2fabe49f340c7cd5192..9b14876bce6468ab8446f8f0ca46e198e0057a61 100644
 --- a/main_routers/pages_router.py
 +++ b/main_routers/pages_router.py
 @@ -28,6 +28,7 @@ enforced by ``scripts/check_api_trailing_slash.py``.
@@ -1029,365 +1021,6 @@ index 82799ae61a32808cab24da5d90a0d32a943b0f52..77046a8fe25b20c34647fab135f4f6ed
  @pytest.mark.parametrize("value", ["1", "true", "yes", "on", " TRUE "])
  @pytest.mark.asyncio
  async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
-diff --git a/tests/unit/test_xiaoyu_startup_performance.py b/tests/unit/test_xiaoyu_startup_performance.py
-new file mode 100644
-index 0000000000000000000000000000000000000000..0d1f40f78aa4d8b227eb03d0b1fb0978825d52d6
---- /dev/null
-+++ b/tests/unit/test_xiaoyu_startup_performance.py
-@@ -0,0 +1,353 @@
-+from __future__ import annotations
-+
-+import asyncio
-+import inspect
-+import threading
-+from pathlib import Path
-+from types import SimpleNamespace
-+from unittest.mock import Mock, patch
-+
-+import pytest
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_background_preload_owns_token_tracker_loop_startup(monkeypatch):
-+    from app.main_server import preload
-+
-+    tracker = SimpleNamespace(
-+        start_periodic_save=Mock(),
-+        record_app_start=Mock(),
-+    )
-+    monkeypatch.setattr(preload, "_sync_preload_modules", lambda: None)
-+
-+    with patch("utils.token_tracker.TokenTracker.get_instance", return_value=tracker):
-+        await preload._background_preload()
-+
-+    tracker.start_periodic_save.assert_called_once_with()
-+    tracker.record_app_start.assert_called_once_with(process="main_server")
-+
-+
-+@pytest.mark.unit
-+def test_openai_hook_import_is_not_in_fastapi_startup_path():
-+    from app import main_server
-+    from app.main_server import preload
-+
-+    startup_source = inspect.getsource(main_server._ensure_main_server_runtime_initialized)
-+    preload_source = inspect.getsource(preload._sync_preload_modules)
-+
-+    assert "install_hooks()" not in startup_source
-+    assert "install_hooks()" in preload_source
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_live2d_catalog_discovery_runs_off_event_loop(monkeypatch):
-+    from main_routers.characters_router import live2d_models
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+
-+    def slow_find_models():
-+        worker_threads.append(threading.get_ident())
-+        return [{"name": "demo", "path": "/static/demo/demo.model3.json"}]
-+
-+    monkeypatch.setattr(live2d_models, "find_models", slow_find_models)
-+    result = await live2d_models._find_models_async()
-+
-+    assert result[0]["name"] == "demo"
-+    assert worker_threads
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+def test_current_live2d_resolution_deduplicates_catalog_scan_per_request():
-+    from main_routers.characters_router import live2d_models
-+
-+    source = inspect.getsource(live2d_models.get_current_live2d_model)
-+    assert "async def _get_request_model_catalog()" in source
-+    assert source.count("await _get_request_model_catalog()") >= 4
-+    assert "all_models = find_models()" not in source
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_storage_status_payload_runs_off_event_loop(monkeypatch):
-+    from fastapi import Response
-+    from main_routers import storage_location_router
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    manager = object()
-+    monkeypatch.setattr(
-+        storage_location_router,
-+        "_get_storage_config_manager",
-+        lambda: manager,
-+    )
-+
-+    def build(current_manager):
-+        assert current_manager is manager
-+        worker_threads.append(threading.get_ident())
-+        return {"ok": True, "status": "ready"}
-+
-+    monkeypatch.setattr(storage_location_router, "_build_status_payload", build)
-+    result = await storage_location_router.get_storage_location_status(Response())
-+
-+    assert result["ok"] is True
-+    assert worker_threads
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_storage_bootstrap_payload_runs_off_event_loop(monkeypatch):
-+    from fastapi import Response
-+    from main_routers import storage_location_router
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    manager = object()
-+    monkeypatch.setattr(
-+        storage_location_router,
-+        "_get_storage_config_manager",
-+        lambda: manager,
-+    )
-+
-+    def build(current_manager):
-+        assert current_manager is manager
-+        worker_threads.append(threading.get_ident())
-+        return {"ready": True}
-+
-+    monkeypatch.setattr(
-+        storage_location_router,
-+        "build_storage_location_bootstrap_payload",
-+        build,
-+    )
-+    result = await storage_location_router.get_storage_location_bootstrap(Response())
-+
-+    assert result["ready"] is True
-+    assert worker_threads
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_system_status_storage_payload_runs_off_event_loop(monkeypatch):
-+    from fastapi import Response
-+    from main_routers.system_router import status as system_status
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    manager = object()
-+    monkeypatch.setattr(system_status, "_get_system_config_manager", lambda: manager)
-+
-+    def build(current_manager):
-+        assert current_manager is manager
-+        worker_threads.append(threading.get_ident())
-+        return {"selection_required": False, "migration_pending": False, "recovery_required": False}
-+
-+    monkeypatch.setattr(system_status, "build_storage_location_bootstrap_payload", build)
-+    result = await system_status.get_system_status(Response())
-+
-+    assert result["ready"] is True
-+    assert worker_threads
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_holiday_ssl_context_is_built_once_off_event_loop(monkeypatch):
-+    from utils import holiday_cache
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    sentinel = object()
-+    monkeypatch.setattr(holiday_cache, "_holiday_ssl_context", None)
-+
-+    def build():
-+        worker_threads.append(threading.get_ident())
-+        return sentinel
-+
-+    monkeypatch.setattr(holiday_cache.ssl, "create_default_context", build)
-+
-+    first = await holiday_cache._get_holiday_ssl_context()
-+    second = await holiday_cache._get_holiday_ssl_context()
-+
-+    assert first is sentinel
-+    assert second is sentinel
-+    assert worker_threads == [worker_threads[0]]
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+def test_holiday_async_clients_reuse_prebuilt_ssl_context():
-+    from utils import holiday_cache
-+
-+    nager_source = inspect.getsource(holiday_cache._fetch_nager)
-+    cn_source = inspect.getsource(holiday_cache._fetch_cn)
-+    for source in (nager_source, cn_source):
-+        assert "await _get_holiday_ssl_context()" in source
-+        assert "verify=verify_context" in source
-+
-+@pytest.mark.unit
-+def test_expired_static_asset_cache_returns_stale_and_refreshes_in_background(monkeypatch):
-+    from main_routers import pages_router
-+
-+    from tests.fake_clock import patch_module_clock
-+
-+    monkeypatch.setattr(pages_router, "_static_asset_version_cache", (0.0, "old-version"))
-+    patch_module_clock(monkeypatch, pages_router, monotonic=lambda: 100.0)
-+    scheduled = []
-+
-+    def schedule(*args):
-+        scheduled.append(args)
-+
-+    monkeypatch.setattr(pages_router, "_schedule_asset_version_refresh", schedule)
-+    monkeypatch.setattr(
-+        pages_router,
-+        "_latest_asset_mtime",
-+        lambda _paths: (_ for _ in ()).throw(AssertionError("request path performed stat")),
-+    )
-+
-+    result = pages_router._static_assets_ctx()
-+
-+    assert result == {"static_asset_version": "old-version"}
-+    assert scheduled and scheduled[0][0] == "static"
-+
-+
-+@pytest.mark.unit
-+def test_page_asset_cache_warmup_is_owned_by_existing_preload_worker():
-+    from app.main_server import preload
-+
-+    source = inspect.getsource(preload._sync_preload_modules)
-+    assert "warm_asset_version_caches()" in source
-+
-+
-+@pytest.mark.unit
-+@pytest.mark.asyncio
-+async def test_tts_worker_spec_resolution_runs_off_event_loop():
-+    from main_logic.core.tts_runtime import TtsRuntimeMixin
-+
-+    main_thread = threading.get_ident()
-+    worker_threads = []
-+    sentinel = (object(), "key", "voice", "provider", False, {})
-+
-+    def resolve():
-+        worker_threads.append(threading.get_ident())
-+        return sentinel
-+
-+    dummy = SimpleNamespace(_resolve_tts_worker_spec=resolve)
-+    result = await TtsRuntimeMixin._aresolve_tts_worker_spec(dummy)
-+
-+    assert result is sentinel
-+    assert worker_threads
-+    assert worker_threads[0] != main_thread
-+
-+
-+@pytest.mark.unit
-+def test_tts_lazy_start_reuses_offloop_resolved_spec():
-+    from main_logic.core.tts_runtime import TtsRuntimeMixin
-+
-+    ensure_source = inspect.getsource(TtsRuntimeMixin.ensure_tts_pipeline_alive)
-+    start_source = inspect.getsource(TtsRuntimeMixin._start_tts_thread)
-+    assert "await self._aresolve_tts_worker_spec()" in ensure_source
-+    assert "resolved_spec=resolved_spec" in ensure_source
-+    assert "resolved_spec if resolved_spec is not None" in start_source
-+
-+
-+@pytest.mark.unit
-+def test_client_registration_resolves_shared_http_client_off_event_loop():
-+    from main_logic import client_registration
-+
-+    source = inspect.getsource(client_registration.ensure_client_registered)
-+    assert "await asyncio.to_thread(_registration_http_client, base_url)" in source
-+    assert "httpx.AsyncClient(" not in inspect.getsource(client_registration)
-+
-+
-+@pytest.mark.unit
-+def test_search_gateway_reuses_neko_internal_http_client():
-+    from utils.web_scraper import search_gateway
-+
-+    module_source = inspect.getsource(search_gateway)
-+    assert "from utils.internal_http_client import get_internal_http_client" in module_source
-+    assert "_search_ssl_context" not in module_source
-+    assert "ssl.create_default_context" not in module_source
-+
-+    for func in (search_gateway._invoke_plugin, search_gateway._cancel_run):
-+        source = inspect.getsource(func)
-+        assert "get_internal_http_client()" in source
-+        assert "httpx.AsyncClient(" not in source
-+
-+
-+
-+@pytest.mark.unit
-+def test_agent_token_tracker_hook_install_is_off_event_loop():
-+    from app.agent_server import api_runtime
-+
-+    source = inspect.getsource(api_runtime.startup)
-+    assert "await asyncio.to_thread(install_hooks)" in source
-+    assert "tracker.start_periodic_save()" in source
-+    assert 'tracker.record_app_start(process="agent_server")' in source
-+
-+
-+@pytest.mark.unit
-+def test_memory_token_tracker_hook_install_is_off_event_loop():
-+    from app.memory_server import runtime as memory_runtime
-+
-+    source = inspect.getsource(memory_runtime.ensure_memory_server_runtime_initialized)
-+    assert "await asyncio.to_thread(install_hooks)" in source
-+    assert "tracker.start_periodic_save()" in source
-+    assert 'tracker.record_app_start(process="memory_server")' in source
-+
-+
-+@pytest.mark.unit
-+def test_agent_plugin_host_first_import_is_off_event_loop_and_reuses_internal_http():
-+    from app.agent_server import plugin_host
-+
-+    start_source = inspect.getsource(plugin_host._start_embedded_user_plugin_server)
-+    name_source = inspect.getsource(plugin_host._get_plugin_friendly_name)
-+    module_source = inspect.getsource(plugin_host)
-+
-+    assert "await asyncio.to_thread(" in start_source
-+    assert "_load_embedded_plugin_server_types" in start_source
-+    assert "get_internal_http_client()" in name_source
-+    assert "httpx.AsyncClient(" not in module_source
-+
-+
-+@pytest.mark.unit
-+def test_httpx_transport_is_warmed_offloop_before_character_initialization():
-+    from app import main_server
-+    from app.main_server import preload
-+
-+    startup_source = inspect.getsource(main_server._ensure_main_server_runtime_initialized)
-+    warm_call = "await asyncio.to_thread(_warm_httpx_transport_sync)"
-+    character_call = "await initialize_character_data()"
-+    assert warm_call in startup_source
-+    assert startup_source.index(warm_call) < startup_source.index(character_call)
-+
-+    warm_source = inspect.getsource(preload._warm_httpx_transport_sync)
-+    assert "httpx.AsyncClient(" in warm_source
-+    assert "await client.aclose()" in warm_source
-+    assert "client.get(" not in warm_source
-+
-+
-+@pytest.mark.unit
-+def test_agent_router_reuses_native_internal_http_client():
-+    from main_routers import agent_router
-+
-+    source = inspect.getsource(agent_router)
-+    helper_source = inspect.getsource(agent_router._get_http_client)
-+
-+    assert "get_internal_http_client" in helper_source
-+    assert "httpx.AsyncClient(" not in helper_source
-+    assert "_HTTP_CLIENT" not in source
-+    assert "async def _close_http_client" not in source
-+
-+
-+@pytest.mark.unit
-+def test_multi_server_ready_timeout_has_native_env_seam():
-+    launcher_source = (
-+        Path(__file__).resolve().parents[2] / "launcher_core" / "runtime.py"
-+    ).read_text(encoding="utf-8")
-+    assert 'os.environ.get("NEKO_SERVER_READY_TIMEOUT_SECONDS", "60")' in launcher_source
-+    assert "wait_for_servers(timeout=MULTI_SERVER_READY_TIMEOUT)" in launcher_source
 diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
 index 2e8134e612a34e2f5ee373dc3dddb7da739967a2..64740dbce7f82d1dc320d9e2b9f876a9158511bd 100644
 --- a/utils/holiday_cache.py

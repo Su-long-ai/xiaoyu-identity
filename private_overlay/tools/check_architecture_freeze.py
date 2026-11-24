@@ -280,7 +280,7 @@ def main() -> int:
         raise SystemExit("external execution must reuse N.E.K.O instead of creating a second runtime")
     authority = execution.get("authority", {})
     for key in ("commission_ledger", "permission_gate", "capability_gateway", "result_outbox"):
-        if authority.get(key) != "nekoclaw_host":
+        if authority.get(key) != "nekopower_host":
             raise SystemExit(f"execution authority drifted: {key}")
     for key in ("publication", "identity_and_persona", "memory"):
         if authority.get(key) != "neko_native":
@@ -288,13 +288,13 @@ def main() -> int:
     routing = execution.get("routing", {})
     if routing.get("single_step") != "neko_plugin_direct":
         raise SystemExit("single-step execution must stay on native plugin direct dispatch")
-    if routing.get("multi_step") != "nekoclaw_task_agent":
-        raise SystemExit("multi-step execution must stay on NekoClaw")
-    if routing.get("capabilities") != "nekoclaw_mcp_capability_gateway":
-        raise SystemExit("external capabilities must stay behind the NekoClaw MCP gateway")
+    if routing.get("multi_step") != "nekopower_task_agent":
+        raise SystemExit("multi-step execution must stay on NekoPower")
+    if routing.get("capabilities") != "nekopower_mcp_capability_gateway":
+        raise SystemExit("external capabilities must stay behind the NekoPower MCP gateway")
     seams = execution.get("runtime_seam", {})
     if seams.get("builtin", {}).get("allowed") is not True:
-        raise SystemExit("built-in NekoClaw runtime must remain available")
+        raise SystemExit("built-in NekoPower runtime must remain available")
     dsh = seams.get("dsh", {})
     if (
         dsh.get("allowed") is not True

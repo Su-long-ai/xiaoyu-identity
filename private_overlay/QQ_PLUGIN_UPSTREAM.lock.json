@@ -3,11 +3,11 @@
   "tested_commit": "54acf36bf978edad4757e5fffc743c5618360700",
   "tested_branch": "main",
   "tested_version": "0.16.0",
-  "neko_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "neko_commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
   "role": "external_qq_surface",
   "vendored_into_overlay": false,
   "core_patch_required": false,
-  "compatibility_evidence": "evals/evidence/2026-11-23-qq-surface-push-regression-reuse.json",
+  "compatibility_evidence": "evals/evidence/2026-11-24-neko-871066-product-cutover.json",
   "canonical_restart_evidence": "evals/evidence/2026-11-22-live-c3-restart-soak.json",
-  "compatibility_verdict": "PASS_C3_PINNED_QQ_SURFACE"
+  "compatibility_verdict": "PASS_871066_PINNED_QQ_SURFACE"
 }

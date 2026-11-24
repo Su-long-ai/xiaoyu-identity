@@ -1,7 +1,7 @@
-diff --git a/nekoclaw/host/gateway.py b/nekoclaw/host/gateway.py
-index 4a8e8559..ad544d13 100644
---- a/nekoclaw/host/gateway.py
-+++ b/nekoclaw/host/gateway.py
+diff --git a/nekopower/host/gateway.py b/nekopower/host/gateway.py
+index da370d27ea799374148f4315813188b50c22db18..031921ecb842cdaa34d8d93ddb2aca38eef29f0b 100644
+--- a/nekopower/host/gateway.py
++++ b/nekopower/host/gateway.py
 @@ -1284,12 +1284,22 @@ class CapabilityGateway:
              record.status, record.reason = "denied", "settings"
              return _text(str(outcome.error), error=True)
@@ -27,10 +27,10 @@ index 4a8e8559..ad544d13 100644
          if terminal == "failed":
              return _text(truncate_to_tokens(text or str(outcome.error or "failed"), GATEWAY_RESULT_MAX_TOKENS), error=True)
          if entry is not None and llm_result_fields(entry) is None and outcome.data is not None:
-diff --git a/nekoclaw/host/plugin_runs.py b/nekoclaw/host/plugin_runs.py
-index 6c5d84fa..be50eef5 100644
---- a/nekoclaw/host/plugin_runs.py
-+++ b/nekoclaw/host/plugin_runs.py
+diff --git a/nekopower/host/plugin_runs.py b/nekopower/host/plugin_runs.py
+index 6bb418d1bacf8505bbdcd8abededb5b17fe6aa9d..b68ea5dbe414d36c50ae3f737a07f89aa5aeb7c9 100644
+--- a/nekopower/host/plugin_runs.py
++++ b/nekopower/host/plugin_runs.py
 @@ -151,16 +151,20 @@ def run_wait_timeout(entry_timeout: float | None) -> float | None:
  # ---------------------------------------------------------------------------
  
@@ -61,7 +61,7 @@ index 6c5d84fa..be50eef5 100644
      if not success:
          return "failed"
      if isinstance(run_data, dict) and not bool(run_data.get("observation_only")):
-@@ -425,8 +429,11 @@ async def audited_run_entry(
+@@ -425,8 +429,13 @@ async def audited_run_entry(
          if refusal == "entry_changed":
              record.status, record.reason = "denied", "settings"
          else:
@@ -70,12 +70,14 @@ index 6c5d84fa..be50eef5 100644
 +            record.status = (
 +                "cancelled"
 +                if refusal == "not_wanted"
-+                else plugin_terminal_status(outcome.success, outcome.data, run_status=getattr(outcome, "status", None))
++                else plugin_terminal_status(
++                    outcome.success, outcome.data, run_status=getattr(outcome, "status", None)
++                )
 +            )
          return outcome
  
  
-@@ -776,12 +783,13 @@ class PluginRunner:
+@@ -776,12 +785,13 @@ class PluginRunner:
              self._cancel_in_background(run_id, "polling failed")
  
          success = bool(completion.get("success"))
@@ -90,7 +92,7 @@ index 6c5d84fa..be50eef5 100644
              run_id=run_id,
              run_token=run_token,
              expires_at=expires_at,
-@@ -790,7 +798,13 @@ class PluginRunner:
+@@ -790,7 +800,13 @@ class PluginRunner:
              message=completion.get("message"),
              error=None if success else completion.get("error"),
              run_error=completion.get("run_error", completion.get("error")),
@@ -105,7 +107,7 @@ index 6c5d84fa..be50eef5 100644
              progress=completion.get("progress"),
              stage=completion.get("stage"),
          )
-@@ -889,7 +903,7 @@ class PluginRunner:
+@@ -889,7 +905,7 @@ class PluginRunner:
                          consecutive_errors += 1
                          if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
                              return {
@@ -114,7 +116,7 @@ index 6c5d84fa..be50eef5 100644
                                  "success": False,
                                  "data": None,
                                  "error": (
-@@ -930,7 +944,7 @@ class PluginRunner:
+@@ -930,7 +946,7 @@ class PluginRunner:
                      if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
                          logger.warning("polling run %s failed: %s", run_id, type(exc).__name__)
                          return {
@@ -123,10 +125,10 @@ index 6c5d84fa..be50eef5 100644
                              "success": False,
                              "data": None,
                              "error": (
-diff --git a/nekoclaw/host/task_brain.py b/nekoclaw/host/task_brain.py
-index bb998bce..2f874786 100644
---- a/nekoclaw/host/task_brain.py
-+++ b/nekoclaw/host/task_brain.py
+diff --git a/nekopower/host/task_brain.py b/nekopower/host/task_brain.py
+index 8636e59daf2bf05048788ab6746ecde4ac17f19e..5ff889ce636caf27d6a1cb2a7d1d1c2e39ea9c55 100644
+--- a/nekopower/host/task_brain.py
++++ b/nekopower/host/task_brain.py
 @@ -936,7 +936,9 @@ class TaskBrain:
                  matches_entry=capability.matches_entry,
                  still_wanted=still_wanted,
@@ -182,27 +184,3 @@ index bb998bce..2f874786 100644
          else:
              report = self._reporter.task_result_report(
                  commission,
-diff --git a/tests/unit/nekoclaw/test_host_plugin_runs.py b/tests/unit/nekoclaw/test_host_plugin_runs.py
-index 80497f8e..e3c7316b 100644
---- a/tests/unit/nekoclaw/test_host_plugin_runs.py
-+++ b/tests/unit/nekoclaw/test_host_plugin_runs.py
-@@ -157,7 +157,8 @@ async def test_unreadable_status_answers_end_the_wait(server):
-     polls_before = faults.polls
-     outcome = await asyncio.wait_for(calling, 5)
- 
--    assert outcome.success is False and outcome.status == "failed"
-+    assert outcome.success is False and outcome.status == "unknown"
-+    assert outcome.reason == "effect_uncertain"
-     assert "polling failed" in str(outcome.error)
-     assert faults.polls - polls_before == MAX_CONSECUTIVE_POLL_ERRORS
-     # Given up on, the run is cancelled rather than left going.
-@@ -180,7 +181,8 @@ async def test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted(server
-     await wait_until(lambda: faults.cancel_requests == 1, what="the first cancel request")
-     await runner.aclose()
- 
--    assert outcome.status == "failed"
-+    assert outcome.status == "unknown"
-+    assert outcome.reason == "effect_uncertain"
-     assert server.cancelled == []
-     # The cancel did not go through: stopping the commission must still find the run.
-     assert runner.active_runs("c1") == [run_id]

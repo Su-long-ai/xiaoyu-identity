@@ -16,6 +16,7 @@ FILES = (
     "test_host_restart_answer_handoff_candidate.py",
     "test_host_restart_working_uncertain_candidate.py",
     "test_host_restart_durable_queue_candidate.py",
+    "test_host_restart_fault_matrix_candidate.py",
     "host_restart_fault_child.py",
 )
 

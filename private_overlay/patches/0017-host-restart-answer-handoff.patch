@@ -1,7 +1,23 @@
-diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
---- a/nekoclaw/host/task_agents.py
-+++ b/nekoclaw/host/task_agents.py
-@@ -6109,7 +6109,88 @@
+diff --git a/nekopower/host/service.py b/nekopower/host/service.py
+index dad91feb9e465959c9b6c0c643aef2151963d6c2..92c21864b98a28afd4c7d963b36edff442dbe7c8 100644
+--- a/nekopower/host/service.py
++++ b/nekopower/host/service.py
+@@ -398,6 +398,7 @@ class NekoPowerHost:
+         self._used = True
+         self.outbox.kick()
+         self.wakes.kick()
++        self.task_agents.recover_restart_answers()
+
+     # -- what the main dialogue uses --------------------------------------
+
+diff --git a/nekopower/host/task_agents.py b/nekopower/host/task_agents.py
+index df8636a51aefd0e6820c43cf9739b0ecf55bf5a1..c935b7d23331d5906ded904cac168c8fe7e4972f 100644
+--- a/nekopower/host/task_agents.py
++++ b/nekopower/host/task_agents.py
+@@ -6481,11 +6481,92 @@ class TaskAgentManager:
+                     )
+                 if text.strip():
+                     continuation += "\nUser's answer to the interrupted permission prompt: " + text.strip()
 -            await self._ledger.append_event(commission_id, "answered", {"text": text, "resumed": True})
 +            durable_question_id = str(question.get("id") or "")
 +            accepted = await self._restart_answer(commission_id, durable_question_id)
@@ -34,7 +50,7 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
              return await self._take_up_again(commission_id, continuation, same_round=True)
          finally:
              self._answering_closed.discard(commission_id)
- 
+
 +    async def _restart_answer(self, commission_id: str, question_id: str) -> str | None:
 +        """Return a durable accepted answer for this exact question, if any."""
 +        after = 0
@@ -91,13 +107,4 @@ diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
 +
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
-diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
---- a/nekoclaw/host/service.py
-+++ b/nekoclaw/host/service.py
-@@ -388,5 +388,6 @@
-         self._used = True
-         self.outbox.kick()
-         self.wakes.kick()
-+        self.task_agents.recover_restart_answers()
- 
-     # -- what the main dialogue uses --------------------------------------
+         commission_id = session.commission_id

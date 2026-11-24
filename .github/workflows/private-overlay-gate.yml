@@ -560,7 +560,7 @@ jobs:
           done
 
       - name: Verify pinned native Execution Plane seams
-        run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --no-pytest
+        run: python private_overlay/tools/check_execution_plane.py --neko-root _neko_upstream --host-package nekopower --no-pytest
 
       - name: Exercise native Agent readiness product path
         run: |
@@ -576,83 +576,83 @@ jobs:
             tests/unit/test_agent_browser_lifecycle.py::test_enabling_with_the_agent_model_not_configured_is_refused \
             tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_marks_both_pending_and_queues_a_probe \
             tests/unit/test_agent_browser_lifecycle.py::test_switching_the_master_switch_on_without_a_configured_model_probes_nothing \
-            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
-            tests/unit/nekoclaw/test_console_routes.py::test_the_permission_table_shows_each_category_and_what_auto_comes_to \
-            tests/unit/nekoclaw/test_console_routes.py::test_the_switches_and_the_browser_settings_are_those_the_agent_process_gives \
+            tests/unit/nekopower/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekopower/test_console_routes.py::test_the_permission_table_shows_each_category_and_what_auto_comes_to \
+            tests/unit/nekopower/test_console_routes.py::test_the_switches_and_the_browser_settings_are_those_the_agent_process_gives \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_goes_to_the_main_server_as_the_command_it_is \
             plugin/tests/unit/server/test_console_proxy.py::test_a_switch_that_was_not_taken_is_told_as_such
 
       - name: Probe native host-restart commission continuity gap
         run: |
-          python private_overlay/candidates/execution_plane/probe_host_restart_continuity_gap.py --neko-root _neko_upstream
+          python private_overlay/candidates/execution_plane/probe_host_restart_continuity_gap.py --neko-root _neko_upstream --host-package nekopower
           python -m pip install -q uv
           cd _neko_upstream
           uv run --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
-            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed
+            tests/unit/nekopower/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekopower/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekopower/test_host_task_agents.py::test_an_answer_held_by_a_closing_session_survives_its_runtime_going_away \
+            tests/unit/nekopower/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekopower/test_host_task_agents.py::test_a_result_takes_up_again_a_parent_whose_idle_session_was_closed
 
       - name: Exercise native dsh optional-runtime product acceptance
         run: |
           python -m pip install -q uv
           cd _neko_upstream
           uv run --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
-            tests/unit/nekoclaw/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
-            tests/unit/nekoclaw/test_dsh_acp.py::test_an_agent_that_exits_fails_what_was_waiting_and_is_reported_once \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_a_process_that_dies_ends_its_sessions \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events \
-            tests/unit/nekoclaw/test_dsh_driver.py::test_model_requests_go_to_each_sessions_own_model_and_report_its_usage \
-            tests/unit/nekoclaw/test_dsh_grant_wire.py::test_pinned_dsh_native_denial_precedes_host_ask \
-            tests/unit/nekoclaw/test_dsh_host_tools.py::test_each_dsh_process_has_a_token_of_its_own_that_ends_with_it \
-            tests/unit/nekoclaw/test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused \
-            tests/unit/nekoclaw/test_dsh_profile.py::test_nothing_is_uploaded \
-            tests/unit/nekoclaw/test_dsh_profile.py::test_the_model_is_reached_only_through_the_drivers_endpoint \
-            tests/unit/nekoclaw/test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh \
-            tests/unit/nekoclaw/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
-            tests/unit/nekoclaw/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
-            tests/unit/nekoclaw/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
-            tests/unit/nekoclaw/test_host_runtimes.py::test_a_commission_that_began_in_a_dsh_that_is_gone_starts_over_in_the_built_in_runtime \
-            tests/unit/nekoclaw/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
-            tests/unit/nekoclaw/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
-            tests/unit/nekoclaw/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
-            tests/unit/nekoclaw/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went \
-            tests/unit/nekoclaw/test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept
+            tests/unit/nekopower/test_dsh_acp.py::test_a_request_that_gets_no_answer_times_out_and_a_late_answer_is_dropped \
+            tests/unit/nekopower/test_dsh_acp.py::test_a_start_that_is_cancelled_ends_the_process_it_started \
+            tests/unit/nekopower/test_dsh_acp.py::test_an_agent_that_exits_fails_what_was_waiting_and_is_reported_once \
+            tests/unit/nekopower/test_dsh_driver.py::test_abort_stops_the_turn_and_drops_what_was_queued \
+            tests/unit/nekopower/test_dsh_driver.py::test_a_process_that_dies_ends_its_sessions \
+            tests/unit/nekopower/test_dsh_driver.py::test_a_session_resumes_in_a_new_process_without_being_told_again \
+            tests/unit/nekopower/test_dsh_driver.py::test_a_dsh_whose_guard_did_not_load_is_not_used \
+            tests/unit/nekopower/test_dsh_driver.py::test_dsh_can_be_made_ready_before_a_session_is_given_to_it \
+            tests/unit/nekopower/test_dsh_driver.py::test_a_gateway_tool_is_ruled_on_by_the_host_before_the_call_is_made \
+            tests/unit/nekopower/test_dsh_driver.py::test_the_hosts_tools_reach_dsh_as_a_service_and_keep_their_names_in_events \
+            tests/unit/nekopower/test_dsh_driver.py::test_model_requests_go_to_each_sessions_own_model_and_report_its_usage \
+            tests/unit/nekopower/test_dsh_grant_wire.py::test_pinned_dsh_native_denial_precedes_host_ask \
+            tests/unit/nekopower/test_dsh_host_tools.py::test_each_dsh_process_has_a_token_of_its_own_that_ends_with_it \
+            tests/unit/nekopower/test_dsh_host_tools.py::test_a_call_whose_token_is_revoked_while_its_body_comes_in_is_refused \
+            tests/unit/nekopower/test_dsh_profile.py::test_nothing_is_uploaded \
+            tests/unit/nekopower/test_dsh_profile.py::test_the_model_is_reached_only_through_the_drivers_endpoint \
+            tests/unit/nekopower/test_dsh_profile.py::test_the_environment_is_the_hosts_without_what_would_configure_dsh \
+            tests/unit/nekopower/test_dsh_install.py::test_another_version_on_the_disk_is_not_used \
+            tests/unit/nekopower/test_dsh_install.py::test_an_install_that_is_cancelled_leaves_no_half_a_file \
+            tests/unit/nekopower/test_host_runtimes.py::test_a_dsh_that_cannot_be_made_ready_leaves_the_commission_to_the_built_in_runtime \
+            tests/unit/nekopower/test_host_runtimes.py::test_a_commission_that_began_in_a_dsh_that_is_gone_starts_over_in_the_built_in_runtime \
+            tests/unit/nekopower/test_host_runtimes.py::test_whatever_keeps_dsh_from_working_the_commission_is_still_done \
+            tests/unit/nekopower/test_host_dsh_wiring.py::test_a_search_allowed_before_its_call_is_refused_when_the_settings_forbid_it_since \
+            tests/unit/nekopower/test_console_routes.py::test_the_runtime_page_reads_dsh_and_its_plugins_and_sets_the_preference \
+            tests/unit/nekopower/test_console_routes.py::test_installing_dsh_runs_behind_the_request_and_the_status_says_how_it_went \
+            tests/unit/nekopower/test_dsh_forward.py::test_the_real_model_and_key_replace_dshs_and_the_rest_is_kept
 
       - name: Exercise native Execution Plane product E2E
         run: |
           python -m pip install -q uv
           cd _neko_upstream
           uv run --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end \
-            tests/unit/nekoclaw/test_runtime_tools_fs.py::test_write_creates_then_updates_and_keeps_the_existing_format \
-            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_command_output_is_utf8_and_a_failure_carries_its_exit_code \
-            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind \
-            tests/unit/nekoclaw/test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_commission_goes_to_a_task_agent_and_its_report_ends_it \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_blocked_and_failed_reports \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_stopping_closes_the_session_and_nothing_overwrites_cancelled \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_web_search_runs_the_search_plugin \
-            tests/unit/nekoclaw/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
-            tests/unit/nekoclaw/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen \
-            tests/unit/nekoclaw/test_host_gateway.py::test_declined_mcp_server_is_not_called \
-            tests/unit/nekoclaw/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway \
-            tests/unit/nekoclaw/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running \
-            tests/unit/nekoclaw/test_builtin_provider.py::test_cancelling_a_desktop_call_sets_its_stop_event_and_waits_for_the_worker \
-            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next \
-            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded \
-            tests/unit/nekoclaw/test_builtin_browser_tools.py::test_a_connection_that_is_gone_is_a_failed_outcome
+            tests/unit/nekopower/test_runtime_tools_fs.py::test_read_numbers_lines_and_reports_the_end \
+            tests/unit/nekopower/test_runtime_tools_fs.py::test_write_creates_then_updates_and_keeps_the_existing_format \
+            tests/unit/nekopower/test_runtime_shell_jobs.py::test_command_output_is_utf8_and_a_failure_carries_its_exit_code \
+            tests/unit/nekopower/test_runtime_shell_jobs.py::test_a_cancelled_spawn_does_not_leave_a_process_behind \
+            tests/unit/nekopower/test_runtime_shell_jobs.py::test_output_saved_before_a_restart_survives_the_next_long_command \
+            tests/unit/nekopower/test_host_task_agents.py::test_commission_goes_to_a_task_agent_and_its_report_ends_it \
+            tests/unit/nekopower/test_host_task_agents.py::test_blocked_and_failed_reports \
+            tests/unit/nekopower/test_host_task_agents.py::test_stopping_closes_the_session_and_nothing_overwrites_cancelled \
+            tests/unit/nekopower/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekopower/test_host_task_agents.py::test_web_search_runs_the_search_plugin \
+            tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            tests/unit/nekopower/test_host_gateway.py::test_each_mcp_server_is_asked_about_once_when_always_is_chosen \
+            tests/unit/nekopower/test_host_gateway.py::test_declined_mcp_server_is_not_called \
+            tests/unit/nekopower/test_host_gateway.py::test_registered_browser_is_discovered_called_and_released_through_the_gateway \
+            tests/unit/nekopower/test_host_gateway.py::test_revoking_browser_approval_while_queued_keeps_the_next_provider_call_from_running \
+            tests/unit/nekopower/test_builtin_provider.py::test_cancelling_a_desktop_call_sets_its_stop_event_and_waits_for_the_worker \
+            tests/unit/nekopower/test_builtin_browser_tools.py::test_the_browser_is_started_by_the_first_call_and_kept_for_the_next \
+            tests/unit/nekopower/test_builtin_browser_tools.py::test_a_click_that_was_not_carried_out_is_not_said_to_have_succeeded \
+            tests/unit/nekopower/test_builtin_browser_tools.py::test_a_connection_that_is_gone_is_a_failed_outcome
 
           uv run --locked --group dev python - <<'PY'
-          from nekoclaw.builtin.browser import launcher
+          from nekopower.builtin.browser import launcher
           found = launcher.find_browsers()
           print("real browser candidates:", found)
           if not found:
@@ -660,20 +660,20 @@ jobs:
           PY
 
           NEKO_TEST_REAL_BROWSER=1 uv run --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read \
-            tests/unit/nekoclaw/test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document
+            tests/unit/nekopower/test_builtin_browser_real.py::test_a_form_is_filled_in_sent_and_its_result_read \
+            tests/unit/nekopower/test_builtin_browser_real.py::test_history_tabs_keys_and_an_embedded_document
 
       - name: Capture clean native Execution Plane regression baseline
         run: |
           python -m pip install -q uv
           cat > "$RUNNER_TEMP/execution-native-tests.txt" <<'EOF'
-          tests/unit/nekoclaw/test_host_ledger.py
-          tests/unit/nekoclaw/test_host_delivery.py
-          tests/unit/nekoclaw/test_host_robustness.py
-          tests/unit/nekoclaw/test_agent_wiring.py
-          tests/unit/nekoclaw/test_host_plugin_runs.py
-          tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report
-          tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result
+          tests/unit/nekopower/test_host_ledger.py
+          tests/unit/nekopower/test_host_delivery.py
+          tests/unit/nekopower/test_host_robustness.py
+          tests/unit/nekopower/test_agent_wiring.py
+          tests/unit/nekopower/test_host_plugin_runs.py
+          tests/unit/nekopower/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report
+          tests/unit/nekopower/test_host_gateway.py::test_failed_run_is_an_error_result
           plugin/tests/unit/server/test_run_manager_idempotency.py
           tests/unit/test_role_placeholder_substitution.py::test_main_server_direct_reply_substitutes_master_name
           tests/test_agent_rewrite_regression.py
@@ -683,6 +683,8 @@ jobs:
           set +e
           uv run --locked --group dev python -m pytest -q \
             "${EXECUTION_NATIVE_TESTS[@]}" \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait \
             --junitxml="$RUNNER_TEMP/execution-native-baseline.xml"
           BASELINE_STATUS=$?
           set -e
@@ -694,37 +696,34 @@ jobs:
 
       - name: Verify managed effect-state patch in product worktree
         run: |
-          python -m py_compile             _neko_product/nekoclaw/host/ledger.py             _neko_product/nekoclaw/host/outbox.py
-          python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_product
+          python -m py_compile             _neko_product/nekopower/host/ledger.py             _neko_product/nekopower/host/outbox.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py --neko-root _neko_product --host-package nekopower --wire-prefix nekopower
 
       - name: Verify managed native delivery receipt in product worktree
         run: |
           python -m py_compile \
             _neko_product/main_logic/agent_event_bus.py \
             _neko_product/app/agent_server/api_runtime.py \
-            _neko_product/app/agent_server/nekoclaw_mount.py \
+            _neko_product/app/agent_server/nekopower_mount.py \
             _neko_product/app/main_server/character_runtime.py
-          python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_product
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py --neko-root _neko_product --runtime-name nekopower
 
       - name: Exercise native delivery receipt real-ZMQ E2E
         run: |
           python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
-          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_product
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py --neko-root _neko_product --runtime-name nekopower
 
       - name: Verify managed plugin-run unknown-effect in product worktree
         run: |
-          python -m py_compile             _neko_product/nekoclaw/host/plugin_runs.py             _neko_product/nekoclaw/host/task_brain.py             _neko_product/nekoclaw/host/gateway.py
-          cd _neko_product
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q             tests/unit/nekoclaw/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait             tests/unit/nekoclaw/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted             tests/unit/nekoclaw/test_host_task_brain.py::test_failed_plugin_call_ends_failed_with_a_report             tests/unit/nekoclaw/test_host_gateway.py::test_failed_run_is_an_error_result             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_unknown_effect_candidate.py"
+          python -m py_compile             _neko_product/nekopower/host/plugin_runs.py             _neko_product/nekopower/host/task_brain.py             _neko_product/nekopower/host/gateway.py
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py             --neko-root _neko_product
 
       - name: Verify managed plugin-run idempotency in product worktree
         run: |
-          python -m py_compile _neko_product/nekoclaw/host/plugin_runs.py
+          python -m py_compile _neko_product/nekopower/host/plugin_runs.py
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_idempotency.py             --neko-root _neko_product
           cd _neko_product
-          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-            plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once \
-            tests/unit/nekoclaw/test_host_plugin_runs.py \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_plugin_run_idempotency_candidate.py"
+          uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q             plugin/tests/unit/server/test_run_manager_idempotency.py::test_retry_after_lost_response_executes_once
 
       - name: Regress managed native Execution Plane
         run: |
@@ -734,6 +733,8 @@ jobs:
           set +e
           uv run --locked --group dev python -m pytest -q \
             "${EXECUTION_NATIVE_TESTS[@]}" \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait \
             --junitxml="$RUNNER_TEMP/execution-native-managed.xml"
           MANAGED_STATUS=$?
           set -e
@@ -786,60 +787,64 @@ jobs:
               raise SystemExit(1)
           PY
 
+      - name: Materialize managed NekoPower restart acceptance tests
+        run: |
+          python private_overlay/candidates/execution_plane/prepare_nekopower_restart_candidate_tests.py             --source-dir private_overlay/candidates/execution_plane             --output-dir "$RUNNER_TEMP/nekopower_restart_tests"
+
       - name: Exercise managed report-wait host-restart continuity
         run: |
-          python -m py_compile _neko_product/nekoclaw/host/ledger.py
+          python -m py_compile _neko_product/nekopower/host/ledger.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
-            tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_reopen_preserves_report_wait_and_its_unsent_native_question" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_reopen_still_fails_question_types_without_a_native_resume_continuation[tool]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_new_host_answers_preserved_report_wait_at_the_existing_transcript_tail"
+            tests/unit/nekopower/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
+            tests/unit/nekopower/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
+            tests/unit/nekopower/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_reopen_preserves_report_wait_and_its_unsent_native_question" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_reopen_still_fails_question_types_without_a_native_resume_continuation[tool]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_new_host_answers_preserved_report_wait_at_the_existing_transcript_tail"
 
       - name: Exercise managed permission and answer host-restart continuity
         run: |
           python -m py_compile \
-            _neko_product/nekoclaw/host/ledger.py \
-            _neko_product/nekoclaw/host/task_agents.py \
-            _neko_product/nekoclaw/host/service.py
+            _neko_product/nekopower/host/ledger.py \
+            _neko_product/nekopower/host/task_agents.py \
+            _neko_product/nekopower/host/service.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-            tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[blocked-blocked]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[done-done]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-report-waiting_user]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-waiting_user]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-plugin-failed]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-tool-failed]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-malformed-failed]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[cancelled-from-wait-cancelled]" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_after_cancel_commit_cannot_revive_old_permission_wait"
+            tests/unit/nekopower/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
+            tests/unit/nekopower/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_permission_wait_candidate.py" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_answer_handoff_candidate.py" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[blocked-blocked]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[done-done]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-report-waiting_user]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-waiting_user]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-plugin-failed]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-tool-failed]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-malformed-failed]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[cancelled-from-wait-cancelled]" \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_fault_matrix_candidate.py::test_hard_kill_after_cancel_commit_cannot_revive_old_permission_wait"
 
       - name: Exercise managed active-working host-restart uncertainty
         run: |
-          python -m py_compile _neko_product/nekoclaw/host/ledger.py
+          python -m py_compile _neko_product/nekopower/host/ledger.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_working_uncertain_candidate.py" \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
-            tests/unit/nekoclaw/test_host_task_agents.py::test_a_commission_taken_up_before_the_data_root_moved_goes_on_in_the_session_it_had
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_working_uncertain_candidate.py" \
+            tests/unit/nekopower/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekopower/test_host_task_agents.py::test_a_commission_taken_up_before_the_data_root_moved_goes_on_in_the_session_it_had
 
       - name: Exercise managed durable queue host-restart continuity
         shell: bash
         run: |
           python -m py_compile \
-            _neko_product/nekoclaw/host/ledger.py \
-            _neko_product/nekoclaw/host/task_agents.py \
-            _neko_product/nekoclaw/host/service.py
+            _neko_product/nekopower/host/ledger.py \
+            _neko_product/nekopower/host/task_agents.py \
+            _neko_product/nekopower/host/service.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_durable_queue_candidate.py" \
-            tests/unit/nekoclaw/test_host_task_agents.py \
+            "$RUNNER_TEMP/nekopower_restart_tests/test_host_restart_durable_queue_candidate.py" \
+            tests/unit/nekopower/test_host_task_agents.py \
             -k "durable_queue_candidate or queued_commission or commissions_handed_over_at_once or blocked_commission_can_be_taken_up_again"
 
       - name: Checkout pinned QQ plugin candidate base

@@ -26,13 +26,19 @@ def main() -> int:
         )
     )
     parser.add_argument("--neko-root", required=True, type=Path)
+    parser.add_argument(
+        "--host-package",
+        choices=("nekoclaw", "nekopower"),
+        default="nekoclaw",
+    )
     args = parser.parse_args()
     root = args.neko_root.resolve()
+    host = args.host_package
 
-    ledger = _read(root, "nekoclaw/host/ledger.py")
-    agents = _read(root, "nekoclaw/host/task_agents.py")
-    ledger_tests = _read(root, "tests/unit/nekoclaw/test_host_ledger.py")
-    agent_tests = _read(root, "tests/unit/nekoclaw/test_host_task_agents.py")
+    ledger = _read(root, f"{host}/host/ledger.py")
+    agents = _read(root, f"{host}/host/task_agents.py")
+    ledger_tests = _read(root, f"tests/unit/{host}/test_host_ledger.py")
+    agent_tests = _read(root, f"tests/unit/{host}/test_host_task_agents.py")
 
     reconcile_start = ledger.find("    def _reconcile(")
     _require(reconcile_start >= 0, "Ledger._reconcile moved or disappeared; re-audit recovery ownership")

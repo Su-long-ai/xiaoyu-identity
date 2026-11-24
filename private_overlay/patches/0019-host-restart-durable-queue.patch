@@ -1,8 +1,8 @@
-diff --git a/nekoclaw/host/ledger.py b/nekoclaw/host/ledger.py
-index 0c207997..24dde822 100644
---- a/nekoclaw/host/ledger.py
-+++ b/nekoclaw/host/ledger.py
-@@ -1131,8 +1131,10 @@ class Ledger:
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index ec73859d..2614af3f 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -1163,8 +1163,10 @@ class Ledger:
          Nobody is working on those commissions any more. A report-style
          question, and a task-agent permission question that is still before
          its protected effect, are durable checkpoints: they stay waiting so a
@@ -15,7 +15,7 @@ index 0c207997..24dde822 100644
          deferred one stays as it is: until its deadline its
          plugin's result may still arrive, and past it the task brain's sweep
          fails it with the same report as when the host kept running.
-@@ -1199,6 +1201,11 @@ class Ledger:
+@@ -1231,6 +1233,11 @@ class Ledger:
              failed_rows = 0
              blocked_rows = 0
              for row in rows:
@@ -27,11 +27,11 @@ index 0c207997..24dde822 100644
                  if row["status"] == "waiting_user":
                      try:
                          question = json.loads(row["pending_question"] or "")
-diff --git a/nekoclaw/host/service.py b/nekoclaw/host/service.py
-index c1c3273b..2c559649 100644
---- a/nekoclaw/host/service.py
-+++ b/nekoclaw/host/service.py
-@@ -391,6 +391,7 @@ class NekoClawHost:
+diff --git a/nekopower/host/service.py b/nekopower/host/service.py
+index 92c21864..d1aeb717 100644
+--- a/nekopower/host/service.py
++++ b/nekopower/host/service.py
+@@ -399,6 +399,7 @@ class NekoPowerHost:
          self.outbox.kick()
          self.wakes.kick()
          self.task_agents.recover_restart_answers()
@@ -39,11 +39,11 @@ index c1c3273b..2c559649 100644
  
      # -- what the main dialogue uses --------------------------------------
  
-diff --git a/nekoclaw/host/task_agents.py b/nekoclaw/host/task_agents.py
-index 5c1c553e..c40b5185 100644
---- a/nekoclaw/host/task_agents.py
-+++ b/nekoclaw/host/task_agents.py
-@@ -689,6 +689,49 @@ class _Found(str):
+diff --git a/nekopower/host/task_agents.py b/nekopower/host/task_agents.py
+index c935b7d2..6ab13f9e 100644
+--- a/nekopower/host/task_agents.py
++++ b/nekopower/host/task_agents.py
+@@ -692,6 +692,49 @@ class _Found(str):
      """
  
  
@@ -93,7 +93,7 @@ index 5c1c553e..c40b5185 100644
  def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
      """Whether a session event shows the session took everything sent to it.
  
-@@ -1088,6 +1131,20 @@ class TaskAgentManager:
+@@ -1116,6 +1159,20 @@ class TaskAgentManager:
          # What a commission taken up again is told: an addition to a blocked or
          # failed one, or the answer to one whose waiting session was closed.
          self._resume: dict[str, str] = {}
@@ -114,7 +114,7 @@ index 5c1c553e..c40b5185 100644
          # Commissions whose task agent is being started again right now.
          self._taking_up: set[str] = set()
          # Commissions whose closed session an answer is taking up again right
-@@ -3824,7 +3881,14 @@ class TaskAgentManager:
+@@ -4196,7 +4253,14 @@ class TaskAgentManager:
              # session another commission holds: it is next when that one is
              # over, and those behind it in other sessions go ahead meanwhile.
              commission_id = next(
@@ -130,7 +130,7 @@ index 5c1c553e..c40b5185 100644
              )
              if commission_id is None:
                  return
-@@ -5523,7 +5587,14 @@ class TaskAgentManager:
+@@ -5895,7 +5959,14 @@ class TaskAgentManager:
              parent_id, message, reason="its idle session was closed; a result takes it up again"
          )
  
@@ -146,7 +146,7 @@ index 5c1c553e..c40b5185 100644
          """Take up again a commission that is ``working`` with no session open in a runtime, ``message`` its next work.
  
          Such a commission waits for something: for task agents it started
-@@ -5538,6 +5609,17 @@ class TaskAgentManager:
+@@ -5910,6 +5981,17 @@ class TaskAgentManager:
              starting = parent_id in self._taking_up and (current is None or not current.ready and not current.closing)
              if parent_id in self._queue or parent_id in self._requeueing or starting:
                  # Already on its way back: this result goes along with it.
@@ -164,7 +164,7 @@ index 5c1c553e..c40b5185 100644
                  self._notes.setdefault(parent_id, []).append(message)
                  return True
              parent = await self._ledger.get(parent_id)
-@@ -5569,10 +5651,34 @@ class TaskAgentManager:
+@@ -5941,10 +6023,34 @@ class TaskAgentManager:
              return False
          if (session is not None and not closing_answer) or parent_id in self._queue or parent_id in self._requeueing:
              # It is on its way back: this goes along with its work.
@@ -199,7 +199,7 @@ index 5c1c553e..c40b5185 100644
              moved = await self._ledger.transition(parent_id, "queued", reason=reason)
          finally:
              self._requeueing.discard(parent_id)
-@@ -5605,6 +5711,10 @@ class TaskAgentManager:
+@@ -5980,6 +6086,10 @@ class TaskAgentManager:
          self._notes.pop(commission_id, None)
          self._carried.pop(commission_id, None)
          self._resume.pop(commission_id, None)
@@ -210,7 +210,7 @@ index 5c1c553e..c40b5185 100644
          self._prepaid_starts.discard(commission_id)
          session = self._sessions.get(commission_id)
          if session is None:
-@@ -5709,8 +5819,8 @@ class TaskAgentManager:
+@@ -6084,8 +6194,8 @@ class TaskAgentManager:
                  return await self.tell(commission_id, text, still_wanted=still_wanted)
              # Not started yet, or its session not yet given its work: it goes
              # along with the work when that is given.
@@ -220,7 +220,7 @@ index 5c1c553e..c40b5185 100644
              return True
          if session is not None and self._runtime_of(session) is not None:
              if session.closing or commission.status not in ("working", "waiting_user"):
-@@ -5846,6 +5956,11 @@ class TaskAgentManager:
+@@ -6221,6 +6331,11 @@ class TaskAgentManager:
              # written): it goes along with that one. Queued a second
              # time, it would take the place of the first sentence, or be
              # refused and be lost.
@@ -232,7 +232,7 @@ index 5c1c553e..c40b5185 100644
              self._notes.setdefault(commission_id, []).append(text)
              return True
          if commission_id in self._taking_up or commission_id in self._requeueing:
-@@ -5869,6 +5984,11 @@ class TaskAgentManager:
+@@ -6244,6 +6359,11 @@ class TaskAgentManager:
              # An earlier sentence is taking it up again or queueing it right
              # now: this one goes along with that rather than starting or
              # queueing a second time, which would then be refused.
@@ -244,7 +244,7 @@ index 5c1c553e..c40b5185 100644
              self._notes.setdefault(commission_id, []).append(text)
              return True
          if commission_id not in self._sessions and self._take_place(commission_id):
-@@ -5900,7 +6020,11 @@ class TaskAgentManager:
+@@ -6275,7 +6395,11 @@ class TaskAgentManager:
          self._new_round_of(commission_id, same_round=same_round, excerpt=excerpt)
          if from_copy:
              self._notes.setdefault(commission_id, [])[0:0] = from_copy
@@ -257,7 +257,7 @@ index 5c1c553e..c40b5185 100644
          self._note_under_way(commission_id, still_wanted, queueing)
          return await asyncio.shield(queueing)
  
-@@ -5965,13 +6089,38 @@ class TaskAgentManager:
+@@ -6340,13 +6464,38 @@ class TaskAgentManager:
          return under_way[1]
  
      async def _requeue(
@@ -300,7 +300,7 @@ index 5c1c553e..c40b5185 100644
              moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
          finally:
              self._requeueing.discard(commission_id)
-@@ -6192,6 +6341,215 @@ class TaskAgentManager:
+@@ -6567,6 +6716,215 @@ class TaskAgentManager:
              finally:
                  self._answering_closed.discard(commission.id)
  
@@ -516,16 +516,16 @@ index 5c1c553e..c40b5185 100644
      async def _deliver_answer(self, session: _Session, text: str) -> bool:
          """Give an idle session the answer to its ``waiting`` report as its next work."""
          commission_id = session.commission_id
-@@ -7154,6 +7512,8 @@ class TaskAgentManager:
+@@ -7529,6 +7887,8 @@ class TaskAgentManager:
          """
-         from config.nekoclaw_settings import WAKE_HELD_RETRY_SECONDS
+         from config.nekopower_settings import WAKE_HELD_RETRY_SECONDS
  
 +        if not self._restart_queue_recovered:
 +            return Handover("held", WAKE_HELD_RETRY_SECONDS)
          ids = [wake.id for wake in wakes]
          if self._closed or not ids:
              return Handover("held", WAKE_HELD_RETRY_SECONDS)
-@@ -7214,6 +7574,22 @@ class TaskAgentManager:
+@@ -7589,6 +7949,22 @@ class TaskAgentManager:
  
          ids = [wake.id for wake in wakes]
          commission_id = commission.id
@@ -548,7 +548,7 @@ index 5c1c553e..c40b5185 100644
          if commission.status == "waiting_user":
              # Not in between its question and the answer, and not so that
              # it gets to work with its question open. It goes once the
-@@ -7329,7 +7705,64 @@ class TaskAgentManager:
+@@ -7707,7 +8083,64 @@ class TaskAgentManager:
              elif chosen == "along":
                  # Being started, or waiting for a place: it goes along with
                  # the work it is about to be given.
@@ -614,7 +614,7 @@ index 5c1c553e..c40b5185 100644
              elif not await self._wake_working(commission_id, _Handed(text, fired), reason=_WOKEN_REASON):
                  # It rests, or waits for task agents with its session
                  # closed, and could not be taken up this moment. (The
-@@ -9107,7 +9540,12 @@ class TaskAgentManager:
+@@ -9536,7 +9969,12 @@ class TaskAgentManager:
          # to that.)
          for delay in (*REST_LOOK_RETRY_DELAYS, None):
              try:

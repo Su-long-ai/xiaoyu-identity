@@ -3,18 +3,18 @@
   "contract_id": "XIAOYU_EXTERNAL_EXECUTION_V1",
   "implementation_mode": "reuse_neko_native_no_second_agent_runtime",
   "authority": {
-    "commission_ledger": "nekoclaw_host",
-    "permission_gate": "nekoclaw_host",
-    "capability_gateway": "nekoclaw_host",
-    "result_outbox": "nekoclaw_host",
+    "commission_ledger": "nekopower_host",
+    "permission_gate": "nekopower_host",
+    "capability_gateway": "nekopower_host",
+    "result_outbox": "nekopower_host",
     "publication": "neko_native",
     "identity_and_persona": "neko_native",
     "memory": "neko_native"
   },
   "routing": {
     "single_step": "neko_plugin_direct",
-    "multi_step": "nekoclaw_task_agent",
-    "capabilities": "nekoclaw_mcp_capability_gateway"
+    "multi_step": "nekopower_task_agent",
+    "capabilities": "nekopower_mcp_capability_gateway"
   },
   "runtime_seam": {
     "builtin": {
@@ -65,5 +65,6 @@
     "install_dsh_in_this_change": false,
     "reason": "Contract freeze only; runtime activation remains an explicit product/user configuration action."
   },
-  "evidence": "evals/evidence/2026-11-22-execution-contract-native-seams-audit.json"
+  "evidence": "evals/evidence/2026-11-24-neko-871066-product-cutover.json",
+  "previous_evidence": "evals/evidence/2026-11-22-execution-contract-native-seams-audit.json"
 }

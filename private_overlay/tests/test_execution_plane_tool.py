@@ -10,10 +10,27 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from check_execution_plane import _acceptance_matrix_summary, _delivery_receipt_probe, _source_contract_results
+from check_execution_plane import (
+    _acceptance_matrix_summary,
+    _delivery_receipt_probe,
+    _host_relpath,
+    _source_contract_results,
+)
 
 
 class ExecutionPlaneAcceptanceToolTests(unittest.TestCase):
+    def test_host_package_mapping_preserves_default_and_selects_nekopower(self):
+        self.assertEqual(
+            _host_relpath("tests/unit/nekoclaw/test_host_ledger.py", "nekoclaw"),
+            "tests/unit/nekoclaw/test_host_ledger.py",
+        )
+        self.assertEqual(
+            _host_relpath("tests/unit/nekoclaw/test_host_ledger.py", "nekopower"),
+            "tests/unit/nekopower/test_host_ledger.py",
+        )
+        with self.assertRaises(ValueError):
+            _host_relpath("tests/unit/nekoclaw/test_host_ledger.py", "private_runtime")
+
     def _write(self, root: Path, relpath: str, content: str) -> None:
         path = root / relpath
         path.parent.mkdir(parents=True, exist_ok=True)

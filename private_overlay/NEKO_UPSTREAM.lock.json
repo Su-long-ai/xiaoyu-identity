@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/Project-N-E-K-O/N.E.K.O.git",
-  "tested_commit": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "tested_commit": "871066185f65fc6f213ca91cb08fe77a33814a9d",
   "tested_branch": "main",
   "integration_mode": "private_data_policy_overlay",
   "memory_authority": "neko_native",
@@ -9,5 +9,5 @@
   "task_authority": "neko_native",
   "core_patch_budget": 19,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Base managed patch budget remains 10. Nine blocker-backed correctness exceptions are explicitly enumerated: 0011-0014 effect/delivery/plugin correctness plus 0015-0019 full host-restart report/permission/answer/working/queue continuity. The five restart exceptions were promoted only after the parent restart blocker closed under full machine acceptance; each keeps an independent retirement condition."
+  "core_patch_budget_reason": "Base managed patch budget remains 10. Nine blocker-backed correctness exceptions remain 0011-0019. At the 871066 NekoPower cutover, semantic patch IDs are preserved while 0010-0019 contents are rebased onto the native NekoPower authority; no second runtime or patch-count increase is introduced."
 }
