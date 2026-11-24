@@ -15,8 +15,13 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from private_overlay.candidates.execution_plane.probe_a0bb_core_patch_retirement import (
     EXPECTED_CANDIDATE_SHA,
