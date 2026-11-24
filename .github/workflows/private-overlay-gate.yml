@@ -91,6 +91,7 @@ jobs:
             private_overlay.tests.test_companion_performance_budget \
             private_overlay.tests.test_run_companion_performance_gate \
             private_overlay.tests.test_probe_neko_d90_voice_promotion \
+            private_overlay.tests.test_probe_neko_fac795_execution_migration \
             private_overlay.tests.test_companion_runtime_soak \
             private_overlay.tests.test_probe_neko_runtime_health \
             private_overlay.tests.test_release_readiness \
@@ -159,6 +160,24 @@ jobs:
             --candidate-root "$GITHUB_WORKSPACE/_neko_voice_candidate" \
             --result-path "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
           cat "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
+
+      - name: Checkout fixed fac795 NekoPower execution migration candidate
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        uses: actions/checkout@v4
+        with:
+          repository: Project-N-E-K-O/N.E.K.O
+          ref: fac795091e33cd92a6604d14ac242510944badac
+          path: _neko_execution_migration_candidate
+          fetch-depth: 1
+
+      - name: Probe fixed fac795 NekoPower execution migration boundary
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          python private_overlay/candidates/execution_plane/probe_neko_fac795_execution_migration.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            --result-path "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
+          cat "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
 
       - name: Prepare managed N.E.K.O product worktree
         run: |

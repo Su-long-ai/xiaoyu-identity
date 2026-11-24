@@ -1662,5 +1662,29 @@ class OverlayContractTests(unittest.TestCase):
             workflow,
         )
 
+    def test_fac795_execution_migration_probe_is_agent_scoped_and_pinned(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "Checkout fixed fac795 NekoPower execution migration candidate",
+            "Probe fixed fac795 NekoPower execution migration boundary",
+            "refs/heads/agent/execution-continuity-v2",
+            "fac795091e33cd92a6604d14ac242510944badac",
+            "probe_neko_fac795_execution_migration.py",
+            "_neko_execution_migration_candidate",
+        ):
+            self.assertIn(marker, workflow)
+
+        probe = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "probe_neko_fac795_execution_migration.py"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn("promotion_forbidden", probe)
+        self.assertIn("MIGRATION_BLOCKED_RESIDUALS", probe)
+        self.assertNotIn("NEKO_UPSTREAM.lock.json\").write", probe)
+
 if __name__ == "__main__":
     unittest.main()

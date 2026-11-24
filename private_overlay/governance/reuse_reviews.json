@@ -4890,6 +4890,91 @@
         }
       },
       "machine_gate_note": "candidate_only/promotion_forbidden constrain this native reuse decision to an acceptance probe; the product pin remains c3 until promotion_policy closes."
+    },
+    {
+      "id": "candidate:execution/neko-fac795-migration-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Stable XiaoYu remains on c3 NekoClaw with 14/14 managed patches while latest upstream has moved to NekoPower. Restart continuity is fully green as a dependent c3 candidate stack but cannot be promoted by expanding or bundling core patches. Evaluate a semantic migration to latest NekoPower without changing product authority.",
+      "decision": "reuse_native",
+      "candidate_only": true,
+      "promotion_forbidden": true,
+      "candidates": [
+        {
+          "name": "N.E.K.O current c3 Stable",
+          "type": "native_current_pin",
+          "outcome": "retain as paired product baseline",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        {
+          "name": "N.E.K.O fac795 latest NekoPower",
+          "type": "native_upstream_candidate",
+          "outcome": "selected as exact migration candidate",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        {
+          "name": "existing managed patches + restart acceptance",
+          "type": "existing_product_acceptance",
+          "outcome": "reuse as semantic contract, not as code to blindly copy",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        {
+          "name": "external workflow/reliable queue",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate execution authority",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        {
+          "name": "private execution/queue runtime",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Latest NekoPower is the correct authority target, but its rewrite changes execution seams and still exposes machine-observed restart/effect gaps. A fixed semantic migration probe is required before any port or product pin change.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json",
+      "retirement_condition": "Retire this probe when a newer exact N.E.K.O pin supersedes fac795 for migration, or after a NekoPower pin is promoted with equivalent acceptance and obsolete c3 patch/restart candidates are removed.",
+      "promotion_policy": "CANDIDATE_ONLY. Promotion requires semantic parity for all 14 managed patch contracts plus the green restart stack, and must reduce or at least not expand duplicated authority.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole runtime/task/session/ledger authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3 Stable retained as paired green baseline.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "fac795 latest NekoPower selected as exact migration candidate.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Existing surfaces remain reusable but do not own execution state.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External orchestration rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Exact checkout + semantic gap matrix + reused acceptance selected.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Second execution host/ledger/queue/supervisor rejected.",
+          "evidence": "evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json",
+      "outcome": "reuse_native",
+      "machine_gate_note": "Candidate/probe only; no NEKO_UPSTREAM.lock.json or managed patch series mutation in this unit."
     }
   ],
   "hierarchy_policy": {
