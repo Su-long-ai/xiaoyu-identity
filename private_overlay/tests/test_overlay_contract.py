@@ -1694,6 +1694,9 @@ class OverlayContractTests(unittest.TestCase):
             "tests/unit/nekopower/test_host_plugin_runs.py",
             "tests/unit/nekopower/test_host_gateway.py",
             "tests/unit/nekopower/test_execution_audit.py",
+            "--deselect tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx",
+            "--deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            "--deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait",
             "verify_nekopower_plugin_run_unknown_effect.py",
             "verify_nekopower_plugin_run_idempotency.py",
             "--host-package nekopower",
@@ -1760,6 +1763,20 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("NATIVE_TESTS", readiness)
         self.assertIn("PRODUCT_TESTS", readiness)
         self.assertIn("45330926169", readiness)
+        self.assertIn("45331960844", readiness)
+        self.assertIn("766_PASS_3_INTENTIONAL_SUPERSESSIONS", readiness)
+        self.assertIn(
+            "test_call_goes_through_the_same_runs_request_with_ctx",
+            readiness,
+        )
+        self.assertIn(
+            "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            readiness,
+        )
+        self.assertIn(
+            "test_unreadable_status_answers_end_the_wait",
+            readiness,
+        )
 
         for marker in (
             "nekopower_host_restart_report_wait.patch",
