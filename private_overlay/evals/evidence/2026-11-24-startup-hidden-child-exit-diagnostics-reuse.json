@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_STARTUP_HIDDEN_CHILD_EXIT_DIAGNOSTICS_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "The one-click launcher starts start_xiaoyu.ps1 in a hidden child PowerShell and discards its process handle. If that child fails before backend readiness, the visible launcher keeps polling for up to 180 seconds and can only report generic endpoint-not-ready state. N.E.K.O already owns startup failure semantics and propagates startup/runtime failures as a non-zero launcher exit code, so XiaoYu should surface that existing signal rather than add another supervisor or error protocol.",
+  "current_state": {
+    "oneclick_behavior": "Start-Process powershell.exe -WindowStyle Hidden | Out-Null, then poll readiness until a 180-second deadline",
+    "native_failure_behavior": "N.E.K.O report_startup_failure emits native diagnostics and launcher failures propagate a non-zero process exit status; source mode does not provide a pre-desktop frozen-app dialog",
+    "user_visible_gap": "an immediate hidden child failure can appear as a 180-second generic timeout"
+  },
+  "authority": {
+    "lifecycle": "N.E.K.O launcher remains the sole backend lifecycle/startup authority",
+    "failure_signal": "existing child process exit status plus authoritative launcher record state",
+    "detailed_diagnosis": "existing XiaoYu StartupPreflight / direct start_xiaoyu.ps1 diagnostic path; no duplicate taxonomy",
+    "observer": "existing short-lived XiaoYu one-click PowerShell only",
+    "forbidden": [
+      "second launcher",
+      "process supervisor",
+      "background watchdog",
+      "startup failure database",
+      "new IPC/error transport",
+      "unbounded stdout/stderr capture"
+    ]
+  },
+  "reuse_search": {
+    "L0_authority": "Keep N.E.K.O lifecycle and failure production authoritative; XiaoYu only observes the child it already starts.",
+    "L1_current_pin": "c3fc33ff launcher owns startup failure reporting and non-zero failure propagation. The one-click wrapper can consume the process exit status without changing native startup.",
+    "L2_latest_upstream": "d90f837 has the identical launcher_core/runtime.py blob 369bc0265b3c917a2f24398943aee4bd98b78219 for report_startup_failure; no newer native pre-desktop consumer replaces the one-click observer.",
+    "L3_pinned_external": "NapCat/QQ/provider plugins do not own N.E.K.O backend startup failure reporting and are not applicable.",
+    "L4_mature_ecosystem": "Windows PowerShell Start-Process already supports -PassThru while retaining -WindowStyle Hidden. Capturing stdout/stderr for the lifetime of a healthy launcher was rejected because it would create long-running disk growth and may persist application data.",
+    "L5_thin_integration": "Selected: retain the existing hidden child Process handle, observe HasExited/ExitCode inside the existing readiness loop, fail early only on non-zero exit, and point the popup to existing preflight/native-start diagnostics.",
+    "L6_private_implementation": "Reject resident monitors, custom process managers, new error protocols, log stores and duplicate startup state."
+  },
+  "selected": {
+    "mechanism": "PowerShell Start-Process -PassThru on the existing hidden backend child",
+    "early_failure_rule": "break the readiness wait only when the child has exited with a non-zero code",
+    "zero_exit_rule": "continue waiting when the child exits 0 because another N.E.K.O launcher may already own a still-starting native generation",
+    "user_action": "show the existing WScript.Shell error popup immediately with exit code, launcher-record status/path, and the existing StartupPreflight/direct-start diagnostic command",
+    "persistence": "no new log file or failure database"
+  },
+  "rejected": {
+    "redirect_child_streams": "A healthy source launcher is long-lived, so RedirectStandardOutput/RedirectStandardError would create unbounded runtime logs and could persist application data.",
+    "treat_any_exit_as_failure": "A second launcher may legitimately exit 0 after observing an existing startup owner, while the authoritative generation continues becoming ready."
+  },
+  "acceptance": [
+    "hidden backend child startup remains WindowStyle Hidden",
+    "one-click keeps the child process handle instead of discarding it",
+    "a non-zero exited child breaks the existing readiness wait immediately rather than waiting 180 seconds",
+    "a zero exited child does not fail early and preserves native single-instance startup handoff semantics",
+    "popup includes exit code, launcher-record status/path and an existing diagnostic command",
+    "healthy startup preserves the existing launcher-record/readiness path",
+    "no stdout/stderr persistence, additional process, network request or lifecycle authority is added",
+    "PowerShell parse and ordinary agent push gates remain green"
+  ],
+  "retirement_condition": "Remove the XiaoYu child-exit observer when the official N.E.K.O desktop/launcher path can surface native startup failure before Companion UI exposure with equivalent actionable diagnostics.",
+  "implementation": {
+    "launcher": "private_overlay/tools/start_xiaoyu_oneclick.ps1",
+    "contract_test": "private_overlay/tests/test_overlay_contract.py::OverlayContractTests::test_oneclick_fails_fast_only_on_nonzero_hidden_backend_exit",
+    "behavior": [
+      "retain the existing hidden Start-Process child through -PassThru",
+      "check authoritative backend readiness before classifying child exit",
+      "fail early only when the child has exited non-zero",
+      "preserve exit-0 native single-instance handoff",
+      "surface exit code, launcher-record status/path and the existing -PreflightOnly command",
+      "persist no new stdout/stderr log"
+    ]
+  }
+}

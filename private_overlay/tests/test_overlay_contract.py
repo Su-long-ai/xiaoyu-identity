@@ -372,6 +372,37 @@ class OverlayContractTests(unittest.TestCase):
         self.assertEqual(script.count("function Test-XiaoYuBackendReady"), 1)
 
 
+    def test_oneclick_fails_fast_only_on_nonzero_hidden_backend_exit(self):
+        script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        for required in (
+            "$BackendLauncherProcess = Start-Process",
+            "-WindowStyle Hidden -PassThru",
+            "$BackendLauncherProcess.HasExited",
+            "$BackendLauncherProcess.ExitCode",
+            "$candidateExitCode -ne 0",
+            "$BackendLauncherExitCode = $candidateExitCode",
+            "$null -ne $BackendLauncherExitCode",
+            "XiaoYu backend launcher exited before readiness",
+            "-PreflightOnly",
+            "exit 5",
+        ):
+            self.assertIn(required, script)
+
+        loop_ready = script.index(
+            "if (Test-XiaoYuBackendReady) { break }",
+            script.index("$deadline = (Get-Date).AddSeconds(180)"),
+        )
+        child_exit = script.index(
+            "$BackendLauncherProcess.HasExited",
+            loop_ready,
+        )
+        self.assertLess(loop_ready, child_exit)
+        self.assertNotIn("RedirectStandardOutput", script)
+        self.assertNotIn("RedirectStandardError", script)
+
     def test_oneclick_keeps_safety_before_ui_and_plugin_repair_after_ui(self):
         script = (ROOT / "tools" / "start_xiaoyu_oneclick.ps1").read_text(
             encoding="utf-8-sig"
@@ -1042,7 +1073,9 @@ class OverlayContractTests(unittest.TestCase):
             backend_start,
         )
         backend_segment = oneclick[backend_start:backend_ready]
-        self.assertIn(') -WindowStyle Hidden | Out-Null', backend_segment)
+        self.assertIn(") -WindowStyle Hidden -PassThru", backend_segment)
+        self.assertNotIn("WindowStyle Normal", backend_segment)
+        self.assertNotIn("WindowStyle Minimized", backend_segment)
 
         restore_args = startup.index('$RestoreArgs = @(')
         launcher_start = startup.index(
@@ -1396,6 +1429,9 @@ class OverlayContractTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         self.assertIn("check_architecture_freeze.py", script)
+        self.assertIn("run_companion_performance.ps1", script)
+        self.assertIn("$CompanionPerformance", script)
+        self.assertTrue((ROOT / "release" / "COMPANION_PERFORMANCE_BUDGETS.json").is_file())
 
 
     def test_github_gate_runs_bounded_companion_micro_soak(self):
@@ -1407,6 +1443,9 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn("SOAK_ROUNDS=3", workflow)
         self.assertIn(
             "private_overlay.tests.test_companion_performance_budget", workflow
+        )
+        self.assertIn(
+            "private_overlay.tests.test_run_companion_performance_gate", workflow
         )
         self.assertGreaterEqual(
             workflow.count('for round in $(seq 1 "$SOAK_ROUNDS")'),

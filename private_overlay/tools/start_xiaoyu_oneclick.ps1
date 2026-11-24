@@ -237,27 +237,60 @@ function Ensure-XiaoYuDesktopGpuPreference {
 $NapCatRuntimeStatus = Ensure-XiaoYuNapCatForwardRuntime
 Write-Output ("XiaoYu NapCat forward runtime: {0}" -f $NapCatRuntimeStatus)
 
+$BackendLauncherProcess = $null
+$BackendLauncherExitCode = $null
+
 if (-not (Test-XiaoYuBackendReady)) {
     # N.E.K.O launcher.py already owns backend single-instance semantics via
     # its native OS file lock and authoritative launcher record. Reuse that
     # authority instead of layering a second XiaoYu backend mutex.
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
+    #
+    # Keep only the Process handle. Do not redirect stdout/stderr: a healthy
+    # source launcher is long-lived, so doing that here would turn the one-click
+    # observer into an unbounded runtime log sink. Native diagnostics remain
+    # available through start_xiaoyu.ps1 / StartupPreflight when needed.
+    $BackendLauncherProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @(
         "-NoLogo",
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", ('"{0}"' -f $StartScript),
         "-StorageRoot", ('"{0}"' -f $StorageRoot)
-    ) -WindowStyle Hidden | Out-Null
+    ) -WindowStyle Hidden -PassThru
 
     $deadline = (Get-Date).AddSeconds(180)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 1
+
+        # Readiness wins over the observer: another native launcher may own the
+        # current generation while this follower exits. In particular, exit 0
+        # is never treated as failure because N.E.K.O single-instance handoff
+        # can legitimately finish that follower before the owner is ready.
         if (Test-XiaoYuBackendReady) { break }
+
+        if ($BackendLauncherProcess -and $BackendLauncherProcess.HasExited) {
+            $candidateExitCode = $BackendLauncherProcess.ExitCode
+            if ($candidateExitCode -ne 0) {
+                $BackendLauncherExitCode = $candidateExitCode
+                break
+            }
+        }
     }
 }
 
 if (-not (Test-XiaoYuBackendReady)) {
     $wshell = New-Object -ComObject WScript.Shell
+
+    if ($null -ne $BackendLauncherExitCode) {
+        $preflightCommand = ('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{0}" -StorageRoot "{1}" -PreflightOnly' -f $StartScript, $StorageRoot)
+        $null = $wshell.Popup(
+            ("XiaoYu backend launcher exited before readiness (code {0}).`nNative record: {1}`nRecord: {2}`nRun for detailed native/preflight diagnostics:`n{3}" -f $BackendLauncherExitCode, $script:XiaoYuRuntimeRecordStatus, $RuntimeRecordPath, $preflightCommand),
+            0,
+            "XiaoYu startup failed early",
+            0x10
+        )
+        exit 5
+    }
+
     $null = $wshell.Popup(
         ("XiaoYu backend did not become ready.`nNative record: {0}`nMain: {1}`nMemory: {2}`nAgent: {3}`nRecord: {4}" -f $script:XiaoYuRuntimeRecordStatus, $MainUrl, $MemoryHealthUrl, $AgentHealthUrl, $RuntimeRecordPath),
         0,

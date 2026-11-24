@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_COMPANION_PERFORMANCE_GATE_ORCHESTRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "problem": "Companion performance measurements and evaluator existed, but release checks did not have a product entrypoint that composes the current N.E.K.O launcher generation, existing live soak/startup reconcile, and native cold-start benchmark into one fail-closed verdict.",
+  "authority": {
+    "runtime_generation_and_ports": "N.E.K.O launcher.json ready record",
+    "live_sampling": "existing private_overlay/tools/companion_runtime_soak.py",
+    "plugin_recovery": "existing private_overlay/tools/reconcile_neko_plugin_runtime.py result",
+    "cold_start": "N.E.K.O scripts/runtime_memory_baseline.py JSON",
+    "verdict": "existing private_overlay/tools/check_companion_performance.py",
+    "forbidden": [
+      "second launcher",
+      "background performance daemon",
+      "new HTTP client",
+      "custom process sampler",
+      "runtime supervisor"
+    ]
+  },
+  "reuse_search": {
+    "L0": "N.E.K.O remains lifecycle/port authority; XiaoYu owns only Companion acceptance budgets.",
+    "L1": "Current pin ready runtime record already publishes final MAIN/MEMORY/TOOL ports plus USER_PLUGIN internal port.",
+    "L2": "Latest upstream d90f837 keeps the same authoritative ready-record model; no native Companion-wide budget orchestrator replaces XiaoYu acceptance.",
+    "L3": "Existing XiaoYu live soak, reconcile and performance evaluator are reused instead of replaced.",
+    "L4": "PowerShell/Python stdlib composition is sufficient; external monitoring/benchmark frameworks would duplicate existing authorities.",
+    "L5": "Selected thin orchestration: choose live or cold_start source profile, reject stale launcher generation/reconcile, then call the existing evaluator.",
+    "L6": "No private runtime, transport, sampler, supervisor or cache is added."
+  },
+  "budgets": {
+    "live": {
+      "endpoint_p95_ms": 1000,
+      "basis": "Existing XiaoYu event-loop evidence classifies >1s synchronous stalls as user-visible regressions; local health surfaces crossing 1s p95 are therefore blocked.",
+      "process_pid_churn_events": 0,
+      "plugin_reconcile_ms": 180000,
+      "reconcile_basis": "Matches the existing XiaoYu startup readiness/reconcile outer ceiling; current-generation matching prevents stale PASS reuse.",
+      "process_count_exact": 1,
+      "process_count_basis": "A live Companion release requires one desktop shell and one N.E.K.O backend owner; zero is missing runtime, more than one is churn/duplicate ownership."
+    },
+    "cold_start": {
+      "backend_and_service_ready_ms": 60000,
+      "basis": "Uses N.E.K.O's native default server-ready timeout as the cold-start performance boundary rather than XiaoYu's longer recovery ceiling."
+    }
+  },
+  "acceptance": [
+    "live profile derives all four service URLs from the current ready N.E.K.O launcher record",
+    "live profile rejects stale or generation-less plugin reconcile evidence",
+    "live profile reuses the existing read-only soak and evaluator without adding a request implementation",
+    "cold_start profile requires and consumes N.E.K.O native runtime_memory_baseline JSON",
+    "run_checks.ps1 exposes an explicit CompanionPerformance release mode without changing startup preflight",
+    "ordinary agent pushes run orchestrator contract tests",
+    "no subprocess/psutil/urllib/httpx/requests authority is introduced by the orchestrator",
+    "live profile fails when desktop/backend process observation is zero instead of treating zero as under the maximum"
+  ],
+  "retirement_condition": "Retire the orchestration layer when N.E.K.O publishes an equivalent generation-bound live/cold performance verdict that XiaoYu release acceptance can consume directly."
+}
