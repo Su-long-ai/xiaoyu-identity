@@ -185,7 +185,8 @@ jobs:
           for patch in \
             a0bb_startup_event_loop_responsiveness.patch \
             nekopower_outbox_effect_state.patch \
-            nekopower_native_delivery_receipt.patch
+            nekopower_native_delivery_receipt.patch \
+            nekopower_plugin_run_unknown_effect.patch
           do
             PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/$patch"
             git -C _neko_execution_migration_candidate apply --check -- "$PATCH_PATH"
@@ -211,6 +212,8 @@ jobs:
           python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py \
             --neko-root _neko_execution_migration_candidate \
             --runtime-name nekopower
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py \
+            --neko-root _neko_execution_migration_candidate
 
       - name: Prepare managed N.E.K.O product worktree
         run: |

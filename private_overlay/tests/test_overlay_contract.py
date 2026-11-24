@@ -1675,6 +1675,8 @@ class OverlayContractTests(unittest.TestCase):
             "a0bb_startup_event_loop_responsiveness.patch",
             "nekopower_outbox_effect_state.patch",
             "nekopower_native_delivery_receipt.patch",
+            "nekopower_plugin_run_unknown_effect.patch",
+            "verify_nekopower_plugin_run_unknown_effect.py",
             "--host-package nekopower",
             "--wire-prefix nekopower",
             "verify_native_delivery_receipt_candidate.py",
@@ -1693,6 +1695,16 @@ class OverlayContractTests(unittest.TestCase):
         self.assertIn('"promotion_ready": false', evidence)
         self.assertIn("a0bb66f47fd097cc21f18d75e4c72c90489a903f", evidence)
         self.assertNotIn("NEKO_UPSTREAM.lock.json\").write", evidence)
+
+        unknown_effect = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', unknown_effect)
+        self.assertIn("nekopower_plugin_run_unknown_effect.patch", unknown_effect)
+        self.assertIn("A0BB_0013_RESIDUAL_UNKNOWN_EFFECT_PORT_GREEN_CANDIDATE_ONLY", unknown_effect)
 
 if __name__ == "__main__":
     unittest.main()

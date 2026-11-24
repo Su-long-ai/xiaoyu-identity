@@ -5207,6 +5207,77 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json",
       "outcome": "thin_adapter",
       "machine_gate_note": "Execution migration gate applies this after the a0bb 0010 replacement and NekoPower 0011, then runs the shared effect-state, native receipt and real-ZMQ acceptance directly in NekoPower mode."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_plugin_run_unknown_effect.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the residual managed 0013 unknown-effect safety contract to current a0bb NekoPower without introducing a second plugin execution/effect authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "a0bb native NekoPower plugin execution",
+          "type": "native_upstream",
+          "outcome": "selected as authority and partial implementation; it already emits unknown on one wait-exception path",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        {
+          "name": "Existing managed 0013 contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact residual semantics for ambiguous repeated polling and host consumers",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/retry engine",
+          "type": "broader_external",
+          "outcome": "rejected because it duplicates N.E.K.O plugin-run/effect authority and cannot make an unknown effect safe to retry",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "a0bb partially recognizes unknown completion, but repeated polling ambiguity and all host terminal/report consumers still flatten the effect to failed. The residual port reuses the existing three NekoPower host seams and adds no authority.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json",
+      "retirement_condition": "Delete after NekoPower product promotion makes this the one-for-one 0013 replacement, or when upstream natively preserves unknown effect through polling, terminal classification, task reports and gateway output.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; must not expand the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O NekoPower PluginRunner, TaskBrain, CapabilityGateway, Ledger and call_audit remain sole authorities.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Existing managed 0013 is reused as the exact safety contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "a0bb already returns unknown for one outer wait exception but not repeated poll failures and does not propagate unknown through terminal/report consumers.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/provider plugins are downstream surfaces and cannot own plugin-run effect certainty."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External queues/retry engines rejected as duplicate authority and unable to resolve an already ambiguous effect.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected residual one-for-one port in the existing three NekoPower host files only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second runner, scheduler, database, gateway, transport or effect store introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply after a0bb 0010/0011/0012 migration candidates, then verify unknown terminal classification, repeated-poll ambiguity and do-not-repeat consumer behavior."
     }
   ],
   "hierarchy_policy": {
