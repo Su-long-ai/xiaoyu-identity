@@ -1,0 +1,61 @@
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index ee2f0ca654c36b685345099603468f4c8bd8c36a..ec73859d9993ea87976d40770781702b040d199d 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -170,6 +170,11 @@ COMMISSION_OVER_REASON = "its commission is over"
+ 
+ # Why a commission left unfinished by an earlier host process failed.
+ HOST_ENDED_REASON = "the host process ended before this finished"
++# Why active task-agent work from a dead host is held instead of retried.
++HOST_RESTART_UNCERTAIN_REASON = (
++    "the host process ended while this was active; its last effect may be unknown, "
++    "so it was not retried automatically"
++)
+ 
+ # (5: the notes sessions write to one another and what a session asked to be
+ # woken for have tables of their own, and a commission may rest. 7: a session
+@@ -1224,6 +1229,7 @@ class Ledger:
+                 (self.instance,),
+             ).fetchall()
+             failed_rows = 0
++            blocked_rows = 0
+             for row in rows:
+                 if row["status"] == "waiting_user":
+                     try:
+@@ -1237,6 +1243,24 @@ class Ledger:
+                         # restored here: a retried protected action must pass the
+                         # current PermissionGate in the new host.
+                         continue
++                if row["status"] == "working" and row["route"] == "task_agent":
++                    # The old process may have died before a real effect, in
++                    # one, or after it happened but before its result was
++                    # recorded. host_calls above has already changed any
++                    # still-running call to interrupted; that is evidence of
++                    # an interrupted observation, not proof that the effect did
++                    # not happen. Native blocked is resumable by a later
++                    # explicit tell, but it never runs by itself.
++                    moved = self._transition(
++                        conn,
++                        row["id"],
++                        "blocked",
++                        HOST_RESTART_UNCERTAIN_REASON,
++                        {},
++                    )
++                    if moved.applied:
++                        blocked_rows += 1
++                    continue
+                 moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
+                 if moved.applied:
+                     failed_rows += 1
+@@ -1263,6 +1287,11 @@ class Ledger:
+                     self._forget_stop_owed(path)
+         if failed_rows:
+             logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", failed_rows)
++        if blocked_rows:
++            logger.info(
++                "ledger: %d active task-agent commission(s) of an earlier run held blocked for reconciliation",
++                blocked_rows,
++            )
+ 
+     # -- a stop of everything that could not be written ---------------------
+     #

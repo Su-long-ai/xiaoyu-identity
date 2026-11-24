@@ -3,12 +3,16 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import importlib
 import socket
 import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict
+
+
+_RUNTIME_NAME = "nekoclaw"
 
 
 class _Logger:
@@ -45,10 +49,11 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
     source_path = root / "app/agent_server/api_runtime.py"
     source = source_path.read_text(encoding="utf-8")
     module = ast.parse(source)
+    runtime = _RUNTIME_NAME
     wanted = {
-        "_observe_nekoclaw_main_epoch",
-        "_observe_nekoclaw_main_epoch_locked",
-        "_handle_nekoclaw_delivery_barrier",
+        f"_observe_{runtime}_main_epoch",
+        f"_observe_{runtime}_main_epoch_locked",
+        f"_handle_{runtime}_delivery_barrier",
     }
     body = [
         node
@@ -75,9 +80,9 @@ def _load_agent_handlers(root: Path, ledger, bridge_holder: dict[str, Any]):
         "logger": _Logger(),
         "ready_host": ready_host,
         "_emit_main_event": emit_main_event,
-        "_nekoclaw_main_epoch": None,
-        "_nekoclaw_retired_main_epochs": set(),
-        "_nekoclaw_main_epoch_lock": asyncio.Lock(),
+        f"_{runtime}_main_epoch": None,
+        f"_{runtime}_retired_main_epochs": set(),
+        f"_{runtime}_main_epoch_lock": asyncio.Lock(),
     }
     helper_module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(helper_module)
@@ -91,7 +96,20 @@ async def _run(root: Path) -> None:
     # These are the exact native seams found in upstream's existing
     # tests/test_agent_rewrite_regression.py real-ZMQ integration harness.
     from main_logic import agent_event_bus as bus
-    from nekoclaw.host.ledger import Ledger
+
+    runtime = _RUNTIME_NAME
+    Ledger = importlib.import_module(f"{runtime}.host.ledger").Ledger
+    main_epoch_event = f"{runtime}_main_epoch"
+    barrier_event = f"{runtime}_delivery_barrier"
+    barrier_ack_event = f"{runtime}_delivery_barrier_ack"
+    observe_epoch_key = f"_observe_{runtime}_main_epoch"
+    handle_barrier_key = f"_handle_{runtime}_delivery_barrier"
+    main_epoch_state_key = f"_{runtime}_main_epoch"
+    retired_epochs_key = f"_{runtime}_retired_main_epochs"
+    publish_delivery_barrier = getattr(bus, f"publish_{runtime}_delivery_barrier")
+    notify_delivery_barrier_ack = getattr(
+        bus, f"notify_{runtime}_delivery_barrier_ack"
+    )
 
     ports = []
     while len(ports) < 3:
@@ -111,21 +129,21 @@ async def _run(root: Path) -> None:
     with tempfile.TemporaryDirectory() as td:
         ledger = Ledger(Path(td) / "receipt-zmq-e2e.db")
         handlers = _load_agent_handlers(root, ledger, bridge_holder)
-        observe_epoch = handlers["_observe_nekoclaw_main_epoch"]
-        handle_barrier = handlers["_handle_nekoclaw_delivery_barrier"]
+        observe_epoch = handlers[observe_epoch_key]
+        handle_barrier = handlers[handle_barrier_key]
 
         async def on_session_event(event: dict[str, Any]):
             kind = str(event.get("event_type") or "")
-            if kind == "nekoclaw_main_epoch":
+            if kind == main_epoch_event:
                 observed_epochs.append(str(event.get("main_epoch") or ""))
                 await observe_epoch(event.get("main_epoch"))
                 return
-            if kind == "nekoclaw_delivery_barrier":
+            if kind == barrier_event:
                 await handle_barrier(event)
 
         async def on_agent_event(event: dict[str, Any]):
             main_events.append(dict(event))
-            if event.get("event_type") == "nekoclaw_delivery_barrier_ack":
+            if event.get("event_type") == barrier_ack_event:
                 raw_delivery_id = event.get("delivery_id")
                 delivery_id = (
                     int(raw_delivery_id)
@@ -143,7 +161,7 @@ async def _run(root: Path) -> None:
                     # event/claim and observe terminal "sent".
                     dropped_commit_ack_for.add(delivery_id)
                     return
-                bus.notify_nekoclaw_delivery_barrier_ack(
+                notify_delivery_barrier_ack(
                     str(event.get("event_id") or ""),
                     str(event.get("result") or ""),
                 )
@@ -165,7 +183,7 @@ async def _run(root: Path) -> None:
 
             await _wait_until(
                 lambda: asyncio.sleep(
-                    0, result=(handlers["_nekoclaw_main_epoch"] == main.instance_id)
+                    0, result=(handlers[main_epoch_state_key] == main.instance_id)
                 )
             )
             assert observed_epochs[-1] == main.instance_id
@@ -175,7 +193,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_mark_handoff(first, "attempt-confirmed")
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "claim",
                     first,
                     "attempt-confirmed",
@@ -187,7 +205,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_delivery_state(first) == "claimed"
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "commit",
                     first,
                     "attempt-confirmed",
@@ -206,7 +224,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_mark_handoff(second, "attempt-restart")
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "claim",
                     second,
                     "attempt-restart",
@@ -231,13 +249,13 @@ async def _run(root: Path) -> None:
             await _wait_until(
                 lambda: _state_is(ledger, second, "uncertain")
             )
-            assert handlers["_nekoclaw_main_epoch"] == restarted_main.instance_id
+            assert handlers[main_epoch_state_key] == restarted_main.instance_id
             assert restarted_main.instance_id in observed_epochs
 
             # UNKNOWN stays fenced, but a late exact positive receipt is allowed
             # to reconcile it to sent over the same native roundtrip.
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "commit",
                     second,
                     "attempt-restart",
@@ -255,7 +273,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_mark_handoff(third, "attempt-same")
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "claim",
                     third,
                     "attempt-same",
@@ -267,14 +285,14 @@ async def _run(root: Path) -> None:
             )
             assert await restarted_main.publish_analyze_request(
                 {
-                    "event_type": "nekoclaw_main_epoch",
+                    "event_type": main_epoch_event,
                     "main_epoch": restarted_main.instance_id,
                 }
             )
             await asyncio.sleep(0.15)
             assert await ledger.outbox_delivery_state(third) == "claimed"
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "release",
                     third,
                     "attempt-same",
@@ -295,7 +313,7 @@ async def _run(root: Path) -> None:
             stale_event_id = "stale-main-claim"
             assert await restarted_main.publish_analyze_request(
                 {
-                    "event_type": "nekoclaw_delivery_barrier",
+                    "event_type": barrier_event,
                     "event_id": stale_event_id,
                     "main_epoch": old_epoch,
                     "action": "claim",
@@ -310,7 +328,7 @@ async def _run(root: Path) -> None:
                     (
                         e
                         for e in reversed(main_events)
-                        if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                        if e.get("event_type") == barrier_ack_event
                         and e.get("event_id") == stale_event_id
                     ),
                     None,
@@ -320,13 +338,13 @@ async def _run(root: Path) -> None:
             assert stale.get("result") == "stale_epoch"
             # The retired process must not mutate the current durable handoff.
             assert await ledger.outbox_delivery_state(fourth) == "handoff"
-            assert handlers["_nekoclaw_main_epoch"] == restarted_main.instance_id
-            assert old_epoch in handlers["_nekoclaw_retired_main_epochs"]
+            assert handlers[main_epoch_state_key] == restarted_main.instance_id
+            assert old_epoch in handlers[retired_epochs_key]
 
             # The live epoch can still claim the same handoff row, proving that
             # rejecting the retired process does not wedge valid delivery.
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "claim",
                     fourth,
                     "attempt-fresh",
@@ -338,7 +356,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_delivery_state(fourth) == "claimed"
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "release",
                     fourth,
                     "attempt-fresh",
@@ -359,7 +377,7 @@ async def _run(root: Path) -> None:
             )
             assert await ledger.outbox_mark_handoff(fifth, "attempt-ack-loss")
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "claim",
                     fifth,
                     "attempt-ack-loss",
@@ -372,7 +390,7 @@ async def _run(root: Path) -> None:
             assert await ledger.outbox_delivery_state(fifth) == "claimed"
             drop_first_commit_ack_for.add(fifth)
             assert (
-                await bus.publish_nekoclaw_delivery_barrier(
+                await publish_delivery_barrier(
                     "commit",
                     fifth,
                     "attempt-ack-loss",
@@ -387,7 +405,7 @@ async def _run(root: Path) -> None:
             commit_acks = [
                 e
                 for e in main_events
-                if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                if e.get("event_type") == barrier_ack_event
                 and str(e.get("action") or "") == "commit"
                 and int(e.get("delivery_id") or -1) == fifth
             ]
@@ -401,7 +419,7 @@ async def _run(root: Path) -> None:
             ack_events = [
                 e
                 for e in main_events
-                if e.get("event_type") == "nekoclaw_delivery_barrier_ack"
+                if e.get("event_type") == barrier_ack_event
             ]
             assert len(ack_events) >= 8
             assert {str(e.get("result") or "") for e in ack_events} >= {
@@ -425,9 +443,16 @@ async def _state_is(ledger, item_id: int, expected: str) -> bool:
 
 
 def main() -> int:
+    global _RUNTIME_NAME
     parser = argparse.ArgumentParser()
     parser.add_argument("--neko-root", required=True, type=Path)
+    parser.add_argument(
+        "--runtime-name",
+        default="nekoclaw",
+        choices=("nekoclaw", "nekopower"),
+    )
     args = parser.parse_args()
+    _RUNTIME_NAME = args.runtime_name
     asyncio.run(_run(args.neko_root))
     print("native delivery receipt real-ZMQ E2E: PASS")
     return 0

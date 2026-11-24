@@ -1,0 +1,89 @@
+diff --git a/nekopower/host/plugin_runs.py b/nekopower/host/plugin_runs.py
+index b68ea5dbe414d36c50ae3f737a07f89aa5aeb7c9..e44ab2b9ef8d3eb97fc402e8e74e464e6d7c35df 100644
+--- a/nekopower/host/plugin_runs.py
++++ b/nekopower/host/plugin_runs.py
+@@ -699,6 +699,13 @@ class PluginRunner:
+             "entry_id": resolved_entry,
+             "args": safe_args,
+         }
++        if audit_call is not None:
++            call_id = getattr(audit_call, "call_id", None)
++            if isinstance(call_id, str) and call_id:
++                # The host reserves this identity before execution. The plugin
++                # server already deduplicates /runs by idempotency_key, so an
++                # ambiguous create response can be reconciled without a second effect.
++                body["idempotency_key"] = call_id
+ 
+         def failed(error: str, reason: str) -> RunOutcome:
+             return RunOutcome(
+@@ -816,6 +823,11 @@ class PluginRunner:
+     ) -> tuple[Any, tuple[str, str] | None]:
+         """Send ``POST /runs``. Returns ``(answer, None)`` or ``(None, (error, reason))``.
+ 
++        A host-audited request carries the plugin server's native
++        ``idempotency_key``. Only then may an ambiguous create outcome be
++        retried: the retry uses the same key and therefore resolves to the
++        original run if the first request already took effect.
++
+         ``still_wanted`` is asked here, as this begins, and not where
+         this is started: it runs as a task of its own, which begins a
+         moment after it is made. Before the client is made: a client
+@@ -827,21 +839,44 @@ class PluginRunner:
+             # Whoever handed the call over no longer wants it made (NekoPower
+             # was switched off since it was chosen): nothing is sent.
+             return None, ("the call is not wanted any more", "not_wanted")
+-        try:
+-            async with self._client() as client:
+-                response = await client.post(f"{self.base_url}/runs", json=body)
+-            if not 200 <= response.status_code < 300:
+-                logger.warning("/runs returned HTTP %s for %s", response.status_code, target)
+-                return None, (f"/runs returned {response.status_code}", "run_failed")
++        key = body.get("idempotency_key")
++        idempotent = isinstance(key, str) and bool(key.strip())
++        attempts = 2 if idempotent else 1
++        for attempt in range(attempts):
+             try:
+-                return response.json(), None
+-            except Exception:  # noqa: BLE001 - never retried: the run may exist
+-                return None, ("Invalid /runs response (non-JSON)", "run_invalid_response")
+-        except asyncio.CancelledError:
+-            raise
+-        except Exception as exc:  # noqa: BLE001 - reported, never raised
+-            logger.warning("/runs request failed for %s: %s", target, type(exc).__name__)
+-            return None, (str(exc) or type(exc).__name__, "run_failed")
++                async with self._client() as client:
++                    response = await client.post(f"{self.base_url}/runs", json=body)
++                if not 200 <= response.status_code < 300:
++                    logger.warning("/runs returned HTTP %s for %s", response.status_code, target)
++                    if response.status_code >= 500 and attempt + 1 < attempts:
++                        logger.warning(
++                            "/runs outcome for %s may be ambiguous; retrying with the same idempotency key",
++                            target,
++                        )
++                        continue
++                    return None, (f"/runs returned {response.status_code}", "run_failed")
++                try:
++                    return response.json(), None
++                except Exception:  # noqa: BLE001 - a keyed retry recovers an unreadable success
++                    if attempt + 1 < attempts:
++                        logger.warning(
++                            "/runs returned an unreadable success for %s; retrying with the same idempotency key",
++                            target,
++                        )
++                        continue
++                    return None, ("Invalid /runs response (non-JSON)", "run_invalid_response")
++            except asyncio.CancelledError:
++                raise
++            except Exception as exc:  # noqa: BLE001 - reported, never raised
++                logger.warning("/runs request failed for %s: %s", target, type(exc).__name__)
++                if attempt + 1 < attempts:
++                    logger.warning(
++                        "/runs outcome for %s may be ambiguous; retrying with the same idempotency key",
++                        target,
++                    )
++                    continue
++                return None, (str(exc) or type(exc).__name__, "run_failed")
++        raise AssertionError("unreachable")
+ 
+     def _cancel_abandoned_run(self, request: "asyncio.Future[Any]") -> None:
+         """Cancel the run a request created after its caller had gone away.

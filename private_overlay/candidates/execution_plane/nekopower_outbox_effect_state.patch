@@ -1,0 +1,359 @@
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index 75f6fea..962123c 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -182,6 +182,10 @@ _PRESETS_SINCE_VERSION = 7
+ # row of its own; a ledger of an earlier one has its commissions given theirs.
+ _SESSIONS_SINCE_VERSION = 3
+ _BUSY_TIMEOUT_SECONDS = 5.0
++_OUTBOX_DELIVERY_HANDOFF = "delivery_handoff:"
++_OUTBOX_DELIVERY_CLAIMED = "delivery_claimed:"
++_OUTBOX_DELIVERY_UNCERTAIN = "delivery_uncertain:"
++_OUTBOX_HANDOFF_LEASE_SECONDS = 30.0
+ # In place of the number of a wake request, where the ledger was not opened
+ # yet when a stop of everything asked up to which one it is to drop
+ # (``Ledger.notes_mark``): all that is in the file when it is opened. This
+@@ -1179,6 +1183,16 @@ class Ledger:
+             conn.execute("UPDATE host_calls SET status='interrupted', ended_at=? WHERE status='running'",
+                          (self._clock(),))
+             call_audit.reclaim(conn, self._clock())
++            conn.execute(
++                "UPDATE outbox SET last_error = 'delivery handoff interrupted before claim', "
++                "next_attempt_at = ? WHERE sent_at IS NULL AND last_error LIKE ?",
++                (self._clock(), _OUTBOX_DELIVERY_HANDOFF + "%"),
++            )
++            conn.execute(
++                "UPDATE outbox SET last_error = REPLACE(last_error, ?, ?) "
++                "WHERE sent_at IS NULL AND last_error LIKE ?",
++                (_OUTBOX_DELIVERY_CLAIMED, _OUTBOX_DELIVERY_UNCERTAIN, _OUTBOX_DELIVERY_CLAIMED + "%"),
++            )
+             marks = ", ".join("?" for _ in LIVE_SESSION_STATUSES)
+             conn.execute(
+                 f"UPDATE sessions SET status = 'closed' WHERE status IN ({marks})", sorted(LIVE_SESSION_STATUSES)
+@@ -3799,27 +3813,33 @@ class Ledger:
+         )
+
+     async def outbox_pending(self, *, due_by: float | None = None, limit: int = 50) -> list[OutboxItem]:
+-        """Return unsent reports, oldest first; with ``due_by`` only those due by then."""
+-
++        """Return reports that automatic delivery may attempt."""
+         def work(conn: sqlite3.Connection) -> list[OutboxItem]:
+-            sql = "SELECT * FROM outbox WHERE sent_at IS NULL"
++            sql = (
++                "SELECT * FROM outbox WHERE sent_at IS NULL "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
++            )
+             params: list[Any] = []
+-            if due_by is not None:
++            if due_by is None:
++                sql += " AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%'"
++            else:
+                 sql += " AND next_attempt_at <= ?"
+                 params.append(due_by)
+             sql += " ORDER BY id LIMIT ?"
+             params.append(limit)
+             return [self._outbox_item(row) for row in conn.execute(sql, params).fetchall()]
+-
+         return await self.run(work)
+
+     async def outbox_next_due(self) -> float | None:
+-        """Return the earliest ``next_attempt_at`` of all unsent reports, or None."""
+-
++        """Return the next retry or unclaimed-handoff lease deadline."""
+         def work(conn: sqlite3.Connection) -> float | None:
+-            row = conn.execute("SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL").fetchone()
++            row = conn.execute(
++                "SELECT MIN(next_attempt_at) AS due FROM outbox WHERE sent_at IS NULL "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'"
++            ).fetchone()
+             return None if row is None or row["due"] is None else float(row["due"])
+-
+         return await self.run(work)
+
+     async def outbox_question_state(self, item_id: int) -> str:
+@@ -3846,19 +3866,171 @@ class Ledger:
+         """Remove an unsent report that is out of date."""
+         await self.run(lambda conn: conn.execute("DELETE FROM outbox WHERE id = ? AND sent_at IS NULL", (item_id,)))
+
++    async def outbox_mark_handoff(self, item_id: int, attempt_id: str) -> bool:
++        """Lease a row before the event is put on the existing IPC transport."""
++        handoff = _OUTBOX_DELIVERY_HANDOFF + str(attempt_id)
++        def work(conn: sqlite3.Connection) -> bool:
++            row = conn.execute(
++                "SELECT sent_at, last_error, next_attempt_at FROM outbox WHERE id = ?",
++                (item_id,),
++            ).fetchone()
++            if row is None or row["sent_at"] is not None:
++                return False
++            state = str(row["last_error"] or "")
++            now = self._clock()
++            if state == handoff:
++                return True
++            if state.startswith(_OUTBOX_DELIVERY_HANDOFF):
++                if float(row["next_attempt_at"] or 0.0) > now:
++                    return False
++            elif state.startswith((_OUTBOX_DELIVERY_CLAIMED, _OUTBOX_DELIVERY_UNCERTAIN)):
++                return False
++            conn.execute(
++                "UPDATE outbox SET last_error = ?, next_attempt_at = ? WHERE id = ? AND sent_at IS NULL",
++                (handoff, now + _OUTBOX_HANDOFF_LEASE_SECONDS, item_id),
++            )
++            return True
++        return await self.run(work)
++
++    async def outbox_fail_handoff(
++        self,
++        item_id: int,
++        attempt_id: str,
++        error: str,
++        next_attempt_at: float,
++    ) -> bool:
++        """Release only the exact pre-effect handoff after proven transport rejection."""
++        handoff = _OUTBOX_DELIVERY_HANDOFF + str(attempt_id)
++        def work(conn: sqlite3.Connection) -> bool:
++            cursor = conn.execute(
++                "UPDATE outbox SET attempts = attempts + 1, last_error = ?, next_attempt_at = ? "
++                "WHERE id = ? AND sent_at IS NULL AND last_error = ?",
++                (error, next_attempt_at, item_id, handoff),
++            )
++            return int(cursor.rowcount or 0) == 1
++        return await self.run(work)
++
++    async def outbox_claim_delivery(self, item_id: int, attempt_id: str, claim_id: str) -> str:
++        """Authorize one exact main-process claim to cross the effect boundary."""
++        handoff = _OUTBOX_DELIVERY_HANDOFF + str(attempt_id)
++        claimed_prefix = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id) + ":"
++        claimed = claimed_prefix + str(claim_id)
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute(
++                "SELECT sent_at, last_error, next_attempt_at FROM outbox WHERE id = ?",
++                (item_id,),
++            ).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            state = str(row["last_error"] or "")
++            if state == handoff:
++                if float(row["next_attempt_at"] or 0.0) <= self._clock():
++                    return "expired"
++                conn.execute(
++                    "UPDATE outbox SET last_error = ? WHERE id = ? AND sent_at IS NULL AND last_error = ?",
++                    (claimed, item_id, handoff),
++                )
++                return "claimed"
++            if state == claimed:
++                return "claimed"
++            if state.startswith(claimed_prefix):
++                return "already_claimed"
++            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
++                return "uncertain"
++            return "not_ready"
++        return await self.run(work)
++
++    async def outbox_commit_delivery(self, item_id: int, attempt_id: str, claim_id: str) -> str:
++        """Persist a positive effect receipt for the exact durable main claim."""
++        suffix = str(attempt_id) + ":" + str(claim_id)
++        valid = {_OUTBOX_DELIVERY_CLAIMED + suffix, _OUTBOX_DELIVERY_UNCERTAIN + suffix}
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute("SELECT sent_at, last_error FROM outbox WHERE id = ?", (item_id,)).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            if str(row["last_error"] or "") not in valid:
++                return "not_ready"
++            conn.execute(
++                "UPDATE outbox SET sent_at = ?, attempts = attempts + 1, last_error = NULL "
++                "WHERE id = ? AND sent_at IS NULL",
++                (self._clock(), item_id),
++            )
++            return "committed"
++        return await self.run(work)
++
++    async def outbox_release_delivery(self, item_id: int, attempt_id: str, claim_id: str) -> str:
++        """Return an exact claim to retryable state only after proven no-effect."""
++        claimed = _OUTBOX_DELIVERY_CLAIMED + str(attempt_id) + ":" + str(claim_id)
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute("SELECT sent_at, last_error FROM outbox WHERE id = ?", (item_id,)).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            state = str(row["last_error"] or "")
++            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
++                return "uncertain"
++            if state != claimed:
++                return "not_ready"
++            conn.execute(
++                "UPDATE outbox SET last_error = 'delivery released before effect', next_attempt_at = ? "
++                "WHERE id = ? AND sent_at IS NULL AND last_error = ?",
++                (self._clock(), item_id, claimed),
++            )
++            return "released"
++        return await self.run(work)
++
++    async def outbox_mark_main_restart_uncertain(self) -> int:
++        """Freeze in-flight main claims after a proven main-process epoch change."""
++        def work(conn: sqlite3.Connection) -> int:
++            cursor = conn.execute(
++                "UPDATE outbox SET last_error = REPLACE(last_error, ?, ?) "
++                "WHERE sent_at IS NULL AND last_error LIKE ?",
++                (_OUTBOX_DELIVERY_CLAIMED, _OUTBOX_DELIVERY_UNCERTAIN, _OUTBOX_DELIVERY_CLAIMED + "%"),
++            )
++            return max(0, int(cursor.rowcount or 0))
++        return await self.run(work)
++
+     async def outbox_mark_sent(self, item_id: int) -> None:
+         await self.run(
+             lambda conn: conn.execute(
+-                "UPDATE outbox SET sent_at = ?, attempts = attempts + 1, last_error = NULL WHERE id = ?",
++                "UPDATE outbox SET sent_at = ?, attempts = attempts + 1, last_error = NULL "
++                "WHERE id = ? AND sent_at IS NULL",
+                 (self._clock(), item_id),
+             )
+             and None
+         )
+
++    async def outbox_delivery_state(self, item_id: int) -> str:
++        """Return durable delivery state without making an effect decision."""
++        def work(conn: sqlite3.Connection) -> str:
++            row = conn.execute("SELECT sent_at, last_error FROM outbox WHERE id = ?", (item_id,)).fetchone()
++            if row is None:
++                return "gone"
++            if row["sent_at"] is not None:
++                return "sent"
++            state = str(row["last_error"] or "")
++            if state.startswith(_OUTBOX_DELIVERY_HANDOFF):
++                return "handoff"
++            if state.startswith(_OUTBOX_DELIVERY_CLAIMED):
++                return "claimed"
++            if state.startswith(_OUTBOX_DELIVERY_UNCERTAIN):
++                return "uncertain"
++            return "pending"
++        return await self.run(work)
++
+     async def outbox_mark_failed(self, item_id: int, error: str, next_attempt_at: float) -> None:
+         await self.run(
+             lambda conn: conn.execute(
+-                "UPDATE outbox SET attempts = attempts + 1, last_error = ?, next_attempt_at = ? WHERE id = ?",
++                "UPDATE outbox SET attempts = attempts + 1, last_error = ?, next_attempt_at = ? "
++                "WHERE id = ? AND sent_at IS NULL "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_handoff:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_claimed:%' "
++                "AND COALESCE(last_error, '') NOT LIKE 'delivery_uncertain:%'",
+                 (error, next_attempt_at, item_id),
+             )
+             and None
+diff --git a/nekopower/host/outbox.py b/nekopower/host/outbox.py
+index 00396bc..6e3b24e 100644
+--- a/nekopower/host/outbox.py
++++ b/nekopower/host/outbox.py
+@@ -38,7 +38,9 @@ from __future__ import annotations
+ import asyncio
+ import logging
+ import time
++import uuid
+ from collections.abc import Awaitable, Callable
++from dataclasses import replace
+
+ from nekopower.host.ledger import Ledger, OutboxItem
+
+@@ -47,6 +49,10 @@ logger = logging.getLogger(__name__)
+ # Returns True when the main server took the report.
+ SendReport = Callable[[OutboxItem], Awaitable[bool]]
+
++_EFFECT_RECEIPT_PREDICATE = "_nekopower_effect_receipt_required"
++_DELIVERY_ID_PAYLOAD_KEY = "__nekopower_delivery_id"
++_DELIVERY_ATTEMPT_PAYLOAD_KEY = "__nekopower_delivery_attempt_id"
++
+ # Far beyond any sensible maximum wait, and still a finite float.
+ _MAX_EXPONENT = 60
+
+@@ -93,34 +99,75 @@ class OutboxSender:
+             self._task = asyncio.ensure_future(self._run())
+
+     async def flush(self) -> int:
+-        """Try every row that is due now, once. Returns how many were delivered."""
++        """Try every due row once; opted-in effects stay open for native receipt."""
+         send = self._send
+         if send is None:
+             return 0
++        receipt_required = getattr(send, _EFFECT_RECEIPT_PREDICATE, None)
+         delivered = 0
+         for item in await self._ledger.outbox_pending(due_by=self._clock()):
+             if item.kind == "question" and item.commission_id:
+-                # The row and its commission are read together, so nothing can
+-                # change between the two.
+                 state = await self._ledger.outbox_question_state(item.id)
+                 if state == "gone":
+-                    # Removed after this batch was read: the commission
+-                    # stopped waiting for it, even if it waits for another
+-                    # question by now.
+                     continue
+                 if state == "stale":
+-                    # Stored after the commission stopped waiting, when
+-                    # nothing removed it: out of date, and dropped here.
+                     await self._ledger.outbox_drop(item.id)
+                     continue
++
++            attempt_id = ""
++            outgoing = item
++            if callable(receipt_required) and bool(receipt_required(item)):
++                attempt_id = uuid.uuid4().hex
++                if not await self._ledger.outbox_mark_handoff(item.id, attempt_id):
++                    continue
++                outgoing = replace(
++                    item,
++                    payload={
++                        **dict(item.payload or {}),
++                        _DELIVERY_ID_PAYLOAD_KEY: int(item.id),
++                        _DELIVERY_ATTEMPT_PAYLOAD_KEY: attempt_id,
++                    },
++                )
++
+             try:
+-                accepted = bool(await send(item))
++                accepted = bool(await send(outgoing))
+                 error = "" if accepted else "not accepted"
+             except asyncio.CancelledError:
+                 raise
+             except Exception as exc:  # noqa: BLE001 - a failed send is retried later
+                 accepted = False
+                 error = f"{type(exc).__name__}: {exc}"
++                if attempt_id:
++                    state = await self._ledger.outbox_delivery_state(item.id)
++                    if state in {"handoff", "claimed", "uncertain", "sent"}:
++                        if state == "sent":
++                            delivered += 1
++                        continue
++            else:
++                if attempt_id:
++                    state = await self._ledger.outbox_delivery_state(item.id)
++                    if state == "sent":
++                        delivered += 1
++                        continue
++                    if state in {"claimed", "uncertain"}:
++                        continue
++                    if state == "handoff":
++                        if accepted:
++                            continue
++                        attempts = item.attempts + 1
++                        await self._ledger.outbox_fail_handoff(
++                            item.id,
++                            attempt_id,
++                            error,
++                            self._clock() + retry_delay(attempts),
++                        )
++                        logger.info("report %s not delivered (attempt %d): %s", item.id, attempts, error)
++                        continue
++                    # A synchronous no-effect release already made the row
++                    # retryable. Never turn transport acceptance into sent.
++                    if state in {"pending", "gone"}:
++                        continue
++
+             if accepted:
+                 await self._ledger.outbox_mark_sent(item.id)
+                 delivered += 1

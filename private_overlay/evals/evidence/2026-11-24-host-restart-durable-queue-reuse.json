@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "decision_id": "HOST_RESTART_DURABLE_QUEUE_REUSE_V1",
-  "reviewed_at_local": "2026-11-24T01:16:00+08:00",
-  "problem": "N.E.K.O can queue both a newly dispatched commission and a commission being taken up again. New dispatch content is durable in the commission row, but TaskAgentManager._requeue stores the take-up continuation only in the in-memory _resume map after transitioning to queued. A host death therefore cannot safely distinguish/reconstruct every old queued commission.",
+  "reviewed_at_local": "2026-11-24T11:55:30+08:00",
+  "problem": "N.E.K.O queues both newly dispatched commissions and commissions being taken up again. The commission/session rows are durable, but requeue primary text, queued secondary notes, copy hand-back notes, and wake-note ordering otherwise depend on TaskAgentManager memory. A host death must reconstruct only the current queue epoch without flattening _Handed/_Unsaid/_Found provenance, duplicating native wake delivery, drifting session identity, or reviving cancellation.",
   "authority_boundary": {
     "commission": "N.E.K.O Ledger commissions",
-    "continuation": "N.E.K.O Ledger events",
+    "continuation": "N.E.K.O Ledger events in the existing ledger; restart_queue_resume/restart_queue_note are thin envelopes, never a second queue",
     "session": "N.E.K.O sessions + TaskAgentManager._know_session/_start_next",
     "effect": "N.E.K.O host_calls + existing managed idempotency/receipt semantics",
     "rejected_duplicates": [
@@ -13,7 +13,8 @@
       "private scheduler",
       "recovery daemon",
       "second task/session authority"
-    ]
+    ],
+    "wake": "N.E.K.O native wake_requests/session hand-over remains text/delivery authority; durable queue envelopes store wake identity/order only"
   },
   "reuse_search": {
     "L0_authority": "Keep commission/session/queue authority in N.E.K.O; persist only the otherwise-volatile take-up text in the existing event log.",
@@ -29,24 +30,53 @@
       "gap": "_requeue transitions to queued before writing continuation only to in-memory _resume; Ledger._reconcile then fails every old queued commission."
     },
     "L2_neko_upstream_extensions": {
-      "commit": "843a3624f11679466d0d07e692e0cc589e83eace",
-      "result": "No equivalent durable requeue-continuation/startup queue reconstruction seam observed; restart policy remains fail-old-active."
+      "commit": "ede4fcd0d93535f65b660bdb34bd787d6315ef01",
+      "result": "Latest upstream NekoPower still keeps _queue/_resume/_notes in TaskAgentManager memory and Ledger._reconcile explicitly marks prior-host queued/working/waiting_user commissions failed. No recover_restart equivalent exists. The four commits after a0bb do not touch any of the 19 migration-patch target files."
     },
     "L3_native_adjacent": "Use existing task-agent queue/start/session lookup only; do not add a scheduler.",
     "L4_external": "External workflow engines/reliable queues are rejected because they would duplicate the frozen commission/session authority.",
-    "L5_thin_integration": "Selected candidate: append a durable queue-resume event before the queued transition, preserve prior-host task-agent queued rows, rebuild only those rows through _know_session + the existing _queue/_start_next path.",
+    "L5_thin_integration": "Selected candidate: append durable resume/note envelopes into the existing Ledger before acknowledging queue state, preserve prior-host task-agent queued rows, reconstruct only the current queue epoch through native _know_session/_queue/_start_next, and re-hand wake text through native session wake authority.",
     "L6_private_implementation": "Rejected."
   },
   "safety_rules": [
-    "Durable continuation event must commit before transition to queued; an orphan event is harmless when transition later fails.",
-    "Recovery considers only current task_agent queued commissions; terminal/cancelled rows are never revived.",
-    "Initial queued commissions with no take-up continuation use their native commission opening message exactly as normal initial queueing.",
-    "Requeued commissions restore only the latest durable continuation for the current queued state.",
-    "No prior-host working commission is recovered by this unit.",
-    "No host_call status grants permission or authorizes replay; effects remain governed by current permission/idempotency/receipt semantics.",
-    "Session identity is read from native Ledger; no new session identifier is minted."
+    "Durable primary continuation and pre-resume notes commit before transition to queued; failed/orphan attempts cannot become a later queue epoch.",
+    "Acknowledged queued user text is recovered from the native told event; internal secondary notes use only the existing Ledger event stream, and each accepted note/provenance item is appended exactly once.",
+    "Recovery considers only current task_agent queued commissions; terminal/cancelled rows are never revived and cancellation is rechecked after session resolution.",
+    "Initial queued commissions keep native opening semantics; a requeue without a durable current-epoch continuation fails closed before any effect.",
+    "Requeued commissions reuse their durable native session identity; initial queued work may receive only the same canonical first session native code would assign.",
+    "Serialized _Handed text is never replayed as authority. Timer and cross-session message wakes are verified by native session wake ids and re-handed once.",
+    "A wake that was the primary continuation is restored as primary _resume; secondary wake notes keep queue-note order and receive text from native hand-over.",
+    "No prior-host working commission is recovered by this unit; working/effect ambiguity remains blocked/unknown under the separate active-working candidate.",
+    "No host_call status grants permission or authorizes replay; effects remain governed by current permission, idempotency, unknown-effect, outbox and receipt semantics."
   ],
   "decision": "THIN_NATIVE_LEDGER_EVENT_QUEUE_RECOVERY_CANDIDATE",
-  "promotion": "CANDIDATE_ONLY",
-  "retirement_condition": "Delete when upstream N.E.K.O durably reconstructs both initial and take-up queued task-agent work after host restart without losing continuation text or replaying active effects."
+  "promotion": "CANDIDATE_ONLY_AFTER_FULL_GREEN: restart continuity is a dependent multi-patch stack and the managed core budget is already 14/14; do not promote by count expansion or patch bundling. Prefer migration to latest NekoPower and retire/rebase old patches with equivalent acceptance.",
+  "retirement_condition": "Delete when upstream N.E.K.O durably reconstructs initial/requeued task-agent queues, ordered queued notes and native wake provenance after host restart without replaying active effects or restoring stale authority.",
+  "validation_2026_11_24": {
+    "agent_head": "1bf55acd5a66d8c5742f72e306f35362827bdeb2",
+    "github_actions_run_id": 45322186743,
+    "github_actions_conclusion": "success",
+    "local_exact_c3_candidate_selection": "27 passed, 153 deselected after adding the secondary-wake before-note exactly-once regression",
+    "duplicate_note_regression": {
+      "reproduced": "When _wake_working receives before provenance while the commission is already queued/requeueing/starting, the old candidate appended each before note twice.",
+      "red_observation": ["copy line one", "copy line two", "copy line one", "copy line two", "late copy finding"],
+      "fix": "Remove the duplicate restart_queue_note append loop in both the c3 source candidate and the one-for-one NekoPower migration candidate.",
+      "patch_surface_after_fix": "458 additions / 12 deletions = 470 changed lines, down from 476.",
+      "local_c3": "27 passed / 153 deselected in the durable queue + native queue selection",
+      "local_nekopower": "23/23 durable candidate tests PASS; combined durable + native queue selection is 27 passed / 153 deselected in exact a0bb locked uv environment"
+    },
+    "overlay_contract": "185 passed",
+    "machine_gates": [
+      "reuse-first",
+      "architecture-freeze",
+      "plugin-admission"
+    ],
+    "restart_stack_steps": [
+      "report-wait host-restart candidate",
+      "permission-wait host-restart candidate",
+      "active-working host-restart uncertain candidate",
+      "durable queue host-restart candidate"
+    ],
+    "final_release_gate": "success"
+  }
 }

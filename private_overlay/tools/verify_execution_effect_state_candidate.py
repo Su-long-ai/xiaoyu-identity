@@ -2,22 +2,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
 import sys
 import tempfile
 from pathlib import Path
 
 
-def _load(neko_root: Path):
+def _load(neko_root: Path, host_package: str):
     root = str(neko_root.resolve())
     if root not in sys.path:
         sys.path.insert(0, root)
-    from nekoclaw.host.ledger import Ledger
-    from nekoclaw.host.outbox import OutboxSender
-    return Ledger, OutboxSender
+    ledger_module = importlib.import_module(f"{host_package}.host.ledger")
+    outbox_module = importlib.import_module(f"{host_package}.host.outbox")
+    return ledger_module.Ledger, outbox_module.OutboxSender
 
 
-async def _verify(neko_root: Path) -> None:
-    Ledger, OutboxSender = _load(neko_root)
+async def _verify(neko_root: Path, *, host_package: str, wire_prefix: str) -> None:
+    Ledger, OutboxSender = _load(neko_root, host_package)
+    delivery_id_key = f"__{wire_prefix}_delivery_id"
+    delivery_attempt_key = f"__{wire_prefix}_delivery_attempt_id"
+    effect_receipt_predicate = f"_{wire_prefix}_effect_receipt_required"
 
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "effect-ledger.db"
@@ -29,13 +33,13 @@ async def _verify(neko_root: Path) -> None:
 
         async def send(item):
             send_calls.append(item.id)
-            assert item.payload["__nekoclaw_delivery_id"] == item.id
-            attempt_ids.append(item.payload["__nekoclaw_delivery_attempt_id"])
+            assert item.payload[delivery_id_key] == item.id
+            attempt_ids.append(item.payload[delivery_attempt_key])
             inside = await ledger.outbox_delivery_state(item.id)
             assert inside == "handoff", ("inside-send", inside)
             return True
 
-        send._nekoclaw_effect_receipt_required = lambda _item: True
+        setattr(send, effect_receipt_predicate, lambda _item: True)
         sender = OutboxSender(ledger, send)
         assert await sender.flush() == 0
         assert send_calls == [item_id], send_calls
@@ -238,11 +242,11 @@ async def _verify(neko_root: Path) -> None:
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "ambiguous"})
 
         async def ambiguous_send(item):
-            assert item.payload["__nekoclaw_delivery_id"] == item.id
-            assert item.payload["__nekoclaw_delivery_attempt_id"]
+            assert item.payload[delivery_id_key] == item.id
+            assert item.payload[delivery_attempt_key]
             raise RuntimeError("transport ambiguous after durable handoff")
 
-        ambiguous_send._nekoclaw_effect_receipt_required = lambda _item: True
+        setattr(ambiguous_send, effect_receipt_predicate, lambda _item: True)
         sender = OutboxSender(ledger, ambiguous_send)
         assert await sender.flush() == 0
         assert await ledger.outbox_delivery_state(item_id) == "handoff"
@@ -260,11 +264,11 @@ async def _verify(neko_root: Path) -> None:
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "retry"})
 
         async def rejected_send(item):
-            assert item.payload["__nekoclaw_delivery_id"] == item.id
-            assert item.payload["__nekoclaw_delivery_attempt_id"]
+            assert item.payload[delivery_id_key] == item.id
+            assert item.payload[delivery_attempt_key]
             return False
 
-        rejected_send._nekoclaw_effect_receipt_required = lambda _item: True
+        setattr(rejected_send, effect_receipt_predicate, lambda _item: True)
         sender = OutboxSender(ledger, rejected_send)
         assert await sender.flush() == 0
         assert await ledger.outbox_delivery_state(item_id) == "pending"
@@ -280,8 +284,8 @@ async def _verify(neko_root: Path) -> None:
         item_id = await ledger.outbox_add(None, "task_result", {"summary": "legacy"})
 
         async def legacy_send(item):
-            assert "__nekoclaw_delivery_id" not in item.payload
-            assert "__nekoclaw_delivery_attempt_id" not in item.payload
+            assert delivery_id_key not in item.payload
+            assert delivery_attempt_key not in item.payload
             return True
 
         sender = OutboxSender(ledger, legacy_send)
@@ -294,8 +298,16 @@ async def _verify(neko_root: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--neko-root", required=True, type=Path)
+    parser.add_argument("--host-package", default="nekoclaw", choices=("nekoclaw", "nekopower"))
+    parser.add_argument("--wire-prefix", default="nekoclaw", choices=("nekoclaw", "nekopower"))
     args = parser.parse_args()
-    asyncio.run(_verify(args.neko_root))
+    asyncio.run(
+        _verify(
+            args.neko_root,
+            host_package=args.host_package,
+            wire_prefix=args.wire_prefix,
+        )
+    )
     print("execution effect-state candidate: PASS")
     return 0
 

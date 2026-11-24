@@ -1,0 +1,63 @@
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index 962123c936241d6e18449744aec02f5e043baddb..0feeb6691275a4e1d2663a43bb7155393e68c990 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -1153,10 +1153,13 @@ class Ledger:
+             logger.info("ledger: %d commission(s) of an earlier build given their sessions", len(rows))
+ 
+     def _reconcile(self, conn: sqlite3.Connection, path: Path) -> None:
+-        """Fail what a previous host process left unfinished.
++        """Reconcile what a previous host process left unfinished.
+ 
+-        Nobody is working on those commissions any more. A blocked one stays
+-        blocked, and a deferred one stays as it is: until its deadline its
++        Nobody is working on those commissions any more. A report-style
++        question is already a durable checkpoint: it stays waiting because a
++        later host can answer it through the existing transcript-tail resume
++        path without replaying work. Other active work is failed. A blocked
++        one stays blocked, and a deferred one stays as it is: until its deadline its
+         plugin's result may still arrive, and past it the task brain's sweep
+         fails it with the same report as when the host kept running.
+         Questions of the failed ones that were never sent are dropped. With a
+@@ -1212,14 +1215,29 @@ class Ledger:
+             ).fetchall()
+             self._unfire(conn, [int(row["id"]) for row in on_its_way], None, "")
+             rows = conn.execute(
+-                "SELECT id FROM commissions WHERE status IN ('queued','working','waiting_user') "
++                "SELECT id, status, pending_question FROM commissions "
++                "WHERE status IN ('queued','working','waiting_user') "
+                 "AND COALESCE(host_instance, '') != ? "
+                 "AND deferred_until IS NULL "
+                 "AND NOT (status = 'working' AND resting_since IS NOT NULL)",
+                 (self.instance,),
+             ).fetchall()
++            failed_rows = 0
+             for row in rows:
++                if row["status"] == "waiting_user":
++                    try:
++                        question = json.loads(row["pending_question"] or "")
++                    except (TypeError, ValueError):
++                        question = None
++                    if isinstance(question, dict) and question.get("kind") == "report":
++                        # Its run is already at a durable user checkpoint.
++                        # The new host owns it only when the answer moves it
++                        # back to working; until then the native question/outbox
++                        # and transcript remain exactly as the old host left them.
++                        continue
+                 moved = self._transition(conn, row["id"], "failed", HOST_ENDED_REASON, {})
++                if moved.applied:
++                    failed_rows += 1
+                 if moved.applied and moved.commission is not None and self._reconcile_report is not None:
+                     report = self._reconcile_report(moved.commission)
+                     if report is not None:
+@@ -1241,8 +1259,8 @@ class Ledger:
+             with self._stop_note_lock:
+                 if self._stop_owed(path) == owed:
+                     self._forget_stop_owed(path)
+-        if rows:
+-            logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", len(rows))
++        if failed_rows:
++            logger.info("ledger: %d unfinished commission(s) of an earlier run marked failed", failed_rows)
+ 
+     # -- a stop of everything that could not be written ---------------------
+     #

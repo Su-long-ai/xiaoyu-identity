@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKOPOWER_EFFECT_STATE_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "fac795091e33cd92a6604d14ac242510944badac",
+  "source_managed_patch": "0011-execution-outbox-effect-state.patch",
+  "problem": "Migrate the already-proven 0011 durable delivery effect-state contract from c3 NekoClaw to latest fac795 NekoPower without adding a second ledger/outbox or changing Stable.",
+  "reuse_result": {
+    "mechanical_port": "Changing host paths nekoclaw/host -> nekopower/host and wire prefix nekoclaw -> nekopower applies every ledger hunk and all outbox behavior hunks; only the outbox import-context hunk needs a thin rebase because upstream renamed the package.",
+    "files_changed": [
+      "nekopower/host/ledger.py",
+      "nekopower/host/outbox.py"
+    ],
+    "new_authority": "none",
+    "new_storage": "none",
+    "stable_verifier": "PASS on current c3 patched Stable with default nekoclaw mode",
+    "candidate_verifier": "PASS on fac795 candidate with --host-package nekopower --wire-prefix nekopower"
+  },
+  "selected": "Reuse the existing 0011 implementation and the same verifier contract, rebased only onto NekoPower module paths/import context.",
+  "forbidden": [
+    "new effect database",
+    "new outbox",
+    "copying NekoPower runtime into XiaoYu",
+    "changing Stable 0011 in this candidate unit",
+    "changing NEKO_UPSTREAM.lock.json"
+  ],
+  "acceptance": [
+    "exact fac795 candidate only",
+    "patch touches only NekoPower ledger/outbox equivalents",
+    "existing effect-state verifier passes unchanged in semantics on c3 Stable",
+    "same verifier passes on fac795 NekoPower using only host-package/wire-prefix parameters",
+    "no product pin or Stable patch series mutation"
+  ],
+  "retirement_condition": "Delete this candidate after a NekoPower product pin is promoted and this one-for-one replacement becomes the managed effect-state patch, or when upstream N.E.K.O supplies equivalent handoff/claim/uncertain/sent semantics natively.",
+  "formal_candidate": {
+    "patch": "candidates/execution_plane/nekopower_outbox_effect_state.patch",
+    "mechanical_diff": {
+      "ledger": "+183/-11",
+      "outbox": "+56/-9",
+      "files": 2
+    },
+    "clean_fac795_apply_check": "PASS",
+    "clean_fac795_py_compile": "PASS",
+    "stable_c3_verifier": "PASS",
+    "fac795_nekopower_verifier": "PASS",
+    "verifier": "tools/verify_execution_effect_state_candidate.py",
+    "verifier_reuse": "same behavior contract; only --host-package and --wire-prefix select the native package namespace"
+  }
+}

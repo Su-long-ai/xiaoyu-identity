@@ -91,6 +91,7 @@ jobs:
             private_overlay.tests.test_companion_performance_budget \
             private_overlay.tests.test_run_companion_performance_gate \
             private_overlay.tests.test_probe_neko_d90_voice_promotion \
+            private_overlay.tests.test_probe_neko_fac795_execution_migration \
             private_overlay.tests.test_companion_runtime_soak \
             private_overlay.tests.test_probe_neko_runtime_health \
             private_overlay.tests.test_release_readiness \
@@ -159,6 +160,140 @@ jobs:
             --candidate-root "$GITHUB_WORKSPACE/_neko_voice_candidate" \
             --result-path "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
           cat "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
+
+      - name: Checkout fixed a0bb NekoPower execution migration candidate
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        uses: actions/checkout@v4
+        with:
+          repository: Project-N-E-K-O/N.E.K.O
+          ref: a0bb66f47fd097cc21f18d75e4c72c90489a903f
+          path: _neko_execution_migration_candidate
+          fetch-depth: 1
+
+      - name: Verify a0bb native Voice and ASR upgrade seams
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          mapfile -t VOICE_NATIVE_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import NATIVE_TESTS; [print(item) for item in NATIVE_TESTS]')
+          test "${#VOICE_NATIVE_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
+          python -m pip install -q uv
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_NATIVE_TESTS[@]}"
+
+      - name: Rebuild a0bb managed execution migration stack
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          test "$(git -C _neko_execution_migration_candidate rev-parse HEAD)" = "a0bb66f47fd097cc21f18d75e4c72c90489a903f"
+          mapfile -t XIAOYU_PREFIX < <(python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); [print(item["file"]) for item in data["patches"][:9]]' "$GITHUB_WORKSPACE/private_overlay/patches/series.json")
+          test "${#XIAOYU_PREFIX[@]}" -eq 9
+          for patch in "${XIAOYU_PREFIX[@]}"; do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/patches/$patch"
+            git -C _neko_execution_migration_candidate apply --check -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply --reverse --check -- "$PATCH_PATH"
+          done
+          for patch in \
+            a0bb_startup_event_loop_responsiveness.patch \
+            nekopower_outbox_effect_state.patch \
+            nekopower_native_delivery_receipt.patch \
+            nekopower_plugin_run_unknown_effect.patch \
+            nekopower_plugin_run_idempotency.patch \
+            nekopower_host_restart_report_wait.patch \
+            nekopower_host_restart_permission_wait.patch \
+            nekopower_host_restart_answer_handoff.patch \
+            nekopower_host_restart_working_uncertain.patch \
+            nekopower_host_restart_durable_queue.patch
+          do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/$patch"
+            git -C _neko_execution_migration_candidate apply --check -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply --reverse --check -- "$PATCH_PATH"
+          done
+          git -C _neko_execution_migration_candidate diff --check
+          python -m py_compile \
+            _neko_execution_migration_candidate/nekopower/host/ledger.py \
+            _neko_execution_migration_candidate/nekopower/host/outbox.py \
+            _neko_execution_migration_candidate/nekopower/host/task_agents.py \
+            _neko_execution_migration_candidate/nekopower/host/service.py \
+            _neko_execution_migration_candidate/app/agent_server/api_runtime.py \
+            _neko_execution_migration_candidate/app/agent_server/nekopower_mount.py \
+            _neko_execution_migration_candidate/app/main_server/character_runtime.py \
+            _neko_execution_migration_candidate/main_logic/agent_event_bus.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py \
+            --neko-root _neko_execution_migration_candidate \
+            --host-package nekopower \
+            --wire-prefix nekopower
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py \
+            --neko-root _neko_execution_migration_candidate \
+            --runtime-name nekopower
+          python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py \
+            --neko-root _neko_execution_migration_candidate \
+            --runtime-name nekopower
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py \
+            --neko-root _neko_execution_migration_candidate
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_idempotency.py \
+            --neko-root _neko_execution_migration_candidate
+          python private_overlay/candidates/execution_plane/prepare_nekopower_restart_candidate_tests.py \
+            --source-dir "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane" \
+            --output-dir "$GITHUB_WORKSPACE/_nekopower_restart_tests"
+          python -m pip install -q uv
+          cd "$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_reopen_preserves_report_wait_and_its_unsent_native_question" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_reopen_still_fails_question_types_without_a_native_resume_continuation[tool]" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_report_wait_candidate.py::test_new_host_answers_preserved_report_wait_at_the_existing_transcript_tail" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_permission_wait_candidate.py" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_answer_handoff_candidate.py" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_working_uncertain_candidate.py" \
+              "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_durable_queue_candidate.py"
+
+      - name: Regress a0bb XiaoYu Voice and Qwen ownership
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          mapfile -t VOICE_PRODUCT_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import PRODUCT_TESTS; [print(item) for item in PRODUCT_TESTS]')
+          test "${#VOICE_PRODUCT_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_PRODUCT_TESTS[@]}"
+
+      - name: Regress migrated NekoPower execution seams
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            --deselect tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait \
+            tests/unit/nekopower/test_host_ledger.py \
+            tests/unit/nekopower/test_host_task_agents.py \
+            tests/unit/nekopower/test_host_delivery.py \
+            tests/unit/nekopower/test_host_plugin_runs.py \
+            tests/unit/nekopower/test_host_gateway.py \
+            tests/unit/nekopower/test_host_task_brain.py \
+            tests/unit/nekopower/test_host_preferences_permissions.py \
+            tests/unit/nekopower/test_execution_audit.py
+
+      - name: Probe a0bb managed core patch retirement
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          python private_overlay/candidates/execution_plane/probe_a0bb_core_patch_retirement.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            --result "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
+          cat "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
+
+      - name: Probe remaining a0bb managed core patch retirement
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          python private_overlay/candidates/execution_plane/probe_a0bb_remaining_core_patch_retirement.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            --current-pin-root "$GITHUB_WORKSPACE/_neko_upstream" \
+            --result "$GITHUB_WORKSPACE/_a0bb_remaining_core_patch_retirement_result.json"
+          cat "$GITHUB_WORKSPACE/_a0bb_remaining_core_patch_retirement_result.json"
 
       - name: Prepare managed N.E.K.O product worktree
         run: |
@@ -531,24 +666,20 @@ jobs:
               raise SystemExit(1)
           PY
 
-      - name: Exercise report-wait host-restart candidate
+      - name: Exercise managed report-wait host-restart continuity
         run: |
-          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
-          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"
           python -m py_compile _neko_product/nekoclaw/host/ledger.py
           cd _neko_product
           PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
             tests/unit/nekoclaw/test_host_ledger.py::test_unfinished_commissions_of_an_earlier_process_fail_on_open \
             tests/unit/nekoclaw/test_host_ledger.py::test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure \
             tests/unit/nekoclaw/test_host_task_agents.py::test_an_answer_after_the_idle_session_was_closed_takes_it_up_again \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py"
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_reopen_preserves_report_wait_and_its_unsent_native_question" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_reopen_still_fails_question_types_without_a_native_resume_continuation[tool]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_report_wait_candidate.py::test_new_host_answers_preserved_report_wait_at_the_existing_transcript_tail"
 
-      - name: Exercise permission-wait host-restart candidate
+      - name: Exercise managed permission and answer host-restart continuity
         run: |
-          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
-          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"
-          git -C _neko_product apply --check "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
-          git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"
           python -m py_compile \
             _neko_product/nekoclaw/host/ledger.py \
             _neko_product/nekoclaw/host/task_agents.py \
@@ -558,8 +689,38 @@ jobs:
             tests/unit/nekoclaw/test_loop_tool_history.py::test_missing_result_gets_synthetic_interruption \
             tests/unit/nekoclaw/test_host_task_agents.py::test_outside_reads_and_their_model_results_share_one_user_answer \
             "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_permission_wait_candidate.py" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py" \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py"
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_answer_handoff_candidate.py" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[blocked-blocked]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[done-done]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-report-waiting_user]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-waiting_user]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-permission-plugin-failed]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-tool-failed]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[waiting-malformed-failed]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_restart_state_matrix[cancelled-from-wait-cancelled]" \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_fault_matrix_candidate.py::test_hard_kill_after_cancel_commit_cannot_revive_old_permission_wait"
+
+      - name: Exercise managed active-working host-restart uncertainty
+        run: |
+          python -m py_compile _neko_product/nekoclaw/host/ledger.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_working_uncertain_candidate.py" \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_blocked_commission_is_taken_up_again_where_it_stopped \
+            tests/unit/nekoclaw/test_host_task_agents.py::test_a_commission_taken_up_before_the_data_root_moved_goes_on_in_the_session_it_had
+
+      - name: Exercise managed durable queue host-restart continuity
+        shell: bash
+        run: |
+          python -m py_compile \
+            _neko_product/nekoclaw/host/ledger.py \
+            _neko_product/nekoclaw/host/task_agents.py \
+            _neko_product/nekoclaw/host/service.py
+          cd _neko_product
+          PYTHONPATH="$GITHUB_WORKSPACE/_neko_product" uv run --project "$GITHUB_WORKSPACE/_neko_upstream" --locked --group dev python -m pytest -q \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/test_host_restart_durable_queue_candidate.py" \
+            tests/unit/nekoclaw/test_host_task_agents.py \
+            -k "durable_queue_candidate or queued_commission or commissions_handed_over_at_once or blocked_commission_can_be_taken_up_again"
 
       - name: Checkout pinned QQ plugin candidate base
         uses: actions/checkout@v4

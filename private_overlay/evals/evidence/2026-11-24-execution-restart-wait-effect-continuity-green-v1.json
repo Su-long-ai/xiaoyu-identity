@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "acceptance_id": "EXECUTION_RESTART_WAIT_EFFECT_CONTINUITY_GREEN_V1",
+  "recorded_at_local": "2026-11-24T01:23:00+08:00",
+  "branch": "agent/execution-continuity-v2",
+  "head_sha": "2fece19ff45b604dc09d4a459df23dd8744ac1f9",
+  "github_actions_run_id": 45225585407,
+  "conclusion": "success",
+  "full_gate": true,
+  "gates": [
+    "gitleaks",
+    "agent product-main freshness",
+    "reuse-first",
+    "architecture freeze",
+    "plugin admission",
+    "overlay contract",
+    "native execution seams",
+    "native dsh optional-runtime crash acceptance",
+    "managed execution patches 0011-0014",
+    "real-ZMQ delivery receipt",
+    "report restart candidate",
+    "permission restart candidate",
+    "restart answer handoff",
+    "hard-kill restart state/outbox/call-audit matrix",
+    "release evidence"
+  ],
+  "restart_candidate_result": "42 passed in 4.34s",
+  "guarantees_observed": [
+    "report and task-agent permission waiting checkpoints survive host restart",
+    "accepted answer survives crash before transcript resume and is consumed on later first-use",
+    "old once/session permission grants are not reconstructed",
+    "stale question ids and late answers after cancellation cannot resume work",
+    "cancelled remains terminal across restart epochs",
+    "outbox handoff before claim is retryable but claimed-without-visible-receipt becomes uncertain and is not replayed",
+    "only exact positive visible receipt can reconcile uncertain delivery to sent",
+    "running host_calls become interrupted while completed call identities remain completed",
+    "plugin ambiguous create/terminal polling and stable idempotency managed patches remain green",
+    "optional dsh unexpected process exits use native session/runtime recovery rather than a private supervisor"
+  ]
+}

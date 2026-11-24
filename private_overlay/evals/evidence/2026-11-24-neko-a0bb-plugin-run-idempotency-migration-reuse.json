@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_A0BB_PLUGIN_RUN_IDEMPOTENCY_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "source_managed_patch": "0014-plugin-run-idempotency.patch",
+  "problem": "Migrate only the host-side 0014 wiring to current NekoPower. The plugin server already owns idempotent run creation; NekoPower PluginRunner still omits the native key and treats ambiguous create outcomes as ordinary failure.",
+  "native_server_reuse": {
+    "run_create_model": {
+      "path": "plugin/_types/models.py",
+      "blob_sha": "a6261d2399e08b252e3529989602f456e2bbbcd5",
+      "observed": "RunCreateRequest.idempotency_key is still native at a0bb"
+    },
+    "run_manager": {
+      "path": "plugin/runs/manager.py",
+      "blob_sha": "abb425fd27683e34b344e434d6df738d42f77191",
+      "observed": "create_or_get_idempotent remains the sole server dedupe primitive"
+    },
+    "native_test": {
+      "path": "plugin/tests/unit/server/test_run_manager_idempotency.py",
+      "blob_sha": "52c61c8fdfdc0cffe6cdcafedff99413a5929af8",
+      "observed": "test_retry_after_lost_response_executes_once remains present"
+    }
+  },
+  "residual_host_gap": [
+    "PluginRunner run body has no idempotency_key",
+    "audit_call.call_id is already reserved before plugin execution but is not sent to the server",
+    "ambiguous transport exception, 5xx and unreadable successful response are not reconciled by same-key retry",
+    "unkeyed calls must not silently gain retry semantics"
+  ],
+  "selected": {
+    "candidate_patch": "candidates/execution_plane/nekopower_plugin_run_idempotency.patch",
+    "changed_files": [
+      "nekopower/host/plugin_runs.py"
+    ],
+    "diff": "+49/-14 in one file",
+    "stable_identity_source": "existing call_audit.Call.call_id",
+    "idempotency_sink": "native RunCreateRequest.idempotency_key",
+    "retry_rule": "at most one retry, only when a non-blank native idempotency key exists, and always with the identical body/key",
+    "ambiguous_retry_classes": [
+      "HTTP 5xx",
+      "transport exception",
+      "2xx response with unreadable JSON"
+    ],
+    "explicit_non_retry": [
+      "4xx/refusal",
+      "unkeyed calls"
+    ],
+    "new_authority": "none"
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "diff_check": "PASS",
+    "dynamic_host_verifier": [
+      "keyed HTTP 503 then success -> two POSTs with identical idempotency_key",
+      "keyed unreadable 2xx then success -> two POSTs",
+      "keyed transport loss then success -> two POSTs",
+      "unkeyed HTTP 503 -> exactly one POST and run_failed"
+    ],
+    "result": "PASS"
+  },
+  "forbidden": [
+    "private idempotency database",
+    "new run store",
+    "new queue or retry daemon",
+    "fresh idempotency key per retry",
+    "retry of unkeyed ambiguous creates",
+    "Stable pin or patch-count mutation in this unit"
+  ],
+  "promotion_ready": false,
+  "conclusion": "A0BB_0014_NATIVE_SERVER_IDEMPOTENCY_WIRING_GREEN_CANDIDATE_ONLY",
+  "retirement_condition": "Delete when NekoPower product promotion makes this the one-for-one 0014 replacement, or when upstream PluginRunner natively forwards a stable host-call idempotency key and safely reconciles ambiguous create outcomes."
+}

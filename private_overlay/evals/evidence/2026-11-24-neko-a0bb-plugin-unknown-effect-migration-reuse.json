@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_A0BB_PLUGIN_UNKNOWN_EFFECT_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "source_managed_patch": "0013-plugin-run-unknown-effect.patch",
+  "problem": "Migrate only the residual 0013 unknown-plugin-effect contract to current NekoPower. Upstream a0bb already marks one outer wait exception as unknown, but repeated HTTP/transport polling failures still become failed and host consumers flatten unknown outcomes into retry-safe failure.",
+  "upstream_native_reuse": {
+    "already_native": [
+      "PluginRunner outer _await_completion exception path already produces status=unknown",
+      "existing PluginRunner/TaskBrain/CapabilityGateway remain the sole plugin execution and reporting seams",
+      "existing call_audit and Ledger remain authority"
+    ],
+    "residual_gaps": [
+      "three consecutive non-200 poll responses return status=failed",
+      "three consecutive poll transport exceptions return status=failed",
+      "RunOutcome reason flattens all unsuccessful terminal states to run_failed",
+      "plugin_terminal_status does not consume outcome.status=unknown",
+      "TaskBrain reports unknown effect as failed",
+      "CapabilityGateway reports unknown effect as ordinary failure, allowing a caller to infer a fresh retry is safe"
+    ]
+  },
+  "selected": {
+    "mechanism": "one-for-one residual port of the already-proven 0013 semantics onto NekoPower host seams",
+    "candidate_patch": "candidates/execution_plane/nekopower_plugin_run_unknown_effect.patch",
+    "changed_files": [
+      "nekopower/host/plugin_runs.py",
+      "nekopower/host/task_brain.py",
+      "nekopower/host/gateway.py"
+    ],
+    "diff": "+67/-19 across three files",
+    "new_authority": "none",
+    "no_server_change": true
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "diff_check": "PASS",
+    "minimal_dynamic_verifier": [
+      "plugin_terminal_status(False, None, run_status='unknown') == blocked",
+      "three repeated HTTP 503 polls return status=unknown, success=false, lost=true",
+      "gateway contains explicit do-not-repeat uncertain-effect response",
+      "task brain reports uncertain effect as blocked rather than failed"
+    ],
+    "result": "PASS",
+    "upstream_fixture_note": "The current a0bb tests/unit/nekopower/plugin_server_fake.py imports removed plugin.core.state while plugin/core contains only communication.py, so the old full fake-plugin candidate test is not used as promotion evidence for this unit.",
+    "formal_verifier": "candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py",
+    "formal_verifier_result": "PASS on clean a0bb 0001-0012 migration baseline"
+  },
+  "forbidden": [
+    "second plugin runner",
+    "new effect database",
+    "new retry scheduler",
+    "plugin-server protocol fork",
+    "automatic retry of an outcome whose effect is unknown",
+    "Stable pin or managed patch-count mutation in this unit"
+  ],
+  "promotion_ready": false,
+  "conclusion": "A0BB_0013_RESIDUAL_UNKNOWN_EFFECT_PORT_GREEN_CANDIDATE_ONLY",
+  "next_boundary": "Evaluate 0014 idempotent run creation separately against a0bb native plugin-server behavior; do not bundle it into this patch.",
+  "retirement_condition": "Delete this candidate when a NekoPower product pin is promoted and this becomes the one-for-one managed 0013 replacement, or when upstream N.E.K.O natively preserves unknown plugin effects through polling, terminal classification, task reports and gateway output."
+}

@@ -7,7 +7,7 @@
   "persona_storage_authority": "neko_native",
   "evolution_authority": "neko_native",
   "task_authority": "neko_native",
-  "core_patch_budget": 14,
+  "core_patch_budget": 19,
   "allow_dual_write": false,
-  "core_patch_budget_reason": "Base managed patch budget remains 10. Four additional blocker-backed correctness exceptions are explicitly admitted by governance/core_patch_correctness_exceptions_v1.json: durable task-result effect state + exact main-process receipt/restart reconciliation, and plugin unknown-effect + idempotent run creation. Host-restart report/permission continuity remains candidate-only because it does not close the full active-commission blocker."
+  "core_patch_budget_reason": "Base managed patch budget remains 10. Nine blocker-backed correctness exceptions are explicitly enumerated: 0011-0014 effect/delivery/plugin correctness plus 0015-0019 full host-restart report/permission/answer/working/queue continuity. The five restart exceptions were promoted only after the parent restart blocker closed under full machine acceptance; each keeps an independent retirement condition."
 }

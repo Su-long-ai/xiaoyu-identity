@@ -1,0 +1,630 @@
+diff --git a/nekopower/host/ledger.py b/nekopower/host/ledger.py
+index ec73859d..2614af3f 100644
+--- a/nekopower/host/ledger.py
++++ b/nekopower/host/ledger.py
+@@ -1163,8 +1163,10 @@ class Ledger:
+         Nobody is working on those commissions any more. A report-style
+         question, and a task-agent permission question that is still before
+         its protected effect, are durable checkpoints: they stay waiting so a
+-        later host can resume the existing transcript without replaying work.
+-        Other active work is failed. A blocked one stays blocked, and a
++        later host can resume the existing transcript without replaying work. A
++        task-agent commission already queued also stays queued: it has not
++        started an effect, and TaskAgentManager reconstructs it from durable
++        queue provenance. Other active work is failed. A blocked one stays blocked, and a
+         deferred one stays as it is: until its deadline its
+         plugin's result may still arrive, and past it the task brain's sweep
+         fails it with the same report as when the host kept running.
+@@ -1231,6 +1233,11 @@ class Ledger:
+             failed_rows = 0
+             blocked_rows = 0
+             for row in rows:
++                if row["status"] == "queued" and row["route"] == "task_agent":
++                    # No effect has started. Keep the durable row for
++                    # TaskAgentManager to reconstruct through the native queue;
++                    # unsupported/missing continuation provenance blocks there.
++                    continue
+                 if row["status"] == "waiting_user":
+                     try:
+                         question = json.loads(row["pending_question"] or "")
+diff --git a/nekopower/host/service.py b/nekopower/host/service.py
+index 92c21864..d1aeb717 100644
+--- a/nekopower/host/service.py
++++ b/nekopower/host/service.py
+@@ -399,6 +399,7 @@ class NekoPowerHost:
+         self.outbox.kick()
+         self.wakes.kick()
+         self.task_agents.recover_restart_answers()
++        self.task_agents.recover_restart_queue()
+ 
+     # -- what the main dialogue uses --------------------------------------
+ 
+diff --git a/nekopower/host/task_agents.py b/nekopower/host/task_agents.py
+index c935b7d2..6ab13f9e 100644
+--- a/nekopower/host/task_agents.py
++++ b/nekopower/host/task_agents.py
+@@ -692,6 +692,49 @@ class _Found(str):
+     """
+ 
+ 
++def _queue_text_payload(text: str) -> dict[str, Any]:
++    """Serialize only the provenance N.E.K.O already attaches to queued text."""
++    payload: dict[str, Any] = {"text": str(text), "provenance": "user"}
++    if isinstance(text, _Handed):
++        payload["provenance"] = "handed"
++        payload["wakes"] = list(text.wakes)
++    elif isinstance(text, _Unsaid):
++        payload["provenance"] = "unsaid"
++        payload["recipient"] = text.recipient
++        payload["retried"] = bool(text.retried)
++    elif isinstance(text, _Found):
++        payload["provenance"] = "found"
++    return payload
++
++
++def _queue_text_from_payload(payload: Any) -> str | None:
++    """Rebuild one queued text without flattening its trust provenance."""
++    if not isinstance(payload, dict) or not isinstance(payload.get("text"), str):
++        return None
++    text = payload["text"]
++    provenance = payload.get("provenance", "user")
++    if provenance == "user":
++        return text
++    if provenance == "found":
++        return _Found(text)
++    if provenance == "handed":
++        wakes = payload.get("wakes")
++        if (
++            not isinstance(wakes, list)
++            or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in wakes)
++        ):
++            return None
++        return _Handed(text, wakes)
++    if provenance == "unsaid":
++        recipient = payload.get("recipient")
++        if not isinstance(recipient, str) or not recipient:
++            return None
++        restored = _Unsaid(text, recipient)
++        restored.retried = bool(payload.get("retried", False))
++        return restored
++    return None
++
++
+ def _shows_work_taken(event: dict[str, Any], sent: int) -> bool:
+     """Whether a session event shows the session took everything sent to it.
+ 
+@@ -1116,6 +1159,20 @@ class TaskAgentManager:
+         # What a commission taken up again is told: an addition to a blocked or
+         # failed one, or the answer to one whose waiting session was closed.
+         self._resume: dict[str, str] = {}
++        # Restart-only wake ids that must be re-handed by the native wake ledger
++        # before a recovered queued commission is allowed to start.
++        self._restart_waiting_wakes: dict[str, set[int]] = {}
++        # Primary wake continuations are rebuilt from native wake authority.
++        # Keep them distinct from later notes until every original wake id is
++        # handed back by the restarted host.
++        self._restart_resume_wakes: dict[str, set[int]] = {}
++        self._restart_resume_parts: dict[str, list[_Handed]] = {}
++        # Secondary wake notes keep their original queue-note positions while
++        # native wake authority re-hands the actual text after restart.
++        self._restart_note_wakes: dict[str, list[tuple[int, ...]]] = {}
++        # Pending native wakes are not handed into TaskAgentManager until
++        # durable queued authority has been reconstructed after restart.
++        self._restart_queue_recovered = True
+         # Commissions whose task agent is being started again right now.
+         self._taking_up: set[str] = set()
+         # Commissions whose closed session an answer is taking up again right
+@@ -4196,7 +4253,14 @@ class TaskAgentManager:
+             # session another commission holds: it is next when that one is
+             # over, and those behind it in other sessions go ahead meanwhile.
+             commission_id = next(
+-                (item for item in self._queue if item not in self._sessions and self._session_free_for(item)), None
++                (
++                    item
++                    for item in self._queue
++                    if item not in self._sessions
++                    and item not in self._restart_waiting_wakes
++                    and self._session_free_for(item)
++                ),
++                None,
+             )
+             if commission_id is None:
+                 return
+@@ -5895,7 +5959,14 @@ class TaskAgentManager:
+             parent_id, message, reason="its idle session was closed; a result takes it up again"
+         )
+ 
+-    async def _wake_working(self, parent_id: str, message: str, *, reason: str) -> bool:
++    async def _wake_working(
++        self,
++        parent_id: str,
++        message: str,
++        *,
++        reason: str,
++        before: list[str] | None = None,
++    ) -> bool:
+         """Take up again a commission that is ``working`` with no session open in a runtime, ``message`` its next work.
+ 
+         Such a commission waits for something: for task agents it started
+@@ -5910,6 +5981,17 @@ class TaskAgentManager:
+             starting = parent_id in self._taking_up and (current is None or not current.ready and not current.closing)
+             if parent_id in self._queue or parent_id in self._requeueing or starting:
+                 # Already on its way back: this result goes along with it.
++                for note in before or ():
++                    await self._ledger.append_event(
++                        parent_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
++                await self._ledger.append_event(
++                    parent_id,
++                    "restart_queue_note",
++                    {"note": _queue_text_payload(message)},
++                )
+                 self._notes.setdefault(parent_id, []).append(message)
+                 return True
+             parent = await self._ledger.get(parent_id)
+@@ -5941,10 +6023,34 @@ class TaskAgentManager:
+             return False
+         if (session is not None and not closing_answer) or parent_id in self._queue or parent_id in self._requeueing:
+             # It is on its way back: this goes along with its work.
++            await self._ledger.append_event(
++                parent_id,
++                "restart_queue_note",
++                {"note": _queue_text_payload(message)},
++            )
+             self._notes.setdefault(parent_id, []).append(message)
+             return True
+         self._requeueing.add(parent_id)
+         try:
++            try:
++                for note in before or ():
++                    await self._ledger.append_event(
++                        parent_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
++                await self._ledger.append_event(
++                    parent_id,
++                    "restart_queue_resume",
++                    {"resume": _queue_text_payload(message)},
++                )
++            except Exception:
++                logger.warning(
++                    "persisting queued continuation for commission %s failed",
++                    parent_id,
++                    exc_info=True,
++                )
++                return False
+             moved = await self._ledger.transition(parent_id, "queued", reason=reason)
+         finally:
+             self._requeueing.discard(parent_id)
+@@ -5980,6 +6086,10 @@ class TaskAgentManager:
+         self._notes.pop(commission_id, None)
+         self._carried.pop(commission_id, None)
+         self._resume.pop(commission_id, None)
++        self._restart_waiting_wakes.pop(commission_id, None)
++        self._restart_resume_wakes.pop(commission_id, None)
++        self._restart_resume_parts.pop(commission_id, None)
++        self._restart_note_wakes.pop(commission_id, None)
+         self._prepaid_starts.discard(commission_id)
+         session = self._sessions.get(commission_id)
+         if session is None:
+@@ -6084,8 +6194,8 @@ class TaskAgentManager:
+                 return await self.tell(commission_id, text, still_wanted=still_wanted)
+             # Not started yet, or its session not yet given its work: it goes
+             # along with the work when that is given.
+-            self._notes.setdefault(commission_id, []).append(text)
+             await self._ledger.append_event(commission_id, "told", {"text": text, "queued": True})
++            self._notes.setdefault(commission_id, []).append(text)
+             return True
+         if session is not None and self._runtime_of(session) is not None:
+             if session.closing or commission.status not in ("working", "waiting_user"):
+@@ -6221,6 +6331,11 @@ class TaskAgentManager:
+             # written): it goes along with that one. Queued a second
+             # time, it would take the place of the first sentence, or be
+             # refused and be lost.
++            await self._ledger.append_event(
++                commission_id,
++                "restart_queue_note",
++                {"note": _queue_text_payload(text)},
++            )
+             self._notes.setdefault(commission_id, []).append(text)
+             return True
+         if commission_id in self._taking_up or commission_id in self._requeueing:
+@@ -6244,6 +6359,11 @@ class TaskAgentManager:
+             # An earlier sentence is taking it up again or queueing it right
+             # now: this one goes along with that rather than starting or
+             # queueing a second time, which would then be refused.
++            await self._ledger.append_event(
++                commission_id,
++                "restart_queue_note",
++                {"note": _queue_text_payload(text)},
++            )
+             self._notes.setdefault(commission_id, []).append(text)
+             return True
+         if commission_id not in self._sessions and self._take_place(commission_id):
+@@ -6275,7 +6395,11 @@ class TaskAgentManager:
+         self._new_round_of(commission_id, same_round=same_round, excerpt=excerpt)
+         if from_copy:
+             self._notes.setdefault(commission_id, [])[0:0] = from_copy
+-        queueing = self._spawn(self._requeue(commission_id, text, still_wanted=still_wanted))
++        queueing = self._spawn(
++            self._requeue(
++                commission_id, text, still_wanted=still_wanted, before=from_copy
++            )
++        )
+         self._note_under_way(commission_id, still_wanted, queueing)
+         return await asyncio.shield(queueing)
+ 
+@@ -6340,13 +6464,38 @@ class TaskAgentManager:
+         return under_way[1]
+ 
+     async def _requeue(
+-        self, commission_id: str, text: str, *, still_wanted: Callable[[], bool] | None = None
++        self,
++        commission_id: str,
++        text: str,
++        *,
++        still_wanted: Callable[[], bool] | None = None,
++        before: list[str] | None = None,
+     ) -> bool:
+-        # Marked (by the caller) while the status is written: the old
+-        # session's end meanwhile then keeps the candidate plugins and notes
+-        # for the retry.
++        # Persist the continuation before the queued transition. If the host
++        # dies after the event but before the transition, the orphan event is
++        # ignored; if it dies after the transition, the next host can rebuild
++        # the exact trust-bearing text without a second queue authority.
+         self._requeueing.add(commission_id)
+         try:
++            try:
++                for note in before or ():
++                    await self._ledger.append_event(
++                        commission_id,
++                        "restart_queue_note",
++                        {"note": _queue_text_payload(note)},
++                    )
++                await self._ledger.append_event(
++                    commission_id,
++                    "restart_queue_resume",
++                    {"resume": _queue_text_payload(text)},
++                )
++            except Exception:
++                logger.warning(
++                    "persisting queued continuation for commission %s failed",
++                    commission_id,
++                    exc_info=True,
++                )
++                return False
+             moved = await self._ledger.transition(commission_id, "queued", reason="taken up again; waiting for a place")
+         finally:
+             self._requeueing.discard(commission_id)
+@@ -6567,6 +6716,215 @@ class TaskAgentManager:
+             finally:
+                 self._answering_closed.discard(commission.id)
+ 
++    async def _restart_queue_resume(self, commission_id: str) -> tuple[str | None, bool, list[str]]:
++        """Return the primary continuation and ordered notes for the current queue cycle."""
++        after = 0
++        pending: Any = None
++        have_pending = False
++        pending_notes: list[str] = []
++        found: str | None = None
++        found_notes: list[str] = []
++        requeued = False
++        in_queue = False
++        invalid = False
++        while True:
++            page = await self._ledger.events(commission_id, after=after)
++            for event in page:
++                if event.type == "restart_queue_resume":
++                    pending = event.payload.get("resume")
++                    have_pending = True
++                    continue
++                if event.type == "restart_queue_note":
++                    restored = _queue_text_from_payload(event.payload.get("note"))
++                    if restored is None:
++                        invalid = True
++                    elif in_queue:
++                        found_notes.append(restored)
++                    else:
++                        pending_notes.append(restored)
++                    continue
++                if event.type == "told" and event.payload.get("queued") is True:
++                    text = event.payload.get("text")
++                    if not isinstance(text, str):
++                        invalid = True
++                    elif in_queue:
++                        found_notes.append(text)
++                    else:
++                        pending_notes.append(text)
++                    continue
++                if event.type != "status":
++                    continue
++                if str(event.payload.get("to") or "") == "queued":
++                    requeued = True
++                    in_queue = True
++                    found_notes = list(pending_notes)
++                    pending_notes.clear()
++                    if have_pending:
++                        found = _queue_text_from_payload(pending)
++                        invalid = invalid or found is None
++                    else:
++                        found = None
++                        invalid = True
++                else:
++                    # Anything waiting to become queued belonged to an attempt
++                    # that did not become the current queue epoch.
++                    pending = None
++                    have_pending = False
++                    pending_notes.clear()
++                    found = None
++                    found_notes.clear()
++                    requeued = False
++                    in_queue = False
++                    invalid = False
++                    continue
++                # Resume data is scoped to the queue transition it preceded.
++                pending = None
++                have_pending = False
++            if len(page) < 500:
++                # A commission created queued has no status->queued event.
++                # Its acknowledged queued 'told' inputs are nevertheless part
++                # of the current native queue epoch.
++                if not in_queue and not requeued:
++                    found_notes = list(pending_notes)
++                if invalid:
++                    raise ValueError("durable continuation for the current queue cycle is missing or invalid, or a durable queued note is invalid")
++                return found, requeued, found_notes
++            after = page[-1].seq
++
++    async def _restart_queue_fail_closed(self, commission_id: str, reason: str) -> None:
++        """End queued work that cannot be reconstructed without guessing."""
++        await self._ledger.transition(
++            commission_id,
++            "failed",
++            reason=f"restart queue recovery failed closed: {reason}",
++        )
++        self._restart_waiting_wakes.pop(commission_id, None)
++        self._restart_resume_wakes.pop(commission_id, None)
++        self._restart_resume_parts.pop(commission_id, None)
++        self._restart_note_wakes.pop(commission_id, None)
++        self._resume.pop(commission_id, None)
++        if commission_id in self._queue:
++            self._queue.remove(commission_id)
++
++    def recover_restart_queue(self) -> None:
++        """Reconstruct durable queued authority before native wake hand-over."""
++        if self._closed:
++            return
++        # _first_use has no await between wakes.kick() and this call, so this
++        # closes the gate before the wake task can run while leaving direct
++        # TaskAgentManager use compatible before host startup.
++        self._restart_queue_recovered = False
++
++        async def recover_then_ready() -> None:
++            try:
++                await self._recover_restart_queue()
++            except asyncio.CancelledError:
++                raise
++            except Exception:
++                # A wake may be the primary continuation. Recovery failure
++                # therefore keeps hand-over fail-closed until a later restart.
++                logger.exception("restart queue recovery failed; wake hand-over remains held")
++                return
++            self._restart_queue_recovered = True
++            self._kick_waker()
++
++        self._spawn(recover_then_ready())
++
++    async def _recover_restart_queue(self) -> None:
++        startable = 0
++        for commission in await self._ledger.select(statuses={"queued"}, oldest_first=True):
++            if self._closed:
++                return
++            if commission.route != "task_agent" or commission.id in self._queue or commission.id in self._sessions:
++                continue
++
++            # Re-read after the scan point. A concurrent cancel/stop is
++            # terminal and wins over restart recovery.
++            current = await self._ledger.get(commission.id)
++            if current is None or current.route != "task_agent" or current.status != "queued":
++                continue
++
++            try:
++                resume, requeued, notes = await self._restart_queue_resume(commission.id)
++            except ValueError as exc:
++                await self._restart_queue_fail_closed(commission.id, str(exc))
++                continue
++
++            # Initial queued work may not have received a session yet; native
++            # _know_session gives it the same canonical first session it would
++            # have received without a restart. A re-take must already name the
++            # exact session whose transcript is being continued.
++            if requeued and not current.session_id:
++                await self._restart_queue_fail_closed(
++                    commission.id, "durable session identity is missing for a requeue"
++                )
++                continue
++            if not await self._know_session(commission.id):
++                await self._restart_queue_fail_closed(
++                    commission.id, "native session is unavailable"
++                )
++                continue
++
++            # One last terminality check after session lookup. Nothing is
++            # enqueued if cancellation won in the meantime.
++            current = await self._ledger.get(commission.id)
++            if current is None or current.status != "queued":
++                self._session_of.pop(commission.id, None)
++                continue
++
++            expected_wakes: set[int] = set()
++            note_wake_groups: list[tuple[int, ...]] = []
++            if isinstance(resume, _Handed):
++                expected_wakes.update(resume.wakes)
++            for note in notes:
++                if isinstance(note, _Handed):
++                    group = tuple(note.wakes)
++                    if not group:
++                        await self._restart_queue_fail_closed(
++                            commission.id, "empty wake provenance in queued note"
++                        )
++                        break
++                    expected_wakes.update(group)
++                    note_wake_groups.append(group)
++            else:
++                if expected_wakes:
++                    pending_wakes = {
++                        wake.id
++                        for wake in await self._ledger.wakes_pending(session_id=current.session_id)
++                    }
++                    if not expected_wakes.issubset(pending_wakes):
++                        await self._restart_queue_fail_closed(
++                            commission.id, "wake provenance is no longer pending"
++                        )
++                        continue
++                    self._restart_waiting_wakes[commission.id] = set(expected_wakes)
++
++                if isinstance(resume, _Handed):
++                    self._restart_resume_wakes[commission.id] = set(resume.wakes)
++                    self._restart_resume_parts[commission.id] = []
++                elif resume is not None:
++                    self._resume[commission.id] = resume
++
++                if notes:
++                    rebuilt: list[str] = []
++                    for note in notes:
++                        if isinstance(note, _Handed):
++                            # Empty text is an in-memory position marker only;
++                            # native wake authority supplies the real text.
++                            rebuilt.append(_Handed("", note.wakes))
++                        else:
++                            rebuilt.append(note)
++                    self._notes[commission.id] = rebuilt
++                if note_wake_groups:
++                    self._restart_note_wakes[commission.id] = note_wake_groups
++
++                self._queue.append(commission.id)
++            if commission.id not in self._restart_waiting_wakes:
++                startable += 1
++
++        if startable and not self._closed and len(self._sessions) < self.limit:
++            self._spawn(self._start_next())
++
+     async def _deliver_answer(self, session: _Session, text: str) -> bool:
+         """Give an idle session the answer to its ``waiting`` report as its next work."""
+         commission_id = session.commission_id
+@@ -7529,6 +7887,8 @@ class TaskAgentManager:
+         """
+         from config.nekopower_settings import WAKE_HELD_RETRY_SECONDS
+ 
++        if not self._restart_queue_recovered:
++            return Handover("held", WAKE_HELD_RETRY_SECONDS)
+         ids = [wake.id for wake in wakes]
+         if self._closed or not ids:
+             return Handover("held", WAKE_HELD_RETRY_SECONDS)
+@@ -7589,6 +7949,22 @@ class TaskAgentManager:
+ 
+         ids = [wake.id for wake in wakes]
+         commission_id = commission.id
++        restart_primary = self._restart_resume_wakes.get(commission_id)
++        if restart_primary:
++            # The old host had already made these the primary continuation.
++            # Fire them separately from later wakes so restart cannot demote
++            # the primary work into a note or reorder it behind newer input.
++            primary = [wake for wake in wakes if wake.id in restart_primary]
++            if primary:
++                wakes = primary
++                ids = [wake.id for wake in primary]
++        elif self._restart_note_wakes.get(commission_id):
++            # Re-hand secondary wake notes in their durable queue-note order.
++            expected_note = set(self._restart_note_wakes[commission_id][0])
++            selected = [wake for wake in wakes if wake.id in expected_note]
++            if selected:
++                wakes = selected
++                ids = [wake.id for wake in selected]
+         if commission.status == "waiting_user":
+             # Not in between its question and the answer, and not so that
+             # it gets to work with its question open. It goes once the
+@@ -7707,7 +8083,64 @@ class TaskAgentManager:
+             elif chosen == "along":
+                 # Being started, or waiting for a place: it goes along with
+                 # the work it is about to be given.
+-                self._notes.setdefault(commission_id, []).append(_Handed(text, fired))
++                handed = _Handed(text, fired)
++                primary = self._restart_resume_wakes.get(commission_id)
++                if primary is not None and any(wake_id in primary for wake_id in fired):
++                    parts = self._restart_resume_parts.setdefault(commission_id, [])
++                    parts.append(handed)
++                    primary.difference_update(fired)
++                    if not primary:
++                        all_ids = [wake_id for part in parts for wake_id in part.wakes]
++                        combined = str(parts[0]) if len(parts) == 1 else "\n".join(str(part) for part in parts)
++                        self._resume[commission_id] = _Handed(combined, all_ids)
++                        self._restart_resume_wakes.pop(commission_id, None)
++                        self._restart_resume_parts.pop(commission_id, None)
++                else:
++                    groups = self._restart_note_wakes.get(commission_id)
++                    recovering_note = bool(
++                        groups and any(wake_id in set(groups[0]) for wake_id in fired)
++                    )
++                    if recovering_note:
++                        group = set(groups[0])
++                        notes = self._notes.setdefault(commission_id, [])
++                        index = next(
++                            (
++                                i
++                                for i, note in enumerate(notes)
++                                if isinstance(note, _Handed)
++                                and not str(note)
++                                and set(note.wakes) == group
++                            ),
++                            -1,
++                        )
++                        if index < 0:
++                            raise RuntimeError("restart wake-note placeholder is missing")
++                        remaining = group.difference(fired)
++                        replacement: list[str] = [handed]
++                        if remaining:
++                            replacement.append(_Handed("", sorted(remaining)))
++                            groups[0] = tuple(sorted(remaining))
++                        else:
++                            groups.pop(0)
++                            if not groups:
++                                self._restart_note_wakes.pop(commission_id, None)
++                        notes[index : index + 1] = replacement
++                    else:
++                        await self._ledger.append_event(
++                            commission_id,
++                            "restart_queue_note",
++                            {"note": _queue_text_payload(handed)},
++                        )
++                        self._notes.setdefault(commission_id, []).append(handed)
++                waiting = self._restart_waiting_wakes.get(commission_id)
++                if waiting is not None:
++                    waiting.difference_update(fired)
++                    if not waiting:
++                        self._restart_waiting_wakes.pop(commission_id, None)
++                        # Every required native wake has now been handed once;
++                        # the recovered queue may start with the restored primary.
++                        if self._queue and len(self._sessions) < self.limit:
++                            self._spawn(self._start_next())
+             elif not await self._wake_working(commission_id, _Handed(text, fired), reason=_WOKEN_REASON):
+                 # It rests, or waits for task agents with its session
+                 # closed, and could not be taken up this moment. (The
+@@ -9536,7 +9969,12 @@ class TaskAgentManager:
+         # to that.)
+         for delay in (*REST_LOOK_RETRY_DELAYS, None):
+             try:
+-                woken = await self._wake_working(commission_id, message, reason="handed back by a copy of its session")
++                woken = await self._wake_working(
++                    commission_id,
++                    message,
++                    reason="handed back by a copy of its session",
++                    before=told,
++                )
+                 break
+             except Exception as exc:  # noqa: BLE001 - asked again; the last failure ends the commission
+                 if delay is None:

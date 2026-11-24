@@ -47,7 +47,7 @@ class OverlayContractTests(unittest.TestCase):
         exceptions = [item["file"] for item in exception_policy["exceptions"]]
 
         self.assertLessEqual(base_budget, 10)
-        self.assertLessEqual(exception_budget, 4)
+        self.assertLessEqual(exception_budget, 9)
         self.assertEqual(total_budget, base_budget + exception_budget)
         self.assertEqual(lock["core_patch_budget"], total_budget)
         self.assertLessEqual(len(patches), total_budget)
@@ -60,6 +60,11 @@ class OverlayContractTests(unittest.TestCase):
                 "0012-native-delivery-receipt.patch",
                 "0013-plugin-run-unknown-effect.patch",
                 "0014-plugin-run-idempotency.patch",
+                "0015-host-restart-report-wait.patch",
+                "0016-host-restart-permission-wait.patch",
+                "0017-host-restart-answer-handoff.patch",
+                "0018-host-restart-working-uncertain.patch",
+                "0019-host-restart-durable-queue.patch",
             },
         )
         self.assertTrue(set(exceptions).issubset(set(patch_files)))
@@ -629,13 +634,12 @@ class OverlayContractTests(unittest.TestCase):
         ):
             self.assertIn(required, workflow)
 
-    def test_github_gate_exercises_report_wait_host_restart_candidate(self):
+    def test_github_gate_exercises_managed_report_wait_host_restart(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise report-wait host-restart candidate",
-            "candidates/execution_plane/host_restart_report_wait.patch",
+            "Exercise managed report-wait host-restart continuity",
             "candidates/execution_plane/test_host_restart_report_wait_candidate.py",
             "test_unfinished_commissions_of_an_earlier_process_fail_on_open",
             "test_what_an_earlier_process_left_unfinished_is_reported_with_its_failure",
@@ -644,32 +648,63 @@ class OverlayContractTests(unittest.TestCase):
         for item in required:
             self.assertIn(item, workflow)
 
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertIn(
+            "0015-host-restart-report-wait.patch",
+            {item["file"] for item in series["patches"]},
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_report_wait.patch"',
+            workflow,
+        )
+
         uncertain = workflow.index("Verify managed plugin-run unknown-effect in product worktree")
         regression = workflow.index("Regress managed native Execution Plane")
-        report_wait = workflow.index("Exercise report-wait host-restart candidate")
-        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        report_wait = workflow.index("Exercise managed report-wait host-restart continuity")
+        permission_wait = workflow.index("Exercise managed permission and answer host-restart continuity")
         self.assertLess(uncertain, regression)
         self.assertLess(regression, report_wait)
         self.assertLess(report_wait, permission_wait)
         self.assertNotIn("continue-on-error", workflow[report_wait:permission_wait])
 
-    def test_github_gate_exercises_permission_wait_host_restart_candidate(self):
+    def test_github_gate_exercises_managed_permission_and_answer_host_restart(self):
         workflow = (ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml").read_text(
             encoding="utf-8-sig"
         )
         required = (
-            "Exercise permission-wait host-restart candidate",
-            "candidates/execution_plane/host_restart_permission_wait.patch",
+            "Exercise managed permission and answer host-restart continuity",
             "candidates/execution_plane/test_host_restart_permission_wait_candidate.py",
+            "candidates/execution_plane/test_host_restart_answer_handoff_candidate.py",
             "test_missing_result_gets_synthetic_interruption",
             "test_outside_reads_and_their_model_results_share_one_user_answer",
         )
         for item in required:
             self.assertIn(item, workflow)
 
+        series = json.loads(
+            (ROOT / "patches" / "series.json").read_text(encoding="utf-8-sig")
+        )
+        managed = {item["file"] for item in series["patches"]}
+        self.assertTrue(
+            {
+                "0016-host-restart-permission-wait.patch",
+                "0017-host-restart-answer-handoff.patch",
+            }.issubset(managed)
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_permission_wait.patch"',
+            workflow,
+        )
+        self.assertNotIn(
+            'git -C _neko_product apply "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/host_restart_answer_handoff.patch"',
+            workflow,
+        )
+
         regression = workflow.index("Regress managed native Execution Plane")
-        report_wait = workflow.index("Exercise report-wait host-restart candidate")
-        permission_wait = workflow.index("Exercise permission-wait host-restart candidate")
+        report_wait = workflow.index("Exercise managed report-wait host-restart continuity")
+        permission_wait = workflow.index("Exercise managed permission and answer host-restart continuity")
         qq_checkout = workflow.index("Checkout pinned QQ plugin candidate base")
         self.assertLess(regression, report_wait)
         self.assertLess(report_wait, permission_wait)
@@ -1161,7 +1196,14 @@ class OverlayContractTests(unittest.TestCase):
         self.assertLess(baseline, candidate)
         self.assertLess(candidate, patched)
         self.assertIn("cd _neko_upstream", workflow[baseline:candidate])
-        self.assertIn("cd _neko_product", workflow[patched:workflow.index("Exercise report-wait host-restart candidate")])
+        self.assertIn(
+            "cd _neko_product",
+            workflow[
+                patched:workflow.index(
+                    "Exercise managed report-wait host-restart continuity"
+                )
+            ],
+        )
         self.assertEqual(
             workflow.count('mapfile -t EXECUTION_NATIVE_TESTS < "$RUNNER_TEMP/execution-native-tests.txt"'),
             2,
@@ -1661,6 +1703,207 @@ class OverlayContractTests(unittest.TestCase):
             "probe_native_crash_recovery_gap.py --neko-root _neko_upstream",
             workflow,
         )
+
+    def test_a0bb_execution_migration_stack_is_agent_scoped_and_pinned(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "Checkout fixed a0bb NekoPower execution migration candidate",
+            "Rebuild a0bb managed execution migration stack",
+            "refs/heads/agent/execution-continuity-v2",
+            "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+            "_neko_execution_migration_candidate",
+            "a0bb_startup_event_loop_responsiveness.patch",
+            "nekopower_outbox_effect_state.patch",
+            "nekopower_native_delivery_receipt.patch",
+            "nekopower_plugin_run_unknown_effect.patch",
+            "nekopower_plugin_run_idempotency.patch",
+            "nekopower_host_restart_report_wait.patch",
+            "nekopower_host_restart_permission_wait.patch",
+            "nekopower_host_restart_answer_handoff.patch",
+            "nekopower_host_restart_working_uncertain.patch",
+            "nekopower_host_restart_durable_queue.patch",
+            "prepare_nekopower_restart_candidate_tests.py",
+            "_nekopower_restart_tests",
+            "Verify a0bb native Voice and ASR upgrade seams",
+            "Regress a0bb XiaoYu Voice and Qwen ownership",
+            "probe_neko_d90_voice_promotion import NATIVE_TESTS",
+            "probe_neko_d90_voice_promotion import PRODUCT_TESTS",
+            "Regress migrated NekoPower execution seams",
+            "tests/unit/nekopower/test_host_ledger.py",
+            "tests/unit/nekopower/test_host_task_agents.py",
+            "tests/unit/nekopower/test_host_plugin_runs.py",
+            "tests/unit/nekopower/test_host_gateway.py",
+            "tests/unit/nekopower/test_execution_audit.py",
+            "--deselect tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx",
+            "--deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            "--deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait",
+            "verify_nekopower_plugin_run_unknown_effect.py",
+            "verify_nekopower_plugin_run_idempotency.py",
+            "--host-package nekopower",
+            "--wire-prefix nekopower",
+            "verify_native_delivery_receipt_candidate.py",
+            "verify_native_delivery_receipt_zmq_e2e.py",
+            "--runtime-name nekopower",
+        ):
+            self.assertIn(marker, workflow)
+
+        evidence = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', evidence)
+        self.assertIn('"promotion_ready": false', evidence)
+        self.assertIn("a0bb66f47fd097cc21f18d75e4c72c90489a903f", evidence)
+        self.assertNotIn("NEKO_UPSTREAM.lock.json\").write", evidence)
+
+        unknown_effect = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-plugin-unknown-effect-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', unknown_effect)
+        self.assertIn("nekopower_plugin_run_unknown_effect.patch", unknown_effect)
+        self.assertIn("A0BB_0013_RESIDUAL_UNKNOWN_EFFECT_PORT_GREEN_CANDIDATE_ONLY", unknown_effect)
+
+        idempotency = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', idempotency)
+        self.assertIn("nekopower_plugin_run_idempotency.patch", idempotency)
+        self.assertIn(
+            "A0BB_0014_NATIVE_SERVER_IDEMPOTENCY_WIRING_GREEN_CANDIDATE_ONLY",
+            idempotency,
+        )
+
+        restart = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', restart)
+        self.assertIn(
+            "A0BB_RESTART_STACK_SEMANTIC_MIGRATION_FEASIBLE_CANDIDATE_ONLY",
+            restart,
+        )
+        readiness = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-product-promotion-readiness-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', readiness)
+        self.assertIn('"current_verdict": "NOT_YET_PROMOTABLE"', readiness)
+        self.assertIn("NATIVE_TESTS", readiness)
+        self.assertIn("PRODUCT_TESTS", readiness)
+        self.assertIn("45330926169", readiness)
+        self.assertIn("45331960844", readiness)
+        self.assertIn("766_PASS_3_INTENTIONAL_SUPERSESSIONS", readiness)
+        self.assertIn(
+            "test_call_goes_through_the_same_runs_request_with_ctx",
+            readiness,
+        )
+        self.assertIn(
+            "test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+            readiness,
+        )
+        self.assertIn(
+            "test_unreadable_status_answers_end_the_wait",
+            readiness,
+        )
+
+        for marker in (
+            "nekopower_host_restart_report_wait.patch",
+            "nekopower_host_restart_permission_wait.patch",
+            "nekopower_host_restart_answer_handoff.patch",
+            "nekopower_host_restart_working_uncertain.patch",
+            "nekopower_host_restart_durable_queue.patch",
+            "broad_regression_selection",
+            "tests/unit/nekopower/test_host_ledger.py",
+            "tests/unit/nekopower/test_host_task_agents.py",
+            "tests/unit/nekopower/test_host_plugin_runs.py",
+            "tests/unit/nekopower/test_host_gateway.py",
+            "tests/unit/nekopower/test_execution_audit.py",
+        ):
+            self.assertIn(marker, restart)
+
+    def test_a0bb_core_patch_retirement_probe_is_candidate_only_and_gated(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "Probe a0bb managed core patch retirement",
+            "probe_a0bb_core_patch_retirement.py",
+            "_a0bb_core_patch_retirement_result.json",
+            "Probe remaining a0bb managed core patch retirement",
+            "probe_a0bb_remaining_core_patch_retirement.py",
+            "_a0bb_remaining_core_patch_retirement_result.json",
+            "--current-pin-root \"$GITHUB_WORKSPACE/_neko_upstream\"",
+            "_neko_execution_migration_candidate",
+        ):
+            self.assertIn(marker, workflow)
+
+        probe_path = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "probe_a0bb_core_patch_retirement.py"
+        )
+        probe = probe_path.read_text(encoding="utf-8-sig")
+        for marker in (
+            "0003-qwen38-server-vad-reliability.patch",
+            "0005-latest-character-switch-intent-replay.patch",
+            "0007-private-first-round-tool-route.patch",
+            "0008-qwen-clone-provider-routing.patch",
+            "RETIREMENT_CANDIDATE_REQUIRES_FULL_OMISSION_ACCEPTANCE",
+            "PATCH_STILL_REQUIRED_BY_FOCUSED_ACCEPTANCE",
+            "restored_digest",
+        ):
+            self.assertIn(marker, probe)
+        self.assertNotIn('NEKO_UPSTREAM.lock.json").write', probe)
+        self.assertNotIn('patches/series.json").write', probe)
+
+        remaining_probe = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "probe_a0bb_remaining_core_patch_retirement.py"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "0001-proactive-autostart-idle-gate.patch",
+            "0004-native-ingress-activity-before-backpressure.patch",
+            "0006-private-speech-output-gate.patch",
+            "0009-proactive-interruptibility-gate.patch",
+            "0002-full-chat-native-voice-entry.patch",
+            "NO_NATIVE_SEAM_CHANGE_NOT_RETIREMENT_CANDIDATE",
+            "_neko_core_retirement_prefix_candidate",
+        ):
+            self.assertIn(marker, remaining_probe)
+
+        evidence = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', evidence)
+        self.assertIn("CORE_PATCH_RETIREMENT_BOUND_CLOSED_ZERO_OF_NINE", evidence)
+        self.assertIn("45339071967", evidence)
+        self.assertIn("45341227536", evidence)
+        self.assertIn("d95a77874de70ab9600a4be5b00f50f9f62beba7", evidence)
+        self.assertIn("\"retirement_candidates\": 0", evidence)
+        self.assertIn("0003-qwen38-server-vad-reliability.patch", evidence)
+        self.assertIn("0008-qwen-clone-provider-routing.patch", evidence)
+        self.assertIn("ede4fcd0d93535f65b660bdb34bd787d6315ef01", evidence)
+        self.assertIn("full omission rebuild", evidence.lower())
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_EXECUTION_RESTART_CORRECTNESS_PATCH_BUDGET_DECISION_V2_20261124",
+  "reviewed_at": "2026-11-24",
+  "scope": "Promote the five independently owned host-restart continuity units after the parent restart blocker became fully closed; preserve one patch per retirement boundary and do not bundle to game counts.",
+  "supersedes": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json",
+  "current_product": {
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "managed_patch_count_before": 14,
+    "base_managed_patch_budget": 10,
+    "correctness_exception_count_before": 4,
+    "core_retirement_bound": "0/9 existing core patches retire on a0bb/ede4",
+    "retirement_evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+  },
+  "latest_upstream_refresh": {
+    "sha": "791a42eaf9ca6d604eb0d993213b24b4c689cfaa",
+    "commits_after_ede4": 3,
+    "changed_files": [
+      "config/memory_settings.py",
+      "frontend/plugin-manager/eslint.config.ts",
+      "frontend/plugin-manager/src/i18n/plugin-consent/testing.guard.test.ts",
+      "memory/hybrid_recall.py",
+      "tests/fixtures/plugin_test_ui_context_fixture.py",
+      "tests/unit/test_memory_vector_ops_parity.py"
+    ],
+    "restart_target_overlap": 0,
+    "implication": "No new upstream restart seam invalidates the green c3/a0bb continuity result; external queue/workflow substitution remains a duplicate authority."
+  },
+  "blocker_closed": {
+    "id": "recovery.host_restart_active_commission",
+    "covered_states": [
+      "waiting_user/report",
+      "waiting_user/permission",
+      "accepted-answer handoff",
+      "active working/effect uncertainty",
+      "initial and requeued task-agent queue"
+    ],
+    "safety_invariants": [
+      "no stale permission-grant restoration",
+      "no blind replay of active/unknown effects",
+      "terminal/cancelled commissions never revive",
+      "queue epoch/session identity preserved",
+      "queued provenance persisted exactly once",
+      "native Ledger/TaskAgentManager/PermissionGate/host_calls remain authoritative"
+    ]
+  },
+  "validation": {
+    "branch": "agent/execution-continuity-v2",
+    "head_sha": "617cc324cf835c328e9c9efc903e352db8314c23",
+    "github_actions_run_id": 45344914620,
+    "conclusion": "success",
+    "restart_selection": "report + permission + answer + active-working + durable-queue all green under the full reuse/architecture/plugin/release gate",
+    "durable_queue": "23/23 adapted NekoPower tests and 27-pass combined native queue selection; exactly-once queued provenance regression included",
+    "broad_migration": "766 pass / 3 intentional managed-contract supersessions / 0 unexpected failures on selected NekoPower regression",
+    "full_release_gate": "success"
+  },
+  "governance_decision": {
+    "selected": "Keep the base feature patch budget at 10; expand only the explicitly enumerated correctness-exception budget from 4 to 9 for this now-complete blocker-closing restart group.",
+    "base_budget": 10,
+    "correctness_exception_budget": 9,
+    "total_budget_after_decision": 19,
+    "why_now": "The prior 14-patch decision rejected restart promotion because report/permission continuity was partial. The complete queue/working/answer stack now closes the parent restart blocker with a full green gate, so that premise no longer holds.",
+    "why_not_mega_patch": "Five independent failure modes have independent evidence and retirement conditions; combining them would hide ownership and make future upstream retirement harder.",
+    "why_not_external_workflow_engine": "N.E.K.O already owns durable Ledger, TaskAgentManager queue/session, PermissionGate and host-call effect state. An external engine would duplicate the frozen execution authority.",
+    "why_not_wait_for_natively_absorbed_upstream": "Latest upstream still has no equivalent restart reconstruction; withholding a fully validated correctness fix solely to preserve an obsolete numeric cap reduces product reliability without reducing duplicate-authority risk."
+  },
+  "promoted_patches": [
+    "0015-host-restart-report-wait.patch",
+    "0016-host-restart-permission-wait.patch",
+    "0017-host-restart-answer-handoff.patch",
+    "0018-host-restart-working-uncertain.patch",
+    "0019-host-restart-durable-queue.patch"
+  ],
+  "machine_policy_required": [
+    "all nine correctness exceptions explicitly enumerated",
+    "every exception belongs to a reproduced blocker-closing promotion group",
+    "reuse/architecture/plugin admission gates stay active on ordinary agent pushes",
+    "full release acceptance includes host restart continuity",
+    "NekoPower migration stays candidate-only until a separate upstream pin cutover",
+    "retire each patch independently when upstream supplies equivalent native semantics"
+  ],
+  "rollback": "Remove 0015-0019 from the managed series and host-restart promotion group, restore correctness_exception_budget=4/max=14, and keep the source candidates; no data migration or second authority is introduced.",
+  "retirement_condition": "Shrink exception usage one patch at a time as upstream N.E.K.O absorbs equivalent restart semantics; the nine slots are not entitlement for unrelated features.",
+  "local_managed_19_validation": {
+    "clean_base": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "ordered_patch_replay": "19/19 git apply --check + apply PASS on a fresh detached worktree",
+    "diff_check": "PASS",
+    "compile": [
+      "nekoclaw/host/ledger.py",
+      "nekoclaw/host/task_agents.py",
+      "nekoclaw/host/service.py"
+    ],
+    "report_final_composition": "6 passed",
+    "permission_answer_fail_closed_final_composition": "27 passed",
+    "working_effect_final_composition": "10 passed",
+    "durable_queue_final_composition": "27 passed / 153 deselected native non-targets",
+    "composition_note": "Stage-specific candidate assertions superseded by later promoted semantics are excluded only where the later patch deliberately changes that state: permission waits now survive, active working becomes blocked/uncertain, and queued task-agent work remains reconstructable. Tool/malformed/plugin-permission remain fail-closed; cancellation remains terminal; call identity/effect uncertainty and durable queue provenance are separately asserted."
+  }
+}

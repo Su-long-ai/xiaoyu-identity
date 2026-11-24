@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_FAC795_EXECUTION_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "candidate_pin": "fac795091e33cd92a6604d14ac242510944badac",
+  "problem": "Stable XiaoYu remains on c3 NekoClaw with 14/14 managed patches while latest upstream has moved to NekoPower. Restart continuity is fully green as a dependent c3 candidate stack but cannot be promoted by expanding or bundling core patches. Evaluate a semantic migration to latest NekoPower without changing product authority.",
+  "authority": {
+    "kernel": "N.E.K.O only",
+    "candidate_runtime": "upstream NekoPower at exact fac79509",
+    "product_runtime": "current c3 pin until migration acceptance closes",
+    "forbidden": [
+      "second execution plane",
+      "private queue database",
+      "copying NekoPower into overlay",
+      "blind path-only port of 0011-0014",
+      "product pin mutation in this unit"
+    ]
+  },
+  "observed_latest_upstream": {
+    "branch": "main",
+    "sha": "fac795091e33cd92a6604d14ac242510944badac",
+    "delta_from_d90_commits": 12,
+    "restart_gap": "Ledger._reconcile still marks prior-host queued/working/waiting_user commissions failed; TaskAgentManager _queue/_resume/_notes remain process memory.",
+    "effect_gap": "NekoPower outbox still lacks XiaoYu managed handoff/claim/uncertain/visible-receipt semantics observed in 0011-0012.",
+    "plugin_gap": "NekoPower plugin-run paths still require semantic verification for unknown-effect and idempotent create before 0013-0014 can retire."
+  },
+  "reuse_search": {
+    "L0_authority": "N.E.K.O remains the sole task/session/ledger/plugin/runtime authority.",
+    "L1_current_pin": "Reuse c3 Stable as green paired baseline; do not extend its patch budget.",
+    "L2_latest_upstream": "Select exact fac795 latest NekoPower as migration candidate instead of extending old NekoClaw.",
+    "L3_existing_pinned_external": "Existing QQ/provider/plugin pins remain surfaces only and do not replace execution authority.",
+    "L4_broader_external": "External workflow/reliable-queue engines rejected because they duplicate N.E.K.O commission/session authority.",
+    "L5_thin_integration": "Selected: exact upstream checkout plus machine semantic-gap matrix and existing acceptance reuse; later ports, if any, must modify NekoPower seams narrowly.",
+    "L6_private_implementation": "Rejected: no second execution host, ledger, queue, receipt store, supervisor or scheduler."
+  },
+  "candidate_stages": [
+    "verify exact fac795 checkout and license",
+    "measure managed patch mechanical compatibility without mutating product pin",
+    "probe NekoPower restart/effect/plugin semantics rather than assuming path rename means equivalence",
+    "map existing c3 acceptance tests to NekoPower-native tests/seams",
+    "permit implementation ports only for machine-proven residual gaps"
+  ],
+  "promotion_policy": "CANDIDATE_ONLY. Promotion requires semantic parity for all 14 managed patch contracts plus the green restart stack, and must reduce or at least not expand duplicated authority.",
+  "retirement_condition": "Retire this probe when a newer exact N.E.K.O pin supersedes fac795 for migration, or after a NekoPower pin is promoted with equivalent acceptance and obsolete c3 patch/restart candidates are removed.",
+  "local_probe_2026_11_24": {
+    "candidate_sha": "fac795091e33cd92a6604d14ac242510944badac",
+    "product_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "verdict": "MIGRATION_BLOCKED_RESIDUALS",
+    "promotion_ready": false,
+    "base_patch_replay_ok": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0002-full-chat-native-voice-entry.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0005-latest-character-switch-intent-replay.patch",
+      "0006-private-speech-output-gate.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0009-proactive-interruptibility-gate.patch"
+    ],
+    "base_patch_first_conflict": "0010-startup-event-loop-responsiveness.patch",
+    "semantic_matrix": {
+      "restart": {
+        "prior_host_active_failed": true,
+        "queue_resume_notes_are_process_memory": true,
+        "native_durable_queue_epoch_events": false,
+        "equivalent_to_green_restart_stack": false
+      },
+      "delivery_effect": {
+        "markers": {
+          "delivery_handoff": false,
+          "delivery_claimed": false,
+          "delivery_uncertain": false,
+          "delivery_receipt": false
+        },
+        "equivalent_to_0011_0012": false
+      },
+      "plugin_effect": {
+        "unknown_effect_consumed_explicitly": false,
+        "idempotent_create_key": false,
+        "equivalent_to_0013_0014": false
+      }
+    },
+    "migration_blockers": [
+      {
+        "kind": "base_patch_rebase",
+        "detail": "0010-startup-event-loop-responsiveness.patch"
+      },
+      {
+        "kind": "restart_continuity",
+        "detail": "latest NekoPower is not yet equivalent"
+      },
+      {
+        "kind": "delivery_effect",
+        "detail": "0011-0012 semantics require migration"
+      },
+      {
+        "kind": "plugin_effect",
+        "detail": "0013-0014 semantics require migration"
+      }
+    ]
+  }
+}

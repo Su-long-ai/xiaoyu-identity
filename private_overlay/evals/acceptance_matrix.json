@@ -165,6 +165,13 @@
       "status": "manifest_capability_expansion_fail_closed_pass",
       "evidence": "evals/evidence/2026-11-23-plugin-autostart-capability-floor.json",
       "note": "This is admission drift control, not malicious-plugin sandboxing. N.E.K.O remains the permission/plugin runtime authority; reductions are allowed and manual-only/disabled plugins remain outside autostart admission."
+    },
+    {
+      "id": "execution_host_restart_continuity",
+      "goal": "task-agent report/permission waits, accepted answers, active effect uncertainty and queued continuation survive host restart without stale authority or blind replay",
+      "status": "full_host_restart_report_permission_answer_working_queue_continuity_pass",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "note": "Uses only N.E.K.O Ledger, TaskAgentManager, PermissionGate, native sessions/wakes and host-call/effect state. The five promoted patches are independent correctness exceptions with one-for-one NekoPower migration candidates and explicit retirement conditions."
     }
   ]
 }

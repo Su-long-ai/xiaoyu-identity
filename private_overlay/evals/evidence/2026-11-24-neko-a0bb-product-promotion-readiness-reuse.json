@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_A0BB_PRODUCT_PROMOTION_READINESS_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "current_verdict": "NOT_YET_PROMOTABLE",
+  "problem": "Before changing the Stable N.E.K.O pin, prove the exact current a0bb candidate across both Execution/Restart and the Voice/ASR changes inherited since d90, while keeping all product authority in N.E.K.O and reusing the existing acceptance suites.",
+  "authority": {
+    "runtime": "N.E.K.O only",
+    "voice_and_asr": "N.E.K.O native TTS/realtime/ASR seams plus existing XiaoYu policy patches",
+    "execution": "N.E.K.O NekoPower plus one-for-one managed/candidate migration contracts",
+    "forbidden": [
+      "changing NEKO_UPSTREAM.lock.json before full promotion acceptance",
+      "new voice daemon or transport",
+      "new execution plane or restart runtime",
+      "duplicating existing d90 voice tests",
+      "expanding the 14-patch Stable budget to carry restart candidates"
+    ]
+  },
+  "execution_and_restart_status": {
+    "github_actions_run_id": 45330926169,
+    "remote_commit": "d396272d9096c155d749503881ccc9c211c2030c",
+    "conclusion": "success",
+    "migration_step": "Rebuild a0bb managed execution migration stack",
+    "migration_step_result": "success",
+    "covered": [
+      "0001-0009 unchanged replay",
+      "0010 thin a0bb startup/event-loop rebase",
+      "0011 NekoPower effect-state",
+      "0012 native delivery receipt plus real-ZMQ",
+      "0013 residual unknown plugin effect",
+      "0014 native plugin idempotency wiring",
+      "report/permission/answer restart continuity",
+      "active-working effect uncertainty",
+      "durable queue recovery"
+    ],
+    "downstream_gate": [
+      "patched Companion switch/audio ownership",
+      "native Execution Plane seams",
+      "Agent readiness",
+      "dsh optional-runtime acceptance",
+      "native Execution Plane E2E",
+      "managed execution regression",
+      "QQ delivery/floor and inbound idempotency",
+      "plugin crash-recovery gap probe",
+      "release evidence"
+    ]
+  },
+  "voice_reuse": {
+    "source": "private_overlay/candidates/voice_upgrade/probe_neko_d90_voice_promotion.py",
+    "rationale": "a0bb supersedes d90 and retains the native TTS HTTP pooling/preconnect, Qwen reconnect, realtime connection-generation and ASR lifecycle changes that originally motivated the d90 promotion probe. Reuse its exact test tuples as the single source rather than duplicating a second voice test list.",
+    "native_phase": {
+      "tree": "clean exact a0bb checkout before XiaoYu patch replay",
+      "tests_constant": "NATIVE_TESTS",
+      "purpose": "prove upstream-native preconnect/socket/Qwen-close behavior on the actual candidate pin"
+    },
+    "product_phase": {
+      "tree": "same exact a0bb checkout after 0001-0009, a0bb 0010, NekoPower 0011-0014 and restart migration candidates are applied",
+      "tests_constant": "PRODUCT_TESTS",
+      "purpose": "prove XiaoYu Qwen bundle, TTS handoff, realtime close/reconnect, voice-start ownership, CosyVoice completion and private-speech policy survive the upgrade"
+    }
+  },
+  "broad_execution_regression": {
+    "status": "766_PASS_3_INTENTIONAL_SUPERSESSIONS",
+    "source_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+    "purpose": "run upstream-native tests for the migrated Ledger/TaskAgent/delivery/plugin/gateway/permission/audit seams in a0bb's own locked dev environment"
+  },
+  "promotion_requirements_remaining": [
+    "a0bb upstream-native Voice/ASR suite passes in a clean candidate checkout",
+    "existing XiaoYu patched Voice/Qwen product suite passes on the fully migrated candidate tree",
+    "selected upstream-native NekoPower broad regression passes on the fully migrated candidate tree",
+    "the complete XiaoYu private overlay/release/QQ gate remains green in the same commit",
+    "a separate patch-budget/cutover decision proves how restart continuity remains product-visible without expanding the 14 managed Stable patch budget"
+  ],
+  "next_decision_after_green_tests": "Audit 0001-0009 against a0bb for native equivalence and retire any now-redundant patches before considering a pin cutover. Freed one-for-one slots may solve the restart-continuity budget without mega-patch bundling.",
+  "retirement_condition": "Replace this readiness record with a promotion evidence record only after all listed requirements are green on one exact candidate commit, or supersede it if a newer N.E.K.O pin becomes the promotion target.",
+  "latest_readiness_run": {
+    "github_actions_run_id": 45331960844,
+    "remote_commit": "df987abc8fe7419236f61b6f0555d438115eb5ba",
+    "conclusion": "failure",
+    "successful_layers": [
+      "clean a0bb native Voice/ASR upgrade seams",
+      "full a0bb 0001-0014 plus five-layer restart rebuild",
+      "patched XiaoYu Voice/Qwen ownership"
+    ],
+    "sole_failure_layer": "selected upstream-native NekoPower broad regression",
+    "broad_regression_result": "766 passed / 3 failed",
+    "failure_classification": "all three failures are intentional managed-contract supersessions, not unexpected regressions"
+  },
+  "intentional_upstream_assertion_supersessions": [
+    {
+      "test": "tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx",
+      "old_expectation": "POST /runs body has exactly task_id/plugin_id/entry_id/args",
+      "new_contract": "0014 NekoPower migration adds stable audit call_id as native idempotency_key",
+      "replacement_verifier": "candidates/execution_plane/verify_nekopower_plugin_run_idempotency.py"
+    },
+    {
+      "test": "tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted",
+      "old_expectation": "ambiguous repeated poll failure becomes failed",
+      "new_contract": "0013 preserves ambiguous effect as unknown/blocked so callers cannot infer retry safety",
+      "replacement_verifier": "candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py"
+    },
+    {
+      "test": "tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait",
+      "old_expectation": "ambiguous repeated transport/status failure becomes failed",
+      "new_contract": "0013 preserves ambiguous effect as unknown/blocked",
+      "replacement_verifier": "candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py"
+    }
+  ]
+}

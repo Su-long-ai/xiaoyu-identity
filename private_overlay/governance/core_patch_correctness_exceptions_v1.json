@@ -2,8 +2,8 @@
   "schema_version": 1,
   "policy_id": "XIAOYU_CORE_PATCH_CORRECTNESS_EXCEPTIONS_V1",
   "base_managed_patch_budget": 10,
-  "correctness_exception_budget": 4,
-  "max_managed_patch_budget": 14,
+  "correctness_exception_budget": 9,
+  "max_managed_patch_budget": 19,
   "admission_rule": "Extra managed patches are allowed only when explicitly enumerated here as members of a blocker-closing correctness promotion group with reuse review, machine acceptance, broad integration evidence and retirement condition.",
   "forbidden_uses": [
     "feature expansion without a reproduced blocker",
@@ -51,6 +51,30 @@
       ],
       "broad_regression": "583/583 PASS in six-candidate integration; native plugin-run and server idempotency regressions remain green.",
       "retirement_condition": "Retire each patch independently when upstream N.E.K.O supplies its equivalent unknown-effect or idempotent run-creation behavior."
+    },
+    {
+      "id": "host-restart-continuity-v1",
+      "blockers_closed": [
+        "recovery.host_restart_active_commission",
+        "recovery.host_restart_waiting_user",
+        "recovery.host_restart_queued_commission",
+        "recovery.host_restart_effect_uncertainty"
+      ],
+      "patches": [
+        "0015-host-restart-report-wait.patch",
+        "0016-host-restart-permission-wait.patch",
+        "0017-host-restart-answer-handoff.patch",
+        "0018-host-restart-working-uncertain.patch",
+        "0019-host-restart-durable-queue.patch"
+      ],
+      "evidence": [
+        "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+        "evals/evidence/2026-11-24-execution-restart-wait-effect-continuity-green-v1.json",
+        "evals/evidence/2026-11-24-host-restart-working-uncertain-reuse.json",
+        "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
+      ],
+      "broad_regression": "Full agent gate 45344914620 PASS; c3 restart stack and a0bb one-for-one migration are green, with selected NekoPower regression 766 pass / 3 intentional supersessions / 0 unexpected failures.",
+      "retirement_condition": "Retire each restart patch independently when upstream N.E.K.O supplies its equivalent native semantics; do not preserve the group count after native absorption."
     }
   ],
   "exceptions": [
@@ -85,11 +109,54 @@
       "group": "plugin-effect-safety-v1",
       "evidence": "evals/evidence/2026-11-23-plugin-run-idempotency-reuse.json",
       "retirement_condition": "Retire when upstream N.E.K.O PluginRunner natively consumes stable run idempotency keys and safely retries ambiguous create outcomes."
+    },
+    {
+      "file": "0015-host-restart-report-wait.patch",
+      "source_candidate": "candidates/execution_plane/host_restart_report_wait.patch",
+      "reuse_review_id": "patch:0015-host-restart-report-wait.patch",
+      "group": "host-restart-continuity-v1",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Retire when upstream preserves report-style waiting_user commissions across restart with durable question and transcript-tail resume semantics."
+    },
+    {
+      "file": "0016-host-restart-permission-wait.patch",
+      "source_candidate": "candidates/execution_plane/host_restart_permission_wait.patch",
+      "reuse_review_id": "patch:0016-host-restart-permission-wait.patch",
+      "group": "host-restart-continuity-v1",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Retire when upstream preserves permission waits across restart without restoring stale grants and rechecks current PermissionGate before effects."
+    },
+    {
+      "file": "0017-host-restart-answer-handoff.patch",
+      "source_candidate": "candidates/execution_plane/host_restart_answer_handoff.patch",
+      "reuse_review_id": "patch:0017-host-restart-answer-handoff.patch",
+      "group": "host-restart-continuity-v1",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Retire when upstream durably consumes accepted report/permission answers across restart with exact question-id and cancellation matching."
+    },
+    {
+      "file": "0018-host-restart-working-uncertain.patch",
+      "source_candidate": "candidates/execution_plane/host_restart_working_uncertain.patch",
+      "reuse_review_id": "patch:0018-host-restart-working-uncertain.patch",
+      "group": "host-restart-continuity-v1",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Retire when upstream natively reconciles prior-host working commissions to interrupted/uncertain without blind effect replay."
+    },
+    {
+      "file": "0019-host-restart-durable-queue.patch",
+      "source_candidate": "candidates/execution_plane/host_restart_durable_queue.patch",
+      "reuse_review_id": "patch:0019-host-restart-durable-queue.patch",
+      "group": "host-restart-continuity-v1",
+      "evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+      "retirement_condition": "Retire when upstream durably reconstructs current queued/requeued task-agent epochs, ordered notes and native wake provenance exactly once."
     }
   ],
   "candidate_only_exclusions": [
-    "candidates/execution_plane/host_restart_report_wait.patch",
-    "candidates/execution_plane/host_restart_permission_wait.patch"
+    "candidates/execution_plane/nekopower_host_restart_report_wait.patch",
+    "candidates/execution_plane/nekopower_host_restart_permission_wait.patch",
+    "candidates/execution_plane/nekopower_host_restart_answer_handoff.patch",
+    "candidates/execution_plane/nekopower_host_restart_working_uncertain.patch",
+    "candidates/execution_plane/nekopower_host_restart_durable_queue.patch"
   ],
-  "decision_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
+  "decision_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
 }
