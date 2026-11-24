@@ -1,0 +1,1267 @@
+diff --git a/app/agent_server/api_runtime.py b/app/agent_server/api_runtime.py
+index 06e9bdddb8a3c35a583f4ccaba58b44a46fe6cd6..23c939774a3d31ad6d121e9fe1b70c588b526956 100644
+--- a/app/agent_server/api_runtime.py
++++ b/app/agent_server/api_runtime.py
+@@ -608,13 +608,16 @@ async def startup():
+         except Exception as e:
+             logger.warning(f"[loop-stall] watchdog start failed: {e}")
+ 
+-    # Install token tracking hooks for this process
++    # Install token tracking hooks for this process. Importing the OpenAI SDK
++    # is expensive on Windows; reuse the same off-loop startup pattern as
++    # main_server so the watchdog/event loop stays responsive.
+     try:
+         from utils.token_tracker import TokenTracker, install_hooks
+-        install_hooks()
+-        TokenTracker.get_instance().start_periodic_save()
++        await asyncio.to_thread(install_hooks)
++        tracker = TokenTracker.get_instance()
++        tracker.start_periodic_save()
+         # Include process in session_start/session_end dimensions to distinguish processes during diagnostics
+-        TokenTracker.get_instance().record_app_start(process="agent_server")
++        tracker.record_app_start(process="agent_server")
+     except Exception as e:
+         logger.warning(f"[Agent] Token tracker init failed: {e}")
+ 
+diff --git a/app/agent_server/plugin_host.py b/app/agent_server/plugin_host.py
+index 0a8ca542c8e1fcafc4a12d93142abe4350fdcfbe..2c325a1cbc679745349b76108d1f5e130292925b 100644
+--- a/app/agent_server/plugin_host.py
++++ b/app/agent_server/plugin_host.py
+@@ -30,9 +30,8 @@ import asyncio
+ import threading
+ from typing import Callable, Dict
+ 
+-import httpx
+-
+ from config import USER_PLUGIN_SERVER_PORT
++from utils.internal_http_client import get_internal_http_client
+ from . import _shared
+ from ._shared import (
+     logger,
+@@ -67,23 +66,26 @@ async def _get_plugin_friendly_name(plugin_id: str) -> str | None:
+     new_cache = {}
+     cache_time = now
+     try:
+-        async with httpx.AsyncClient(timeout=1.0, proxy=None, trust_env=False) as client:
+-            resp = await client.get(f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins")
+-            if resp.status_code == 200:
+-                data = resp.json()
+-                plugins = data.get("plugins", [])
+-                for p in plugins:
+-                    if isinstance(p, dict):
+-                        pid = p.get("id")
+-                        pname = p.get("name")
+-                        if pid and pname:
+-                            new_cache[pid] = pname
+-                        elif pid:
+-                            new_cache[pid] = pid
+-                async with _plugin_name_cache_lock:
+-                    _plugin_name_cache = new_cache
+-                    _plugin_name_cache_time = cache_time
+-                return new_cache.get(plugin_id)
++        client = get_internal_http_client()
++        resp = await client.get(
++            f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins",
++            timeout=1.0,
++        )
++        if resp.status_code == 200:
++            data = resp.json()
++            plugins = data.get("plugins", [])
++            for p in plugins:
++                if isinstance(p, dict):
++                    pid = p.get("id")
++                    pname = p.get("name")
++                    if pid and pname:
++                        new_cache[pid] = pname
++                    elif pid:
++                        new_cache[pid] = pid
++            async with _plugin_name_cache_lock:
++                _plugin_name_cache = new_cache
++                _plugin_name_cache_time = cache_time
++            return new_cache.get(plugin_id)
+     except Exception as e:
+         logger.warning("[AgentServer] Failed to fetch plugin names from port %s: %s", USER_PLUGIN_SERVER_PORT, e)
+ 
+@@ -104,6 +106,20 @@ async def _get_plugin_display_id(plugin_id: str) -> str:
+     return (await _get_plugin_friendly_name(plugin_id)) or plugin_id
+ 
+ 
++def _load_embedded_plugin_server_types():
++    """Load the plugin HTTP stack off the agent event loop.
++
++    The actual server still runs through N.E.K.O's existing isolated plugin
++    thread. This helper only moves first-import filesystem/module work away
++    from the watchdog loop.
++    """
++    from plugin.server.http_app import build_plugin_server_app
++    from plugin.server.infrastructure.mutation_auth import TRUSTED_PROXY_IPS
++    import uvicorn
++
++    return build_plugin_server_app, TRUSTED_PROXY_IPS, uvicorn
++
++
+ async def _start_embedded_user_plugin_server() -> None:
+     """Start the plugin HTTP server in a dedicated thread with its own event loop.
+ 
+@@ -119,9 +135,9 @@ async def _start_embedded_user_plugin_server() -> None:
+         sys.path.insert(1, _plugin_package_root)
+ 
+     try:
+-        from plugin.server.http_app import build_plugin_server_app
+-        from plugin.server.infrastructure.mutation_auth import TRUSTED_PROXY_IPS
+-        import uvicorn
++        build_plugin_server_app, TRUSTED_PROXY_IPS, uvicorn = await asyncio.to_thread(
++            _load_embedded_plugin_server_types
++        )
+     except Exception as exc:
+         raise RuntimeError(f"failed to import embedded user plugin server: {exc}") from exc
+ 
+@@ -270,24 +286,27 @@ async def _ensure_plugin_lifecycle_stopped(
+ async def _fire_user_plugin_capability_check() -> None:
+     """Probe the user plugin server to determine if user_plugin capability is ready."""
+     try:
+-        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0), proxy=None, trust_env=False) as client:
+-            r = await client.get(f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins")
+-            if r.status_code == 200:
+-                data = r.json()
+-                plugins = data.get("plugins", []) if isinstance(data, dict) else []
+-                if plugins:
+-                    _set_capability("user_plugin", True, "")
+-                    logger.debug("[Agent] UserPlugin capability check passed (%d plugins)", len(plugins))
+-                else:
+-                    _set_capability("user_plugin", False, "AGENT_NO_PLUGINS_FOUND")
+-                    logger.debug("[Agent] UserPlugin capability check: no plugins found")
++        client = get_internal_http_client()
++        r = await client.get(
++            f"http://127.0.0.1:{USER_PLUGIN_SERVER_PORT}/plugins",
++            timeout=3.0,
++        )
++        if r.status_code == 200:
++            data = r.json()
++            plugins = data.get("plugins", []) if isinstance(data, dict) else []
++            if plugins:
++                _set_capability("user_plugin", True, "")
++                logger.debug("[Agent] UserPlugin capability check passed (%d plugins)", len(plugins))
+             else:
+-                _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
+-                _get_throttled_logger().warning(
+-                    "user_plugin_capability_check_failed",
+-                    "[Agent] UserPlugin capability check failed: status %s",
+-                    r.status_code,
+-                )
++                _set_capability("user_plugin", False, "AGENT_NO_PLUGINS_FOUND")
++                logger.debug("[Agent] UserPlugin capability check: no plugins found")
++        else:
++            _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
++            _get_throttled_logger().warning(
++                "user_plugin_capability_check_failed",
++                "[Agent] UserPlugin capability check failed: status %s",
++                r.status_code,
++            )
+     except Exception as e:
+         _set_capability("user_plugin", False, "AGENT_PLUGIN_SERVER_ERROR")
+         logger.debug("[Agent] UserPlugin capability check error: %s", e)
+diff --git a/app/main_server/__init__.py b/app/main_server/__init__.py
+index 6f022d588c17e1800e7042503523f7d25700cde4..828df187220cc3fe9389d3fd207091cb1d0270b5 100644
+--- a/app/main_server/__init__.py
++++ b/app/main_server/__init__.py
+@@ -748,7 +748,7 @@ _runtime_startup_init_lock = asyncio.Lock()
+ _runtime_startup_init_completed = False
+ 
+ 
+-from .preload import _background_preload, _sync_preload_modules  # noqa: F401
++from .preload import _background_preload, _sync_preload_modules, _warm_httpx_transport_sync  # noqa: F401
+ 
+ 
+ async def _sync_memory_server_after_startup_import(import_result):
+@@ -1028,6 +1028,11 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+                 except Exception as e:
+                     logger.warning(f"Steam Auto-Cloud startup import failed: {e}")
+ 
++            # Character/session construction can create the process's first
++            # httpx client before the general background preload begins.
++            # Import httpcore and build/close one transport in a worker first so
++            # this one-time cost cannot block the main asyncio loop.
++            await asyncio.to_thread(_warm_httpx_transport_sync)
+             await initialize_character_data()
+             # One-time stable character_uid backfill for existing characters comes after cloudsave bootstrap/
+             # startup imports, whose seed files must remain untouched, and after
+@@ -1079,19 +1084,6 @@ async def _ensure_main_server_runtime_initialized(*, reason: str) -> bool:
+             await _init_and_mount_workshop()
+             _schedule_workshop_sync(steamworks)
+ 
+-            try:
+-                from utils.token_tracker import TokenTracker, install_hooks
+-
+-                install_hooks()
+-                TokenTracker.get_instance().start_periodic_save()
+-                # Distinguish processes in session_start/session_end dimensions for cross-process diagnostics.
+-                TokenTracker.get_instance().record_app_start(process="main_server")
+-                logger.info("Token usage tracker initialized")
+-            except Exception as e:
+-                logger.warning(
+-                    f"Token tracker initialization failed (non-critical): {e}"
+-                )
+-
+             logger.info(
+                 "Startup 初始化完成，后台正在预加载音频模块... (reason=%s)", reason
+             )
+diff --git a/app/main_server/preload.py b/app/main_server/preload.py
+index e50466189227edbedbb2ee676a10a1d90ff72eeb..4e981dcd4d9fb8769da384356e5ab06e10b283c7 100644
+--- a/app/main_server/preload.py
++++ b/app/main_server/preload.py
+@@ -21,6 +21,28 @@ from ._shared import runtime
+ 
+ logger = runtime.logger
+ 
++_httpx_transport_warmed = False
++
++
++def _warm_httpx_transport_sync() -> None:
++    """Warm httpcore + default TLS transport before character startup needs it.
++
++    This function is intentionally synchronous so callers can move the one-time
++    import/SSL work to a worker thread. It owns no persistent HTTP pool.
++    """
++    global _httpx_transport_warmed
++    if _httpx_transport_warmed:
++        return
++
++    import httpx
++
++    async def _warm() -> None:
++        client = httpx.AsyncClient(timeout=1.0, proxy=None, trust_env=False)
++        await client.aclose()
++
++    asyncio.run(_warm())
++    _httpx_transport_warmed = True
++
+ 
+ async def _background_preload():
+     """Preload translation libraries, dashscope, and httpx in the background.
+@@ -37,6 +59,19 @@ async def _background_preload():
+         loop = asyncio.get_running_loop()
+         with concurrent.futures.ThreadPoolExecutor() as pool:
+             await loop.run_in_executor(pool, _sync_preload_modules)
++
++        # start_periodic_save() intentionally runs back on the owning asyncio
++        # loop; only the expensive SDK import/hook installation belongs in the
++        # preload worker.
++        try:
++            from utils.token_tracker import TokenTracker
++
++            tracker = TokenTracker.get_instance()
++            tracker.start_periodic_save()
++            tracker.record_app_start(process="main_server")
++            logger.info("Token usage tracker initialized in background preload")
++        except Exception as e:
++            logger.debug(f"Token tracker async-loop startup failed (non-critical): {e}")
+     except Exception as e:
+         logger.warning(f"⚠️ 翻译与网络模块预加载失败（不影响使用）: {e}")
+ 
+@@ -60,6 +95,17 @@ def _sync_preload_modules():
+ 
+     start = time.time()
+ 
++    # 0. Token tracker hooks. Importing the OpenAI SDK is relatively heavy; do
++    # it in this existing preload worker rather than blocking FastAPI startup.
++    # install_hooks() is process-idempotent and thread-safe.
++    try:
++        from utils.token_tracker import install_hooks
++
++        install_hooks()
++        logger.debug("✅ Token tracker hooks preloaded")
++    except Exception as e:
++        logger.debug(f"⚠️ Token tracker hook preload failed (non-critical): {e}")
++
+     # 1. Translation-service modules (avoid first-conversation latency)
+     try:
+         # Preload translation libraries (googletrans, translatepy, etc.)
+@@ -94,38 +140,20 @@ def _sync_preload_modules():
+     except Exception as e:
+         logger.debug(f"  ✗ dashscope: {e}")
+ 
+-    # 4. Warm the httpx SSL context (the first AsyncClient creation initializes SSL)
++    # 4. Warm page static-asset cache versions off the main event loop.
+     try:
+-        import httpx
+-        import asyncio
+-
+-        async def _warmup_httpx():
+-            # per-call AsyncClient: this is the SSL warmup itself; using a shared client would defeat its purpose
+-            async with httpx.AsyncClient(
+-                timeout=1.0, proxy=None, trust_env=False
+-            ) as client:
+-                # Send a simple request to warm the SSL context
+-                try:
+-                    await client.get("http://127.0.0.1:1", timeout=0.01)
+-                except:  # noqa: E722
+-                    pass  # Failure is expected; this only initializes SSL
+-
+-        # Run on the current thread's event loop, creating a temporary loop if needed
+-        try:
+-            loop = asyncio.get_event_loop()
+-            if loop.is_running():
+-                # Use a thread pool if an event loop is already running
+-                import concurrent.futures
+-
+-                with concurrent.futures.ThreadPoolExecutor() as pool:
+-                    pool.submit(lambda: asyncio.run(_warmup_httpx())).result(
+-                        timeout=2.0
+-                    )
+-            else:
+-                loop.run_until_complete(_warmup_httpx())
+-        except RuntimeError:
+-            asyncio.run(_warmup_httpx())
+-        logger.debug("  ✓ httpx SSL context warmed up")
++        from main_routers.pages_router import warm_asset_version_caches
++
++        warm_asset_version_caches()
++        logger.debug("  ✓ page asset-version caches warmed")
++    except Exception as e:
++        logger.debug(f"  ✗ page asset-version cache warmup: {e}")
++
++    # 5. Reuse the same one-time httpx/httpcore/TLS warmup used before
++    # character startup. This is normally a no-op here after the early warmup.
++    try:
++        _warm_httpx_transport_sync()
++        logger.debug("  ✓ httpx transport warmed up")
+     except Exception as e:
+         logger.debug(f"  ✗ httpx warmup: {e}")
+ 
+diff --git a/app/memory_server/runtime.py b/app/memory_server/runtime.py
+index b0ae5d73362c4b9e72ffd1facd3446d61ce1ffa3..e010e7d9d3332b1a1a0cd2b5adbb5e0b5829a914 100644
+--- a/app/memory_server/runtime.py
++++ b/app/memory_server/runtime.py
+@@ -1209,10 +1209,13 @@ async def ensure_memory_server_runtime_initialized(*, reason: str = "") -> bool:
+         try:
+             from utils.token_tracker import TokenTracker, install_hooks
+ 
+-            install_hooks()
+-            TokenTracker.get_instance().start_periodic_save()
++            # Match main/agent startup: the first OpenAI SDK import is blocking
++            # work and must not run on the memory-server event loop.
++            await asyncio.to_thread(install_hooks)
++            tracker = TokenTracker.get_instance()
++            tracker.start_periodic_save()
+             # process dimension distinguishes session_start/session_end diagnostics across processes.
+-            TokenTracker.get_instance().record_app_start(process="memory_server")
++            tracker.record_app_start(process="memory_server")
+         except Exception as e:
+             logger.warning(f"[Memory] Token tracker init failed: {e}")
+ 
+diff --git a/launcher_core/runtime.py b/launcher_core/runtime.py
+index a9dff947448c63ed563ed33dabafb6fa30b7bef1..0de5d9474c3b8b97794811fbb38749329887f136 100644
+--- a/launcher_core/runtime.py
++++ b/launcher_core/runtime.py
+@@ -153,6 +153,14 @@ SHUTDOWN_MODULE_ORDER = (
+     "agent_server",
+ )
+ MERGED_SERVER_READY_TIMEOUT = 30.0
++# Multi-process startup can legitimately take longer on a cold Windows start
++# because Memory/Main/Agent imports are intentionally staggered. Keep the
++# upstream default unchanged, but expose a product-level budget instead of
++# forcing wrappers to patch launcher timing logic.
++MULTI_SERVER_READY_TIMEOUT = max(
++    1.0,
++    float(os.environ.get("NEKO_SERVER_READY_TIMEOUT_SECONDS", "60")),
++)
+ MERGED_SERVER_READY_POLL_INTERVAL = 0.25
+ MERGED_SERVER_SHUTDOWN_ORDER = ("Main", "Memory", "Agent")
+ # Desktop-owned HTTP work can outlive its connection while the desktop waits
+@@ -3431,7 +3439,7 @@ def main():
+             return 1
+ 
+         # 2. Await the final server's readiness.
+-        wait_result = wait_for_servers()
++        wait_result = wait_for_servers(timeout=MULTI_SERVER_READY_TIMEOUT)
+         if wait_result is not True:
+             if wait_result == STARTUP_WAIT_RESULT_STORAGE_RESTART:
+                 print("\n检测到启动期间触发的存储重启，正在清理当前实例...", flush=True)
+diff --git a/main_logic/client_registration.py b/main_logic/client_registration.py
+index c24382c8ed820a5ee4fa91d4a3dbe99028b678bc..c77be5f560f1049ae371390d4ffe5ac4341f20c8 100644
+--- a/main_logic/client_registration.py
++++ b/main_logic/client_registration.py
+@@ -17,6 +17,8 @@ import logging
+ from urllib.parse import urlparse
+ 
+ import httpx
++from utils.http.external_client import get_external_http_client
++from utils.internal_http_client import get_internal_http_client
+ from utils.social_base import (
+     DEFAULT_SOCIAL_BASE_URL,
+     configured_social_base_url,
+@@ -58,6 +60,15 @@ def proof_transport_allowed(base_url: str) -> bool:
+     return parsed.scheme == "http" and hostname in LOOPBACK_HOSTS
+ 
+ 
++def _registration_http_client(base_url: str) -> httpx.AsyncClient:
++    """Reuse N.E.K.O's existing pooled client that matches the destination."""
++    parsed = urlparse(base_url)
++    hostname = (parsed.hostname or "").lower()
++    if parsed.scheme == "http" and hostname in LOOPBACK_HOSTS:
++        return get_internal_http_client()
++    return get_external_http_client()
++
++
+ def looks_unregistered(status_code: int, detail: object) -> bool:
+     """Whether a cloud rejection is consistent with a missing client row."""
+     if status_code not in (401, 403, 404):
+@@ -118,11 +129,16 @@ async def ensure_client_registered(
+             return True
+         url = f"{base_url}/api/clients/register"
+         try:
+-            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SEC) as client:
+-                response = await client.post(
+-                    url,
+-                    json={"client_id": client_id, "client_proof": client_proof},
+-                )
++            # The shared native HTTP clients are lazy singletons.  Their first
++            # construction can synchronously build a Windows SSLContext, so
++            # resolve the already-authoritative pool off the event loop.
++            client = await asyncio.to_thread(_registration_http_client, base_url)
++            response = await client.post(
++                url,
++                json={"client_id": client_id, "client_proof": client_proof},
++                timeout=HTTP_TIMEOUT_SEC,
++                follow_redirects=False,
++            )
+         except (httpx.HTTPError, OSError) as exc:
+             logger.warning("client_registration: register HTTP failed: %s", exc)
+             return False
+diff --git a/main_logic/core/tts_runtime.py b/main_logic/core/tts_runtime.py
+index f094e02d70d072387ddf9234695fb1114d35bcfd..0213ec6602c78870deeadc9fe3464d76fc84cfe1 100644
+--- a/main_logic/core/tts_runtime.py
++++ b/main_logic/core/tts_runtime.py
+@@ -910,6 +910,10 @@ class TtsRuntimeMixin:
+         )
+         return worker, api_key, route_voice_id, provider_key, False, dict(tts_config or {})
+ 
++    async def _aresolve_tts_worker_spec(self):
++        """Resolve disk-backed TTS routing outside the shared event loop."""
++        return await asyncio.to_thread(self._resolve_tts_worker_spec)
++
+     @staticmethod
+     def _normalize_game_speech_preload_text(clean_text: str, *, normalize_spaces: bool) -> str:
+         # Gated on contains_chinese exactly like normalize_text() below, which
+@@ -1569,7 +1573,12 @@ class TtsRuntimeMixin:
+                 check = None
+             if check:
+                 check()
+-            worker = self._resolve_tts_worker_spec()[0] if hasattr(self, "_config_manager") else None
++            resolved_spec = (
++                await self._aresolve_tts_worker_spec()
++                if hasattr(self, "_config_manager")
++                else None
++            )
++            worker = resolved_spec[0] if resolved_spec is not None else None
+             try:
+                 await self._wait_tts_capacity(
+                     asyncio.get_running_loop().time() if recovering else deadline,
+@@ -1594,7 +1603,8 @@ class TtsRuntimeMixin:
+                 self._start_tts_thread(
+                     preserve_provider_exclusions=bool(
+                         getattr(self, "_tts_excluded_provider_keys", frozenset())
+-                    )
++                    ),
++                    resolved_spec=resolved_spec,
+                 )
+             except TtsCapacityError:
+                 if not recovering:
+@@ -1658,7 +1668,12 @@ class TtsRuntimeMixin:
+         local_base_url = str((tts_config or {}).get("base_url") or "").strip().lower()
+         return local_base_url.startswith(("ws://", "wss://"))
+ 
+-    def _start_tts_thread(self, *, preserve_provider_exclusions: bool = False):
++    def _start_tts_thread(
++        self,
++        *,
++        preserve_provider_exclusions: bool = False,
++        resolved_spec=None,
++    ):
+         """Create and start the TTS worker thread.
+ 
+         Selects the worker by voice_id / core_api_type, resolves the api_key,
+@@ -1688,7 +1703,7 @@ class TtsRuntimeMixin:
+ 
+         # Check whether TTS is disabled.
+         tts_worker, api_key, route_voice_id, provider_key, disabled, tts_config = (
+-            self._resolve_tts_worker_spec()
++            resolved_spec if resolved_spec is not None else self._resolve_tts_worker_spec()
+         )
+         if self._live_tts_runtime_count() >= self._tts_capacity_limit(tts_worker):
+             self._tts_capacity_exhausted = True
+diff --git a/main_routers/agent_router.py b/main_routers/agent_router.py
+index f7f60663168533e01bad120651950d7bc9a41f58..46ceed8a77ea0fe52073a4e51bbd8c085cf5621f 100644
+--- a/main_routers/agent_router.py
++++ b/main_routers/agent_router.py
+@@ -42,11 +42,11 @@ from .shared_state import get_session_manager, get_config_manager
+ from config import TOOL_SERVER_PORT, USER_PLUGIN_BASE
+ from main_logic.activity.system_signals import is_remote_backend_deployment
+ from utils.desktop_capture import native_wayland_capture_available
++from utils.internal_http_client import get_internal_http_client
+ 
+ router = APIRouter(prefix="/api/agent", tags=["agent"])
+ logger = get_module_logger(__name__, "Main")
+ TOOL_SERVER_BASE = f"http://127.0.0.1:{TOOL_SERVER_PORT}"
+-_HTTP_CLIENT: httpx.AsyncClient | None = None
+ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ _USER_PLUGIN_DEFAULT_BASE = "http://127.0.0.1:48916"
+ _USER_PLUGIN_BASE_CACHE: tuple[str, float] = ("", 0.0)
+@@ -248,31 +248,13 @@ async def _resolve_user_plugin_base() -> str:
+ 
+ 
+ def _get_http_client() -> httpx.AsyncClient:
+-    global _HTTP_CLIENT
+-    if _HTTP_CLIENT is None:
+-        _HTTP_CLIENT = httpx.AsyncClient(
+-            timeout=httpx.Timeout(2.5, connect=0.5),
+-            limits=httpx.Limits(max_connections=64, max_keepalive_connections=16),
+-            proxy=None,
+-            trust_env=False,
+-        )
+-    return _HTTP_CLIENT
+-
++    """Reuse N.E.K.O's loop-local client for internal loopback services.
+ 
+-@router.on_event("shutdown")
+-async def _close_http_client():
+-    global _HTTP_CLIENT
+-    if _HTTP_CLIENT is not None:
+-        # Connection-close failures must not abort shutdown: this handler participates in the merged lifespan chain,
+-        # so propagating an exception would skip every later router's cleanup. A common cause is a client created on another
+-        # already-closed event loop (aclose calls call_soon on that loop). Regardless of outcome,
+-        # clear the reference so the next startup recreates it on the current loop.
+-        try:
+-            await _HTTP_CLIENT.aclose()
+-        except Exception as exc:
+-            logger.warning(f"关闭 agent_router HTTP client 失败，继续收尾: {exc}")
+-        finally:
+-            _HTTP_CLIENT = None
++    All routes in this module target tool_server or user_plugin_server on
++    127.0.0.1. The shared internal client already owns loop-local pooling and
++    avoids constructing an unnecessary SSLContext for plain HTTP.
++    """
++    return get_internal_http_client()
+ 
+ 
+ @router.post('/flags')
+diff --git a/main_routers/characters_router/live2d_models.py b/main_routers/characters_router/live2d_models.py
+index 1478ba206092cf38326d3765781f29826b052efa..e5b4a398d74c5a922b2b24bfdcb8ce24c2f5d6e2 100644
+--- a/main_routers/characters_router/live2d_models.py
++++ b/main_routers/characters_router/live2d_models.py
+@@ -53,6 +53,11 @@ from config import (
+ )
+ 
+ 
++async def _find_models_async():
++    """Run filesystem-heavy Live2D catalog discovery off the event loop."""
++    return await asyncio.to_thread(find_models)
++
++
+ async def _finish_catgirl_runtime_refresh(
+     name: str,
+     *,
+@@ -391,13 +396,23 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+         saved_model_path = ""
+         saved_asset_source = ""
+         saved_item_id = ""
++        _request_model_catalog = None
++
++        async def _get_request_model_catalog():
++            # find_models() walks several filesystem roots. One page-config
++            # request used to repeat that scan along multiple resolution
++            # branches; resolve it once per request and keep the I/O off-loop.
++            nonlocal _request_model_catalog
++            if _request_model_catalog is None:
++                _request_model_catalog = await _find_models_async()
++            return _request_model_catalog
+ 
+         # First try to find the model by item_id.
+         if item_id:
+             try:
+                 logger.debug(f"尝试通过item_id {item_id} 查找模型")
+                 # Get all models.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+                 # Find the model matching item_id.
+                 matching_model = next((m for m in all_models if m.get('item_id') == item_id), None)
+ 
+@@ -442,7 +457,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+                     logger.debug(f"发现角色 {catgirl_name} 保存的item_id: {saved_item_id}")
+                     try:
+                         # Try to find the model using the saved item_id.
+-                        all_models = find_models()
++                        all_models = await _get_request_model_catalog()
+                         matching_model = _find_live2d_model_catalog_entry(
+                             all_models,
+                             model_name=live2d_model_name,
+@@ -461,7 +476,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+         if live2d_model_name:
+             try:
+                 # Search the full model list first to get complete information, including item_id.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+ 
+                 # Also get the Workshop model list to make sure Workshop models can be found.
+                 try:
+@@ -580,7 +595,7 @@ async def get_current_live2d_model(catgirl_name: str = "", item_id: str = ""):
+             live2d_model_name = DEFAULT_LIVE2D_MODEL_NAME
+             try:
+                 # Search the full list for a built-in/static default model first to avoid accidentally matching a user or Workshop model with the same name.
+-                all_models = find_models()
++                all_models = await _get_request_model_catalog()
+                 matching_model = next(
+                     (
+                         m for m in all_models
+diff --git a/main_routers/pages_router.py b/main_routers/pages_router.py
+index 0abc2d87bbe1769b7c22a2fabe49f340c7cd5192..9b14876bce6468ab8446f8f0ca46e198e0057a61 100644
+--- a/main_routers/pages_router.py
++++ b/main_routers/pages_router.py
+@@ -28,6 +28,7 @@ enforced by ``scripts/check_api_trailing_slash.py``.
+ """  # noqa: DOCSTRING_CJK
+ 
+ import re
++import threading
+ import time
+ import urllib.parse
+ from pathlib import Path
+@@ -207,6 +208,58 @@ _AIR_BASKETBALL_ASSET_VERSION_PATHS = tuple(sorted(
+ ))
+ _AIR_BASKETBALL_ASSET_CACHE_TTL = 30.0
+ _air_basketball_asset_version_cache: tuple[float, str] = (0.0, "0")
++_asset_version_refresh_lock = threading.Lock()
++_asset_version_refreshing: set[str] = set()
++
++
++def _set_asset_version_cache(cache_name: str, version: str) -> None:
++    globals()[cache_name] = (time.monotonic(), version)
++
++
++def _schedule_asset_version_refresh(
++    key: str,
++    cache_name: str,
++    paths,
++    version_builder,
++) -> None:
++    """Refresh one expired asset-version cache without blocking a page request."""
++    with _asset_version_refresh_lock:
++        if key in _asset_version_refreshing:
++            return
++        _asset_version_refreshing.add(key)
++
++    def _worker() -> None:
++        try:
++            latest = _latest_asset_mtime(paths)
++            _set_asset_version_cache(cache_name, version_builder(latest))
++        finally:
++            with _asset_version_refresh_lock:
++                _asset_version_refreshing.discard(key)
++
++    threading.Thread(
++        target=_worker,
++        name=f"AssetVersionRefresh-{key}",
++        daemon=True,
++    ).start()
++
++
++def warm_asset_version_caches() -> None:
++    """Populate page asset-version caches; intended for the existing preload worker."""
++    from config import APP_VERSION
++
++    _set_asset_version_cache(
++        "_static_asset_version_cache",
++        f"{APP_VERSION}-{_latest_asset_mtime(_YUI_GUIDE_ASSET_VERSION_PATHS) or 0}",
++    )
++    _set_asset_version_cache(
++        "_react_chat_asset_version_cache",
++        str(_latest_asset_mtime(_REACT_CHAT_ASSET_VERSION_PATHS) or 0),
++    )
++    _set_asset_version_cache(
++        "_air_basketball_asset_version_cache",
++        str(_latest_asset_mtime(_AIR_BASKETBALL_ASSET_VERSION_PATHS) or 0),
++    )
++
+ 
+ 
+ def _vrm_defaults_ctx() -> dict:
+@@ -225,6 +278,16 @@ def _static_assets_ctx() -> dict:
+     if now - cached_at < _STATIC_ASSET_CACHE_TTL:
+         return {"static_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "static",
++            "_static_asset_version_cache",
++            _YUI_GUIDE_ASSET_VERSION_PATHS,
++            lambda latest: f"{APP_VERSION}-{latest or 0}",
++        )
++        return {"static_asset_version": cached_version}
++
++    # Fail-safe for unusual direct imports that bypass the normal preload.
+     latest_mtime = _latest_asset_mtime(_YUI_GUIDE_ASSET_VERSION_PATHS)
+     version = f"{APP_VERSION}-{latest_mtime or 0}"
+     _static_asset_version_cache = (now, version)
+@@ -249,6 +312,15 @@ def _react_chat_assets_ctx() -> dict:
+     if now - cached_at < _REACT_CHAT_ASSET_CACHE_TTL:
+         return {"react_chat_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "react-chat",
++            "_react_chat_asset_version_cache",
++            _REACT_CHAT_ASSET_VERSION_PATHS,
++            lambda latest: str(latest or 0),
++        )
++        return {"react_chat_asset_version": cached_version}
++
+     version = str(_latest_asset_mtime(_REACT_CHAT_ASSET_VERSION_PATHS) or 0)
+     _react_chat_asset_version_cache = (now, version)
+     return {"react_chat_asset_version": version}
+@@ -262,6 +334,15 @@ def _air_basketball_assets_ctx() -> dict:
+     if now - cached_at < _AIR_BASKETBALL_ASSET_CACHE_TTL:
+         return {"air_basketball_asset_version": cached_version}
+ 
++    if cached_version != "0":
++        _schedule_asset_version_refresh(
++            "air-basketball",
++            "_air_basketball_asset_version_cache",
++            _AIR_BASKETBALL_ASSET_VERSION_PATHS,
++            lambda latest: str(latest or 0),
++        )
++        return {"air_basketball_asset_version": cached_version}
++
+     version = str(_latest_asset_mtime(_AIR_BASKETBALL_ASSET_VERSION_PATHS) or 0)
+     _air_basketball_asset_version_cache = (now, version)
+     return {"air_basketball_asset_version": version}
+diff --git a/main_routers/proactive_feedback_router.py b/main_routers/proactive_feedback_router.py
+index 4d3c8a377d0ff391623d67f279824b9ec08a45be..7cb8c693950e525969150963771cac13824acaa1 100644
+--- a/main_routers/proactive_feedback_router.py
++++ b/main_routers/proactive_feedback_router.py
+@@ -5,6 +5,7 @@ import asyncio
+ import json
+ import os
+ import sqlite3
++import ssl
+ from pathlib import Path
+ 
+ import httpx
+@@ -31,6 +32,10 @@ class ResumeBlockedBatch(BaseModel):
+     batch_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+ 
+ 
++def _build_feedback_ssl_context() -> ssl.SSLContext:
++    return ssl.create_default_context()
++
++
+ def _create_store():
+     from utils.config_manager import get_config_manager
+     manager = get_config_manager()
+@@ -42,15 +47,23 @@ def _create_store():
+ async def create_runtime():
+     # Composition owns the concrete store; services receive a neutral instance.
+     # A cancelled worker-thread read may complete late, but owns no HTTP pool.
+-    store = await asyncio.to_thread(_create_store)
++    # Building Python's default SSLContext can synchronously scan Windows trust
++    # stores for >1s on a cold start, so build that immutable context beside the
++    # existing store I/O instead of blocking the main event loop.
++    store, ssl_context = await asyncio.gather(
++        asyncio.to_thread(_create_store),
++        asyncio.to_thread(_build_feedback_ssl_context),
++    )
+     paused = os.environ.get("NEKO_PROACTIVE_FEEDBACK_UPLOAD_PAUSED", "").strip().lower() in {"1", "true", "yes", "on"}
+     runtime_type = ProactiveFeedbackRuntimeV2 if store.protocol_version == 2 else ProactiveFeedbackRuntime
+     options = {}
+     if store.protocol_version == 2:
+         from utils.preferences import reserve_current_settings_snapshot
+         options["current_settings_provider"] = lambda owner: reserve_current_settings_snapshot(owner, capture.get_control_snapshot)
+-    return runtime_type(store, settings_drain=drain_settings, settings_pending_provider=pending_settings,
+-                        upload_paused=paused, **options)
++    return runtime_type(
++        store, settings_drain=drain_settings, settings_pending_provider=pending_settings,
++        upload_paused=paused, client_verify=ssl_context, **options
++    )
+ 
+ 
+ @router.on_event("startup")
+diff --git a/main_routers/storage_location_router.py b/main_routers/storage_location_router.py
+index f6a7fc3d319cf12fda8e3289a81f6f3414dcd1b5..d169bda39e0d1988d00b4cccbf9861e242752770 100644
+--- a/main_routers/storage_location_router.py
++++ b/main_routers/storage_location_router.py
+@@ -1852,7 +1852,10 @@ async def get_storage_location_bootstrap(response: Response):
+     _set_no_cache_headers(response)
+ 
+     config_manager = _get_storage_config_manager()
+-    return build_storage_location_bootstrap_payload(config_manager)
++    return await asyncio.to_thread(
++        build_storage_location_bootstrap_payload,
++        config_manager,
++    )
+ 
+ 
+ @router.get("/status")
+@@ -1860,7 +1863,7 @@ async def get_storage_location_status(response: Response):
+     _set_no_cache_headers(response)
+ 
+     config_manager = _get_storage_config_manager()
+-    return _build_status_payload(config_manager)
++    return await asyncio.to_thread(_build_status_payload, config_manager)
+ 
+ 
+ @router.post("/exit")
+diff --git a/main_routers/system_router/status.py b/main_routers/system_router/status.py
+index 03700febbd3b719005caf0b30eff4656db8a555c..f64d8bff4c6511d8fa74c4ba2a83bd17eb876e49 100644
+--- a/main_routers/system_router/status.py
++++ b/main_routers/system_router/status.py
+@@ -18,6 +18,7 @@
+ Split out of the former monolithic ``main_routers/system_router.py``.
+ """
+ 
++import asyncio
+ from typing import Any
+ 
+ from fastapi import Request
+@@ -59,7 +60,9 @@ async def get_system_status(response: Response):
+ 
+     try:
+         config_manager = _get_system_config_manager()
+-        storage_bootstrap = build_storage_location_bootstrap_payload(config_manager)
++        storage_bootstrap = await asyncio.to_thread(
++            build_storage_location_bootstrap_payload, config_manager
++        )
+         lifecycle_state = _derive_system_lifecycle_state(storage_bootstrap)
+         return {
+             "ok": True,
+diff --git a/services/proactive_feedback/runtime.py b/services/proactive_feedback/runtime.py
+index 5f6a4779417f4f5e4fb3e9ae9c9639b2f595cb9c..2d48f9201eee560f0920cab104c1a446fa849094 100644
+--- a/services/proactive_feedback/runtime.py
++++ b/services/proactive_feedback/runtime.py
+@@ -4,6 +4,7 @@ from __future__ import annotations
+ import asyncio
+ import json
+ import sqlite3
++import ssl
+ import threading
+ import time
+ 
+@@ -31,10 +32,13 @@ class ProactiveFeedbackRuntime:
+                  client: httpx.AsyncClient | None = None, settings_drain=None, clock=time.monotonic,
+                  attribution_context=host.attribution_context, trusted_origin=COMMUNITY_ORIGIN,
+                  settings_pending_provider=None, upload_paused=False,
+-                 fenced_snapshot_provider=host.credentials.saved_session_snapshot):
++                 fenced_snapshot_provider=host.credentials.saved_session_snapshot,
++                 client_verify: ssl.SSLContext | bool = True):
+         self.store = store
+         self.snapshot_provider, self.session_provider = snapshot_provider, session_provider
+-        self.http = client or httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False)
++        self.http = client or httpx.AsyncClient(
++            timeout=10, follow_redirects=False, trust_env=False, verify=client_verify
++        )
+         self._owns_client = client is None
+         self.settings_drain = settings_drain
+         self.settings_pending_provider = settings_pending_provider
+diff --git a/tests/unit/test_client_registration.py b/tests/unit/test_client_registration.py
+index 6eb8eda584ea25aeb86cee3aa091e3fdea6b97ae..48dd77715809119f89295c7d08da3e64542bff79 100644
+--- a/tests/unit/test_client_registration.py
++++ b/tests/unit/test_client_registration.py
+@@ -95,10 +95,21 @@ def test_looks_unregistered(status_code, detail, expected):
+     assert R.looks_unregistered(status_code, detail) is expected
+ 
+ 
++def test_registration_client_reuses_native_internal_and_external_pools(monkeypatch):
++    internal = object()
++    external = object()
++    monkeypatch.setattr(R, "get_internal_http_client", lambda: internal)
++    monkeypatch.setattr(R, "get_external_http_client", lambda: external)
++
++    assert R._registration_http_client("http://127.0.0.1:48911") is internal
++    assert R._registration_http_client("http://localhost:48911") is internal
++    assert R._registration_http_client("https://community.example") is external
++
++
+ @pytest.mark.asyncio
+ async def test_register_posts_supplied_credentials(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     assert posts == [
+@@ -112,7 +123,7 @@ async def test_register_posts_supplied_credentials(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_loads_persisted_credentials_when_omitted(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+     monkeypatch.setattr(R, "_load_credentials", lambda: (CLIENT_ID, CLIENT_PROOF))
+ 
+     assert await R.ensure_client_registered(CLOUD)
+@@ -122,7 +133,7 @@ async def test_register_loads_persisted_credentials_when_omitted(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_is_cached_per_base_url_and_client(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -138,7 +149,7 @@ async def test_register_is_cached_per_base_url_and_client(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_force_reregisters_after_cloud_forgets_the_row(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+     # The cached "registered" flag can outlive the cloud row it describes, so a
+@@ -152,7 +163,7 @@ async def test_force_reregisters_after_cloud_forgets_the_row(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_register_refuses_to_leak_proof_over_plaintext_http(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+ 
+     assert not await R.ensure_client_registered(
+         "http://community.example", CLIENT_ID, CLIENT_PROOF
+@@ -164,7 +175,9 @@ async def test_register_refuses_to_leak_proof_over_plaintext_http(monkeypatch):
+ async def test_failed_registration_is_not_cached(monkeypatch):
+     posts: list = []
+     monkeypatch.setattr(
+-        R.httpx, "AsyncClient", _fake_client(posts, _Response(500, "boom"))
++        R,
++        "_registration_http_client",
++        lambda _base: _fake_client(posts, _Response(500, "boom"))(),
+     )
+ 
+     assert not await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -176,9 +189,9 @@ async def test_failed_registration_is_not_cached(monkeypatch):
+ async def test_register_survives_transport_failure(monkeypatch):
+     posts: list = []
+     monkeypatch.setattr(
+-        R.httpx,
+-        "AsyncClient",
+-        _fake_client(posts, R.httpx.ConnectError("no route")),
++        R,
++        "_registration_http_client",
++        lambda _base: _fake_client(posts, R.httpx.ConnectError("no route"))(),
+     )
+ 
+     assert not await R.ensure_client_registered(CLOUD, CLIENT_ID, CLIENT_PROOF)
+@@ -187,7 +200,7 @@ async def test_register_survives_transport_failure(monkeypatch):
+ @pytest.mark.asyncio
+ async def test_missing_credentials_skip_the_call(monkeypatch):
+     posts: list = []
+-    monkeypatch.setattr(R.httpx, "AsyncClient", _fake_client(posts))
++    monkeypatch.setattr(R, "_registration_http_client", lambda _base: _fake_client(posts)())
+     monkeypatch.setattr(R, "_load_credentials", lambda: None)
+ 
+     assert not await R.ensure_client_registered(CLOUD)
+diff --git a/tests/unit/test_cloudsave_lifecycle_flow.py b/tests/unit/test_cloudsave_lifecycle_flow.py
+index ae0e2e50f12f298b9302b33d20bc5880194df29c..5e236f7ad7ba9c8687e5a0cb404c2cbf962679f6 100644
+--- a/tests/unit/test_cloudsave_lifecycle_flow.py
++++ b/tests/unit/test_cloudsave_lifecycle_flow.py
+@@ -377,7 +377,9 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
+         mock_set_steamworks = stack.enter_context(
+             patch("main_routers.shared_state.set_steamworks", Mock())
+         )
+-        stack.enter_context(patch("utils.token_tracker.install_hooks", Mock()))
++        mock_install_hooks = stack.enter_context(
++            patch("utils.token_tracker.install_hooks", Mock())
++        )
+         stack.enter_context(
+             patch("utils.token_tracker.TokenTracker.get_instance", return_value=fake_tracker)
+         )
+@@ -406,8 +408,11 @@ async def test_main_server_manual_startup_performs_fallback_import_and_continues
+         mock_set_main_bridge.assert_called_once()
+         mock_mount_workshop.assert_awaited_once_with()
+         mock_start_workers.assert_called_once_with()
+-        fake_tracker.start_periodic_save.assert_called_once_with()
+-        fake_tracker.record_app_start.assert_called_once_with(process="main_server")
++        # Token tracker hook installation is owned by the background preload;
++        # the startup coroutine itself must remain free of the heavy OpenAI SDK import.
++        mock_install_hooks.assert_not_called()
++        fake_tracker.start_periodic_save.assert_not_called()
++        fake_tracker.record_app_start.assert_not_called()
+         assert main_server._preload_task is not None
+ 
+ 
+diff --git a/tests/unit/test_proactive_feedback_router.py b/tests/unit/test_proactive_feedback_router.py
+index 82799ae61a32808cab24da5d90a0d32a943b0f52..77046a8fe25b20c34647fab135f4f6ed739734be 100644
+--- a/tests/unit/test_proactive_feedback_router.py
++++ b/tests/unit/test_proactive_feedback_router.py
+@@ -410,6 +410,31 @@ async def test_default_factory_owns_http_client_with_no_environment_proxy(tmp_pa
+     assert runtime.http.is_closed
+ 
+ 
++@pytest.mark.asyncio
++async def test_default_factory_builds_ssl_context_off_event_loop(tmp_path, monkeypatch):
++    main_thread = threading.get_ident()
++    ssl_threads = []
++
++    monkeypatch.setattr(
++        routes,
++        "_create_store",
++        lambda: RecommendationStore(tmp_path / "offloop.sqlite3"),
++    )
++
++    def build_ssl_context():
++        ssl_threads.append(threading.get_ident())
++        return False
++
++    monkeypatch.setattr(routes, "_build_feedback_ssl_context", build_ssl_context)
++    runtime = await routes.create_runtime()
++    try:
++        assert ssl_threads
++        assert ssl_threads[0] != main_thread
++        assert runtime.http.trust_env is False
++    finally:
++        await runtime.close()
++
++
+ @pytest.mark.parametrize("value", ["1", "true", "yes", "on", " TRUE "])
+ @pytest.mark.asyncio
+ async def test_factory_honors_operator_upload_pause_at_startup(tmp_path, monkeypatch, value):
+diff --git a/utils/holiday_cache.py b/utils/holiday_cache.py
+index 2e8134e612a34e2f5ee373dc3dddb7da739967a2..64740dbce7f82d1dc320d9e2b9f876a9158511bd 100644
+--- a/utils/holiday_cache.py
++++ b/utils/holiday_cache.py
+@@ -40,6 +40,7 @@ from __future__ import annotations
+ import asyncio
+ import json
+ import logging
++import ssl
+ import threading
+ from datetime import date, datetime, timedelta
+ from pathlib import Path
+@@ -241,12 +242,41 @@ def _build_periods(entries: list[HolidayEntry]) -> list[HolidayPeriod]:
+ #  API fetching & caching  (lazy: first access warms all countries)
+ # =====================================================================
+ 
++_holiday_ssl_context: ssl.SSLContext | None = None
++_holiday_ssl_context_lock = threading.Lock()
++
++
++def _build_holiday_ssl_context() -> ssl.SSLContext:
++    """Build the shared default SSL context exactly once, off the event loop."""
++    global _holiday_ssl_context
++    if _holiday_ssl_context is not None:
++        return _holiday_ssl_context
++    with _holiday_ssl_context_lock:
++        if _holiday_ssl_context is None:
++            _holiday_ssl_context = ssl.create_default_context()
++        return _holiday_ssl_context
++
++
++async def _get_holiday_ssl_context() -> ssl.SSLContext:
++    if _holiday_ssl_context is not None:
++        return _holiday_ssl_context
++    return await asyncio.to_thread(_build_holiday_ssl_context)
++
++
+ async def _fetch_nager(country: str, year: int) -> list[HolidayEntry]:
+     """Fetch from Nager.Date API (JP / KR / RU / US etc.)."""
+     url = f"{_NAGER_API}/PublicHolidays/{year}/{country}"
+     # Per-call AsyncClient: fetch once per country/year (lazy warmup), deliberately trust_env=False
+     # to bypass local proxies, unlike external_http_client's trust_env=True configuration.
+-    async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT, proxy=None, trust_env=False) as client:
++    # Default SSLContext construction loads the Windows trust store and can take
++    # seconds on a cold start; build/reuse it off-loop.
++    verify_context = await _get_holiday_ssl_context()
++    async with httpx.AsyncClient(
++        timeout=_FETCH_TIMEOUT,
++        proxy=None,
++        trust_env=False,
++        verify=verify_context,
++    ) as client:
+         resp = await client.get(url)
+         resp.raise_for_status()
+         return resp.json()  # type: ignore[return-value]
+@@ -256,7 +286,13 @@ async def _fetch_cn(year: int) -> list[HolidayEntry]:
+     """Fetch from timor.tech API for China — complete with adjusted rest days."""
+     url = f"{_TIMOR_API}/{year}"
+     # Per-call AsyncClient: likewise once per year, trust_env=False to bypass proxies.
+-    async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT, proxy=None, trust_env=False) as client:
++    verify_context = await _get_holiday_ssl_context()
++    async with httpx.AsyncClient(
++        timeout=_FETCH_TIMEOUT,
++        proxy=None,
++        trust_env=False,
++        verify=verify_context,
++    ) as client:
+         resp = await client.get(url)
+         resp.raise_for_status()
+         data = resp.json()
+diff --git a/utils/web_scraper/search_gateway.py b/utils/web_scraper/search_gateway.py
+index 4215c70fec7d34c4361f29ba159aaccc16c7f1e7..c9fe5332c51c8a52b86ee0ece6ebc958d08b0d4f 100644
+--- a/utils/web_scraper/search_gateway.py
++++ b/utils/web_scraper/search_gateway.py
+@@ -18,6 +18,7 @@ import uuid
+ import httpx
+ 
+ from config import USER_PLUGIN_SERVER_PORT
++from utils.internal_http_client import get_internal_http_client
+ 
+ from ._shared import logger
+ 
+@@ -50,7 +51,6 @@ _backend_locks: Dict[str, asyncio.Lock] = {}
+ _cleanup_tasks: set[asyncio.Task[None]] = set()
+ _runtime_loop: Optional[asyncio.AbstractEventLoop] = None
+ 
+-
+ class _PluginThrottleError(RuntimeError):
+     """The plugin is healthy but intentionally refused work for now."""
+ 
+@@ -175,19 +175,15 @@ def _plugin_server_base() -> str:
+ async def _cancel_run(base: str, run_id: str) -> None:
+     try:
+         timeout = httpx.Timeout(0.5, connect=0.2)
+-        async with httpx.AsyncClient(
++        client = get_internal_http_client()
++        await client.post(
++            f"{base}/runs/{run_id}/cancel",
++            json={"reason": "search gateway stopped waiting"},
+             timeout=timeout,
+-            proxy=None,
+-            trust_env=False,
+-        ) as client:
+-            await client.post(
+-                f"{base}/runs/{run_id}/cancel",
+-                json={"reason": "search gateway stopped waiting"},
+-            )
++        )
+     except Exception:
+         logger.debug("取消遗留联网搜索任务失败 (run_id=%s)", run_id)
+ 
+-
+ def _schedule_cancel(base: str, run_id: str) -> None:
+     task = asyncio.create_task(_cancel_run(base, run_id))
+     _cleanup_tasks.add(task)
+@@ -230,71 +226,71 @@ async def _invoke_plugin(
+         "args": args,
+     }
+     timeout = httpx.Timeout(5.0, connect=1.0)
+-    async with httpx.AsyncClient(timeout=timeout, proxy=None, trust_env=False) as client:
+-        request_timeout = remaining_timeout()
+-        async with asyncio.timeout(request_timeout):
+-            response = await client.post(
+-                f"{base}/runs",
+-                json=body,
+-                timeout=request_timeout,
+-            )
+-        if not 200 <= response.status_code < 300:
+-            raise RuntimeError(f"联网搜索插件不可用（HTTP {response.status_code}）")
+-        accepted = response.json()
+-        run_id = accepted.get("run_id") if isinstance(accepted, dict) else None
+-        if not isinstance(run_id, str) or not run_id:
+-            raise RuntimeError("联网搜索插件未返回有效任务编号")
+-
+-        terminal = {"succeeded", "failed", "canceled", "timeout"}
+-        poll_interval = _POLL_INTERVAL_SECONDS
+-        terminal_seen = False
+-        try:
+-            while True:
+-                request_timeout = remaining_timeout()
+-                async with asyncio.timeout(request_timeout):
+-                    response = await client.get(
+-                        f"{base}/runs/{run_id}",
+-                        timeout=request_timeout,
+-                    )
+-                if response.status_code != 200:
+-                    raise RuntimeError(
+-                        f"读取联网搜索任务失败（HTTP {response.status_code}）"
+-                    )
+-                candidate = response.json()
+-                run_data = candidate if isinstance(candidate, dict) else {}
+-                status = str(run_data.get("status") or "")
+-                if status in terminal:
+-                    terminal_seen = True
+-                    if status != "succeeded":
+-                        raise _plugin_error(
+-                            run_data.get("error"),
+-                            f"联网搜索任务状态：{status}",
+-                        )
+-                    break
+-                await asyncio.sleep(
+-                    min(poll_interval, max(0.0, deadline - loop.time()))
+-                )
+-                poll_interval = min(
+-                    poll_interval * 1.5,
+-                    _MAX_POLL_INTERVAL_SECONDS,
+-                )
+-
++    client = get_internal_http_client()
++    request_timeout = remaining_timeout()
++    async with asyncio.timeout(request_timeout):
++        response = await client.post(
++            f"{base}/runs",
++            json=body,
++            timeout=request_timeout,
++        )
++    if not 200 <= response.status_code < 300:
++        raise RuntimeError(f"联网搜索插件不可用（HTTP {response.status_code}）")
++    accepted = response.json()
++    run_id = accepted.get("run_id") if isinstance(accepted, dict) else None
++    if not isinstance(run_id, str) or not run_id:
++        raise RuntimeError("联网搜索插件未返回有效任务编号")
++
++    terminal = {"succeeded", "failed", "canceled", "timeout"}
++    poll_interval = _POLL_INTERVAL_SECONDS
++    terminal_seen = False
++    try:
++        while True:
+             request_timeout = remaining_timeout()
+             async with asyncio.timeout(request_timeout):
+                 response = await client.get(
+-                    f"{base}/runs/{run_id}/export",
+-                    params={"limit": 20},
++                    f"{base}/runs/{run_id}",
+                     timeout=request_timeout,
+                 )
+             if response.status_code != 200:
+                 raise RuntimeError(
+-                    f"导出联网搜索结果失败（HTTP {response.status_code}）"
++                    f"读取联网搜索任务失败（HTTP {response.status_code}）"
+                 )
+-            data = _extract_export(response.json())
+-        except BaseException:
+-            if not terminal_seen:
+-                _schedule_cancel(base, run_id)
+-            raise
++            candidate = response.json()
++            run_data = candidate if isinstance(candidate, dict) else {}
++            status = str(run_data.get("status") or "")
++            if status in terminal:
++                terminal_seen = True
++                if status != "succeeded":
++                    raise _plugin_error(
++                        run_data.get("error"),
++                        f"联网搜索任务状态：{status}",
++                    )
++                break
++            await asyncio.sleep(
++                min(poll_interval, max(0.0, deadline - loop.time()))
++            )
++            poll_interval = min(
++                poll_interval * 1.5,
++                _MAX_POLL_INTERVAL_SECONDS,
++            )
++
++        request_timeout = remaining_timeout()
++        async with asyncio.timeout(request_timeout):
++            response = await client.get(
++                f"{base}/runs/{run_id}/export",
++                params={"limit": 20},
++                timeout=request_timeout,
++            )
++        if response.status_code != 200:
++            raise RuntimeError(
++                f"导出联网搜索结果失败（HTTP {response.status_code}）"
++            )
++        data = _extract_export(response.json())
++    except BaseException:
++        if not terminal_seen:
++            _schedule_cancel(base, run_id)
++        raise
+ 
+     normalized_results = []
+     for item in data.get("results") or []:

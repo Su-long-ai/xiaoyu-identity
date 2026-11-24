@@ -5061,88 +5061,152 @@
       "machine_gate_note": "Execution branch checks exact fac795, applies this candidate one-for-one, and runs the shared effect-state verifier in NekoPower mode; Stable continues to run the same verifier in default NekoClaw mode."
     },
     {
-      "id": "candidate:execution_plane/nekopower_native_delivery_receipt.patch",
+      "id": "candidate:execution_plane/a0bb_startup_event_loop_responsiveness.patch",
       "status": "approved",
       "reviewed_at": "2026-11-24",
-      "problem": "Migrate the proven native delivery receipt / main-epoch barrier contract from c3 NekoClaw to fac795 NekoPower on top of the one-for-one 0011 replacement, without adding a transport or receipt authority.",
+      "problem": "Rebase the already-proven 0010 startup/event-loop responsiveness contract onto current a0bb N.E.K.O after upstream Live2D import/context drift, without creating a new startup runtime.",
       "decision": "thin_adapter",
       "candidate_only": true,
       "candidates": [
         {
-          "name": "Existing managed 0012 receipt contract",
+          "name": "Existing managed 0010 startup responsiveness contract",
           "type": "native_current_pin",
-          "outcome": "selected as semantic/code source",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "selected as the semantic/code source for one-for-one migration",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         {
-          "name": "fac795 NekoPower native ZMQ/agent/main seams",
+          "name": "a0bb native startup and Live2D seams",
           "type": "native_upstream",
-          "outcome": "selected target; protocol reused with three context-drift integrations",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "selected migration target; asyncio import is already native while the off-loop find_models helper remains required",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         {
-          "name": "Existing receipt static/fault verifier",
-          "type": "existing_product_acceptance",
-          "outcome": "reused in both runtime namespaces",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
-        },
-        {
-          "name": "Existing receipt real-ZMQ E2E",
-          "type": "existing_product_acceptance",
-          "outcome": "reused in both runtime namespaces",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
-        },
-        {
-          "name": "New receipt transport/store",
-          "type": "private_implementation",
-          "outcome": "rejected",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "name": "External startup supervisor/performance daemon",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O lifecycle and observation authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         }
       ],
-      "why_reuse_insufficient": "NekoPower still lacks 0012 semantics, but its native bridge and routing seams are equivalent enough to reuse the existing protocol and verifier suite rather than invent a replacement.",
-      "acceptance_evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json",
-      "retirement_condition": "Delete after NekoPower product promotion converts this one-for-one replacement into the managed 0012 equivalent, or when upstream supplies equivalent main-epoch/claim/commit/release receipt semantics natively.",
-      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; depends on the NekoPower 0011 candidate and must not expand Stable patch count.",
+      "why_reuse_insufficient": "The product behavior already exists in managed 0010; current upstream accepts every behavior hunk except a tiny Live2D context drift, so a one-for-one rebase is smaller and safer than a new implementation.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json",
+      "retirement_condition": "Delete this candidate after a NekoPower pin is promoted with the 0010 contract as its one-for-one replacement, or when upstream N.E.K.O makes the managed behavior fully native.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; do not add to the current 14-patch Stable series.",
       "search_layers": {
         "L0_authority": {
           "status": "checked",
-          "outcome": "N.E.K.O main/agent/ZMQ/Ledger remain sole authorities.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "N.E.K.O remains sole startup/event-loop/lifecycle authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         "L1_neko_current_pin": {
           "status": "checked",
-          "outcome": "0012 and both c3 verifiers reused as exact contract.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "Existing managed 0010 and its acceptance remain the exact behavior contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "fac795 native seams selected; no native equivalent receipt barrier found.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "a0bb already owns asyncio import and accepts the remaining 0010 behavior; only _find_models_async must be retained across context drift.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         "L3_existing_pinned_external": {
           "status": "not_applicable",
-          "rationale": "External surfaces do not own native receipt correctness."
+          "rationale": "QQ/providers/plugins cannot own N.E.K.O startup or Live2D catalog scheduling."
         },
         "L4_broader_external_ecosystem": {
           "status": "checked",
-          "outcome": "New broker/receipt systems rejected as duplicate authority.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "External supervisors/telemetry daemons rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         "L5_thin_integration": {
           "status": "checked",
-          "outcome": "Selected namespace/path rebase plus three context-drift integrations on native ZMQ.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "Selected one-for-one 0010 rebase with one residual helper and no new runtime.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         },
         "L6_private_implementation": {
           "status": "checked",
-          "outcome": "No second bridge/store/protocol/runtime introduced.",
-          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+          "outcome": "No second launcher, scheduler, model scanner or performance daemon introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         }
       },
-      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json",
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json",
       "outcome": "thin_adapter",
-      "notes": "Formal candidate clean-applies after the green NekoPower 0011 replacement on exact fac795, compiles, passes the same static/fault receipt verifier and the same real-ZMQ E2E as c3 Stable. No new transport/store/protocol is introduced.",
-      "machine_gate_note": "Execution ordinary push applies 0011 then 0012 NekoPower candidates on exact fac795 and runs shared static/fault and real-ZMQ verifiers in NekoPower mode."
+      "machine_gate_note": "Execution migration gate must apply 0001-0009 then this exact a0bb replacement before 0011/0012 candidate ports."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_native_delivery_receipt.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the already-proven 0012 exact visible-delivery receipt contract from c3 NekoClaw to current a0bb NekoPower without adding a second receipt store or changing Stable.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing managed 0012 native delivery receipt contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the semantic/code source for one-for-one migration",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower agent/main bridge and 0011 effect-state seams",
+          "type": "native_upstream",
+          "outcome": "selected migration target; upstream still lacks the exact handoff/claim/receipt protocol, while native bridge/ledger remain authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        {
+          "name": "Existing native delivery receipt verifier and real-ZMQ E2E",
+          "type": "existing_product_acceptance",
+          "outcome": "selected unchanged in semantics through the existing runtime-name parameterization; no duplicate verifier",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        {
+          "name": "External message queue/receipt database",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate effect/delivery authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "a0bb still lacks exact task-result visible-effect receipt/restart reconciliation, but the existing 0012 implementation can be migrated one-for-one onto NekoPower seams and verified by the same candidate plus real-ZMQ contracts.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json",
+      "retirement_condition": "Delete this candidate after a NekoPower product pin is promoted and it replaces 0012 one-for-one, or when upstream N.E.K.O natively supplies exact visible-effect receipt and restart reconciliation.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; do not add to the current 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O/NekoPower Ledger, Outbox and native agent/main bridge remain sole delivery authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Existing 0012 plus candidate and real-ZMQ verifiers are reused as the exact semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "a0bb retains native bridge seams but no equivalent delivery_handoff/delivery_claimed/exact visible receipt protocol; one-for-one port verified.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins are downstream surfaces and cannot replace task-result effect receipt authority."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External queues/receipt stores rejected because they duplicate N.E.K.O effect state.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected migration of the existing four-file 0012 seam plus the same verifier semantics; no new storage or transport.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second ledger, outbox, receipt database, IPC bus or delivery runtime introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Execution migration gate applies this after the a0bb 0010 replacement and NekoPower 0011, then runs the shared effect-state, native receipt and real-ZMQ acceptance directly in NekoPower mode."
     }
   ],
   "hierarchy_policy": {

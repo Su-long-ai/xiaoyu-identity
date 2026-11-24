@@ -161,51 +161,49 @@ jobs:
             --result-path "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
           cat "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
 
-      - name: Checkout fixed fac795 NekoPower execution migration candidate
+      - name: Checkout fixed a0bb NekoPower execution migration candidate
         if: github.ref == 'refs/heads/agent/execution-continuity-v2'
         uses: actions/checkout@v4
         with:
           repository: Project-N-E-K-O/N.E.K.O
-          ref: fac795091e33cd92a6604d14ac242510944badac
+          ref: a0bb66f47fd097cc21f18d75e4c72c90489a903f
           path: _neko_execution_migration_candidate
           fetch-depth: 1
 
-      - name: Probe fixed fac795 NekoPower execution migration boundary
+      - name: Rebuild a0bb managed execution migration stack
         if: github.ref == 'refs/heads/agent/execution-continuity-v2'
         run: |
-          python private_overlay/candidates/execution_plane/probe_neko_fac795_execution_migration.py \
-            --workspace "$GITHUB_WORKSPACE" \
-            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
-            --result-path "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
-          cat "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
-
-      - name: Verify NekoPower effect-state one-for-one migration candidate
-        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
-        run: |
-          git -C _neko_execution_migration_candidate apply --check \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_outbox_effect_state.patch"
-          git -C _neko_execution_migration_candidate apply \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_outbox_effect_state.patch"
+          test "$(git -C _neko_execution_migration_candidate rev-parse HEAD)" = "a0bb66f47fd097cc21f18d75e4c72c90489a903f"
+          mapfile -t XIAOYU_PREFIX < <(python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); [print(item["file"]) for item in data["patches"][:9]]' "$GITHUB_WORKSPACE/private_overlay/patches/series.json")
+          test "${#XIAOYU_PREFIX[@]}" -eq 9
+          for patch in "${XIAOYU_PREFIX[@]}"; do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/patches/$patch"
+            git -C _neko_execution_migration_candidate apply --check -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply --reverse --check -- "$PATCH_PATH"
+          done
+          for patch in \
+            a0bb_startup_event_loop_responsiveness.patch \
+            nekopower_outbox_effect_state.patch \
+            nekopower_native_delivery_receipt.patch
+          do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/$patch"
+            git -C _neko_execution_migration_candidate apply --check -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply -- "$PATCH_PATH"
+            git -C _neko_execution_migration_candidate apply --reverse --check -- "$PATCH_PATH"
+          done
+          git -C _neko_execution_migration_candidate diff --check
           python -m py_compile \
             _neko_execution_migration_candidate/nekopower/host/ledger.py \
-            _neko_execution_migration_candidate/nekopower/host/outbox.py
-          python private_overlay/tools/verify_execution_effect_state_candidate.py \
-            --neko-root _neko_execution_migration_candidate \
-            --host-package nekopower \
-            --wire-prefix nekopower
-
-      - name: Verify NekoPower native-delivery receipt one-for-one migration candidate
-        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
-        run: |
-          git -C _neko_execution_migration_candidate apply --check \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_native_delivery_receipt.patch"
-          git -C _neko_execution_migration_candidate apply \
-            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_native_delivery_receipt.patch"
-          python -m py_compile \
+            _neko_execution_migration_candidate/nekopower/host/outbox.py \
             _neko_execution_migration_candidate/app/agent_server/api_runtime.py \
             _neko_execution_migration_candidate/app/agent_server/nekopower_mount.py \
             _neko_execution_migration_candidate/app/main_server/character_runtime.py \
             _neko_execution_migration_candidate/main_logic/agent_event_bus.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py \
+            --neko-root _neko_execution_migration_candidate \
+            --host-package nekopower \
+            --wire-prefix nekopower
           python private_overlay/tools/verify_native_delivery_receipt_candidate.py \
             --neko-root _neko_execution_migration_candidate \
             --runtime-name nekopower

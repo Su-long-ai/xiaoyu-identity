@@ -1662,38 +1662,37 @@ class OverlayContractTests(unittest.TestCase):
             workflow,
         )
 
-    def test_fac795_execution_migration_probe_is_agent_scoped_and_pinned(self):
+    def test_a0bb_execution_migration_stack_is_agent_scoped_and_pinned(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
         ).read_text(encoding="utf-8-sig")
         for marker in (
-            "Checkout fixed fac795 NekoPower execution migration candidate",
-            "Probe fixed fac795 NekoPower execution migration boundary",
+            "Checkout fixed a0bb NekoPower execution migration candidate",
+            "Rebuild a0bb managed execution migration stack",
             "refs/heads/agent/execution-continuity-v2",
-            "fac795091e33cd92a6604d14ac242510944badac",
-            "probe_neko_fac795_execution_migration.py",
+            "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
             "_neko_execution_migration_candidate",
-            "Verify NekoPower effect-state one-for-one migration candidate",
+            "a0bb_startup_event_loop_responsiveness.patch",
             "nekopower_outbox_effect_state.patch",
+            "nekopower_native_delivery_receipt.patch",
             "--host-package nekopower",
             "--wire-prefix nekopower",
-            "Verify NekoPower native-delivery receipt one-for-one migration candidate",
-            "nekopower_native_delivery_receipt.patch",
             "verify_native_delivery_receipt_candidate.py",
             "verify_native_delivery_receipt_zmq_e2e.py",
             "--runtime-name nekopower",
         ):
             self.assertIn(marker, workflow)
 
-        probe = (
+        evidence = (
             ROOT
-            / "candidates"
-            / "execution_plane"
-            / "probe_neko_fac795_execution_migration.py"
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-execution-migration-refresh-reuse.json"
         ).read_text(encoding="utf-8-sig")
-        self.assertIn("promotion_forbidden", probe)
-        self.assertIn("MIGRATION_BLOCKED_RESIDUALS", probe)
-        self.assertNotIn("NEKO_UPSTREAM.lock.json\").write", probe)
+        self.assertIn('"candidate_only": true', evidence)
+        self.assertIn('"promotion_ready": false', evidence)
+        self.assertIn("a0bb66f47fd097cc21f18d75e4c72c90489a903f", evidence)
+        self.assertNotIn("NEKO_UPSTREAM.lock.json\").write", evidence)
 
 if __name__ == "__main__":
     unittest.main()
