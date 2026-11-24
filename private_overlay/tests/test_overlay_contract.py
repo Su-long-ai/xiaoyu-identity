@@ -1853,9 +1853,11 @@ class OverlayContractTests(unittest.TestCase):
             / "2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
         ).read_text(encoding="utf-8-sig")
         self.assertIn('"candidate_only": true', evidence)
-        self.assertIn("FIRST_PASS_NO_RETIREMENTS_CONTINUE_REMAINING_CORE_PROBE", evidence)
+        self.assertIn("CORE_PATCH_RETIREMENT_BOUND_CLOSED_ZERO_OF_NINE", evidence)
         self.assertIn("45339071967", evidence)
-        self.assertIn("b16b47a057db1421d11f60b01a6ef5ed81c37899", evidence)
+        self.assertIn("45341227536", evidence)
+        self.assertIn("d95a77874de70ab9600a4be5b00f50f9f62beba7", evidence)
+        self.assertIn("\"retirement_candidates\": 0", evidence)
         self.assertIn("0003-qwen38-server-vad-reliability.patch", evidence)
         self.assertIn("0008-qwen-clone-provider-routing.patch", evidence)
         self.assertIn("ede4fcd0d93535f65b660bdb34bd787d6315ef01", evidence)

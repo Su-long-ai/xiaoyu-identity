@@ -4135,9 +4135,9 @@
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         {
-          "name": "N.E.K.O latest upstream fac79509",
+          "name": "N.E.K.O latest upstream ede4fcd0",
           "type": "native_upstream",
-          "outcome": "checked; NekoPower Ledger._reconcile still fails prior-host queued/working/waiting_user commissions and no equivalent durable queued-continuation startup seam exists",
+          "outcome": "checked; NekoPower Ledger._reconcile still fails prior-host queued/working/waiting_user commissions, no recover_restart equivalent exists, and the four a0bb→ede4 commits do not touch the migration patch surfaces",
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         {
@@ -4182,7 +4182,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "fac79509 checked: latest NekoPower still lacks equivalent restart queue reconstruction and explicitly fails prior-host queued/working/waiting_user rows.",
+          "outcome": "ede4fcd0 checked: latest NekoPower still lacks equivalent restart queue reconstruction and explicitly fails prior-host queued/working/waiting_user rows.",
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         "L3_existing_pinned_external": {
@@ -4207,7 +4207,7 @@
       },
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
       "outcome": "thin_adapter",
-      "notes": "Full agent gate 45322186743 is green at 1bf55acd, including report/permission/active-working/durable restart candidates, QQ and release evidence. Keep this candidate-only because restart continuity depends on multiple candidate patches and Stable already consumes the 14/14 managed patch budget; next route is semantic migration to latest NekoPower, not patch-count expansion or bundling."
+      "notes": "Full agent gate 45322186743 is green at 1bf55acd. A later source audit found a reachable duplicate before-note persistence path while already queued; the regression now requires each provenance note exactly once and the corrected c3 candidate passes 27/27 selected queue tests. Core-patch retirement was independently closed at 0/9, so keep this candidate-only while shrinking native-gap surface or preparing a new blocker-closing correctness-budget decision; do not game the 14/14 count by bundling."
     },
     {
       "id": "governance:companion-performance-native-measurement-v1",
@@ -5703,7 +5703,7 @@
       },
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
       "outcome": "thin_adapter",
-      "machine_gate_note": "Apply nekopower_host_restart_durable_queue.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+      "machine_gate_note": "Apply nekopower_host_restart_durable_queue.patch only in the ordered a0bb restart migration stack; adapted acceptance must include secondary/copy before-note exactly-once persistence and byte-stable native queue semantics."
     },
     {
       "id": "candidate:execution_plane/a0bb_core_patch_retirement_probe",

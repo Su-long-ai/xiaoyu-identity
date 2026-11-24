@@ -679,6 +679,38 @@ async def test_secondary_take_up_input_is_durable_before_memory_acceptance(tmp_p
 
 
 @pytest.mark.asyncio
+async def test_secondary_wake_before_notes_are_persisted_once_when_already_queued(tmp_path: Path) -> None:
+    root = tmp_path / "secondary-wake-before-once-root"
+    commission_id = await _prepared_queue(root)
+    host = _recovery_host(root)
+    try:
+        host.start()
+        await wait_until(
+            lambda: commission_id in host.task_agents.queued,
+            what="initial queue before copy hand-back notes arrive",
+        )
+        accepted = await host.task_agents._wake_working(
+            commission_id,
+            _Found("late copy finding"),
+            reason="copy hand-back while already queued",
+            before=["copy line one", "copy line two"],
+        )
+        assert accepted is True
+        events = await host.ledger.events(commission_id)
+        texts = [
+            event.payload.get("note", {}).get("text")
+            for event in events
+            if event.type == "restart_queue_note"
+        ]
+        assert texts.count("copy line one") == 1
+        assert texts.count("copy line two") == 1
+        assert texts.count("late copy finding") == 1
+    finally:
+        await host.abort(commission_id)
+        await host.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_secondary_wake_note_keeps_queue_position_and_native_text(tmp_path: Path) -> None:
     root = tmp_path / "secondary-wake-note-root"
     root.mkdir(parents=True, exist_ok=True)
@@ -816,6 +848,8 @@ async def test_copy_handback_notes_commit_before_primary_requeue(tmp_path: Path)
                 or event.payload.get("to") == "queued"
             )
         ]
+        notes = [event for event in relevant if event.type == "restart_queue_note"]
+        assert len(notes) == 2
         assert [event.type for event in relevant[-4:]] == [
             "restart_queue_note",
             "restart_queue_note",

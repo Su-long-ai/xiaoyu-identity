@@ -64,14 +64,15 @@
       "source": "host_restart_durable_queue.patch",
       "candidate": "nekopower_host_restart_durable_queue.patch",
       "mechanical_result": "PASS after namespace-only mapping and normalization of blank patch context lines; no semantic hunk conflicts",
-      "validation": "22/22 adapted durable-queue candidate tests PASS locally",
+      "validation": "23/23 adapted durable-queue candidate tests PASS locally after exactly-once secondary-wake provenance regression",
       "semantics": [
         "queued task-agent rows survive prior-host reconciliation",
         "resume/note/wake provenance is persisted in the existing Ledger event stream",
         "only the current queue epoch is reconstructed",
         "terminal/cancelled rows are not revived",
         "native session/wake authority remains authoritative",
-        "no active-working effect is replayed"
+        "no active-working effect is replayed",
+        "secondary/copy before-note provenance is persisted exactly once; a reachable duplicate append loop was reproduced and removed in both source and migration candidates"
       ]
     }
   },
@@ -85,11 +86,11 @@
       "note": "All dedicated permission-wait and answer-handoff assertions in that composed run passed."
     },
     "active_working": "8/8 PASS",
-    "durable_queue": "22/22 PASS",
+    "durable_queue": "23/23 PASS; combined durable + native queue selection 27 passed / 153 deselected",
     "compile_and_diff_check": "PASS",
     "clean_rebuild": "PASS: five ordered repository candidate patches apply/check/reverse-check from clean a0bb+0010-0014 and compile ledger/task_agents/service",
     "materializer": "prepare_nekopower_restart_candidate_tests.py performs test-only NekoClaw->NekoPower namespace projection; no runtime implementation copied",
-    "local_selected_stack": "47/47 PASS across report applicable assertions plus full permission/answer/active-working/durable-queue candidate suites",
+    "local_selected_stack": "49/49 PASS using the exact hosted-gate selection across applicable report assertions plus full permission/answer/active-working/durable-queue suites",
     "strict_lf_rebuild": "PASS without ignore-space flags after core.autocrlf=false reset, matching Linux CI patch application semantics",
     "github_full_checkout": {
       "run_id": 45330926169,
@@ -97,6 +98,16 @@
       "result": "SUCCESS",
       "observed": "clean full a0bb checkout rebuilt 0001-0014 plus all five restart migration patches and ran the full migrated restart selection, including the host report-resume case unavailable in the local sparse probe"
     }
+  },
+  "latest_upstream_refresh": {
+    "sha": "ede4fcd0d93535f65b660bdb34bd787d6315ef01",
+    "commits_after_a0bb": 4,
+    "migration_target_file_overlap": 0,
+    "mechanical_19_patch_replay": "PASS",
+    "modified_python_compile": "62/62 PASS",
+    "unknown_effect_verifier": "PASS",
+    "plugin_idempotency_verifier": "PASS",
+    "native_restart_gap": "still present: prior-host queued/working/waiting_user rows are failed and no recover_restart equivalent exists"
   },
   "promotion_ready": false,
   "promotion_blockers": [

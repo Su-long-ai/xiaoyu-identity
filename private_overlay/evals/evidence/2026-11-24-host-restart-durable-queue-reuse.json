@@ -30,8 +30,8 @@
       "gap": "_requeue transitions to queued before writing continuation only to in-memory _resume; Ledger._reconcile then fails every old queued commission."
     },
     "L2_neko_upstream_extensions": {
-      "commit": "fac795091e33cd92a6604d14ac242510944badac",
-      "result": "Latest upstream NekoPower still keeps _queue/_resume/_notes in TaskAgentManager memory and Ledger._reconcile explicitly marks prior-host queued/working/waiting_user commissions failed. No native equivalent reconstructs current queue-epoch continuation/note/wake provenance."
+      "commit": "ede4fcd0d93535f65b660bdb34bd787d6315ef01",
+      "result": "Latest upstream NekoPower still keeps _queue/_resume/_notes in TaskAgentManager memory and Ledger._reconcile explicitly marks prior-host queued/working/waiting_user commissions failed. No recover_restart equivalent exists. The four commits after a0bb do not touch any of the 19 migration-patch target files."
     },
     "L3_native_adjacent": "Use existing task-agent queue/start/session lookup only; do not add a scheduler.",
     "L4_external": "External workflow engines/reliable queues are rejected because they would duplicate the frozen commission/session authority.",
@@ -40,7 +40,7 @@
   },
   "safety_rules": [
     "Durable primary continuation and pre-resume notes commit before transition to queued; failed/orphan attempts cannot become a later queue epoch.",
-    "Acknowledged queued user text is recovered from the native told event; internal secondary notes use only the existing Ledger event stream.",
+    "Acknowledged queued user text is recovered from the native told event; internal secondary notes use only the existing Ledger event stream, and each accepted note/provenance item is appended exactly once.",
     "Recovery considers only current task_agent queued commissions; terminal/cancelled rows are never revived and cancellation is rechecked after session resolution.",
     "Initial queued commissions keep native opening semantics; a requeue without a durable current-epoch continuation fails closed before any effect.",
     "Requeued commissions reuse their durable native session identity; initial queued work may receive only the same canonical first session native code would assign.",
@@ -56,7 +56,15 @@
     "agent_head": "1bf55acd5a66d8c5742f72e306f35362827bdeb2",
     "github_actions_run_id": 45322186743,
     "github_actions_conclusion": "success",
-    "local_exact_c3_candidate_selection": "26 passed, 153 deselected",
+    "local_exact_c3_candidate_selection": "27 passed, 153 deselected after adding the secondary-wake before-note exactly-once regression",
+    "duplicate_note_regression": {
+      "reproduced": "When _wake_working receives before provenance while the commission is already queued/requeueing/starting, the old candidate appended each before note twice.",
+      "red_observation": ["copy line one", "copy line two", "copy line one", "copy line two", "late copy finding"],
+      "fix": "Remove the duplicate restart_queue_note append loop in both the c3 source candidate and the one-for-one NekoPower migration candidate.",
+      "patch_surface_after_fix": "458 additions / 12 deletions = 470 changed lines, down from 476.",
+      "local_c3": "27 passed / 153 deselected in the durable queue + native queue selection",
+      "local_nekopower": "23/23 durable candidate tests PASS; combined durable + native queue selection is 27 passed / 153 deselected in exact a0bb locked uv environment"
+    },
     "overlay_contract": "185 passed",
     "machine_gates": [
       "reuse-first",
