@@ -4135,9 +4135,9 @@
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         {
-          "name": "N.E.K.O latest upstream 843a3624",
+          "name": "N.E.K.O latest upstream fac79509",
           "type": "native_upstream",
-          "outcome": "checked; no equivalent durable queued-continuation startup seam",
+          "outcome": "checked; NekoPower Ledger._reconcile still fails prior-host queued/working/waiting_user commissions and no equivalent durable queued-continuation startup seam exists",
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         {
@@ -4168,7 +4168,7 @@
       "why_reuse_insufficient": "Native queue/session machinery can restart work, but volatile queue memory can carry permission-relevant provenance. Recovery must be reconstructed from native durable sources, not serialized as plain text.",
       "acceptance_evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
       "retirement_condition": "Delete when upstream natively reconstructs queued work with equivalent provenance, cancellation, identity and no-active-effect-replay semantics.",
-      "promotion_policy": "CANDIDATE_ONLY_UNTIL_PROVENANCE_COMPLETE_AND_PARENT_ACTIVE_COMMISSION_BLOCKER_CLOSED",
+      "promotion_policy": "CANDIDATE_ONLY_AFTER_FULL_GREEN_DUE_DEPENDENT_RESTART_STACK_AND_14_OF_14_MANAGED_PATCH_BUDGET",
       "search_layers": {
         "L0_authority": {
           "status": "checked",
@@ -4182,7 +4182,7 @@
         },
         "L2_neko_upstream_extensions": {
           "status": "checked",
-          "outcome": "Latest upstream lacks an equivalent restart queue seam.",
+          "outcome": "fac79509 checked: latest NekoPower still lacks equivalent restart queue reconstruction and explicitly fails prior-host queued/working/waiting_user rows.",
           "evidence": "evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json"
         },
         "L3_existing_pinned_external": {
@@ -4207,7 +4207,7 @@
       },
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-host-restart-durable-queue-reuse.json",
       "outcome": "thin_adapter",
-      "notes": "Current candidate stays inside N.E.K.O Ledger/TaskAgentManager authority. It reconstructs only queued pre-effect work, scopes resume/note envelopes to the current queue epoch, preserves native session identity, re-hands timer/message wakes through native session wake authority, and rechecks terminal cancellation after session resolution. Promotion remains blocked until the latest candidate acceptance and full agent/** gate are green."
+      "notes": "Full agent gate 45322186743 is green at 1bf55acd, including report/permission/active-working/durable restart candidates, QQ and release evidence. Keep this candidate-only because restart continuity depends on multiple candidate patches and Stable already consumes the 14/14 managed patch budget; next route is semantic migration to latest NekoPower, not patch-count expansion or bundling."
     },
     {
       "id": "governance:companion-performance-native-measurement-v1",

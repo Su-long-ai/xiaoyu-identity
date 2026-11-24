@@ -89,7 +89,10 @@
   ],
   "candidate_only_exclusions": [
     "candidates/execution_plane/host_restart_report_wait.patch",
-    "candidates/execution_plane/host_restart_permission_wait.patch"
+    "candidates/execution_plane/host_restart_permission_wait.patch",
+    "candidates/execution_plane/host_restart_answer_handoff.patch",
+    "candidates/execution_plane/host_restart_working_uncertain.patch",
+    "candidates/execution_plane/host_restart_durable_queue.patch"
   ],
   "decision_evidence": "evals/evidence/2026-11-23-execution-correctness-patch-budget-decision.json"
 }

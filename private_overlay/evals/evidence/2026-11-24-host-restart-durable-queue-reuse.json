@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "decision_id": "HOST_RESTART_DURABLE_QUEUE_REUSE_V1",
-  "reviewed_at_local": "2026-11-24T03:20:00+08:00",
+  "reviewed_at_local": "2026-11-24T11:55:30+08:00",
   "problem": "N.E.K.O queues both newly dispatched commissions and commissions being taken up again. The commission/session rows are durable, but requeue primary text, queued secondary notes, copy hand-back notes, and wake-note ordering otherwise depend on TaskAgentManager memory. A host death must reconstruct only the current queue epoch without flattening _Handed/_Unsaid/_Found provenance, duplicating native wake delivery, drifting session identity, or reviving cancellation.",
   "authority_boundary": {
     "commission": "N.E.K.O Ledger commissions",
@@ -30,8 +30,8 @@
       "gap": "_requeue transitions to queued before writing continuation only to in-memory _resume; Ledger._reconcile then fails every old queued commission."
     },
     "L2_neko_upstream_extensions": {
-      "commit": "d90f8371653c5a2a9b01d655c38475414711266a",
-      "result": "Latest upstream still keeps take-up continuation/queued notes in TaskAgentManager memory and still has no restart_queue_resume/recover_restart_queue seam. Its renamed nekopower host retains the same fail-old-active restart shape; no native equivalent closes current queue-epoch provenance."
+      "commit": "fac795091e33cd92a6604d14ac242510944badac",
+      "result": "Latest upstream NekoPower still keeps _queue/_resume/_notes in TaskAgentManager memory and Ledger._reconcile explicitly marks prior-host queued/working/waiting_user commissions failed. No native equivalent reconstructs current queue-epoch continuation/note/wake provenance."
     },
     "L3_native_adjacent": "Use existing task-agent queue/start/session lookup only; do not add a scheduler.",
     "L4_external": "External workflow engines/reliable queues are rejected because they would duplicate the frozen commission/session authority.",
@@ -50,6 +50,25 @@
     "No host_call status grants permission or authorizes replay; effects remain governed by current permission, idempotency, unknown-effect, outbox and receipt semantics."
   ],
   "decision": "THIN_NATIVE_LEDGER_EVENT_QUEUE_RECOVERY_CANDIDATE",
-  "promotion": "CANDIDATE_ONLY_UNTIL_FULL_GATE_AND_QUEUE_PROVENANCE_ACCEPTANCE",
-  "retirement_condition": "Delete when upstream N.E.K.O durably reconstructs initial/requeued task-agent queues, ordered queued notes and native wake provenance after host restart without replaying active effects or restoring stale authority."
+  "promotion": "CANDIDATE_ONLY_AFTER_FULL_GREEN: restart continuity is a dependent multi-patch stack and the managed core budget is already 14/14; do not promote by count expansion or patch bundling. Prefer migration to latest NekoPower and retire/rebase old patches with equivalent acceptance.",
+  "retirement_condition": "Delete when upstream N.E.K.O durably reconstructs initial/requeued task-agent queues, ordered queued notes and native wake provenance after host restart without replaying active effects or restoring stale authority.",
+  "validation_2026_11_24": {
+    "agent_head": "1bf55acd5a66d8c5742f72e306f35362827bdeb2",
+    "github_actions_run_id": 45322186743,
+    "github_actions_conclusion": "success",
+    "local_exact_c3_candidate_selection": "26 passed, 153 deselected",
+    "overlay_contract": "185 passed",
+    "machine_gates": [
+      "reuse-first",
+      "architecture-freeze",
+      "plugin-admission"
+    ],
+    "restart_stack_steps": [
+      "report-wait host-restart candidate",
+      "permission-wait host-restart candidate",
+      "active-working host-restart uncertain candidate",
+      "durable queue host-restart candidate"
+    ],
+    "final_release_gate": "success"
+  }
 }
