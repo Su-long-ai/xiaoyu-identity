@@ -139,6 +139,7 @@ if (-not $StartupPreflight) {
     $ExecutionEvidence = Join-Path $OverlayRoot "evals\evidence\latest-execution-plane.json"
     & $NekoPython (Join-Path $OverlayRoot "tools\check_execution_plane.py") `
         --neko-root $NekoRoot `
+        --host-package nekopower `
         --python $NekoPython `
         --full `
         --json-out $ExecutionEvidence

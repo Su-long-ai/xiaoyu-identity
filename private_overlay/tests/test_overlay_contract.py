@@ -921,6 +921,7 @@ class OverlayContractTests(unittest.TestCase):
             "XiaoYu native execution-plane regression",
             "check_execution_plane.py",
             "--neko-root $NekoRoot",
+            "--host-package nekopower",
             "--python $NekoPython",
             "--full",
             "latest-execution-plane.json",
