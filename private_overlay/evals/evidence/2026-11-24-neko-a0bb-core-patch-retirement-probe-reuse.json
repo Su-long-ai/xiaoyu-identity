@@ -107,7 +107,57 @@
     "conclusion": "success",
     "meaning": "a0bb migration broad regression, Companion/Voice, native and managed Execution, restart candidates, QQ surface and release evidence are green before retirement probing begins"
   },
-  "current_verdict": "PROBE_PREPARED_NOT_RETIREMENT_AUTHORITY",
+  "current_verdict": "FIRST_PASS_NO_RETIREMENTS_CONTINUE_REMAINING_CORE_PROBE",
   "promotion_rule": "A focused pass only creates a retirement candidate. Actual retirement requires a full omission rebuild with that patch absent, complete relevant product acceptance, and a one-for-one Stable patch-budget decision.",
-  "retirement_condition": "Delete this probe after the a0bb promotion decision is closed or after upstream N.E.K.O natively absorbs the selected behaviors with direct full-product acceptance evidence."
+  "retirement_condition": "Delete this probe after the a0bb promotion decision is closed or after upstream N.E.K.O natively absorbs the selected behaviors with direct full-product acceptance evidence.",
+  "first_probe_result": {
+    "branch": "agent/execution-continuity-v2",
+    "commit": "b16b47a057db1421d11f60b01a6ef5ed81c37899",
+    "github_actions_run_id": 45339071967,
+    "conclusion": "success",
+    "retirement_candidates": [],
+    "required_patches": [
+      "0003-qwen38-server-vad-reliability.patch",
+      "0005-latest-character-switch-intent-replay.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch"
+    ],
+    "focused_failures": {
+      "0003": "Qwen3.8 falls back to semantic_vad without the patch; patch-owned test expects server_vad.",
+      "0005": "Missing-VRM recovery and rapid A→B→A latest-intent replay fail without the patch.",
+      "0007": "Private first-round provider-native route loses tool_choice and matching-tool validation without the patch.",
+      "0008": "Qwen voice bundle cannot import its qwen_audio implementation when the patch is removed."
+    },
+    "infrastructure_error": null,
+    "full_product_gate_after_probe": "PASS"
+  },
+  "patch_0002_frozen_seam": {
+    "patch": "0002-full-chat-native-voice-entry.patch",
+    "observation": "FullChatSurface.tsx and App.test.tsx are unchanged from c3 through a0bb and remain unchanged through current ede4 upstream; there is no native implementation/test seam change that could absorb the managed UI bridge.",
+    "verdict": "NOT_A_RETIREMENT_CANDIDATE_WITHOUT_A_NEW_NATIVE_SEAM"
+  },
+  "remaining_probe_plan": {
+    "implementation": "private_overlay/candidates/execution_plane/probe_a0bb_remaining_core_patch_retirement.py",
+    "tests": "private_overlay/tests/test_probe_a0bb_remaining_core_patch_retirement.py",
+    "targets": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0006-private-speech-output-gate.patch",
+      "0009-proactive-interruptibility-gate.patch"
+    ],
+    "topology": "build a disposable exact-a0bb worktree with only 0001-0009, so 0009 can be reversed without 0010+/restart overlap",
+    "patch_0002_rule": "compare native implementation/test blobs against the exact c3 current pin; identical blobs are a no-retirement signal, not a promotion."
+  },
+  "latest_upstream_refresh": {
+    "upstream_main": "ede4fcd0d93535f65b660bdb34bd787d6315ef01",
+    "commits_after_a0bb": 4,
+    "upstream_changed_files": 43,
+    "overlap_with_all_19_migration_patch_targets": 0,
+    "full_19_patch_mechanical_replay": "PASS",
+    "patched_python_files_compiled": 62,
+    "unknown_effect_verifier": "PASS",
+    "plugin_idempotency_verifier": "PASS",
+    "selected_0003_0005_0007_0008_surfaces_changed_after_a0bb": false,
+    "implication": "a0bb retirement conclusions remain fresh for these core seams; ede4 still requires a hosted semantic regression before any pin cutover."
+  }
 }
