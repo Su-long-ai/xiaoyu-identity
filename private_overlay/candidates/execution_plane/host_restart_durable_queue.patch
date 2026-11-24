@@ -381,7 +381,7 @@ index 5c1c553..8d497f1 100644
 +                if not in_queue and not requeued:
 +                    found_notes = list(pending_notes)
 +                if invalid:
-+                    raise ValueError("durable continuation or note for the current queue cycle is missing or invalid")
++                    raise ValueError("durable continuation for the current queue cycle is missing or invalid, or a durable queued note is invalid")
 +                return found, requeued, found_notes
 +            after = page[-1].seq
 +

@@ -435,8 +435,9 @@ async def test_handed_wake_uses_native_wake_ids_once_after_restart(tmp_path: Pat
             lambda: commission_id in host.task_agents.queued,
             what="wake-backed queue to be reconstructed",
         )
-        assert commission_id not in host.task_agents._resume
-
+        # Native wake delivery may already have completed after recovery opens
+        # the hand-over gate. Accept either side of that race and verify the
+        # final native wake identity below.
         pending = await host.ledger.wakes_pending(commission_id=commission_id)
         if pending:
             current = await host.ledger.get(commission_id)
@@ -748,19 +749,18 @@ async def test_secondary_wake_note_keeps_queue_position_and_native_text(tmp_path
         )
         primary = host.task_agents._resume.get(commission_id)
         assert isinstance(primary, _Unsaid)
-        notes = host.task_agents._notes.get(commission_id, [])
-        assert len(notes) == 2
-        assert isinstance(notes[0], _Handed) and str(notes[0]) == "" and notes[0].wakes == (wake_id,)
-        assert isinstance(notes[1], _Found) and str(notes[1]) == "after wake finding"
-        assert host.task_agents._restart_waiting_wakes[commission_id] == {wake_id}
 
+        # The native waker is kicked as soon as restart recovery succeeds, so
+        # it may replace the durable empty placeholder before this coroutine
+        # observes it. If it is still pending, hand it over explicitly; either
+        # way the final queue position and native text must be identical.
         pending = await host.ledger.wakes_pending(session_id=session_id)
         matching = [wake for wake in pending if wake.id == wake_id]
-        assert len(matching) == 1
-        current = await host.ledger.get(commission_id)
-        target = await host.ledger.get_session(session_id)
-        assert current is not None and target is not None
-        await host.task_agents._hand_to(current, target, matching)
+        if matching:
+            current = await host.ledger.get(commission_id)
+            target = await host.ledger.get_session(session_id)
+            assert current is not None and target is not None
+            await host.task_agents._hand_to(current, target, matching)
 
         await wait_until(
             lambda: commission_id not in host.task_agents._restart_waiting_wakes,
@@ -769,6 +769,7 @@ async def test_secondary_wake_note_keeps_queue_position_and_native_text(tmp_path
         notes = host.task_agents._notes.get(commission_id, [])
         assert len(notes) == 2
         assert isinstance(notes[0], _Handed)
+        assert str(notes[0])
         assert str(notes[0]) != "serialized secondary wake"
         assert notes[0].wakes == (wake_id,)
         assert isinstance(notes[1], _Found)
@@ -999,6 +1000,7 @@ async def test_failed_queue_recovery_keeps_native_wake_handoff_fail_closed(
         commission, session = await ledger.give_session(
             commission.id, kind="single", name=commission.id, duty="failed recovery barrier"
         )
+        assert (await ledger.transition(commission.id, "working", reason="first run")).applied
         wake, refusal = await ledger.wake_add(
             session_id=session.id,
             commission_id=commission.id,
@@ -1008,6 +1010,20 @@ async def test_failed_queue_recovery_keeps_native_wake_handoff_fail_closed(
             daily_max=10,
         )
         assert refusal == "" and wake is not None
+        fired = await ledger.wakes_fire([wake.id], into=commission.id)
+        assert fired == [wake.id]
+        await ledger.append_event(
+            commission.id,
+            "restart_queue_resume",
+            {"resume": _queue_text_payload(_Handed("serialized text is not authority", fired))},
+        )
+        assert (
+            await ledger.transition(
+                commission.id,
+                "queued",
+                reason="woken; waiting for a place",
+            )
+        ).applied
         commission_id = commission.id
         session_id = session.id
         wake_id = wake.id
