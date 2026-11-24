@@ -170,6 +170,16 @@ jobs:
           path: _neko_execution_migration_candidate
           fetch-depth: 1
 
+      - name: Verify a0bb native Voice and ASR upgrade seams
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          mapfile -t VOICE_NATIVE_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import NATIVE_TESTS; [print(item) for item in NATIVE_TESTS]')
+          test "${#VOICE_NATIVE_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
+          python -m pip install -q uv
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_NATIVE_TESTS[@]}"
+
       - name: Rebuild a0bb managed execution migration stack
         if: github.ref == 'refs/heads/agent/execution-continuity-v2'
         run: |
@@ -238,6 +248,30 @@ jobs:
               "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_answer_handoff_candidate.py" \
               "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_working_uncertain_candidate.py" \
               "$GITHUB_WORKSPACE/_nekopower_restart_tests/test_host_restart_durable_queue_candidate.py"
+
+      - name: Regress a0bb XiaoYu Voice and Qwen ownership
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          mapfile -t VOICE_PRODUCT_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import PRODUCT_TESTS; [print(item) for item in PRODUCT_TESTS]')
+          test "${#VOICE_PRODUCT_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_PRODUCT_TESTS[@]}"
+
+      - name: Regress migrated NekoPower execution seams
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_execution_migration_candidate"
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            tests/unit/nekopower/test_host_ledger.py \
+            tests/unit/nekopower/test_host_task_agents.py \
+            tests/unit/nekopower/test_host_delivery.py \
+            tests/unit/nekopower/test_host_plugin_runs.py \
+            tests/unit/nekopower/test_host_gateway.py \
+            tests/unit/nekopower/test_host_task_brain.py \
+            tests/unit/nekopower/test_host_preferences_permissions.py \
+            tests/unit/nekopower/test_execution_audit.py
 
       - name: Prepare managed N.E.K.O product worktree
         run: |

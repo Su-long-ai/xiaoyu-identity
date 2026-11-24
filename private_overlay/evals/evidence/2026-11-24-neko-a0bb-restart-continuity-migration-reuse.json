@@ -91,7 +91,12 @@
     "materializer": "prepare_nekopower_restart_candidate_tests.py performs test-only NekoClaw->NekoPower namespace projection; no runtime implementation copied",
     "local_selected_stack": "47/47 PASS across report applicable assertions plus full permission/answer/active-working/durable-queue candidate suites",
     "strict_lf_rebuild": "PASS without ignore-space flags after core.autocrlf=false reset, matching Linux CI patch application semantics",
-    "github_full_checkout": "pending: workflow also runs the full host report-resume case that local sparse probe cannot enter because an optional model module is absent"
+    "github_full_checkout": {
+      "run_id": 45330926169,
+      "step": "Rebuild a0bb managed execution migration stack",
+      "result": "SUCCESS",
+      "observed": "clean full a0bb checkout rebuilt 0001-0014 plus all five restart migration patches and ran the full migrated restart selection, including the host report-resume case unavailable in the local sparse probe"
+    }
   },
   "promotion_ready": false,
   "promotion_blockers": [
@@ -100,5 +105,20 @@
     "full product acceptance before any NEKO_UPSTREAM.lock.json mutation"
   ],
   "conclusion": "A0BB_RESTART_STACK_SEMANTIC_MIGRATION_FEASIBLE_CANDIDATE_ONLY",
-  "retirement_condition": "Delete each one-for-one restart candidate independently when upstream N.E.K.O supplies equivalent native semantics, or after a NekoPower product pin is promoted and these replace the c3 candidate stack without expanding the Stable patch count."
+  "retirement_condition": "Delete each one-for-one restart candidate independently when upstream N.E.K.O supplies equivalent native semantics, or after a NekoPower product pin is promoted and these replace the c3 candidate stack without expanding the Stable patch count.",
+  "broad_regression_selection": {
+    "rationale": "Run upstream-native tests only for seams modified by the migration stack, using a0bb's own locked dev environment and pytest.ini; avoid unrelated browser/desktop suites.",
+    "files": [
+      "tests/unit/nekopower/test_host_ledger.py",
+      "tests/unit/nekopower/test_host_task_agents.py",
+      "tests/unit/nekopower/test_host_delivery.py",
+      "tests/unit/nekopower/test_host_plugin_runs.py",
+      "tests/unit/nekopower/test_host_gateway.py",
+      "tests/unit/nekopower/test_host_task_brain.py",
+      "tests/unit/nekopower/test_host_preferences_permissions.py",
+      "tests/unit/nekopower/test_execution_audit.py"
+    ],
+    "environment": "uv run --project _neko_execution_migration_candidate --locked --group dev; candidate's own pytest.ini",
+    "local_sparse_note": "Do not treat local collection failures as product failures: the sparse probe omits the full repository packaging/test environment."
+  }
 }

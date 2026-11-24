@@ -1684,6 +1684,16 @@ class OverlayContractTests(unittest.TestCase):
             "nekopower_host_restart_durable_queue.patch",
             "prepare_nekopower_restart_candidate_tests.py",
             "_nekopower_restart_tests",
+            "Verify a0bb native Voice and ASR upgrade seams",
+            "Regress a0bb XiaoYu Voice and Qwen ownership",
+            "probe_neko_d90_voice_promotion import NATIVE_TESTS",
+            "probe_neko_d90_voice_promotion import PRODUCT_TESTS",
+            "Regress migrated NekoPower execution seams",
+            "tests/unit/nekopower/test_host_ledger.py",
+            "tests/unit/nekopower/test_host_task_agents.py",
+            "tests/unit/nekopower/test_host_plugin_runs.py",
+            "tests/unit/nekopower/test_host_gateway.py",
+            "tests/unit/nekopower/test_execution_audit.py",
             "verify_nekopower_plugin_run_unknown_effect.py",
             "verify_nekopower_plugin_run_idempotency.py",
             "--host-package nekopower",
@@ -1739,12 +1749,30 @@ class OverlayContractTests(unittest.TestCase):
             "A0BB_RESTART_STACK_SEMANTIC_MIGRATION_FEASIBLE_CANDIDATE_ONLY",
             restart,
         )
+        readiness = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-product-promotion-readiness-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', readiness)
+        self.assertIn('"current_verdict": "NOT_YET_PROMOTABLE"', readiness)
+        self.assertIn("NATIVE_TESTS", readiness)
+        self.assertIn("PRODUCT_TESTS", readiness)
+        self.assertIn("45330926169", readiness)
+
         for marker in (
             "nekopower_host_restart_report_wait.patch",
             "nekopower_host_restart_permission_wait.patch",
             "nekopower_host_restart_answer_handoff.patch",
             "nekopower_host_restart_working_uncertain.patch",
             "nekopower_host_restart_durable_queue.patch",
+            "broad_regression_selection",
+            "tests/unit/nekopower/test_host_ledger.py",
+            "tests/unit/nekopower/test_host_task_agents.py",
+            "tests/unit/nekopower/test_host_plugin_runs.py",
+            "tests/unit/nekopower/test_host_gateway.py",
+            "tests/unit/nekopower/test_execution_audit.py",
         ):
             self.assertIn(marker, restart)
 
