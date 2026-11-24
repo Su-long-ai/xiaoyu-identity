@@ -194,6 +194,26 @@ jobs:
             --host-package nekopower \
             --wire-prefix nekopower
 
+      - name: Verify NekoPower native-delivery receipt one-for-one migration candidate
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          git -C _neko_execution_migration_candidate apply --check \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_native_delivery_receipt.patch"
+          git -C _neko_execution_migration_candidate apply \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_native_delivery_receipt.patch"
+          python -m py_compile \
+            _neko_execution_migration_candidate/app/agent_server/api_runtime.py \
+            _neko_execution_migration_candidate/app/agent_server/nekopower_mount.py \
+            _neko_execution_migration_candidate/app/main_server/character_runtime.py \
+            _neko_execution_migration_candidate/main_logic/agent_event_bus.py
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py \
+            --neko-root _neko_execution_migration_candidate \
+            --runtime-name nekopower
+          python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8"
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py \
+            --neko-root _neko_execution_migration_candidate \
+            --runtime-name nekopower
+
       - name: Prepare managed N.E.K.O product worktree
         run: |
           rm -rf _neko_product

@@ -1677,6 +1677,11 @@ class OverlayContractTests(unittest.TestCase):
             "nekopower_outbox_effect_state.patch",
             "--host-package nekopower",
             "--wire-prefix nekopower",
+            "Verify NekoPower native-delivery receipt one-for-one migration candidate",
+            "nekopower_native_delivery_receipt.patch",
+            "verify_native_delivery_receipt_candidate.py",
+            "verify_native_delivery_receipt_zmq_e2e.py",
+            "--runtime-name nekopower",
         ):
             self.assertIn(marker, workflow)
 

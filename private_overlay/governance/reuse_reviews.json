@@ -5059,6 +5059,90 @@
       "outcome": "thin_adapter",
       "notes": "Formal candidate now clean-applies to exact fac795, compiles, and passes the same effect-state verifier used by c3 Stable. Workflow keeps it agent/execution-continuity-v2 scoped and does not mutate Stable series or product pin.",
       "machine_gate_note": "Execution branch checks exact fac795, applies this candidate one-for-one, and runs the shared effect-state verifier in NekoPower mode; Stable continues to run the same verifier in default NekoClaw mode."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_native_delivery_receipt.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the proven native delivery receipt / main-epoch barrier contract from c3 NekoClaw to fac795 NekoPower on top of the one-for-one 0011 replacement, without adding a transport or receipt authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing managed 0012 receipt contract",
+          "type": "native_current_pin",
+          "outcome": "selected as semantic/code source",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        {
+          "name": "fac795 NekoPower native ZMQ/agent/main seams",
+          "type": "native_upstream",
+          "outcome": "selected target; protocol reused with three context-drift integrations",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        {
+          "name": "Existing receipt static/fault verifier",
+          "type": "existing_product_acceptance",
+          "outcome": "reused in both runtime namespaces",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        {
+          "name": "Existing receipt real-ZMQ E2E",
+          "type": "existing_product_acceptance",
+          "outcome": "reused in both runtime namespaces",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        {
+          "name": "New receipt transport/store",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "NekoPower still lacks 0012 semantics, but its native bridge and routing seams are equivalent enough to reuse the existing protocol and verifier suite rather than invent a replacement.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json",
+      "retirement_condition": "Delete after NekoPower product promotion converts this one-for-one replacement into the managed 0012 equivalent, or when upstream supplies equivalent main-epoch/claim/commit/release receipt semantics natively.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; depends on the NekoPower 0011 candidate and must not expand Stable patch count.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O main/agent/ZMQ/Ledger remain sole authorities.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "0012 and both c3 verifiers reused as exact contract.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "fac795 native seams selected; no native equivalent receipt barrier found.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "External surfaces do not own native receipt correctness."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "New broker/receipt systems rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected namespace/path rebase plus three context-drift integrations on native ZMQ.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second bridge/store/protocol/runtime introduced.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-nekopower-delivery-receipt-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "notes": "Formal candidate clean-applies after the green NekoPower 0011 replacement on exact fac795, compiles, passes the same static/fault receipt verifier and the same real-ZMQ E2E as c3 Stable. No new transport/store/protocol is introduced.",
+      "machine_gate_note": "Execution ordinary push applies 0011 then 0012 NekoPower candidates on exact fac795 and runs shared static/fault and real-ZMQ verifiers in NekoPower mode."
     }
   ],
   "hierarchy_policy": {

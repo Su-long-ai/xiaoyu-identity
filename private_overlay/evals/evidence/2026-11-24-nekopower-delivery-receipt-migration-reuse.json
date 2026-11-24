@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKOPOWER_DELIVERY_RECEIPT_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "fac795091e33cd92a6604d14ac242510944badac",
+  "depends_on_candidate": "candidates/execution_plane/nekopower_outbox_effect_state.patch",
+  "source_managed_patch": "0012-native-delivery-receipt.patch",
+  "problem": "Migrate the proven native delivery receipt / main-epoch barrier contract from c3 NekoClaw to fac795 NekoPower on top of the one-for-one 0011 replacement, without adding a transport or receipt authority.",
+  "reuse_result": {
+    "mechanical_port": "Namespace/path migration clean-applies api_runtime and nekopower_mount. character_runtime has two context-drift hunks and agent_event_bus one helper-refactor hunk; all other 0012 hunks reuse directly.",
+    "context_drift_resolution": [
+      "release exact claim when latest character runtime still has no session manager",
+      "mark visible effect after successful render_chat_blocks",
+      "factor the existing main-to-agent analyze ACK lane into a generic helper reused by turn-check, main-epoch and delivery-barrier events"
+    ],
+    "new_transport": "none; existing N.E.K.O native ZMQ analyze lane reused",
+    "stable_static_fault_verifier": "PASS on exact c3 product state after 0001-0012",
+    "candidate_static_fault_verifier": "PASS on fac795 NekoPower + 0011/0012 migration",
+    "stable_real_zmq_e2e": "PASS",
+    "candidate_real_zmq_e2e": "PASS"
+  },
+  "selected": "Reuse existing 0012 protocol and both existing verifiers; adapt only NekoPower namespace/path and three upstream context-drift locations.",
+  "forbidden": [
+    "second ZMQ bridge",
+    "new receipt database",
+    "new delivery protocol",
+    "changing current Stable 0012",
+    "changing product pin"
+  ],
+  "acceptance": [
+    "exact fac795 candidate, applied after NekoPower 0011 replacement",
+    "same static/fault receipt verifier passes c3 and NekoPower modes",
+    "same real-ZMQ E2E passes c3 and NekoPower modes",
+    "no additional transport, ledger, receipt store, or lifecycle authority",
+    "Stable series/product pin remain unchanged"
+  ],
+  "retirement_condition": "Delete after NekoPower product promotion converts this one-for-one replacement into the managed 0012 equivalent, or when upstream supplies equivalent main-epoch/claim/commit/release receipt semantics natively.",
+  "formal_candidate": {
+    "patch": "candidates/execution_plane/nekopower_native_delivery_receipt.patch",
+    "files": [
+      "app/agent_server/api_runtime.py",
+      "app/agent_server/nekopower_mount.py",
+      "app/main_server/character_runtime.py",
+      "main_logic/agent_event_bus.py"
+    ],
+    "clean_fac795_apply_order": [
+      "nekopower_outbox_effect_state.patch",
+      "nekopower_native_delivery_receipt.patch"
+    ],
+    "clean_fac795_apply_check": "PASS",
+    "clean_fac795_py_compile": "PASS",
+    "stable_static_fault_verifier": "PASS",
+    "candidate_static_fault_verifier": "PASS",
+    "stable_real_zmq_e2e": "PASS",
+    "candidate_real_zmq_e2e": "PASS",
+    "new_transport": "none"
+  }
+}
