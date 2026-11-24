@@ -4889,7 +4889,13 @@
           "evidence": "evals/evidence/2026-11-24-neko-d90-native-voice-promotion-candidate-reuse.json"
         }
       },
-      "machine_gate_note": "candidate_only/promotion_forbidden constrain this native reuse decision to an acceptance probe; the product pin remains c3 until promotion_policy closes."
+      "machine_gate_note": "Candidate remains probe-only. The current product has 19 managed patches and d90 is superseded as a direct target; future Voice/upstream promotion must start a fresh exact-target review while reusing this lifecycle evidence.",
+      "current_disposition": "superseded_direct_cutover_target",
+      "historical_scope_note": "This review was approved against the then-current 14-patch c3 product. Its reuse findings remain valid, but its patch-count and direct d90 promotion framing are historical.",
+      "superseded_by": {
+        "a0bb_migration_evidence": "evals/evidence/2026-11-24-neko-a0bb-product-promotion-readiness-reuse.json",
+        "current_upstream": "871066185f65fc6f213ca91cb08fe77a33814a9d"
+      }
     },
     {
       "id": "candidate:execution/neko-fac795-migration-v1",

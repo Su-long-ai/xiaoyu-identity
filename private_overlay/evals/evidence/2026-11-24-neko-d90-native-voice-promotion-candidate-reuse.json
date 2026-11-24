@@ -67,7 +67,8 @@
         "main_logic/core/tts_runtime.py"
       ]
     },
-    "implication": "File overlap is not proof of conflict, but it is a machine-relevant reason to require ordered git-apply compatibility plus focused native/XiaoYu tests before promotion."
+    "implication": "File overlap is not proof of conflict, but it is a machine-relevant reason to require ordered git-apply compatibility plus focused native/XiaoYu tests before promotion.",
+    "scope": "historical_14_patch_product_at_probe_time"
   },
   "selected_candidate_work": {
     "stage_1": "Build a fixed-d90 candidate checkout and machine probe. Reuse git apply --check/apply in declared patch order; never mutate product pin.",
@@ -85,7 +86,7 @@
     "candidate never copies d90 HTTP pool/preconnect/transport implementation into XiaoYu overlay",
     "promotion_ready must remain false on any patch conflict, native test failure, XiaoYu product test failure, missing candidate test, or license mismatch"
   ],
-  "retirement_condition": "Retire this candidate probe after a specific newer N.E.K.O pin is promoted and all replaced XiaoYu patches are retired/rebased with equivalent product acceptance, or when upstream itself ships the remaining XiaoYu-specific Qwen bundle/policy behavior and the managed patches disappear.",
+  "retirement_condition": "Keep this record only as historical Voice lifecycle/blocker evidence until the next exact upstream promotion candidate incorporates the same native TTS/realtime/ASR acceptance; it must not authorize a d90 cutover.",
   "implementation": {
     "probe": "private_overlay/candidates/voice_upgrade/probe_neko_d90_voice_promotion.py",
     "contract_test": "private_overlay/tests/test_probe_neko_d90_voice_promotion.py",
@@ -123,5 +124,26 @@
     ],
     "conclusion": "D90_PROMOTION_REQUIRES_CORRECTNESS_PORT_NOT_BLIND_REBASE",
     "next_candidate_boundary": "Keep c3 product pin. A future d90 promotion unit must formally review a thin 0010 context rebase plus NekoPower-native ports/replacements for 0011-0014, and prove all existing Execution/Voice acceptance before changing NEKO_UPSTREAM.lock.json."
-  }
+  },
+  "current_disposition": "SUPERSEDED_AS_DIRECT_CUTOVER_TARGET",
+  "historical_probe_scope": {
+    "stable_product_patch_count_at_probe": 14,
+    "probe_run_id": 45246458622,
+    "candidate_pin": "d90f8371653c5a2a9b01d655c38475414711266a",
+    "note": "The 14-patch overlap and blocker decomposition below are historical facts from the original d90 probe and must not be interpreted as the current product patch count."
+  },
+  "current_product_context": {
+    "stable_product_commit": "3f4eb46d84254400a7c603151b297d52d5a40076",
+    "stable_product_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "managed_patch_count": 19,
+    "acceptance": "26/26",
+    "product_gate_run": 45353340841,
+    "execution_restart_continuity": "0015-0019 now managed correctness exceptions; d90 probe predates this promotion"
+  },
+  "superseded_by": {
+    "migration_evidence": "evals/evidence/2026-11-24-neko-a0bb-product-promotion-readiness-reuse.json",
+    "latest_upstream_sha": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+    "reason": "a0bb already proved the NekoPower correctness migration shape and upstream has advanced nine commits beyond a0bb; d90 remains useful Voice lifecycle evidence but is no longer a rational direct pin-cutover target."
+  },
+  "next_candidate_boundary": "Reuse d90 native Voice findings and the green a0bb migration recipe, but build the next candidate from one exact current upstream frontier. Do not promote d90 or replay its historical 14-patch verdict as current product evidence."
 }
