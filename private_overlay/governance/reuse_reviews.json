@@ -5704,6 +5704,76 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
       "outcome": "thin_adapter",
       "machine_gate_note": "Apply nekopower_host_restart_durable_queue.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+    },
+    {
+      "id": "candidate:execution_plane/a0bb_core_patch_retirement_probe",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Determine whether selected XiaoYu managed core patches can retire on exact N.E.K.O a0bb without expanding or bundling the Stable 14-patch budget.",
+      "decision": "reuse_native",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Exact a0bb native runtime after the already-green managed migration stack",
+          "type": "native_upstream",
+          "outcome": "selected as the only retirement target; runtime authority stays in N.E.K.O",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        {
+          "name": "Existing patch-owned focused acceptance tests",
+          "type": "native_existing_tests",
+          "outcome": "selected as the narrow first semantic-equivalence signal; a pass is not promotion authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        {
+          "name": "Delete or bundle patches merely to free patch-budget slots",
+          "type": "private_shortcut",
+          "outcome": "rejected; retirement requires machine evidence and full omission acceptance",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "No new runtime implementation is needed. The probe reuses exact a0bb plus existing patch-owned tests to decide whether managed code is still necessary; textual git equivalence alone is insufficient evidence.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json",
+      "retirement_condition": "Delete this probe after the a0bb promotion decision closes or upstream supplies direct full-product evidence for the selected behaviors.",
+      "promotion_policy": "CANDIDATE_ONLY_EVIDENCE; no Stable pin, series or patch-count mutation.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains the sole runtime/voice/character/tool/execution authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "The current c3 Stable 14-patch series is the behavior baseline and may not be weakened to make room.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was mechanically screened; only 0003/0005/0007/0008 show enough upstream semantic movement to justify focused retirement probes.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins cannot prove equivalence of internal N.E.K.O managed core patches."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "not_applicable",
+          "rationale": "An external component would add authority rather than retire an internal N.E.K.O patch."
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected a short-lived reversible test probe that removes one implementation at a time, reuses its existing tests and restores the candidate byte-for-byte.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "Only candidate test tooling is added; it cannot edit Stable bindings and cannot promote a focused pass by itself.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json",
+      "outcome": "reuse_native",
+      "machine_gate_note": "Run only on exact a0bb fully migrated candidate; byte-for-byte restore is mandatory; any focused pass still requires a full omission rebuild and full product acceptance."
     }
   ],
   "hierarchy_policy": {
