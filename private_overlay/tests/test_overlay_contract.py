@@ -1677,6 +1677,13 @@ class OverlayContractTests(unittest.TestCase):
             "nekopower_native_delivery_receipt.patch",
             "nekopower_plugin_run_unknown_effect.patch",
             "nekopower_plugin_run_idempotency.patch",
+            "nekopower_host_restart_report_wait.patch",
+            "nekopower_host_restart_permission_wait.patch",
+            "nekopower_host_restart_answer_handoff.patch",
+            "nekopower_host_restart_working_uncertain.patch",
+            "nekopower_host_restart_durable_queue.patch",
+            "prepare_nekopower_restart_candidate_tests.py",
+            "_nekopower_restart_tests",
             "verify_nekopower_plugin_run_unknown_effect.py",
             "verify_nekopower_plugin_run_idempotency.py",
             "--host-package nekopower",
@@ -1720,6 +1727,26 @@ class OverlayContractTests(unittest.TestCase):
             "A0BB_0014_NATIVE_SERVER_IDEMPOTENCY_WIRING_GREEN_CANDIDATE_ONLY",
             idempotency,
         )
+
+        restart = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', restart)
+        self.assertIn(
+            "A0BB_RESTART_STACK_SEMANTIC_MIGRATION_FEASIBLE_CANDIDATE_ONLY",
+            restart,
+        )
+        for marker in (
+            "nekopower_host_restart_report_wait.patch",
+            "nekopower_host_restart_permission_wait.patch",
+            "nekopower_host_restart_answer_handoff.patch",
+            "nekopower_host_restart_working_uncertain.patch",
+            "nekopower_host_restart_durable_queue.patch",
+        ):
+            self.assertIn(marker, restart)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_A0BB_RESTART_CONTINUITY_MIGRATION_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+  "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+  "problem": "Port the already-green c3 host-restart continuity stack to current NekoPower without adding a second queue, scheduler, permission store, answer store, effect authority or runtime supervisor.",
+  "authority": {
+    "kernel": "N.E.K.O NekoPower only",
+    "ledger": "N.E.K.O Ledger",
+    "task_queue": "N.E.K.O TaskAgentManager native queue/session seams",
+    "permission": "N.E.K.O PermissionGate; no old grant is reconstructed",
+    "effect": "N.E.K.O host_calls plus managed 0011-0014 one-for-one NekoPower candidates",
+    "forbidden": [
+      "private queue database",
+      "private scheduler or recovery daemon",
+      "second permission/grant store",
+      "second answer store",
+      "automatic replay of active effects",
+      "Stable pin or managed patch-count mutation in this unit",
+      "mega-patch bundling to game the 14-patch budget"
+    ]
+  },
+  "latest_upstream_observation": {
+    "sha": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
+    "residual_native_gap": [
+      "prior-host active commissions are not natively equivalent to the green XiaoYu restart stack",
+      "TaskAgentManager queued continuation/notes are still process-owned without the candidate durable event envelopes",
+      "report/permission answers need candidate recovery handoff after the old in-memory session is gone"
+    ],
+    "implication": "Reuse current NekoPower Ledger/TaskAgentManager/service seams; do not introduce an external workflow engine."
+  },
+  "migration_units": {
+    "report_wait": {
+      "source": "host_restart_report_wait.patch",
+      "candidate": "nekopower_host_restart_report_wait.patch",
+      "mechanical_result": "PASS after namespace-only NekoClaw->NekoPower mapping",
+      "changed_authority": "none"
+    },
+    "permission_wait": {
+      "source": "host_restart_permission_wait.patch",
+      "candidate": "nekopower_host_restart_permission_wait.patch",
+      "mechanical_result": "Ledger hunks apply directly after report-wait; TaskAgentManager requires a thin context rebase because a0bb already added choice to answer() but closed-session forwarding still drops it.",
+      "residual_behavior": [
+        "pass choice into _answer_closed after session loss",
+        "allow durable permission checkpoint in addition to report",
+        "never reconstruct old grant/Future",
+        "a still-needed protected action must call the current PermissionGate again"
+      ]
+    },
+    "answer_handoff": {
+      "source": "host_restart_answer_handoff.patch",
+      "candidate": "nekopower_host_restart_answer_handoff.patch",
+      "mechanical_result": "TaskAgentManager recovery logic applies directly; service startup hook needs a one-line context relocation to current _first_use seam."
+    },
+    "active_working_uncertain": {
+      "source": "host_restart_working_uncertain.patch",
+      "candidate": "nekopower_host_restart_working_uncertain.patch",
+      "mechanical_result": "PASS after namespace-only mapping on the composed report/permission/answer stack",
+      "validation": "8/8 adapted hard-kill/effect-boundary tests PASS locally"
+    },
+    "durable_queue": {
+      "source": "host_restart_durable_queue.patch",
+      "candidate": "nekopower_host_restart_durable_queue.patch",
+      "mechanical_result": "PASS after namespace-only mapping and normalization of blank patch context lines; no semantic hunk conflicts",
+      "validation": "22/22 adapted durable-queue candidate tests PASS locally",
+      "semantics": [
+        "queued task-agent rows survive prior-host reconciliation",
+        "resume/note/wake provenance is persisted in the existing Ledger event stream",
+        "only the current queue epoch is reconstructed",
+        "terminal/cancelled rows are not revived",
+        "native session/wake authority remains authoritative",
+        "no active-working effect is replayed"
+      ]
+    }
+  },
+  "composed_validation": {
+    "report_permission_answer_adapted": {
+      "result": "17/19 local tests PASS",
+      "non_product_failures": [
+        "one report-only test expects permission waits to fail after restart; that assertion is intentionally obsolete once the later permission candidate is composed",
+        "one full host report test cannot reach waiting_user in the stripped local probe because an optional model module is absent; it fails before restart assertions"
+      ],
+      "note": "All dedicated permission-wait and answer-handoff assertions in that composed run passed."
+    },
+    "active_working": "8/8 PASS",
+    "durable_queue": "22/22 PASS",
+    "compile_and_diff_check": "PASS",
+    "clean_rebuild": "PASS: five ordered repository candidate patches apply/check/reverse-check from clean a0bb+0010-0014 and compile ledger/task_agents/service",
+    "materializer": "prepare_nekopower_restart_candidate_tests.py performs test-only NekoClaw->NekoPower namespace projection; no runtime implementation copied",
+    "local_selected_stack": "47/47 PASS across report applicable assertions plus full permission/answer/active-working/durable-queue candidate suites",
+    "strict_lf_rebuild": "PASS without ignore-space flags after core.autocrlf=false reset, matching Linux CI patch application semantics",
+    "github_full_checkout": "pending: workflow also runs the full host report-resume case that local sparse probe cannot enter because an optional model module is absent"
+  },
+  "promotion_ready": false,
+  "promotion_blockers": [
+    "formal machine-gated reconstruction from a clean a0bb checkout using repository candidate patches",
+    "full GitHub hosted restart candidate suite and broad NekoPower regression",
+    "full product acceptance before any NEKO_UPSTREAM.lock.json mutation"
+  ],
+  "conclusion": "A0BB_RESTART_STACK_SEMANTIC_MIGRATION_FEASIBLE_CANDIDATE_ONLY",
+  "retirement_condition": "Delete each one-for-one restart candidate independently when upstream N.E.K.O supplies equivalent native semantics, or after a NekoPower product pin is promoted and these replace the c3 candidate stack without expanding the Stable patch count."
+}

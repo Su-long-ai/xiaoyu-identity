@@ -5349,6 +5349,361 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-plugin-run-idempotency-migration-reuse.json",
       "outcome": "thin_adapter",
       "machine_gate_note": "Apply after the a0bb 0013 residual port; verify same-key retries for ambiguous create outcomes and no retry for unkeyed calls."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_host_restart_report_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the existing green report-wait host-restart contract to exact a0bb NekoPower without adding a second runtime or authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing c3 restart candidate contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact semantic source; Namespace-only one-for-one port of the green report checkpoint recovery contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower Ledger/TaskAgentManager/service",
+          "type": "native_upstream",
+          "outcome": "selected as sole migration target and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/recovery engine",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O commission/session/queue/effect authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current a0bb retains the native seams but is not yet semantically equivalent to the already-green restart contract. The candidate is a one-for-one migration onto those seams, not a new subsystem.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "retirement_condition": "Delete independently when upstream N.E.K.O supplies equivalent native restart semantics, or when a promoted NekoPower pin makes this the one-for-one replacement of the old c3 candidate.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; never expand or bundle the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/permission/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Reuse the existing green c3 restart candidate as the semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was probed; no complete native equivalent replaces this restart unit yet.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own host restart commission continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable queues/workflow engines rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one migration on existing NekoPower Ledger/TaskAgentManager/service seams only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private scheduler, queue DB, recovery daemon, permission store, answer store or execution host introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply nekopower_host_restart_report_wait.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_host_restart_permission_wait.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the existing green permission-wait host-restart contract to exact a0bb NekoPower without adding a second runtime or authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing c3 restart candidate contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact semantic source; Thin context rebase of the green permission checkpoint contract; reuse a0bb answer(choice) and current PermissionGate.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower Ledger/TaskAgentManager/service",
+          "type": "native_upstream",
+          "outcome": "selected as sole migration target and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/recovery engine",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O commission/session/queue/effect authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current a0bb retains the native seams but is not yet semantically equivalent to the already-green restart contract. The candidate is a one-for-one migration onto those seams, not a new subsystem.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "retirement_condition": "Delete independently when upstream N.E.K.O supplies equivalent native restart semantics, or when a promoted NekoPower pin makes this the one-for-one replacement of the old c3 candidate.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; never expand or bundle the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/permission/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Reuse the existing green c3 restart candidate as the semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was probed; no complete native equivalent replaces this restart unit yet.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own host restart commission continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable queues/workflow engines rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one migration on existing NekoPower Ledger/TaskAgentManager/service seams only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private scheduler, queue DB, recovery daemon, permission store, answer store or execution host introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply nekopower_host_restart_permission_wait.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_host_restart_answer_handoff.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the existing green answer-handoff host-restart contract to exact a0bb NekoPower without adding a second runtime or authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing c3 restart candidate contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact semantic source; One-for-one durable answer recovery with only the service startup hook relocated to current NekoPower _first_use.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower Ledger/TaskAgentManager/service",
+          "type": "native_upstream",
+          "outcome": "selected as sole migration target and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/recovery engine",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O commission/session/queue/effect authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current a0bb retains the native seams but is not yet semantically equivalent to the already-green restart contract. The candidate is a one-for-one migration onto those seams, not a new subsystem.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "retirement_condition": "Delete independently when upstream N.E.K.O supplies equivalent native restart semantics, or when a promoted NekoPower pin makes this the one-for-one replacement of the old c3 candidate.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; never expand or bundle the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/permission/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Reuse the existing green c3 restart candidate as the semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was probed; no complete native equivalent replaces this restart unit yet.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own host restart commission continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable queues/workflow engines rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one migration on existing NekoPower Ledger/TaskAgentManager/service seams only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private scheduler, queue DB, recovery daemon, permission store, answer store or execution host introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply nekopower_host_restart_answer_handoff.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_host_restart_working_uncertain.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the existing green active-working host-restart contract to exact a0bb NekoPower without adding a second runtime or authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing c3 restart candidate contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact semantic source; Namespace-only one-for-one port of active-working/effect-uncertain restart semantics.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower Ledger/TaskAgentManager/service",
+          "type": "native_upstream",
+          "outcome": "selected as sole migration target and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/recovery engine",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O commission/session/queue/effect authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current a0bb retains the native seams but is not yet semantically equivalent to the already-green restart contract. The candidate is a one-for-one migration onto those seams, not a new subsystem.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "retirement_condition": "Delete independently when upstream N.E.K.O supplies equivalent native restart semantics, or when a promoted NekoPower pin makes this the one-for-one replacement of the old c3 candidate.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; never expand or bundle the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/permission/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Reuse the existing green c3 restart candidate as the semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was probed; no complete native equivalent replaces this restart unit yet.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own host restart commission continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable queues/workflow engines rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one migration on existing NekoPower Ledger/TaskAgentManager/service seams only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private scheduler, queue DB, recovery daemon, permission store, answer store or execution host introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply nekopower_host_restart_working_uncertain.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_host_restart_durable_queue.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the existing green durable-queue host-restart contract to exact a0bb NekoPower without adding a second runtime or authority.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing c3 restart candidate contract",
+          "type": "native_current_pin",
+          "outcome": "selected as the exact semantic source; One-for-one port of durable queue provenance into the existing N.E.K.O Ledger event stream; no second queue.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "a0bb NekoPower Ledger/TaskAgentManager/service",
+          "type": "native_upstream",
+          "outcome": "selected as sole migration target and runtime authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        {
+          "name": "External workflow/recovery engine",
+          "type": "broader_external",
+          "outcome": "rejected because it would duplicate N.E.K.O commission/session/queue/effect authority",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Current a0bb retains the native seams but is not yet semantically equivalent to the already-green restart contract. The candidate is a one-for-one migration onto those seams, not a new subsystem.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "retirement_condition": "Delete independently when upstream N.E.K.O supplies equivalent native restart semantics, or when a promoted NekoPower pin makes this the one-for-one replacement of the old c3 candidate.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; never expand or bundle the 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole commission/session/queue/permission/effect authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Reuse the existing green c3 restart candidate as the semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "Exact a0bb was probed; no complete native equivalent replaces this restart unit yet.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own host restart commission continuity."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External durable queues/workflow engines rejected as duplicate authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one migration on existing NekoPower Ledger/TaskAgentManager/service seams only.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No private scheduler, queue DB, recovery daemon, permission store, answer store or execution host introduced.",
+          "evidence": "evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-a0bb-restart-continuity-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "machine_gate_note": "Apply nekopower_host_restart_durable_queue.patch only in the ordered a0bb restart migration stack and run the adapted existing candidate acceptance."
     }
   ],
   "hierarchy_policy": {
