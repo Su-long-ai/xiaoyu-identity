@@ -5,7 +5,7 @@
   "candidate_only": true,
   "candidate_pin": "a0bb66f47fd097cc21f18d75e4c72c90489a903f",
   "product_pin_unchanged": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
-  "current_verdict": "NOT_YET_PROMOTABLE",
+  "current_verdict": "TECHNICALLY_GREEN_NOT_SELECTED_FOR_CUTOVER",
   "problem": "Before changing the Stable N.E.K.O pin, prove the exact current a0bb candidate across both Execution/Restart and the Voice/ASR changes inherited since d90, while keeping all product authority in N.E.K.O and reusing the existing acceptance suites.",
   "authority": {
     "runtime": "N.E.K.O only",
@@ -16,7 +16,7 @@
       "new voice daemon or transport",
       "new execution plane or restart runtime",
       "duplicating existing d90 voice tests",
-      "expanding the 14-patch Stable budget to carry restart candidates"
+      "expanding managed patch budget for unrelated features or without reproduced blocker-closing evidence"
     ]
   },
   "execution_and_restart_status": {
@@ -68,26 +68,24 @@
     "purpose": "run upstream-native tests for the migrated Ledger/TaskAgent/delivery/plugin/gateway/permission/audit seams in a0bb's own locked dev environment"
   },
   "promotion_requirements_remaining": [
-    "a0bb upstream-native Voice/ASR suite passes in a clean candidate checkout",
-    "existing XiaoYu patched Voice/Qwen product suite passes on the fully migrated candidate tree",
-    "selected upstream-native NekoPower broad regression passes on the fully migrated candidate tree",
-    "the complete XiaoYu private overlay/release/QQ gate remains green in the same commit",
-    "a separate patch-budget/cutover decision proves how restart continuity remains product-visible without expanding the 14 managed Stable patch budget"
+    "Select one exact newer N.E.K.O target instead of blindly promoting stale a0bb; refresh the hierarchical reuse review against that target.",
+    "Replay/port the same 19 product semantics to the exact selected target and rerun native Voice/ASR, NekoPower broad regression, Companion, QQ and release gates.",
+    "Change NEKO_UPSTREAM.lock.json only in a separate cutover commit with explicit rollback to the c3+19 managed product."
   ],
-  "next_decision_after_green_tests": "Audit 0001-0009 against a0bb for native equivalence and retire any now-redundant patches before considering a pin cutover. Freed one-for-one slots may solve the restart-continuity budget without mega-patch bundling.",
-  "retirement_condition": "Replace this readiness record with a promotion evidence record only after all listed requirements are green on one exact candidate commit, or supersede it if a newer N.E.K.O pin becomes the promotion target.",
+  "next_decision_after_green_tests": "Use the now-green a0bb migration as the reusable migration recipe, but target the current upstream frontier in a fresh candidate. Do not spend a product cutover on an already-stale intermediate pin.",
+  "retirement_condition": "Retire this a0bb readiness record after a newer exact N.E.K.O promotion candidate is validated or promoted; retain it as migration evidence until then.",
   "latest_readiness_run": {
-    "github_actions_run_id": 45331960844,
-    "remote_commit": "df987abc8fe7419236f61b6f0555d438115eb5ba",
-    "conclusion": "failure",
+    "github_actions_run_id": 45351246560,
+    "remote_commit": "67ade38f957841b6222938a829fafa6418738a8e",
+    "conclusion": "success",
     "successful_layers": [
       "clean a0bb native Voice/ASR upgrade seams",
       "full a0bb 0001-0014 plus five-layer restart rebuild",
-      "patched XiaoYu Voice/Qwen ownership"
+      "patched XiaoYu Voice/Qwen ownership",
+      "selected upstream-native NekoPower broad regression with intentional managed supersessions excluded and replacement verifiers green",
+      "a0bb core-patch retirement probes"
     ],
-    "sole_failure_layer": "selected upstream-native NekoPower broad regression",
-    "broad_regression_result": "766 passed / 3 failed",
-    "failure_classification": "all three failures are intentional managed-contract supersessions, not unexpected regressions"
+    "product_followthrough": "c3 product squash 956485022f passed full private product gate 45352245336 with 19 managed patches."
   },
   "intentional_upstream_assertion_supersessions": [
     {
@@ -108,5 +106,39 @@
       "new_contract": "0013 preserves ambiguous effect as unknown/blocked",
       "replacement_verifier": "candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py"
     }
-  ]
+  ],
+  "budget_blocker_resolution": {
+    "status": "RESOLVED",
+    "decision_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json",
+    "stable_managed_patch_budget": 19,
+    "base_budget": 10,
+    "correctness_exception_budget": 9,
+    "restart_patches": [
+      "0015-host-restart-report-wait.patch",
+      "0016-host-restart-permission-wait.patch",
+      "0017-host-restart-answer-handoff.patch",
+      "0018-host-restart-working-uncertain.patch",
+      "0019-host-restart-durable-queue.patch"
+    ],
+    "product_validation_run": 45352245336
+  },
+  "latest_upstream_after_a0bb": {
+    "observed_sha": "871066185f",
+    "observed_at": "2026-11-24",
+    "ahead_of_a0bb_commits": 9,
+    "note": "Upstream has already advanced beyond a0bb into additional NekoPower DSH/report, plugin entry-resolution, memory and plugin-manager changes. Therefore a0bb is evidence that the migration shape works, not an instruction to pin an already-stale commit."
+  },
+  "prior_failed_readiness_run": {
+    "github_actions_run_id": 45331960844,
+    "remote_commit": "df987abc8fe7419236f61b6f0555d438115eb5ba",
+    "conclusion": "failure",
+    "successful_layers": [
+      "clean a0bb native Voice/ASR upgrade seams",
+      "full a0bb 0001-0014 plus five-layer restart rebuild",
+      "patched XiaoYu Voice/Qwen ownership"
+    ],
+    "sole_failure_layer": "selected upstream-native NekoPower broad regression",
+    "broad_regression_result": "766 passed / 3 failed",
+    "failure_classification": "all three failures were later classified as intentional managed-contract supersessions and replaced by dedicated verifiers"
+  }
 }

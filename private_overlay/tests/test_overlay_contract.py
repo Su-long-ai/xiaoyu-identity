@@ -1801,11 +1801,15 @@ class OverlayContractTests(unittest.TestCase):
             / "2026-11-24-neko-a0bb-product-promotion-readiness-reuse.json"
         ).read_text(encoding="utf-8-sig")
         self.assertIn('"candidate_only": true', readiness)
-        self.assertIn('"current_verdict": "NOT_YET_PROMOTABLE"', readiness)
+        self.assertIn('"current_verdict": "TECHNICALLY_GREEN_NOT_SELECTED_FOR_CUTOVER"', readiness)
         self.assertIn("NATIVE_TESTS", readiness)
         self.assertIn("PRODUCT_TESTS", readiness)
         self.assertIn("45330926169", readiness)
         self.assertIn("45331960844", readiness)
+        self.assertIn("45351246560", readiness)
+        self.assertIn("45352245336", readiness)
+        self.assertIn("budget_blocker_resolution", readiness)
+        self.assertIn("871066185f", readiness)
         self.assertIn("766_PASS_3_INTENTIONAL_SUPERSESSIONS", readiness)
         self.assertIn(
             "test_call_goes_through_the_same_runs_request_with_ctx",
