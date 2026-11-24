@@ -1673,6 +1673,10 @@ class OverlayContractTests(unittest.TestCase):
             "fac795091e33cd92a6604d14ac242510944badac",
             "probe_neko_fac795_execution_migration.py",
             "_neko_execution_migration_candidate",
+            "Verify NekoPower effect-state one-for-one migration candidate",
+            "nekopower_outbox_effect_state.patch",
+            "--host-package nekopower",
+            "--wire-prefix nekopower",
         ):
             self.assertIn(marker, workflow)
 

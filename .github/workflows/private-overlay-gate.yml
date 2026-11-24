@@ -179,6 +179,21 @@ jobs:
             --result-path "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
           cat "$GITHUB_WORKSPACE/_neko_execution_migration_result.json"
 
+      - name: Verify NekoPower effect-state one-for-one migration candidate
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          git -C _neko_execution_migration_candidate apply --check \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_outbox_effect_state.patch"
+          git -C _neko_execution_migration_candidate apply \
+            "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/nekopower_outbox_effect_state.patch"
+          python -m py_compile \
+            _neko_execution_migration_candidate/nekopower/host/ledger.py \
+            _neko_execution_migration_candidate/nekopower/host/outbox.py
+          python private_overlay/tools/verify_execution_effect_state_candidate.py \
+            --neko-root _neko_execution_migration_candidate \
+            --host-package nekopower \
+            --wire-prefix nekopower
+
       - name: Prepare managed N.E.K.O product worktree
         run: |
           rm -rf _neko_product

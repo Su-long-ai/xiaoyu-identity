@@ -4975,6 +4975,90 @@
       "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-neko-fac795-execution-migration-reuse.json",
       "outcome": "reuse_native",
       "machine_gate_note": "Candidate/probe only; no NEKO_UPSTREAM.lock.json or managed patch series mutation in this unit."
+    },
+    {
+      "id": "candidate:execution_plane/nekopower_outbox_effect_state.patch",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Migrate the already-proven 0011 durable delivery effect-state contract from c3 NekoClaw to latest fac795 NekoPower without adding a second ledger/outbox or changing Stable.",
+      "decision": "thin_adapter",
+      "candidate_only": true,
+      "candidates": [
+        {
+          "name": "Existing managed 0011 effect-state contract",
+          "type": "native_current_pin",
+          "outcome": "selected as semantic/code source for one-for-one migration",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        {
+          "name": "fac795 NekoPower Ledger/Outbox seams",
+          "type": "native_upstream",
+          "outcome": "selected migration target; all behavior hunks mechanically reusable with one import-context rebase",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        {
+          "name": "Existing verifier generalized by package/prefix parameters",
+          "type": "existing_product_acceptance",
+          "outcome": "selected; same correctness contract passes c3 and fac795",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        {
+          "name": "External effect database/queue",
+          "type": "broader_external",
+          "outcome": "rejected as duplicate authority",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        {
+          "name": "Private effect runtime",
+          "type": "private_implementation",
+          "outcome": "rejected",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Latest NekoPower still lacks the proven 0011 state machine, but its native Ledger/Outbox API is close enough to reuse the existing implementation almost mechanically rather than rewrite it.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json",
+      "retirement_condition": "Delete this candidate after a NekoPower product pin is promoted and this one-for-one replacement becomes the managed effect-state patch, or when upstream N.E.K.O supplies equivalent handoff/claim/uncertain/sent semantics natively.",
+      "promotion_policy": "CANDIDATE_ONLY_ONE_FOR_ONE_REPLACEMENT; do not add to the current 14-patch Stable series.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O/NekoPower Ledger and Outbox remain sole effect-state authority.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "Existing 0011 and its c3 verifier are reused as the exact semantic contract.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "fac795 NekoPower exposes equivalent Ledger/Outbox seams but lacks the managed effect-state semantics; mechanical port verified.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "not_applicable",
+          "rationale": "QQ/providers/plugins do not own durable task-result effect state."
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "External effect stores/queues rejected because they duplicate N.E.K.O authority.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected one-for-one path/import rebase of existing 0011 plus the same verifier.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No second ledger/outbox/effect database or runtime is introduced.",
+          "evidence": "evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json"
+        }
+      },
+      "reuse_evidence": "private_overlay/evals/evidence/2026-11-24-nekopower-effect-state-migration-reuse.json",
+      "outcome": "thin_adapter",
+      "notes": "Formal candidate now clean-applies to exact fac795, compiles, and passes the same effect-state verifier used by c3 Stable. Workflow keeps it agent/execution-continuity-v2 scoped and does not mutate Stable series or product pin.",
+      "machine_gate_note": "Execution branch checks exact fac795, applies this candidate one-for-one, and runs the shared effect-state verifier in NekoPower mode; Stable continues to run the same verifier in default NekoClaw mode."
     }
   ],
   "hierarchy_policy": {
