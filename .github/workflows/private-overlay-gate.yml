@@ -285,6 +285,16 @@ jobs:
             --result "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
           cat "$GITHUB_WORKSPACE/_a0bb_core_patch_retirement_result.json"
 
+      - name: Probe remaining a0bb managed core patch retirement
+        if: github.ref == 'refs/heads/agent/execution-continuity-v2'
+        run: |
+          python private_overlay/candidates/execution_plane/probe_a0bb_remaining_core_patch_retirement.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --candidate-root "$GITHUB_WORKSPACE/_neko_execution_migration_candidate" \
+            --current-pin-root "$GITHUB_WORKSPACE/_neko_upstream" \
+            --result "$GITHUB_WORKSPACE/_a0bb_remaining_core_patch_retirement_result.json"
+          cat "$GITHUB_WORKSPACE/_a0bb_remaining_core_patch_retirement_result.json"
+
       - name: Prepare managed N.E.K.O product worktree
         run: |
           rm -rf _neko_product
