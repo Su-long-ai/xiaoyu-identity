@@ -6,12 +6,12 @@
   "promoted_from": "xiaoyu-neko-v1-rc3",
   "created_at_local": "2026-11-19T21:05:13.783657+08:00",
   "refreshed_at_local": "2026-11-24",
-  "basis_commit": "ac3e972526b29af3303ce8b90514bcbcbb8c3b30",
+  "basis_commit": "f0c68d39e8313c678f85d7bbb178a42165e8d055",
   "basis_commit_verification": {
     "workflow": "XiaoYu private overlay gate",
-    "run_id": 45212418460,
+    "run_id": 45318278808,
     "conclusion": "success",
-    "note": "Fully green public product-main basis after validating the ordered 14-patch managed product worktree, Companion ownership regressions, native Execution Plane baselines, managed Execution correctness patches, restart candidates, QQ surface checks, and release evidence under reuse/architecture gates."
+    "note": "Fully green current product basis after Companion performance-budget orchestration, hidden-child startup diagnostics, ordered 14-patch managed product validation, native Execution Plane regressions, restart candidates, QQ surface checks, and release evidence under reuse/architecture gates. The d90 Voice promotion probe remains separately candidate-scoped and is not claimed by this product-branch run."
   },
   "product_branch": "private/neko-overlay-v1",
   "no_open_release_blockers": true,
@@ -123,15 +123,15 @@
   },
   "verification": {
     "product_main_machine_gate": {
-      "commit": "ac3e972526b29af3303ce8b90514bcbcbb8c3b30",
-      "run_id": 45212418460,
+      "commit": "f0c68d39e8313c678f85d7bbb178a42165e8d055",
+      "run_id": 45318278808,
       "conclusion": "success"
     },
     "hierarchical_reuse_gate": "HIERARCHICAL_REUSE_V1 active; new reviews require L0-L6 checked/not_applicable evidence and local-only customization search fails closed",
     "agent_branch_freshness": "agent/** push requires current private/neko-overlay-v1 ancestor; stale bases fail BLOCK_AGENT_STALE_BASE",
     "release_readiness": "25/25 PASS",
     "canonical_c3_restart": "PASS; final cycle main/memory/agent/plugin HTTP 200, 4/4 admitted autostart plugins restored, zero new main-loop blocked/recovered events",
-    "patched_product_cloud_regression": "PASS in public product-main run 45212418460; the ordered 14-patch managed N.E.K.O product worktree, patched Companion ownership/startup regressions, managed Execution effect/receipt/unknown/idempotency correctness, and restart candidates completed under the shared gate.",
+    "patched_product_cloud_regression": "PASS in public product-main run 45318278808; the ordered 14-patch managed N.E.K.O worktree, Companion ownership/startup regressions, generation-safe performance gate contracts, managed Execution effect/receipt/unknown/idempotency correctness, restart candidates, QQ surface checks, and release evidence completed under the shared gate.",
     "pinned_qq_surface": "PASS in public product-main run 45212418460 against qq_auto_reply 54acf36, including delivery/floor, inbound-idempotency candidate, and QQ gap probes.",
     "native_execution_and_receipt_candidates": "PASS in public product-main run 45212418460: managed correctness patches 0011-0014 are validated in the ordered product worktree; host-restart report/permission continuity remains candidate-only and passed its dedicated gate steps.",
     "runtime_health_self_heal": "PASS; read-only-first, at most one native reconcile repair, forbidden Agent capabilities remain blocked",
