@@ -1704,6 +1704,47 @@ class OverlayContractTests(unittest.TestCase):
             workflow,
         )
 
+    def test_871066_product_promotion_candidate_is_agent_scoped_and_reuse_only(self):
+        workflow = (
+            ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "Checkout exact 871066 N.E.K.O promotion candidate",
+            "Verify exact 871066 native Voice and ASR seams",
+            "Rebuild exact 871066 managed NekoPower migration stack",
+            "Regress exact 871066 XiaoYu Voice and Qwen ownership",
+            "Regress exact 871066 NekoPower execution seams",
+            "Checkout pinned QQ plugin into exact 871066 candidate",
+            "Regress exact 871066 pinned QQ surface",
+            "refs/heads/agent/companion-productization-v2",
+            "871066185f65fc6f213ca91cb08fe77a33814a9d",
+            "_neko_upgrade_candidate",
+            "a0bb_startup_event_loop_responsiveness.patch",
+            "nekopower_host_restart_durable_queue.patch",
+            "prepare_nekopower_restart_candidate_tests.py",
+            "_nekopower_restart_tests_871",
+            "verify_nekopower_plugin_run_unknown_effect.py",
+            "verify_nekopower_plugin_run_idempotency.py",
+            "54acf36bf978edad4757e5fffc743c5618360700",
+        ):
+            self.assertIn(marker, workflow)
+
+        evidence = (
+            ROOT
+            / "evals"
+            / "evidence"
+            / "2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        ).read_text(encoding="utf-8-sig")
+        self.assertIn('"candidate_only": true', evidence)
+        self.assertIn('"promotion_ready": false', evidence)
+        self.assertIn("LOCAL_ACCEPTANCE_GREEN_CLOUD_GATE_REQUIRED", evidence)
+        self.assertIn("135 passed / 3 skipped", evidence)
+        self.assertIn("173 passed", evidence)
+        self.assertIn("49 passed", evidence)
+        self.assertIn("766 passed / 3 intentional managed-contract deselections", evidence)
+        self.assertIn('"new_runtime_implementation_required": false', evidence)
+        self.assertNotIn('"promotion_ready": true', evidence)
+
     def test_a0bb_execution_migration_stack_is_agent_scoped_and_pinned(self):
         workflow = (
             ROOT.parent / ".github" / "workflows" / "private-overlay-gate.yml"

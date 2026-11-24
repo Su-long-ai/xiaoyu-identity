@@ -142,24 +142,144 @@ jobs:
           path: _neko_upstream
           fetch-depth: 1
 
-      - name: Checkout fixed d90 Voice promotion candidate
+      - name: Checkout exact 871066 N.E.K.O promotion candidate
         if: github.ref == 'refs/heads/agent/companion-productization-v2'
         uses: actions/checkout@v4
         with:
           repository: Project-N-E-K-O/N.E.K.O
-          ref: d90f8371653c5a2a9b01d655c38475414711266a
-          path: _neko_voice_candidate
+          ref: 871066185f65fc6f213ca91cb08fe77a33814a9d
+          path: _neko_upgrade_candidate
           fetch-depth: 1
 
-      - name: Probe fixed d90 native Voice promotion boundary
+      - name: Verify exact 871066 native Voice and ASR seams
         if: github.ref == 'refs/heads/agent/companion-productization-v2'
         run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_upgrade_candidate"
+          test "$(git -C "$CANDIDATE" rev-parse HEAD)" = "871066185f65fc6f213ca91cb08fe77a33814a9d"
+          mapfile -t VOICE_NATIVE_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import NATIVE_TESTS; [print(item) for item in NATIVE_TESTS]')
+          test "${#VOICE_NATIVE_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
           python -m pip install -q uv
-          python private_overlay/candidates/voice_upgrade/probe_neko_d90_voice_promotion.py \
-            --workspace "$GITHUB_WORKSPACE" \
-            --candidate-root "$GITHUB_WORKSPACE/_neko_voice_candidate" \
-            --result-path "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
-          cat "$GITHUB_WORKSPACE/_neko_voice_candidate_result.json"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_NATIVE_TESTS[@]}"
+
+      - name: Rebuild exact 871066 managed NekoPower migration stack
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_upgrade_candidate"
+          test "$(git -C "$CANDIDATE" rev-parse HEAD)" = "871066185f65fc6f213ca91cb08fe77a33814a9d"
+          mapfile -t XIAOYU_PREFIX < <(python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); [print(item["file"]) for item in data["patches"][:9]]' "$GITHUB_WORKSPACE/private_overlay/patches/series.json")
+          test "${#XIAOYU_PREFIX[@]}" -eq 9
+          for patch in "${XIAOYU_PREFIX[@]}"; do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/patches/$patch"
+            git -C "$CANDIDATE" apply --check -- "$PATCH_PATH"
+            git -C "$CANDIDATE" apply -- "$PATCH_PATH"
+            git -C "$CANDIDATE" apply --reverse --check -- "$PATCH_PATH"
+          done
+          for patch in \
+            a0bb_startup_event_loop_responsiveness.patch \
+            nekopower_outbox_effect_state.patch \
+            nekopower_native_delivery_receipt.patch \
+            nekopower_plugin_run_unknown_effect.patch \
+            nekopower_plugin_run_idempotency.patch \
+            nekopower_host_restart_report_wait.patch \
+            nekopower_host_restart_permission_wait.patch \
+            nekopower_host_restart_answer_handoff.patch \
+            nekopower_host_restart_working_uncertain.patch \
+            nekopower_host_restart_durable_queue.patch
+          do
+            PATCH_PATH="$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane/$patch"
+            git -C "$CANDIDATE" apply --check -- "$PATCH_PATH"
+            git -C "$CANDIDATE" apply -- "$PATCH_PATH"
+            git -C "$CANDIDATE" apply --reverse --check -- "$PATCH_PATH"
+          done
+          git -C "$CANDIDATE" diff --check
+          python -m py_compile \
+            "$CANDIDATE/nekopower/host/ledger.py" \
+            "$CANDIDATE/nekopower/host/outbox.py" \
+            "$CANDIDATE/nekopower/host/task_agents.py" \
+            "$CANDIDATE/nekopower/host/service.py" \
+            "$CANDIDATE/app/agent_server/api_runtime.py" \
+            "$CANDIDATE/app/agent_server/nekopower_mount.py"
+          python private_overlay/tools/verify_execution_effect_state_candidate.py \
+            --neko-root "$CANDIDATE" \
+            --host-package nekopower \
+            --wire-prefix nekopower
+          python private_overlay/tools/verify_native_delivery_receipt_candidate.py \
+            --neko-root "$CANDIDATE" \
+            --runtime-name nekopower
+          python -m pip install -q "pyzmq>=27.1.0" "orjson>=3.11.8" uv
+          python private_overlay/tools/verify_native_delivery_receipt_zmq_e2e.py \
+            --neko-root "$CANDIDATE" \
+            --runtime-name nekopower
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_unknown_effect.py \
+            --neko-root "$CANDIDATE"
+          python private_overlay/candidates/execution_plane/verify_nekopower_plugin_run_idempotency.py \
+            --neko-root "$CANDIDATE"
+          python private_overlay/candidates/execution_plane/prepare_nekopower_restart_candidate_tests.py \
+            --source-dir "$GITHUB_WORKSPACE/private_overlay/candidates/execution_plane" \
+            --output-dir "$GITHUB_WORKSPACE/_nekopower_restart_tests_871"
+          cd "$CANDIDATE"
+          PYTHONPATH="$CANDIDATE" uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_report_wait_candidate.py::test_reopen_preserves_report_wait_and_its_unsent_native_question" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_report_wait_candidate.py::test_reopen_still_fails_question_types_without_a_native_resume_continuation[tool]" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_report_wait_candidate.py::test_new_host_answers_preserved_report_wait_at_the_existing_transcript_tail" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_permission_wait_candidate.py" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_answer_handoff_candidate.py" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_working_uncertain_candidate.py" \
+            "$GITHUB_WORKSPACE/_nekopower_restart_tests_871/test_host_restart_durable_queue_candidate.py"
+
+      - name: Regress exact 871066 XiaoYu Voice and Qwen ownership
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_upgrade_candidate"
+          mapfile -t VOICE_PRODUCT_TESTS < <(python -c 'from private_overlay.candidates.voice_upgrade.probe_neko_d90_voice_promotion import PRODUCT_TESTS; [print(item) for item in PRODUCT_TESTS]')
+          test "${#VOICE_PRODUCT_TESTS[@]}" -gt 0
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q "${VOICE_PRODUCT_TESTS[@]}"
+
+      - name: Regress exact 871066 NekoPower execution seams
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_upgrade_candidate"
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            --deselect tests/unit/nekopower/test_host_gateway.py::test_call_goes_through_the_same_runs_request_with_ctx \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_a_run_given_up_on_stays_known_until_its_cancel_is_accepted \
+            --deselect tests/unit/nekopower/test_host_plugin_runs.py::test_unreadable_status_answers_end_the_wait \
+            tests/unit/nekopower/test_host_ledger.py \
+            tests/unit/nekopower/test_host_task_agents.py \
+            tests/unit/nekopower/test_host_delivery.py \
+            tests/unit/nekopower/test_host_plugin_runs.py \
+            tests/unit/nekopower/test_host_gateway.py \
+            tests/unit/nekopower/test_host_task_brain.py \
+            tests/unit/nekopower/test_host_preferences_permissions.py \
+            tests/unit/nekopower/test_execution_audit.py
+
+      - name: Checkout pinned QQ plugin into exact 871066 candidate
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        uses: actions/checkout@v4
+        with:
+          repository: zhaijiunknow/n.e.k.o_plugin_qq_auto_reply
+          ref: 54acf36bf978edad4757e5fffc743c5618360700
+          path: _neko_upgrade_candidate/plugin/plugins/qq_auto_reply
+          fetch-depth: 1
+
+      - name: Regress exact 871066 pinned QQ surface
+        if: github.ref == 'refs/heads/agent/companion-productization-v2'
+        run: |
+          CANDIDATE="$GITHUB_WORKSPACE/_neko_upgrade_candidate"
+          cd "$CANDIDATE"
+          uv run --project "$CANDIDATE" --locked --group dev python -m pytest -q \
+            plugin/plugins/qq_auto_reply/tests/test_qq_outbound_guard.py \
+            plugin/plugins/qq_auto_reply/tests/test_group_send_safety.py \
+            plugin/plugins/qq_auto_reply/tests/test_proactive_budget_integration.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_proactive_initiative.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_auto_reply_forward_client.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_connection_status_refresh.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_buffer_no_append_after_delivery.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_buffer_send_time_floor.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_runtime_transition_lock.py \
+            plugin/plugins/qq_auto_reply/tests/test_qq_reply_buffer_switch.py
 
       - name: Checkout fixed a0bb NekoPower execution migration candidate
         if: github.ref == 'refs/heads/agent/execution-continuity-v2'

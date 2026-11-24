@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "evidence_id": "XIAOYU_NEKO_871066_PRODUCT_PROMOTION_CANDIDATE_REUSE_20261124",
+  "reviewed_at": "2026-11-24",
+  "candidate_only": true,
+  "promotion_ready": false,
+  "promotion_state": "LOCAL_ACCEPTANCE_GREEN_CLOUD_GATE_REQUIRED",
+  "candidate_pin": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+  "current_product": {
+    "product_commit": "3f4eb46d84254400a7c603151b297d52d5a40076",
+    "neko_pin": "c3fc33ff0d32e4a79fd905d1add22d45725071f5",
+    "managed_patch_count": 19,
+    "acceptance": "26/26",
+    "product_gate_run": 45353340841,
+    "main_gate_run": 45354087671
+  },
+  "why_this_target": {
+    "latest_upstream_observed": "871066185f65fc6f213ca91cb08fe77a33814a9d",
+    "ahead_of_a0bb_commits": 9,
+    "a0bb_role": "validated migration recipe only; no longer selected as a cutover target",
+    "d90_role": "historical Voice lifecycle evidence only; superseded as direct target",
+    "reason": "Use one exact current upstream frontier rather than spend a product cutover on an already stale intermediate pin."
+  },
+  "authority": {
+    "runtime_memory_task_execution": "N.E.K.O native",
+    "voice_realtime_http_pool": "N.E.K.O native",
+    "execution_host": "NekoPower native at candidate",
+    "qq_surface": "pinned external qq_auto_reply 54acf36",
+    "xiaoyu_role": "policy/compatibility patches and acceptance only",
+    "forbidden": [
+      "second execution runtime",
+      "second queue/ledger/permission store",
+      "copied N.E.K.O Voice transport",
+      "new QQ runtime",
+      "changing NEKO_UPSTREAM.lock.json before cloud candidate acceptance"
+    ]
+  },
+  "reuse_replay": {
+    "stable_prefix_0001_0009": "9/9 apply unchanged",
+    "startup_0010": "existing a0bb_startup_event_loop_responsiveness.patch applies unchanged to 871066",
+    "execution_0011_0019": "all existing NekoPower migration patches apply unchanged to 871066",
+    "new_runtime_implementation_required": false,
+    "sparse_checkout_false_alarm": "Initial local missing nekopower/host was traced to the external mirror sparse-checkout configuration; git ls-tree proved the files existed and full materialization removed the false blocker."
+  },
+  "local_acceptance": {
+    "native_voice_asr": "135 passed / 3 skipped",
+    "xiaoyu_voice_qwen": "173 passed",
+    "execution_effect_state": "PASS",
+    "native_delivery_receipt": "PASS",
+    "real_zmq_delivery_receipt": "PASS",
+    "plugin_unknown_effect": "PASS",
+    "plugin_idempotency": "PASS",
+    "restart_final_composition": "49 passed",
+    "nekopower_broad_regression": "766 passed / 3 intentional managed-contract deselections",
+    "pinned_qq_surface": "173 passed",
+    "candidate_patch_replay": "0001-0009 + migrated 0010-0019 all apply/check/reverse-check cleanly on exact 871066"
+  },
+  "core_retirement_scan": {
+    "scope": "0001-0009 product core patches only; execution migration semantics 0010-0019 are carried forward without a retirement claim in this unit",
+    "required_by_focused_acceptance": [
+      "0001-proactive-autostart-idle-gate.patch",
+      "0003-qwen38-server-vad-reliability.patch",
+      "0004-native-ingress-activity-before-backpressure.patch",
+      "0005-latest-character-switch-intent-replay.patch",
+      "0006-private-speech-output-gate.patch",
+      "0007-private-first-round-tool-route.patch",
+      "0008-qwen-clone-provider-routing.patch",
+      "0009-proactive-interruptibility-gate.patch"
+    ],
+    "patch_0002": "native FullChatSurface/App.test blobs are byte-identical between c3 and 871066, therefore no upstream absorption is evidenced and it remains required",
+    "retirement_candidates": []
+  },
+  "cloud_candidate_plan": {
+    "branch": "agent/companion-productization-v2",
+    "workflow": ".github/workflows/private-overlay-gate.yml",
+    "reuses": [
+      "probe_neko_d90_voice_promotion.NATIVE_TESTS",
+      "probe_neko_d90_voice_promotion.PRODUCT_TESTS",
+      "a0bb_startup_event_loop_responsiveness.patch",
+      "existing NekoPower 0011-0019 migration candidates",
+      "verify_execution_effect_state_candidate.py",
+      "verify_native_delivery_receipt_candidate.py",
+      "verify_native_delivery_receipt_zmq_e2e.py",
+      "verify_nekopower_plugin_run_unknown_effect.py",
+      "verify_nekopower_plugin_run_idempotency.py",
+      "prepare_nekopower_restart_candidate_tests.py",
+      "pinned QQ plugin test suite"
+    ],
+    "new_product_runtime_code": false,
+    "promotion_rule": "Only a fully green exact-871 cloud candidate can authorize a separate pin-cutover unit; this evidence commit itself must not alter the product pin."
+  },
+  "next_cutover_if_green": "Create a separate cutover commit that changes the exact N.E.K.O lock and rebases managed patch contents 0010-0019 to the already-proven NekoPower equivalents while preserving semantic patch identities, then run the full product/QQ/release gate with rollback to c3+19.",
+  "retirement_condition": "Retire this candidate evidence after exact 871066 is promoted or a newer exact upstream target supersedes it before cutover."
+}

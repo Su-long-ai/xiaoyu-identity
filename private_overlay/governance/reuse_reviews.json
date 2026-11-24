@@ -6243,6 +6243,83 @@
       "notes": "Full agent gate 45322186743 is green at 1bf55acd. A later source audit found a reachable duplicate before-note persistence path while already queued; the regression now requires each provenance note exactly once and the corrected c3 candidate passes 27/27 selected queue tests. Core-patch retirement was independently closed at 0/9, so keep this candidate-only while shrinking native-gap surface or preparing a new blocker-closing correctness-budget decision; do not game the 14/14 count by bundling.",
       "source_candidate": "candidates/execution_plane/host_restart_durable_queue.patch",
       "promotion_evidence": "evals/evidence/2026-11-24-execution-restart-correctness-patch-budget-decision-v2.json"
+    },
+    {
+      "id": "candidate:neko-871066-product-promotion-v1",
+      "status": "approved",
+      "reviewed_at": "2026-11-24",
+      "problem": "Promote XiaoYu from the stable c3 N.E.K.O pin to one exact current upstream frontier without rebuilding native Voice, Execution, queue, permission, plugin or QQ capabilities and without losing the 19 stable product semantics.",
+      "decision": "reuse_native",
+      "candidate_only": true,
+      "promotion_forbidden": true,
+      "candidates": [
+        {
+          "name": "N.E.K.O c3 stable product",
+          "type": "native_current_pin",
+          "outcome": "retain as release authority until exact-target cloud and cutover gates are green",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "N.E.K.O 871066 exact upstream",
+          "type": "native_upstream_candidate",
+          "outcome": "selected as current exact promotion candidate; local Voice/Execution/restart/QQ acceptance is green",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "existing a0bb/NekoPower migration assets",
+          "type": "existing_candidate_reuse",
+          "outcome": "selected unchanged; all existing migration patches and verifiers apply to 871066",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        {
+          "name": "new XiaoYu runtime/Execution/Voice compatibility implementation",
+          "type": "private_implementation",
+          "outcome": "rejected because existing native and migration surfaces already close the acceptance gap",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        }
+      ],
+      "why_reuse_insufficient": "Directly changing the lock is unsafe because the stable c3 patch contents 0010-0019 target old seams. The already-existing NekoPower migration assets must be replayed on the exact target and cloud-validated before cutover; no new runtime implementation is needed.",
+      "acceptance_evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json",
+      "retirement_condition": "Retire after exact 871066 promotion or when a newer exact upstream target supersedes it before promotion.",
+      "promotion_policy": "Candidate/probe only. Do not edit NEKO_UPSTREAM.lock.json in this unit. A separate cutover is allowed only after the exact candidate workflow is fully green.",
+      "search_layers": {
+        "L0_authority": {
+          "status": "checked",
+          "outcome": "N.E.K.O remains sole Companion/Voice/Execution/Memory/Task authority; XiaoYu may only preserve policy/compatibility semantics.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L1_neko_current_pin": {
+          "status": "checked",
+          "outcome": "c3+19 is fully green and remains rollback/release authority.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L2_neko_upstream_extensions": {
+          "status": "checked",
+          "outcome": "871066 is the exact latest upstream observed; it includes the newer Voice lifecycle and NekoPower stack and is nine commits beyond the previously green a0bb migration target.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L3_existing_pinned_external": {
+          "status": "checked",
+          "outcome": "Pinned QQ 54acf36 remains compatible on locally migrated 871066 (173 tests pass). Existing XiaoYu migration candidates cover all 0010-0019 semantics.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L4_broader_external_ecosystem": {
+          "status": "checked",
+          "outcome": "git, uv, pytest, Node and GitHub Actions already provide all candidate checkout/replay/acceptance machinery; no external workflow engine is needed.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L5_thin_integration": {
+          "status": "checked",
+          "outcome": "Selected: replace the obsolete d90 CI candidate slot with exact 871066 checkout plus reuse of existing Voice, NekoPower, restart and QQ acceptance commands.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        },
+        "L6_private_implementation": {
+          "status": "checked",
+          "outcome": "No new runtime code is approved. If cloud exact-target acceptance exposes a gap, it must first receive its own reuse review before any long-term implementation.",
+          "evidence": "evals/evidence/2026-11-24-neko-871066-product-promotion-candidate-reuse.json"
+        }
+      },
+      "machine_gate_note": "Ordinary companion agent pushes must execute the exact 871066 candidate stack. The product pin remains c3 in this unit."
     }
   ],
   "hierarchy_policy": {
