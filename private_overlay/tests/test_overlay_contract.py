@@ -1801,6 +1801,10 @@ class OverlayContractTests(unittest.TestCase):
             "Probe a0bb managed core patch retirement",
             "probe_a0bb_core_patch_retirement.py",
             "_a0bb_core_patch_retirement_result.json",
+            "Probe remaining a0bb managed core patch retirement",
+            "probe_a0bb_remaining_core_patch_retirement.py",
+            "_a0bb_remaining_core_patch_retirement_result.json",
+            "--current-pin-root \"$GITHUB_WORKSPACE/_neko_upstream\"",
             "_neko_execution_migration_candidate",
         ):
             self.assertIn(marker, workflow)
@@ -1825,6 +1829,23 @@ class OverlayContractTests(unittest.TestCase):
         self.assertNotIn('NEKO_UPSTREAM.lock.json").write', probe)
         self.assertNotIn('patches/series.json").write', probe)
 
+        remaining_probe = (
+            ROOT
+            / "candidates"
+            / "execution_plane"
+            / "probe_a0bb_remaining_core_patch_retirement.py"
+        ).read_text(encoding="utf-8-sig")
+        for marker in (
+            "0001-proactive-autostart-idle-gate.patch",
+            "0004-native-ingress-activity-before-backpressure.patch",
+            "0006-private-speech-output-gate.patch",
+            "0009-proactive-interruptibility-gate.patch",
+            "0002-full-chat-native-voice-entry.patch",
+            "NO_NATIVE_SEAM_CHANGE_NOT_RETIREMENT_CANDIDATE",
+            "_neko_core_retirement_prefix_candidate",
+        ):
+            self.assertIn(marker, remaining_probe)
+
         evidence = (
             ROOT
             / "evals"
@@ -1832,9 +1853,12 @@ class OverlayContractTests(unittest.TestCase):
             / "2026-11-24-neko-a0bb-core-patch-retirement-probe-reuse.json"
         ).read_text(encoding="utf-8-sig")
         self.assertIn('"candidate_only": true', evidence)
-        self.assertIn("PROBE_PREPARED_NOT_RETIREMENT_AUTHORITY", evidence)
-        self.assertIn("45337209548", evidence)
-        self.assertIn("379d8fb43d030d0ba677a33bc8746a15d1ee4d19", evidence)
+        self.assertIn("FIRST_PASS_NO_RETIREMENTS_CONTINUE_REMAINING_CORE_PROBE", evidence)
+        self.assertIn("45339071967", evidence)
+        self.assertIn("b16b47a057db1421d11f60b01a6ef5ed81c37899", evidence)
+        self.assertIn("0003-qwen38-server-vad-reliability.patch", evidence)
+        self.assertIn("0008-qwen-clone-provider-routing.patch", evidence)
+        self.assertIn("ede4fcd0d93535f65b660bdb34bd787d6315ef01", evidence)
         self.assertIn("full omission rebuild", evidence.lower())
 
 if __name__ == "__main__":
